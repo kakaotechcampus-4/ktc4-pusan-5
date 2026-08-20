@@ -1,0 +1,121 @@
+name: Notify Discord team channel
+# 2단계 팀 프로젝트 — `develop` → `main` PR 의 리뷰 요청 · 리뷰 결과를 팀 Discord 채널로 알린다.
+#
+# ⭐ 이 파일에서 가장 위험한 지점: **`pull_request_review` 는 `branches:` 필터를 지원하지 않는다.**
+#   GitHub 은 이 이벤트(및 `pull_request_review_comment`·`issue_comment`)에 `types:` 만 허용한다.
+#   즉 팀 내부 `feature/* → develop` PR 의 리뷰가 **전부 이 워크플로를 발화시킨다.**
+#   → job-level `if` 가 유일한 차단선이다. 지우면 24팀의 모든 내부 리뷰가 Discord 를 울린다.
+#     (public repo 라 과금은 0이지만, 오발송은 채널을 죽이고 정작 멘토 리뷰를 묻는다.)
+#   notify.sh 안에도 같은 가드가 한 번 더 있다(2차 방어).
+#
+# ⭐ `concurrency:` 를 넣지 말 것. pending run 1개만 남기고 나머지를 **조용히 취소**한다.
+#   1단계 실사고: 수요일 마감 직전 버스트에서 학생 제출 5건이 로그도 없이 사라졌다(KI-7).
+#   리뷰 요청 알림은 유실이 곧 리뷰 누락이다.
+#
+# ⚠️ 판정 로직을 여기 두지 말 것 — 전부 workflows/scripts/p2/notify-team.sh 에 있고
+#   그 스크립트는 runtime sparse-checkout 이라 항상 pr-pipeline main 의 최신본이 돈다.
+#   팀원이 repo Admin 이라 main 의 이 YAML 을 PR 로 바꿀 수 있다 → 로직이 스크립트에 있어야 안전하다.
+#
+# ⚠️ env 는 지금 안 쓰는 값까지 넉넉히 넘긴다. 8/10 이후 팀 repo 는 무접촉이 원칙이라,
+#   env 하나를 추가하려고 24 repo 를 다시 여는 게 이 설계에서 가장 비싼 실수다.
+
+on:
+  pull_request:
+    types: [review_requested]
+    branches: [main]
+  pull_request_review:
+    # ⚠️ branches: 미지원 (위 주석) — 아래 job-level if 가 차단선.
+    types: [submitted]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write   # ops-alert 발행용
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    # 🚨 이 한 줄을 지우면 팀 내부 리뷰가 전부 Discord 로 나간다.
+    if: github.event.pull_request.base.ref == 'main' && github.event.pull_request.draft == false
+    steps:
+      - name: Checkout mapping data + scripts
+        uses: actions/checkout@v4
+        with:
+          repository: kakaotechcampus-4/pr-pipeline
+          token: ${{ secrets.AUTO_ASSIGN_PAT }}
+          path: mapping
+          sparse-checkout: |
+            data/p2
+            workflows/scripts
+
+      - name: Resolve target + send Discord mention
+        env:
+          GH_TOKEN: ${{ secrets.AUTO_ASSIGN_PAT }}
+          # repo-level secret. Discord 채널 구조(학교별 5채널 vs 팀별, TRN-3267)가 미확정이라
+          # 채널 선택을 코드가 아니라 **secret 주입**으로 옮겼다 — 어느 쪽으로 정해져도 코드 수정 0.
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          REPO: ${{ github.repository }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_CREATED_AT: ${{ github.event.pull_request.created_at }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+          EVENT_TYPE: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          # pull_request_review 전용
+          REVIEW_STATE: ${{ github.event.review.state }}
+          REVIEW_URL: ${{ github.event.review.html_url }}
+          REVIEWER: ${{ github.event.sender.login }}
+          # review_requested 전용
+          REQUESTED_REVIEWER: ${{ github.event.requested_reviewer.login }}
+        run: bash mapping/workflows/scripts/p2/notify-team.sh
+
+      - name: Notify ops on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.AUTO_ASSIGN_PAT }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SOURCE_REPO: ${{ github.repository }}
+          EVENT_TYPE: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+        # ⚠️ 재시도를 **인라인으로** 둔다. checkout step 이 실패해서 이 알림이 도는 경우
+        #   lib/gh-retry.sh 자체가 디스크에 없다. 그리고 알림 경로는 반드시 재시도해야 한다 —
+        #   #340 에서 동기화를 죽인 네트워크가 `gh issue create` 도 같이 죽여
+        #   ops-alert 가 아예 생성되지 않았다(QA 체크리스트 §4).
+        run: |
+          set -uo pipefail
+          BODY=$(cat <<EOF
+          **PR**: $PR_URL
+          **Team repo**: $SOURCE_REPO
+          **Event**: $EVENT_TYPE / $ACTION
+          **Workflow run**: $RUN_URL
+
+          ---
+
+          Discord 알림 발사 실패. Workflow 로그에서 \`::error::\` 줄을 확인하세요.
+
+          가능한 원인:
+          - repo-level secret \`DISCORD_WEBHOOK\` 누락 또는 잘못된 URL
+          - Discord webhook 4xx/5xx (rate limit, 채널 삭제)
+          - team-roster / student-roster 조회 실패 (팀 편성 반영 누락)
+
+          처리: 로그 확인 → secret 갱신 / roster 보정 → 이 이슈 close.
+          ⚠️ 이 실패는 **리뷰 요청이 팀·멘토에게 전달되지 않았다**는 뜻입니다. PR 링크를 수동 공유해 주세요.
+          EOF
+          )
+          for i in 1 2 3 4 5; do
+            if gh issue create \
+                 -R kakaotechcampus-4/pr-pipeline \
+                 -t "[ops-alert] Discord 알림 실패: $EVENT_TYPE on $SOURCE_REPO" \
+                 -b "$BODY" -l "ops-alert"; then
+              exit 0
+            fi
+            echo "::warning::ops-alert 발행 실패 ($i/5) — 재시도"
+            sleep $((i * i * 2))
+          done
+          echo "::error::ops-alert 발행 5회 실패 — 이 실패는 어디에도 기록되지 않았다"
+          exit 1
