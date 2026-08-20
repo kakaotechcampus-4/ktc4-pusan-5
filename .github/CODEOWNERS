@@ -1,0 +1,15 @@
+# 팀 repo 의 .github/CODEOWNERS 로 배포된다.
+#
+# ⚠️ CODEOWNERS 단독으로는 **아무것도 강제하지 않는다.**
+#   main ruleset 에 `require_code_owner_review` 가 함께 걸려야 실제로 리뷰가 요구된다.
+#   그게 없으면 리뷰어로 표시만 되고 그냥 머지된다. (setup/46 컷오버 3단계)
+#
+# ⚠️ 그리고 ruleset 은 **repo Admin 이 삭제할 수 있다**(Free 조직은 org ruleset 불가).
+#   팀원 전원이 Admin 이므로 이건 합의 수준의 방어다 — 실질 방어선은 mentor-audit 의 매시 감사.
+#
+# 정상 운영 상태에서 이 규칙은 **발동하지 않는다.** 운영이 `.github/` 를 고칠 때는 main·develop
+# 양쪽에 동시에 push 하므로 PR diff 에 `.github/` 가 아예 나타나지 않는다.
+# 즉 이게 발동한다는 건 **팀이 `.github/` 를 건드렸다**는 뜻이다.
+
+# 리뷰 자동화(멘토 자동 지정 · Discord 알림)가 여기서 돈다.
+/.github/ @kakaotechcampus-4/operators
