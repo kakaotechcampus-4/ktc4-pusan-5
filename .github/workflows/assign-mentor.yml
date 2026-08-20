@@ -79,7 +79,7 @@ jobs:
           멘토 자동 지정이 실패했습니다. Workflow 로그에서 \`::error::\` 줄을 확인하세요.
 
           가능한 원인:
-          - repo 이름이 \`ktc4-team-NN\` 형식이 아님
+          - repo 이름이 \`ktc4-<학교>-N\` 형식이 아님
           - 팀이 \`data/p2/team-roster.csv\` 에 없음 (팀 편성 반영 누락)
           - 멘토 GitHub username 오타 (gh API: "Reviewer is not a collaborator")
           - 멘토가 org 초대를 아직 수락하지 않음
