@@ -1,0 +1,72 @@
+# 팀 repo 의 .gitignore 로 배포되는 **초기본**.
+#
+# ⚠️ 이 파일은 여러분 것입니다. 팀 스택에 맞게 자유롭게 추가·수정하세요.
+#   운영이 덮어쓰지 않습니다(`.github/` 와 다른 점).
+#
+# 왜 미리 주는가 — 두 가지가 동시에 해결됩니다.
+#   ① 충돌: 빌드 산출물·IDE 설정이 커밋되면 6명이 병렬 개발할 때 충돌이 폭증합니다.
+#      실제 코드가 아니라 `node_modules/` 나 `.idea/` 때문에 매번 충돌을 푸는 팀이 생깁니다.
+#   ② 자격증명 유출: **이 repo 는 public 입니다.** 1단계에서 학생 API 토큰 8건이 실제로 유출됐고,
+#      그중 상당수가 `.env` 계열이었습니다.
+#
+# 🚨 한 번 커밋된 비밀은 지워도 남습니다.
+#   `git rm` 이나 "키 제거" 커밋을 해도 **히스토리의 blob 은 그대로 공개**되어 누구나 가져갈 수 있습니다.
+#   유일한 조치는 **해당 키를 폐기(rotate)하는 것**입니다. 실수했다면 즉시 담임 매니저에게 알려주세요.
+#   그리고 `.gitignore` 는 **이미 추적 중인 파일에는 효과가 없습니다** — `git rm --cached <파일>` 이 필요합니다.
+
+# ── 비밀 (가장 중요) ────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.keystore
+secrets.*
+credentials.*
+serviceAccount*.json
+# ⚠️ 확장자 규칙만으로는 못 막습니다. 1단계 유출은 Jupyter 노트북·`PROJECT_ANALYSIS.md`·`docs/*.md`
+#   에서도 나왔습니다. 키를 코드·문서·노트북 **본문에 붙여넣지 않는 것**이 유일한 예방책입니다.
+
+# ── OS ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── 에디터 / IDE ────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.iml
+
+# ── JavaScript / TypeScript ─────────────────────────
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+*.log
+npm-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# ── Python ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ── Java / Kotlin / Gradle ──────────────────────────
+target/
+.gradle/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# ── 기타 ────────────────────────────────────────────
+*.sqlite3
+*.db
+.terraform/
