@@ -1,0 +1,56 @@
+name: PR convention check
+# 2단계 팀 프로젝트 — `develop` → `main` PR 의 컨벤션 이탈을 **안내**한다(차단하지 않는다).
+#
+# ⭐ 이벤트를 좁게 잡는다. `synchronize` 를 넣으면 팀이 push 할 때마다 같은 안내가 쌓인다.
+#   스크립트에도 마커 기반 중복 방지가 있지만, 애초에 발화를 안 시키는 게 1차 방어다.
+#
+# ⭐ `branches: [main]` — 팀 내부 PR(feature/* → develop)은 run 자체가 생성되지 않는다.
+#   "팀 내부는 팀이 결정한다" 가 코드에서 지켜지는 지점.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write   # 안내 코멘트 작성
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout mapping data + scripts
+        uses: actions/checkout@v4
+        with:
+          repository: kakaotechcampus-4/pr-pipeline
+          token: ${{ secrets.AUTO_ASSIGN_PAT }}
+          path: mapping
+          sparse-checkout: |
+            data/p2
+            workflows/scripts
+
+      - name: Check PR convention
+        env:
+          GH_TOKEN: ${{ secrets.AUTO_ASSIGN_PAT }}
+          REPO: ${{ github.repository }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_CREATED_AT: ${{ github.event.pull_request.created_at }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+          EVENT_TYPE: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+        run: bash mapping/workflows/scripts/p2/convention-notice.sh
+
+      # ⚠️ 실패해도 ops-alert 를 만들지 않는다.
+      #   컨벤션 안내는 **보조 기능**이다. 이게 죽어도 리뷰는 정상 진행되고(멘토 배정은 별도 워크플로),
+      #   운영이 즉시 손댈 일이 없다. 여기서 이슈를 만들면 진짜 장애 알림이 묻힌다.
+      #   실패는 Actions 로그에 남고, 반복되면 mentor-audit 이 집계한다.
+      - name: Log failure
+        if: failure()
+        run: echo "::warning::convention-check 실패 — 안내 코멘트가 달리지 않았습니다. 리뷰 진행에는 영향 없음."
