@@ -1,0 +1,103 @@
+name: Auto-assign mentor
+# 2단계 팀 프로젝트 — `develop` → `main` PR 에 담당 멘토 자동 지정.
+# 실패 시 pr-pipeline 에 ops-alert issue → Teams 전달.
+#
+# ⭐ `branches: [main]` 이 이 파일에서 가장 중요한 두 줄이다.
+#   base 브랜치 필터라 **feature/* → develop, refactor/* → develop 은 워크플로 run 자체가 생성되지 않는다.**
+#   "팀 내부는 팀이 결정한다" 는 운영 원칙이 과금·알림 양쪽에서 동시에 지켜지는 지점 —
+#   필터가 없으면 24팀의 모든 내부 PR 이 run 을 만든다(1단계 실측: notify 계열이 전체 run 의 89%).
+#
+# ⚠️ 판정 로직을 여기 두지 말 것 (CLAUDE.md). 전부 workflows/scripts/p2/assign-mentor.sh 에 있고
+#   그 스크립트는 runtime sparse-checkout 이라 항상 pr-pipeline main 의 최신본이 돈다.
+#   2단계는 base 가 main 하나뿐이라 1단계 같은 154브랜치 전파 함정은 없지만,
+#   **팀원이 repo Admin 이라 main 의 이 YAML 을 PR 로 바꿀 수 있다** — 로직이 스크립트에 있어야 안전하다.
+#
+# ⚠️ secret 은 org 가 아니라 **repo-level** 이다. Free 조직의 org secret 은 private repo 에 주입되지 않고,
+#   2단계는 private 으로 프로비저닝한 뒤 8/10 에 public 으로 전환한다 → repo-level 이어야 전환 전후 동작이 같다.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    # draft 제외 — "리뷰 준비 안 됨" 상태에 멘토를 붙이고 Discord 를 울리지 않는다.
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout mapping data + scripts
+        uses: actions/checkout@v4
+        with:
+          repository: kakaotechcampus-4/pr-pipeline
+          token: ${{ secrets.AUTO_ASSIGN_PAT }}
+          path: mapping
+          sparse-checkout: |
+            data/p2
+            workflows/scripts
+
+      - name: Lookup mentor + assign reviewer
+        env:
+          GH_TOKEN: ${{ secrets.AUTO_ASSIGN_PAT }}
+          REPO: ${{ github.repository }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          # 주차는 배정에 쓰이지 않는다(1팀 1멘토 고정). 로그·알림 문맥용.
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_CREATED_AT: ${{ github.event.pull_request.created_at }}
+        run: bash mapping/workflows/scripts/p2/assign-mentor.sh
+
+      - name: Notify ops on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.AUTO_ASSIGN_PAT }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SOURCE_REPO: ${{ github.repository }}
+        # ⚠️ 재시도를 **인라인으로** 둔다. lib/gh-retry.sh 를 쓰지 않는 건 의도적 —
+        #   checkout step 이 실패해서 이 알림이 도는 경우 그 lib 자체가 디스크에 없다.
+        #   그리고 알림 경로는 반드시 재시도해야 한다: #340 에서 동기화를 죽인 네트워크가
+        #   `gh issue create` 도 같이 죽여 ops-alert 가 아예 생성되지 않았다(QA 체크리스트 §4).
+        run: |
+          set -uo pipefail
+          BODY=$(cat <<EOF
+          **PR**: $PR_URL
+          **Author**: $PR_AUTHOR
+          **Head**: \`$HEAD_REF\`
+          **Team repo**: $SOURCE_REPO
+          **Workflow run**: $RUN_URL
+
+          ---
+
+          멘토 자동 지정이 실패했습니다. Workflow 로그에서 \`::error::\` 줄을 확인하세요.
+
+          가능한 원인:
+          - repo 이름이 \`ktc4-team-NN\` 형식이 아님
+          - 팀이 \`data/p2/team-roster.csv\` 에 없음 (팀 편성 반영 누락)
+          - 멘토 GitHub username 오타 (gh API: "Reviewer is not a collaborator")
+          - 멘토가 org 초대를 아직 수락하지 않음
+          - 네트워크/rate limit (재시도 소진)
+
+          처리: team-roster 수정 → PR 에 reviewer 수동 추가 → 이 이슈 close.
+          매시 \`mentor-audit\` 이 미배정 PR 을 자동으로 재배정하므로, 원인만 고치면 다음 정각에 복구됩니다.
+          EOF
+          )
+          for i in 1 2 3 4 5; do
+            if gh issue create \
+                 -R kakaotechcampus-4/pr-pipeline \
+                 -t "[ops-alert] 멘토 자동지정 실패: $SOURCE_REPO by $PR_AUTHOR" \
+                 -b "$BODY" -l "ops-alert"; then
+              exit 0
+            fi
+            echo "::warning::ops-alert 발행 실패 ($i/5) — 재시도"
+            sleep $((i * i * 2))
+          done
+          echo "::error::ops-alert 발행 5회 실패 — 이 실패는 어디에도 기록되지 않았다"
+          exit 1
