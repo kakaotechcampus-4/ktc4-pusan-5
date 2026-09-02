@@ -5,11 +5,24 @@
 #   그게 없으면 리뷰어로 표시만 되고 그냥 머지된다. (setup/46 컷오버 3단계)
 #
 # ⚠️ 그리고 ruleset 은 **repo Admin 이 삭제할 수 있다**(Free 조직은 org ruleset 불가).
-#   팀원 전원이 Admin 이므로 이건 합의 수준의 방어다 — 실질 방어선은 mentor-audit 의 매시 감사.
+#   팀원 전원이 Admin 이므로 이건 합의 수준의 방어다 — 실질 방어선은 repo-guard-audit 의 6시간 감사.
 #
 # 정상 운영 상태에서 이 규칙은 **발동하지 않는다.** 운영이 `.github/` 를 고칠 때는 main·develop
 # 양쪽에 동시에 push 하므로 PR diff 에 `.github/` 가 아예 나타나지 않는다.
 # 즉 이게 발동한다는 건 **팀이 `.github/` 를 건드렸다**는 뜻이다.
 
+# 🚨 **팀(operators)이 아니라 개인 1명이다** (2026-08-31 변경).
+#   팀을 owner 로 두면 `.github/` 를 건드린 PR 하나에 operators 4명 전원에게 리뷰 요청이 간다.
+#   실제로 처리하는 사람은 한 명인데 나머지 3명에게는 영구 미처리 알림으로 남는다 —
+#   그 상태가 이어지면 팀 전체가 리뷰 요청 알림을 무시하게 되고, 그때 진짜 신호도 같이 묻힌다.
+#   ⚠️ 대가: 이 한 사람이 부재하면 `.github/` 를 건드린 develop→main PR 이 승인 없이 멈춘다
+#     (ruleset 의 require_code_owner_review). 장기 부재 시 이 줄을 팀으로 되돌릴 것.
+#
+# ⚠️ 이 규칙은 **`.github/` 를 건드린 PR 에만** 발동한다. 그 외 PR 에는 아무 영향이 없다.
+#   base 가 develop 이든 main 이든 상관없이 발동한다 — CODEOWNERS 는 GitHub 네이티브라
+#   우리 워크플로(`assign-mentor`, base=main 한정)와 **작동 조건이 다르다.**
+#   실제로 팀 내부 `feature/* → develop` PR 이 `.github/` 를 건드려 발동한 사례가 있다
+#   (2026-08-31: kangwon-3 #1 · chungnam-1 #2). 그건 오작동이 아니라 의도된 동작이다.
+
 # 리뷰 자동화(멘토 자동 지정 · Discord 알림)가 여기서 돈다.
-/.github/ @kakaotechcampus-4/operators
+/.github/ @junseok-elice
