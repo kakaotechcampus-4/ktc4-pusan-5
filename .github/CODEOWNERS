@@ -1,28 +1,70 @@
-# 팀 repo 의 .github/CODEOWNERS 로 배포된다.
+# ============================================================================
+#  이 파일은 팀 repo 의 .github/CODEOWNERS 로 배포된다.
 #
-# ⚠️ CODEOWNERS 단독으로는 **아무것도 강제하지 않는다.**
-#   main ruleset 에 `require_code_owner_review` 가 함께 걸려야 실제로 리뷰가 요구된다.
-#   그게 없으면 리뷰어로 표시만 되고 그냥 머지된다. (setup/46 컷오버 3단계)
+#  ⚠️ 파일 이름은 못 바꾼다. GitHub 은 `CODEOWNERS` 라는 이름만 인식한다
+#     (repo root · .github/ · docs/ 중 한 곳). 그래서 "운영 영역" 이라는 구분은
+#     **파일 이름이 아니라 아래 섹션 구조와 팀 식별자**로 만든다.
+# ============================================================================
 #
-# ⚠️ 그리고 ruleset 은 **repo Admin 이 삭제할 수 있다**(Free 조직은 org ruleset 불가).
-#   팀원 전원이 Admin 이므로 이건 합의 수준의 방어다 — 실질 방어선은 repo-guard-audit 의 6시간 감사.
+#  📌 팀 여러분께 (2026-09-04)
 #
-# 정상 운영 상태에서 이 규칙은 **발동하지 않는다.** 운영이 `.github/` 를 고칠 때는 main·develop
-# 양쪽에 동시에 push 하므로 PR diff 에 `.github/` 가 아예 나타나지 않는다.
-# 즉 이게 발동한다는 건 **팀이 `.github/` 를 건드렸다**는 뜻이다.
+#  아래 [운영진 영역] 4줄만 운영진 소유입니다. 그 외에는 **아무 제약이 없습니다.**
+#
+#  ✅ 해도 되는 것
+#     - `.github/workflows/` 에 팀 자체 CI 워크플로 **새로 추가** (CI, lint, 의존성 검사 등)
+#     - `.github/ISSUE_TEMPLATE/`, PR 템플릿 등 팀 문서 추가·수정
+#     - 아래 [팀 자유 영역] 에 파트별 리뷰어 지정
+#
+#  ❌ 하면 안 되는 것
+#     - [운영진 영역] 의 4줄 수정·삭제
+#     - `.github/workflows/` 의 assign-mentor · notify-discord · convention-check **3개 파일** 수정·삭제
+#       → 이게 멘토 자동 지정과 Discord 알림을 돌립니다. 지우면 팀 PR 에 멘토가 안 붙습니다.
+#
+#  필요한 게 있으면 담임매니저에게 요청해 주세요.
+#
+# ============================================================================
+#  운영진 메모 (팀은 안 읽어도 됩니다)
+#
+#  🚨 2026-09-04 에 `/.github/` 전체 → **파일 4개**로 좁혔다.
+#     보호 목표는 "우리 자동화가 안 깨지는 것" 이지 "팀이 자동화를 못 만드는 것" 이 아니었다.
+#     `/.github/` 전체를 걸어두니 팀이 자기 CI 를 추가할 때마다 주간 develop→main PR 이
+#     승인 대기에 걸렸고, 승인자가 1명이라 일요일 23:59 머지의 단일 장애점이 됐다.
+#     실제로 3팀이 연달아 `.github/` 를 건드렸다(chungnam-1 워크플로 · kangwon-3 CODEOWNERS+템플릿
+#     · 2026-09-04 문의 1건) — 예외가 아니라 정상 패턴이 됐다는 뜻이다.
+#     좁힌 뒤에는 **이 규칙이 발동한다 = 우리 파일을 건드렸다** 가 되어 신호가 다시 신호가 된다.
+#
+#  🚨 소유자는 **개인 계정이 아니라 전용 팀**이다(`pipeline-admin`, 멤버 1명).
+#     - 개인 계정(@junseok-elice)은 팀 입장에서 운영 영역인지 팀원 누군가인지 구분이 안 된다.
+#     - `operators`(4명)를 쓰면 PR 하나에 4명이 불려 3명에게 영구 미처리 알림이 남고,
+#       그러면 진짜 신호도 같이 무시된다(그래서 08-31 에 개인으로 바꿨던 것).
+#     - 1명짜리 전용 팀이 둘을 동시에 만족한다. 백업이 필요하면 **팀 멤버만 추가**하면 되고
+#       25 repo 의 이 파일은 손대지 않는다.
+#
+#  🚨 팀 식별자는 **그 팀이 이 repo 에 write 이상**일 때만 유효하다. 권한이 없으면 GitHub 이
+#     이 줄을 **조용히 무시**한다 — 설정은 돼 있는데 보호는 0인 상태가 된다.
+#     그래서 `setup/44`(권한)가 `setup/42`(이 파일 배포)보다 **먼저** 돌아야 한다.
+#     slug 는 `setup/44` 의 `P2_OPS_TEAM` 과 **반드시 같은 값**이어야 한다.
+#
+#  ⚠️ CODEOWNERS 단독으로는 아무것도 강제하지 않는다. main ruleset 의 `require_code_owner_review`
+#     가 함께 걸려야 실제로 요구된다(setup/46). 그리고 그 ruleset 은 repo Admin 이 지울 수 있다
+#     (Free 조직은 org ruleset 불가) — 실질 방어선은 `repo-guard-audit` 의 6시간 감사다.
+#
+#  ⚠️ 이 규칙은 base 가 develop 이든 main 이든 발동한다 — CODEOWNERS 는 GitHub 네이티브라
+#     우리 워크플로(base=main 한정)와 작동 조건이 다르다. 다만 **차단**되는 건 main 뿐이다
+#     (ruleset 이 refs/heads/main 만 대상). feature/*→develop 은 리뷰 요청 표시만 뜨고 머지된다.
+#
+#  ⚠️ 정상 운영에서는 발동하지 않는다 — 우리가 이 4개를 고칠 때는 main·develop 에 동시 push 해서
+#     PR diff 에 아예 안 나타나게 한다. 발동한다는 건 팀이 우리 파일을 건드렸다는 뜻이다.
+# ============================================================================
 
-# 🚨 **팀(operators)이 아니라 개인 1명이다** (2026-08-31 변경).
-#   팀을 owner 로 두면 `.github/` 를 건드린 PR 하나에 operators 4명 전원에게 리뷰 요청이 간다.
-#   실제로 처리하는 사람은 한 명인데 나머지 3명에게는 영구 미처리 알림으로 남는다 —
-#   그 상태가 이어지면 팀 전체가 리뷰 요청 알림을 무시하게 되고, 그때 진짜 신호도 같이 묻힌다.
-#   ⚠️ 대가: 이 한 사람이 부재하면 `.github/` 를 건드린 develop→main PR 이 승인 없이 멈춘다
-#     (ruleset 의 require_code_owner_review). 장기 부재 시 이 줄을 팀으로 되돌릴 것.
-#
-# ⚠️ 이 규칙은 **`.github/` 를 건드린 PR 에만** 발동한다. 그 외 PR 에는 아무 영향이 없다.
-#   base 가 develop 이든 main 이든 상관없이 발동한다 — CODEOWNERS 는 GitHub 네이티브라
-#   우리 워크플로(`assign-mentor`, base=main 한정)와 **작동 조건이 다르다.**
-#   실제로 팀 내부 `feature/* → develop` PR 이 `.github/` 를 건드려 발동한 사례가 있다
-#   (2026-08-31: kangwon-3 #1 · chungnam-1 #2). 그건 오작동이 아니라 의도된 동작이다.
+# ─────────────────────────── [운영진 영역] ───────────────────────────
+# 🚨 아래 4줄은 수정하지 마세요. 리뷰 자동화(멘토 자동 지정 · Discord 알림)가 여기서 돕니다.
+/.github/workflows/assign-mentor.yml     @kakaotechcampus-4/pipeline-admin
+/.github/workflows/notify-discord.yml    @kakaotechcampus-4/pipeline-admin
+/.github/workflows/convention-check.yml  @kakaotechcampus-4/pipeline-admin
+/.github/CODEOWNERS                      @kakaotechcampus-4/pipeline-admin
 
-# 리뷰 자동화(멘토 자동 지정 · Discord 알림)가 여기서 돈다.
-/.github/ @junseok-elice
+# ─────────────────────────── [팀 자유 영역] ──────────────────────────
+# 이 아래는 팀이 자유롭게 쓰세요. 파트별 자동 리뷰어 지정 예시:
+#   /backend/   @member-a @member-b
+#   /frontend/  @member-c
