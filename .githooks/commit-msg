@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# 커밋 메시지 형태 확인. 막지 않고 알려만 준다.
+set -uo pipefail
+
+msg="$(head -n1 "$1")"
+
+if ! echo "$msg" | grep -qE '^(feat|fix|refactor|docs|style|test|chore)(\((frontend|backend|infra)\))?: .+'; then
+  cat <<MSG
+
+▸ 커밋 메시지 형태를 확인하세요.
+  권장: feat(frontend): 종목 브리핑 차트 추가
+  타입: feat fix refactor docs style test chore
+  범위: frontend backend infra (생략 가능)
+
+  이번 커밋은 그대로 진행합니다.
+
+MSG
+fi
+
+exit 0

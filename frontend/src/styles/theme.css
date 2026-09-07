@@ -1,0 +1,149 @@
+/* ============================================================================
+   BASIS — Tailwind theme
+   Tailwind v4 CSS-first 설정. 이 파일이 디자인 값의 유일한 진실이다.
+   여기 없는 색·크기를 JSX에서 임의값(text-[#ff0000], p-[15px])으로 쓰지 않는다.
+   ========================================================================== */
+
+/* 폰트 import 는 반드시 맨 위. @import 는 다른 규칙보다 앞에 와야 한다. */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* ── 표면 ─────────────────────────────────────────────────────────────
+     bg-canvas / bg-surface / text-ink / border-divider 로 쓰인다. */
+  --color-canvas:  #ffffff;
+  --color-surface: #f3f5f8;
+  --color-ink:     #111721;
+  --color-divider: #e2e6ec;
+
+  /* ── 브랜드 파랑 — 링크, 주요 버튼, 진행률, 활성 탭 ─────────────────── */
+  --color-brand-100: #eef3ff;
+  --color-brand-200: #dbe5ff;
+  --color-brand-300: #b7caff;
+  --color-brand-400: #7c9df5;
+  --color-brand-500: #3d6be3;
+  --color-brand-600: #1b4fd8;
+  --color-brand-700: #143ba6;
+  --color-brand-800: #0f2b75;
+  --color-brand-900: #0a1d4d;
+  --color-brand:     #1b4fd8;
+
+  /* ── 청록 — AI 브리핑·챗봇·개념 학습 전용. 등락에 쓰지 않는다. ──────── */
+  --color-ai-100: #e9f5f2;
+  --color-ai-200: #cfeae4;
+  --color-ai-300: #a5d8ce;
+  --color-ai-500: #2e9a87;
+  --color-ai-600: #0f6e63;
+  --color-ai-700: #0b534a;
+  --color-ai:     #0f6e63;
+
+  /* ── 뉴트럴 ──────────────────────────────────────────────────────────── */
+  --color-neutral-100: #f7f8fa;
+  --color-neutral-200: #edf0f4;
+  --color-neutral-300: #dce1e8;
+  --color-neutral-400: #c0c7d1;
+  --color-neutral-500: #98a1ad;
+  --color-neutral-600: #6d7683;
+  --color-neutral-700: #4b545f;
+  --color-neutral-800: #2d343d;
+  --color-neutral-900: #161b22;
+
+  /* ── 등락 (상승 = 빨강, 하락 = 파랑) ──────────────────────────────────
+     하락 파랑은 브랜드 파랑보다 한 톤 밝다. 링크·버튼과 눈으로 구분하기 위함.
+     이 색들은 <Change /> 안에서만 쓴다. */
+  --color-up-100: #fdecea;
+  --color-up-200: #fbd5d1;
+  --color-up-300: #f5a9a2;
+  --color-up-500: #ef4b3f;
+  --color-up-600: #d93025;
+  --color-up-700: #ab1f16;
+  --color-up:     #d93025;
+
+  --color-down-100: #eaf1fe;
+  --color-down-200: #d3e2fc;
+  --color-down-300: #a8c6f8;
+  --color-down-500: #4a86f0;
+  --color-down-600: #2f6fe4;
+  --color-down-700: #1f52b8;
+  --color-down:     #2f6fe4;
+
+  --color-flat: #6d7683;   /* 보합 0.00% */
+
+  /* ── 타이포 ──────────────────────────────────────────────────────────
+     폰트는 하나만 쓴다. 제목 700 / 강조 600 / 본문 400. */
+  --font-sans: "IBM Plex Sans KR", system-ui, sans-serif;
+
+  --text-display: 46px;   /* 홈 히어로 1곳 전용 */
+  --text-h1:      32px;
+  --text-h2:      21px;
+  --text-h3:      17px;
+  --text-base:    15px;
+  --text-sm:      13px;
+  --text-xs:      11.5px;
+  --text-kicker:  10px;
+  --text-micro:   9px;    /* 워드마크 밑 라벨 1곳 전용 */
+
+  /* 자간 — kicker·워드마크처럼 넓게 벌리는 곳에만 쓴다. */
+  --tracking-brand:    0.02em;
+  --tracking-kicker:   0.09em;
+  --tracking-wordmark: 0.14em;
+
+  /* ── 간격 ────────────────────────────────────────────────────────────
+     기본 4px 스케일이 우리 토큰과 그대로 맞는다.
+     p-1(4) p-2(8) p-3(12) p-4(16) p-6(24) p-8(32) 만 쓴다. 홀수 단계 금지. */
+  --spacing: 4px;
+
+  /* ── 모서리 ──────────────────────────────────────────────────────────── */
+  --radius-sm: 3px;   /* 태그 */
+  --radius-md: 6px;   /* 버튼, 인풋, 통계 박스 */
+  --radius-lg: 10px;  /* 카드, 다이얼로그 */
+
+  /* ── 그림자 ──────────────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(17, 23, 33, .07);
+  --shadow-md: 0 4px 14px rgba(17, 23, 33, .09);
+  --shadow-lg: 0 16px 40px rgba(17, 23, 33, .14);
+
+  /* ── 레이아웃 ────────────────────────────────────────────────────────
+     max-w-page / w-side 로 쓰인다. */
+  --container-page: 1260px;
+  --container-side: 348px;
+
+  /* ── 모션 — 사용자 행동에 대한 반응에만 쓴다 ─────────────────────────── */
+  --animate-pulse-soft: pulse-soft 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .45; }
+}
+
+@layer base {
+  html { font-family: var(--font-sans); }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-size: var(--text-base);
+    line-height: 1.55;
+    letter-spacing: -0.005em;
+    /* 한글은 어절 단위로 끊는다. 빠지면 카드 제목이 글자 중간에서 잘린다. */
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  h1, h2, h3, h4 {
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    word-break: keep-all;
+  }
+  :focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+  ::selection { background: var(--color-brand-200); }
+}
+
+@layer components {
+  /* 숫자에는 반드시 붙인다. 자릿수가 흔들리지 않는다. */
+  .num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

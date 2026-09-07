@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# 브랜치 규칙 + 프론트 검사. 클론 후 한 번: git config core.hooksPath .githooks
+#
+# CLAUDE.md 에 적어두는 건 "부탁"이라 사람도 에이전트도 잊는다.
+# 여기서 막으면 잊어도 통과가 안 된다.
+set -uo pipefail
+
+branch="$(git branch --show-current)"
+
+# 리베이스·머지 중이면 통과
+[ -z "$branch" ] && exit 0
+
+if [ "$branch" = "main" ]; then
+  cat <<'MSG'
+
+✗ main 에서 직접 커밋할 수 없습니다.
+  main 은 PR merge 전용입니다.
+
+  지금 한 작업을 살리는 방법:
+    git switch -c feature/<이슈명>     # 변경사항은 그대로 따라옵니다
+    git commit
+
+MSG
+  exit 1
+fi
+
+if [ "$branch" = "develop" ]; then
+  echo "▸ develop 에 직접 커밋합니다. 간단한 수정·리팩토링이 맞는지 확인하세요."
+  echo "  기능 개발이면: git switch -c feature/<이슈명>"
+elif ! echo "$branch" | grep -qE '^(feature|refactor|hotfix)/.+'; then
+  cat <<MSG
+
+✗ 브랜치 이름이 규칙에 맞지 않습니다: $branch
+
+  허용되는 형태:
+    feature/<이슈명>    새 기능
+    refactor/<내용>     멘토 피드백 반영, 구조 개선
+    hotfix/<내용>       급한 수정
+
+  이름만 바꾸려면:
+    git branch -m feature/<이슈명>
+
+MSG
+  exit 1
+fi
+
+# ── 프론트 파일이 스테이징됐을 때만 검사 ──────────────────────────────
+if git diff --cached --name-only | grep -q '^frontend/.*\.tsx\?$'; then
+  echo "▸ 디자인 규칙 검사"
+  if ! (cd frontend && node scripts/check-design.mjs); then
+    echo "  커밋을 중단했습니다. 위 항목을 고치고 다시 커밋하세요."
+    exit 1
+  fi
+
+  echo "▸ eslint"
+  if ! (cd frontend && npm run --silent lint); then
+    echo "  lint 실패. 고치고 다시 커밋하세요. 자동 수정: cd frontend && npm run lint:fix"
+    exit 1
+  fi
+fi
+
+exit 0
