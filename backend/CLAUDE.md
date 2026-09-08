@@ -15,11 +15,10 @@ FastAPI + Python. BASIS의 API 서버.
 ## 실행
 
 ```bash
-python -m venv .venv
-source .venv/Scripts/activate   # Windows Git Bash. PowerShell: .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-uvicorn app.main:app --reload   # http://localhost:8000
-# TODO: pytest / ruff 설정 확정되면 채운다
+uv sync                          # .venv 생성 + 의존성 설치
+uv run uvicorn app.main:app --reload   # http://localhost:8000
+uv run pytest
+uv run ruff check .
 ```
 
 ## 구조
