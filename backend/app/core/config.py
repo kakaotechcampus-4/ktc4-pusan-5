@@ -7,5 +7,8 @@ class Settings(BaseSettings):
     app_name: str = "BASIS API"
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    dart_api_key: str = ""
+    ecos_api_key: str = ""
+
 
 settings = Settings()
