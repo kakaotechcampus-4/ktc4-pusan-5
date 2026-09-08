@@ -82,6 +82,7 @@ BASIS 프론트엔드 디자인 규칙. `frontend/` 안에서만 적용된다. �
 | 카드 | `<Card>` (회색 면) / `<Card tone="plain">` (흰 면 + 테두리) |
 | 수치 나열 | `<StatGrid><Stat label="시가총액" value={...} /></StatGrid>` |
 | 태그 | `<Tag tone="neutral" \| "brand" \| "ai">` |
+| 종목 로고 | `<StockAvatar initial="삼" />` (size="sm" 은 좁은 리스트용) |
 | 로딩 | `<SkeletonText lines={3} />` / `<Skeleton className="h-40" />` |
 | 빈 상태 | `<Empty title description action />` |
 | 에러 | `<ErrorBox onRetry />` |
