@@ -181,3 +181,9 @@ export const mockWatchlist: Watchlist = {
 
 /** 빈 상태를 눈으로 확인할 때 mockWatchlist 대신 이걸 넘긴다. */
 export const mockEmptyWatchlist: Watchlist = { asOf: AS_OF, items: [] };
+
+/** 빈 상태를 눈으로 확인할 때 mockSignalBoard 대신 아래 내용을 넘긴다. */
+export const mockEmptySignalBoard: SignalBoard = {
+  ...mockSignalBoard,
+  signals: [],
+};

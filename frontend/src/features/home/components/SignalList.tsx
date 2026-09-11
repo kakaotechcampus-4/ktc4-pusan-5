@@ -1,15 +1,17 @@
+
 import { Link } from 'react-router-dom';
-import { Change, ErrorBox, Skeleton, StockAvatar, Tag } from '@/components/ui';
+import { Change, Empty, ErrorBox, Skeleton, StockAvatar, Tag } from '@/components/ui';
 import { SectionHead } from '@/components/layout/PageShell';
 import { formatAsOf, formatPrice } from '@/lib/format';
 import type { SignalBoard } from '../mock';
 
-export type SignalStatus = 'loading' | 'error' | 'success';
+export type SignalStatus = 'loading' | 'error' | 'empty' | 'success';
 
 /**
  * 오늘 이야기가 몰린 종목 리스트.
- * 판단: 빈 상태는 두지 않았다. 장이 열린 날이면 상위 종목은 항상 존재하고,
- * 목록을 못 가져오는 경우는 빈 상태가 아니라 에러다.
+ * WatchlistCard(HomePage.tsx의 watchlistStatus)와 같은 패턴
+ * API 호출 성공과 결과 존재 여부는 분리
+ * 요청 자체는 성공했지만 수집/필터링 결과가 0개일 수도 있음
  */
 export function SignalSection({
   status,
@@ -31,6 +33,13 @@ export function SignalSection({
           title="종목 시그널을 불러오지 못했습니다"
           description="잠시 후 다시 시도해주세요"
           onRetry={onRetry}
+        />
+      )}
+
+      {status === 'empty' && (
+        <Empty
+          title="오늘은 눈에 띄는 시그널이 없습니다"
+          description="잠시 후 다시 확인해주세요"
         />
       )}
 
