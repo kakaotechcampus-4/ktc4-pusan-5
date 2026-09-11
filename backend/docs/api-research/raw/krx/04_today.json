@@ -1,0 +1,18 @@
+{
+  "request": {
+    "label": "오늘(basDd=today) 조회",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260911"
+    },
+    "status": 200,
+    "elapsed_sec": 0.1065
+  },
+  "response": {
+    "OutBlock_1": []
+  }
+}
