@@ -12,13 +12,13 @@ export function StockHeaderSkeleton() {
   );
 }
 
-export function StockHeader({ stock, code }: { stock: StockQuote; code?: string }) {
+export function StockHeader({ stock }: { stock: StockQuote }) {
   return (
     <section>
       <Kicker>종목 브리핑</Kicker>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-h1">{stock.name}</h1>
-        <Tag>{code ?? stock.code}</Tag>
+        <Tag>{stock.code}</Tag>
       </div>
       <div className="mt-2 flex items-baseline gap-3">
         <span className="num text-h1 font-bold">{formatPrice(stock.price)}</span>
