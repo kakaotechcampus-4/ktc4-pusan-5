@@ -1,0 +1,54 @@
+{
+  "request": {
+    "label": "holiday window: DGS10",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&api_key=***REDACTED***&file_type=json&observation_start=2026-09-03&observation_end=2026-09-09",
+    "status": 200,
+    "elapsed_sec": 0.6144
+  },
+  "response": {
+    "realtime_start": "2026-09-11",
+    "realtime_end": "2026-09-11",
+    "observation_start": "2026-09-03",
+    "observation_end": "2026-09-09",
+    "units": "lin",
+    "output_type": 1,
+    "file_type": "json",
+    "order_by": "observation_date",
+    "sort_order": "asc",
+    "count": 5,
+    "offset": 0,
+    "limit": 100000,
+    "observations": [
+      {
+        "realtime_start": "2026-09-11",
+        "realtime_end": "2026-09-11",
+        "date": "2026-09-03",
+        "value": "4.77"
+      },
+      {
+        "realtime_start": "2026-09-11",
+        "realtime_end": "2026-09-11",
+        "date": "2026-09-04",
+        "value": "4.78"
+      },
+      {
+        "realtime_start": "2026-09-11",
+        "realtime_end": "2026-09-11",
+        "date": "2026-09-07",
+        "value": "."
+      },
+      {
+        "realtime_start": "2026-09-11",
+        "realtime_end": "2026-09-11",
+        "date": "2026-09-08",
+        "value": "4.8"
+      },
+      {
+        "realtime_start": "2026-09-11",
+        "realtime_end": "2026-09-11",
+        "date": "2026-09-09",
+        "value": "4.83"
+      }
+    ]
+  }
+}

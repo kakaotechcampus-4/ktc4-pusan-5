@@ -1,0 +1,31 @@
+{
+  "request": {
+    "label": "series metadata: DGS2",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=DGS2&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.3463
+  },
+  "response": {
+    "realtime_start": "2026-09-10",
+    "realtime_end": "2026-09-10",
+    "seriess": [
+      {
+        "id": "DGS2",
+        "realtime_start": "2026-09-10",
+        "realtime_end": "2026-09-10",
+        "title": "Market Yield on U.S. Treasury Securities at 2-Year Constant Maturity, Quoted on an Investment Basis",
+        "observation_start": "1976-06-01",
+        "observation_end": "2026-09-09",
+        "frequency": "Daily",
+        "frequency_short": "D",
+        "units": "Percent",
+        "units_short": "%",
+        "seasonal_adjustment": "Not Seasonally Adjusted",
+        "seasonal_adjustment_short": "NSA",
+        "last_updated": "2026-09-10 15:16:36-05",
+        "popularity": 86,
+        "notes": "H.15 Statistical Release notes (https://www.federalreserve.gov/releases/h15/default.htm) and the Treasury Yield Curve Methodology (https://home.treasury.gov/policy-issues/financing-the-government/interest-rate-statistics/treasury-yield-curve-methodology).\n\nFor questions on the data, please contact the data source (https://www.federalreserve.gov/apps/ContactUs/feedback.aspx?refurl=/releases/h15/%). For questions on FRED functionality, please contact us here (https://fred.stlouisfed.org/contactus/).</p>"
+      }
+    ]
+  }
+}

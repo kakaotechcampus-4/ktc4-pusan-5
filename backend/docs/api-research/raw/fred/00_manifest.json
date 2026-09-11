@@ -1,0 +1,194 @@
+[
+  {
+    "label": "series metadata: NASDAQSOX",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=NASDAQSOX&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.6958
+  },
+  {
+    "label": "series metadata: SP500",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=SP500&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.3701
+  },
+  {
+    "label": "series metadata: NASDAQCOM",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=NASDAQCOM&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.3545
+  },
+  {
+    "label": "series metadata: NASDAQ100",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=NASDAQ100&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.3352
+  },
+  {
+    "label": "series metadata: VIXCLS",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=VIXCLS&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.328
+  },
+  {
+    "label": "series metadata: DGS10",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=DGS10&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.3125
+  },
+  {
+    "label": "series metadata: DGS2",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=DGS2&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.3463
+  },
+  {
+    "label": "series metadata: DTWEXBGS",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=DTWEXBGS&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.3038
+  },
+  {
+    "label": "series metadata: DTWEXAFEGS",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=DTWEXAFEGS&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.3071
+  },
+  {
+    "label": "series metadata: DTWEXEMEGS",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=DTWEXEMEGS&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.356
+  },
+  {
+    "label": "series metadata: DCOILWTICO",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=DCOILWTICO&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.327
+  },
+  {
+    "label": "series metadata: DCOILBRENTEU",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=DCOILBRENTEU&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.4942
+  },
+  {
+    "label": "observations latest: NASDAQSOX",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=NASDAQSOX&api_key=***REDACTED***&file_type=json&sort_order=desc&limit=3",
+    "status": 200,
+    "elapsed_sec": 0.361
+  },
+  {
+    "label": "observations latest: SP500",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=SP500&api_key=***REDACTED***&file_type=json&sort_order=desc&limit=3",
+    "status": 200,
+    "elapsed_sec": 0.3147
+  },
+  {
+    "label": "observations latest: NASDAQCOM",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=NASDAQCOM&api_key=***REDACTED***&file_type=json&sort_order=desc&limit=3",
+    "status": 200,
+    "elapsed_sec": 0.4046
+  },
+  {
+    "label": "observations latest: NASDAQ100",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=NASDAQ100&api_key=***REDACTED***&file_type=json&sort_order=desc&limit=3",
+    "status": 200,
+    "elapsed_sec": 0.4423
+  },
+  {
+    "label": "observations latest: VIXCLS",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=VIXCLS&api_key=***REDACTED***&file_type=json&sort_order=desc&limit=3",
+    "status": 200,
+    "elapsed_sec": 0.6725
+  },
+  {
+    "label": "observations latest: DGS10",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&api_key=***REDACTED***&file_type=json&sort_order=desc&limit=3",
+    "status": 200,
+    "elapsed_sec": 0.355
+  },
+  {
+    "label": "observations latest: DGS2",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=DGS2&api_key=***REDACTED***&file_type=json&sort_order=desc&limit=3",
+    "status": 200,
+    "elapsed_sec": 0.439
+  },
+  {
+    "label": "observations latest: DTWEXBGS",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=DTWEXBGS&api_key=***REDACTED***&file_type=json&sort_order=desc&limit=3",
+    "status": 200,
+    "elapsed_sec": 0.5354
+  },
+  {
+    "label": "observations latest: DTWEXAFEGS",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=DTWEXAFEGS&api_key=***REDACTED***&file_type=json&sort_order=desc&limit=3",
+    "status": 200,
+    "elapsed_sec": 0.3691
+  },
+  {
+    "label": "observations latest: DTWEXEMEGS",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=DTWEXEMEGS&api_key=***REDACTED***&file_type=json&sort_order=desc&limit=3",
+    "status": 200,
+    "elapsed_sec": 0.3846
+  },
+  {
+    "label": "observations latest: DCOILWTICO",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=DCOILWTICO&api_key=***REDACTED***&file_type=json&sort_order=desc&limit=3",
+    "status": 200,
+    "elapsed_sec": 0.914
+  },
+  {
+    "label": "observations latest: DCOILBRENTEU",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=DCOILBRENTEU&api_key=***REDACTED***&file_type=json&sort_order=desc&limit=3",
+    "status": 200,
+    "elapsed_sec": 0.3576
+  },
+  {
+    "label": "holiday window: VIXCLS",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=VIXCLS&api_key=***REDACTED***&file_type=json&observation_start=2026-09-03&observation_end=2026-09-09",
+    "status": 200,
+    "elapsed_sec": 0.3831
+  },
+  {
+    "label": "holiday window: DGS10",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&api_key=***REDACTED***&file_type=json&observation_start=2026-09-03&observation_end=2026-09-09",
+    "status": 200,
+    "elapsed_sec": 0.6144
+  },
+  {
+    "label": "holiday window: NASDAQSOX",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=NASDAQSOX&api_key=***REDACTED***&file_type=json&observation_start=2026-09-03&observation_end=2026-09-09",
+    "status": 200,
+    "elapsed_sec": 0.297
+  },
+  {
+    "label": "pagination offset=0",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&api_key=***REDACTED***&file_type=json&sort_order=asc&limit=5&offset=0",
+    "status": 200,
+    "elapsed_sec": 0.4531
+  },
+  {
+    "label": "pagination offset=5",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&api_key=***REDACTED***&file_type=json&sort_order=asc&limit=5&offset=5",
+    "status": 200,
+    "elapsed_sec": 0.367
+  },
+  {
+    "label": "invalid api_key",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&api_key=invalid0000000000000000000000000&file_type=json",
+    "status": 400,
+    "elapsed_sec": 0.2797
+  },
+  {
+    "label": "invalid series_id",
+    "url": "https://api.stlouisfed.org/fred/series/observations?series_id=NOT_A_REAL_SERIES_ID&api_key=***REDACTED***&file_type=json",
+    "status": 400,
+    "elapsed_sec": 0.297
+  },
+  {
+    "label": "missing series_id param",
+    "url": "https://api.stlouisfed.org/fred/series/observations?api_key=***REDACTED***&file_type=json",
+    "status": 400,
+    "elapsed_sec": 0.3793
+  }
+]

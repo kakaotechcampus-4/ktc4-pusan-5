@@ -1,0 +1,31 @@
+{
+  "request": {
+    "label": "series metadata: NASDAQ100",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=NASDAQ100&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.3352
+  },
+  "response": {
+    "realtime_start": "2026-09-10",
+    "realtime_end": "2026-09-10",
+    "seriess": [
+      {
+        "id": "NASDAQ100",
+        "realtime_start": "2026-09-10",
+        "realtime_end": "2026-09-10",
+        "title": "NASDAQ-100",
+        "observation_start": "1986-01-02",
+        "observation_end": "2026-09-10",
+        "frequency": "Daily, Close",
+        "frequency_short": "D",
+        "units": "Index",
+        "units_short": "Index",
+        "seasonal_adjustment": "Not Seasonally Adjusted",
+        "seasonal_adjustment_short": "NSA",
+        "last_updated": "2026-09-10 22:37:24-05",
+        "popularity": 73,
+        "notes": "The observations for the NASDAQ 100 Index represent the daily index value at market close. The market typically closes at 4 PM ET, except for holidays when it sometimes closes early.\n\nThe NASDAQ 100 Index includes 100 of the largest domestic and international non-financial securities listed on The NASDAQ Stock Market based on market capitalization.\n\nCopyright Â© 2016, NASDAQ OMX Group, Inc."
+      }
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "request": {
+    "label": "series metadata: DTWEXBGS",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=DTWEXBGS&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.3038
+  },
+  "response": {
+    "realtime_start": "2026-09-08",
+    "realtime_end": "2026-09-08",
+    "seriess": [
+      {
+        "id": "DTWEXBGS",
+        "realtime_start": "2026-09-08",
+        "realtime_end": "2026-09-08",
+        "title": "Nominal Broad U.S. Dollar Index",
+        "observation_start": "2006-01-02",
+        "observation_end": "2026-09-04",
+        "frequency": "Daily",
+        "frequency_short": "D",
+        "units": "Index Jan 2006=100",
+        "units_short": "Index Jan 2006=100",
+        "seasonal_adjustment": "Not Seasonally Adjusted",
+        "seasonal_adjustment_short": "NSA",
+        "last_updated": "2026-09-08 15:16:52-05",
+        "popularity": 83,
+        "notes": "data source (https://www.federalreserve.gov/apps/ContactUs/feedback.aspx?refurl=/releases/h10/%). For questions on FRED functionality, please contact us here (https://fred.stlouisfed.org/contactus/).</p>"
+      }
+    ]
+  }
+}
