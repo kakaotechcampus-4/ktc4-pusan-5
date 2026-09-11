@@ -1,0 +1,189 @@
+[
+  {
+    "label": "주식현재가 시세",
+    "tr_id": "FHKST01010100",
+    "url": "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price",
+    "query": {
+      "FID_COND_MRKT_DIV_CODE": "J",
+      "FID_INPUT_ISCD": "005930"
+    },
+    "request_headers": {
+      "Content-Type": "application/json",
+      "authorization": "***REDACTED***",
+      "appkey": "***REDACTED***",
+      "appsecret": "***REDACTED***",
+      "custtype": "P",
+      "tr_id": "FHKST01010100"
+    },
+    "status": 200,
+    "elapsed_sec": 0.073
+  },
+  {
+    "label": "주식현재가 투자자(3주체)",
+    "tr_id": "FHKST01010900",
+    "url": "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor",
+    "query": {
+      "FID_COND_MRKT_DIV_CODE": "J",
+      "FID_INPUT_ISCD": "005930"
+    },
+    "request_headers": {
+      "Content-Type": "application/json",
+      "authorization": "***REDACTED***",
+      "appkey": "***REDACTED***",
+      "appsecret": "***REDACTED***",
+      "custtype": "P",
+      "tr_id": "FHKST01010900"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0895
+  },
+  {
+    "label": "종목별 투자자매매동향(일별)",
+    "tr_id": "FHPTJ04160001",
+    "url": "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/investor-trade-by-stock-daily",
+    "query": {
+      "FID_COND_MRKT_DIV_CODE": "J",
+      "FID_INPUT_ISCD": "005930",
+      "FID_INPUT_DATE_1": "20260910",
+      "FID_ORG_ADJ_PRC": "",
+      "FID_ETC_CLS_CODE": ""
+    },
+    "request_headers": {
+      "Content-Type": "application/json",
+      "authorization": "***REDACTED***",
+      "appkey": "***REDACTED***",
+      "appsecret": "***REDACTED***",
+      "custtype": "P",
+      "tr_id": "FHPTJ04160001"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0792
+  },
+  {
+    "label": "국내주식 공매도 일별추이",
+    "tr_id": "FHPST04830000",
+    "url": "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/daily-short-sale",
+    "query": {
+      "FID_COND_MRKT_DIV_CODE": "J",
+      "FID_INPUT_ISCD": "005930",
+      "FID_INPUT_DATE_1": "20260901",
+      "FID_INPUT_DATE_2": "20260910"
+    },
+    "request_headers": {
+      "Content-Type": "application/json",
+      "authorization": "***REDACTED***",
+      "appkey": "***REDACTED***",
+      "appsecret": "***REDACTED***",
+      "custtype": "P",
+      "tr_id": "FHPST04830000"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0699
+  },
+  {
+    "label": "국내주식 신용잔고 일별추이",
+    "tr_id": "FHPST04760000",
+    "url": "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/daily-credit-balance",
+    "query": {
+      "FID_COND_MRKT_DIV_CODE": "J",
+      "FID_COND_SCR_DIV_CODE": "20476",
+      "FID_INPUT_ISCD": "005930",
+      "FID_INPUT_DATE_1": "20260910"
+    },
+    "request_headers": {
+      "Content-Type": "application/json",
+      "authorization": "***REDACTED***",
+      "appkey": "***REDACTED***",
+      "appsecret": "***REDACTED***",
+      "custtype": "P",
+      "tr_id": "FHPST04760000"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0961
+  },
+  {
+    "label": "국내주식 종목투자의견",
+    "tr_id": "FHKST663300C0",
+    "url": "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/invest-opinion",
+    "query": {
+      "FID_COND_MRKT_DIV_CODE": "J",
+      "FID_COND_SCR_DIV_CODE": "16633",
+      "FID_INPUT_ISCD": "005930",
+      "FID_INPUT_DATE_1": "20260801",
+      "FID_INPUT_DATE_2": "20260910"
+    },
+    "request_headers": {
+      "Content-Type": "application/json",
+      "authorization": "***REDACTED***",
+      "appkey": "***REDACTED***",
+      "appsecret": "***REDACTED***",
+      "custtype": "P",
+      "tr_id": "FHKST663300C0"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0709
+  },
+  {
+    "label": "국내주식 종목추정실적",
+    "tr_id": "HHKST668300C0",
+    "url": "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/estimate-perform",
+    "query": {
+      "SHT_CD": "005930"
+    },
+    "request_headers": {
+      "Content-Type": "application/json",
+      "authorization": "***REDACTED***",
+      "appkey": "***REDACTED***",
+      "appsecret": "***REDACTED***",
+      "custtype": "P",
+      "tr_id": "HHKST668300C0"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0768
+  },
+  {
+    "label": "종합 시황/공시(제목)",
+    "tr_id": "FHKST01011800",
+    "url": "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/news-title",
+    "query": {
+      "FID_NEWS_OFER_ENTP_CODE": "2",
+      "FID_COND_MRKT_CLS_CODE": "00",
+      "FID_INPUT_ISCD": "005930",
+      "FID_TITL_CNTT": "",
+      "FID_INPUT_DATE_1": "20260910",
+      "FID_INPUT_HOUR_1": "090000",
+      "FID_RANK_SORT_CLS_CODE": "01",
+      "FID_INPUT_SRNO": ""
+    },
+    "request_headers": {
+      "Content-Type": "application/json",
+      "authorization": "***REDACTED***",
+      "appkey": "***REDACTED***",
+      "appsecret": "***REDACTED***",
+      "custtype": "P",
+      "tr_id": "FHKST01011800"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0783
+  },
+  {
+    "label": "국내휴장일조회",
+    "tr_id": "CTCA0903R",
+    "url": "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/chk-holiday",
+    "query": {
+      "BASS_DT": "20260910",
+      "CTX_AREA_NK": "",
+      "CTX_AREA_FK": ""
+    },
+    "request_headers": {
+      "Content-Type": "application/json",
+      "authorization": "***REDACTED***",
+      "appkey": "***REDACTED***",
+      "appsecret": "***REDACTED***",
+      "custtype": "P",
+      "tr_id": "CTCA0903R"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0842
+  }
+]

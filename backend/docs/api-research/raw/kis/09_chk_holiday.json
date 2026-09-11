@@ -1,0 +1,223 @@
+{
+  "request": {
+    "label": "국내휴장일조회",
+    "tr_id": "CTCA0903R",
+    "url": "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/chk-holiday",
+    "query": {
+      "BASS_DT": "20260910",
+      "CTX_AREA_NK": "",
+      "CTX_AREA_FK": ""
+    },
+    "request_headers": {
+      "Content-Type": "application/json",
+      "authorization": "***REDACTED***",
+      "appkey": "***REDACTED***",
+      "appsecret": "***REDACTED***",
+      "custtype": "P",
+      "tr_id": "CTCA0903R"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0842
+  },
+  "response": {
+    "ctx_area_nk": "20261003            ",
+    "ctx_area_fk": "20260910            ",
+    "output": [
+      {
+        "bass_dt": "20260910",
+        "wday_dvsn_cd": "05",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20260911",
+        "wday_dvsn_cd": "06",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20260912",
+        "wday_dvsn_cd": "07",
+        "bzdy_yn": "N",
+        "tr_day_yn": "Y",
+        "opnd_yn": "N",
+        "sttl_day_yn": "N"
+      },
+      {
+        "bass_dt": "20260913",
+        "wday_dvsn_cd": "01",
+        "bzdy_yn": "N",
+        "tr_day_yn": "Y",
+        "opnd_yn": "N",
+        "sttl_day_yn": "N"
+      },
+      {
+        "bass_dt": "20260914",
+        "wday_dvsn_cd": "02",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20260915",
+        "wday_dvsn_cd": "03",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20260916",
+        "wday_dvsn_cd": "04",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20260917",
+        "wday_dvsn_cd": "05",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20260918",
+        "wday_dvsn_cd": "06",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20260919",
+        "wday_dvsn_cd": "07",
+        "bzdy_yn": "N",
+        "tr_day_yn": "Y",
+        "opnd_yn": "N",
+        "sttl_day_yn": "N"
+      },
+      {
+        "bass_dt": "20260920",
+        "wday_dvsn_cd": "01",
+        "bzdy_yn": "N",
+        "tr_day_yn": "Y",
+        "opnd_yn": "N",
+        "sttl_day_yn": "N"
+      },
+      {
+        "bass_dt": "20260921",
+        "wday_dvsn_cd": "02",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20260922",
+        "wday_dvsn_cd": "03",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20260923",
+        "wday_dvsn_cd": "04",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20260924",
+        "wday_dvsn_cd": "05",
+        "bzdy_yn": "N",
+        "tr_day_yn": "Y",
+        "opnd_yn": "N",
+        "sttl_day_yn": "N"
+      },
+      {
+        "bass_dt": "20260925",
+        "wday_dvsn_cd": "06",
+        "bzdy_yn": "N",
+        "tr_day_yn": "Y",
+        "opnd_yn": "N",
+        "sttl_day_yn": "N"
+      },
+      {
+        "bass_dt": "20260926",
+        "wday_dvsn_cd": "07",
+        "bzdy_yn": "N",
+        "tr_day_yn": "Y",
+        "opnd_yn": "N",
+        "sttl_day_yn": "N"
+      },
+      {
+        "bass_dt": "20260927",
+        "wday_dvsn_cd": "01",
+        "bzdy_yn": "N",
+        "tr_day_yn": "Y",
+        "opnd_yn": "N",
+        "sttl_day_yn": "N"
+      },
+      {
+        "bass_dt": "20260928",
+        "wday_dvsn_cd": "02",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20260929",
+        "wday_dvsn_cd": "03",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20260930",
+        "wday_dvsn_cd": "04",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20261001",
+        "wday_dvsn_cd": "05",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20261002",
+        "wday_dvsn_cd": "06",
+        "bzdy_yn": "Y",
+        "tr_day_yn": "Y",
+        "opnd_yn": "Y",
+        "sttl_day_yn": "Y"
+      },
+      {
+        "bass_dt": "20261003",
+        "wday_dvsn_cd": "07",
+        "bzdy_yn": "N",
+        "tr_day_yn": "Y",
+        "opnd_yn": "N",
+        "sttl_day_yn": "N"
+      }
+    ],
+    "rt_cd": "0",
+    "msg_cd": "KIOK0500",
+    "msg1": "조회가 계속됩니다..다음버튼을 Click 하십시오.                                   "
+  }
+}

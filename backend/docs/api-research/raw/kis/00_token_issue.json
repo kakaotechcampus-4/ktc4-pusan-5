@@ -1,0 +1,21 @@
+{
+  "request": {
+    "url": "https://openapi.koreainvestment.com:9443/oauth2/tokenP",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "grant_type": "client_credentials",
+      "appkey": "***",
+      "appsecret": "***"
+    }
+  },
+  "status": 200,
+  "elapsed_sec": 0.2129,
+  "response": {
+    "access_token": "***REDACTED***",
+    "access_token_token_expired": "2026-09-12 18:19:33",
+    "token_type": "Bearer",
+    "expires_in": 86400
+  }
+}
