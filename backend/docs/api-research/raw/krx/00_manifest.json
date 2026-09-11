@@ -1,0 +1,312 @@
+[
+  {
+    "label": "KRX 시리즈 일별시세정보 (krx_dd_trd)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/idx/krx_dd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 200,
+    "elapsed_sec": 0.245
+  },
+  {
+    "label": "KOSPI 시리즈 일별시세정보 (kospi_dd_trd)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/idx/kospi_dd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 200,
+    "elapsed_sec": 0.1374
+  },
+  {
+    "label": "KOSDAQ 시리즈 일별시세정보 (kosdaq_dd_trd)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/idx/kosdaq_dd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 200,
+    "elapsed_sec": 0.1112
+  },
+  {
+    "label": "유가증권 일별매매정보 (stk_bydd_trd)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 200,
+    "elapsed_sec": 1.8404
+  },
+  {
+    "label": "코스닥 일별매매정보 (ksq_bydd_trd)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 200,
+    "elapsed_sec": 1.7087
+  },
+  {
+    "label": "코넥스 일별매매정보 (knx_bydd_trd)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/knx_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 200,
+    "elapsed_sec": 0.1082
+  },
+  {
+    "label": "유가증권 종목기본정보 (stk_isu_base_info)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_isu_base_info",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 200,
+    "elapsed_sec": 0.4545
+  },
+  {
+    "label": "코스닥 종목기본정보 (ksq_isu_base_info)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_isu_base_info",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 200,
+    "elapsed_sec": 0.7845
+  },
+  {
+    "label": "코넥스 종목기본정보 (knx_isu_base_info)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/knx_isu_base_info",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 401,
+    "elapsed_sec": 0.0735
+  },
+  {
+    "label": "ETF 일별매매정보 (etf_bydd_trd)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/etp/etf_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 200,
+    "elapsed_sec": 0.3149
+  },
+  {
+    "label": "invalid AUTH_KEY",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 401,
+    "elapsed_sec": 0.085
+  },
+  {
+    "label": "missing AUTH_KEY header",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 401,
+    "elapsed_sec": 0.1001
+  },
+  {
+    "label": "missing Content-Type header",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 200,
+    "elapsed_sec": 0.1119
+  },
+  {
+    "label": "missing basDd",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {},
+    "status": 200,
+    "elapsed_sec": 0.0956
+  },
+  {
+    "label": "malformed basDd (dash format)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "2026-09-10"
+    },
+    "status": 200,
+    "elapsed_sec": 0.159
+  },
+  {
+    "label": "invalid basDd (out of range date)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20261345"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0953
+  },
+  {
+    "label": "date-range attempt (strtDd/endDd, 미문서화 파라미터)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910",
+      "strtDd": "20260901",
+      "endDd": "20260910"
+    },
+    "status": 200,
+    "elapsed_sec": 1.5879
+  },
+  {
+    "label": "오늘(basDd=today) 조회",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260911"
+    },
+    "status": 200,
+    "elapsed_sec": 0.1065
+  },
+  {
+    "label": "주말(토, 20260912) 조회",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260912"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0755
+  },
+  {
+    "label": "주말(일, 20260913) 조회",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260913"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0669
+  },
+  {
+    "label": "휴장일 케이스: 20260923 전영업일(화요일 아님-수요일)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/idx/kospi_dd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260923"
+    },
+    "status": 200,
+    "elapsed_sec": 0.1567
+  },
+  {
+    "label": "휴장일 케이스: 20260924 추석연휴 1일차(목, 평일휴장)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/idx/kospi_dd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260924"
+    },
+    "status": 200,
+    "elapsed_sec": 0.1554
+  },
+  {
+    "label": "휴장일 케이스: 20260925 추석연휴 2일차(금, 평일휴장)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/idx/kospi_dd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260925"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0778
+  },
+  {
+    "label": "휴장일 케이스: 20260928 연휴후 첫영업일(월)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/idx/kospi_dd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260928"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0782
+  }
+]

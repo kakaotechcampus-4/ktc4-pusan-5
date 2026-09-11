@@ -1,0 +1,18 @@
+{
+  "request": {
+    "label": "휴장일 케이스: 20260928 연휴후 첫영업일(월)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/idx/kospi_dd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260928"
+    },
+    "status": 200,
+    "elapsed_sec": 0.0782
+  },
+  "response": {
+    "OutBlock_1": []
+  }
+}

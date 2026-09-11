@@ -1,0 +1,18 @@
+{
+  "request": {
+    "label": "휴장일 케이스: 20260923 전영업일(화요일 아님-수요일)",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/idx/kospi_dd_trd",
+    "request_headers": {
+      "AUTH_KEY": "***REDACTED***",
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260923"
+    },
+    "status": 200,
+    "elapsed_sec": 0.1567
+  },
+  "response": {
+    "OutBlock_1": []
+  }
+}

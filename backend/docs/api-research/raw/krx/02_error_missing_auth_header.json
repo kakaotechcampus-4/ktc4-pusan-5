@@ -1,0 +1,18 @@
+{
+  "request": {
+    "label": "missing AUTH_KEY header",
+    "url": "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd",
+    "request_headers": {
+      "Content-Type": "application/json"
+    },
+    "request_body": {
+      "basDd": "20260910"
+    },
+    "status": 401,
+    "elapsed_sec": 0.1001
+  },
+  "response": {
+    "respMsg": "Unauthorized Key",
+    "respCode": "401"
+  }
+}
