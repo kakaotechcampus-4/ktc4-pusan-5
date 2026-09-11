@@ -25,11 +25,21 @@ function useMockStockStatus(): StockStatus {
 
 function useMockBriefingStatus(): [BriefingStatus, () => void] {
   const [status, setStatus] = useState<BriefingStatus>('loading');
+  const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
     const timer = setTimeout(() => setStatus('success'), 900);
     return () => clearTimeout(timer);
-  }, []);
-  return [status, () => setStatus('loading')];
+  }, [attempt]);
+
+  // HomePage.tsx의 useMockLoad와 동일한 attempt 카운터 패턴을 적용
+  // retryBriefing()을 호출하면 attempt가 증가 → useEffect deps가 바뀌어 effect가 재실행 → 900ms 후 다시 success로 전환되도록 수정
+  function retry() {
+    setStatus('loading');
+    setAttempt((n) => n + 1);
+  }
+
+  return [status, retry];
 }
 
 export function StockBriefingPage() {
