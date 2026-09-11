@@ -1,0 +1,31 @@
+{
+  "request": {
+    "label": "series metadata: DCOILBRENTEU",
+    "url": "https://api.stlouisfed.org/fred/series?series_id=DCOILBRENTEU&api_key=***REDACTED***&file_type=json",
+    "status": 200,
+    "elapsed_sec": 0.4942
+  },
+  "response": {
+    "realtime_start": "2026-09-10",
+    "realtime_end": "2026-09-10",
+    "seriess": [
+      {
+        "id": "DCOILBRENTEU",
+        "realtime_start": "2026-09-10",
+        "realtime_end": "2026-09-10",
+        "title": "Crude Oil Prices: Brent - Europe",
+        "observation_start": "1987-05-20",
+        "observation_end": "2026-09-09",
+        "frequency": "Daily",
+        "frequency_short": "D",
+        "units": "Dollars per Barrel",
+        "units_short": "$ per Barrel",
+        "seasonal_adjustment": "Not Seasonally Adjusted",
+        "seasonal_adjustment_short": "NSA",
+        "last_updated": "2026-09-10 13:15:35-05",
+        "popularity": 81,
+        "notes": "Definitions, Sources and Explanatory Notes (http://www.eia.doe.gov/dnav/pet/TblDefs/pet_pri_spt_tbldef2.asp)"
+      }
+    ]
+  }
+}
