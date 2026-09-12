@@ -3,7 +3,7 @@ import { SplitLayout } from '@/components/layout/PageShell';
 import { mockIndexBoard, mockSignalBoard, mockWatchlist } from './mock';
 import { HomeHero } from './components/HomeHero';
 import { IndexSection } from './components/IndexTiles';
-import { SignalSection } from './components/SignalList';
+import { SignalSection, type SignalStatus } from './components/SignalList';
 import { WatchlistCard, type WatchlistStatus } from './components/WatchlistCard';
 
 type LoadState = 'loading' | 'error' | 'success';
@@ -46,12 +46,16 @@ export function HomePage() {
   // 섹션마다 결과를 따로 정한다. 두 번째 인자를 'error' 로 바꾸면 그 섹션만 에러가 뜬다.
   // 'loading' 으로 두면 그 섹션만 계속 로딩이라 스켈레톤을 오래 볼 수 있다.
   // 관심 종목 빈 상태는 아래 mockWatchlist 를 mockEmptyWatchlist 로 바꿔서 확인한다.
+  // 시그널 빈 상태는 아래 mockSignalBoard 를 mockEmptySignalBoard 로 바꿔서 확인한다.
   const [indexState, retryIndex] = useMockLoad(400, 'success');
   const [signalState, retrySignal] = useMockLoad(900, 'success');
   const [watchState, retryWatch] = useMockLoad(700, 'success');
 
   const watchlistStatus: WatchlistStatus =
     watchState === 'success' && mockWatchlist.items.length === 0 ? 'empty' : watchState;
+
+  const signalStatus: SignalStatus =
+    signalState === 'success' && mockSignalBoard.signals.length === 0 ? 'empty' : signalState;
 
   return (
     <>
@@ -63,7 +67,7 @@ export function HomePage() {
       <IndexSection status={indexState} indices={mockIndexBoard.indices} onRetry={retryIndex} />
 
       <SplitLayout
-        main={<SignalSection status={signalState} board={mockSignalBoard} onRetry={retrySignal} />}
+        main={<SignalSection status={signalStatus} board={mockSignalBoard} onRetry={retrySignal} />}
         side={
           <WatchlistCard status={watchlistStatus} watchlist={mockWatchlist} onRetry={retryWatch} />
         }
