@@ -1,9 +1,3 @@
-/* ============================================================================
-   BASIS — Tailwind theme
-   Tailwind v4 CSS-first 설정. 이 파일이 디자인 값의 유일한 진실이다.
-   여기 없는 색·크기를 JSX에서 임의값(text-[#ff0000], p-[15px])으로 쓰지 않는다.
-   ========================================================================== */
-
 /* 폰트 import 는 반드시 맨 위. @import 는 다른 규칙보다 앞에 와야 한다. */
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
@@ -27,6 +21,9 @@
   --color-brand-800: #0f2b75;
   --color-brand-900: #0a1d4d;
   --color-brand:     #1b4fd8;
+
+  /* 카카오 로그인 버튼*/
+  --color-kakao: #fee500;
 
   /* ── 청록 — AI 브리핑·챗봇·개념 학습 전용. 등락에 쓰지 않는다. ──────── */
   --color-ai-100: #e9f5f2;
