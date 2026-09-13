@@ -101,7 +101,7 @@ function lastMarketClose(now: Date): Date {
 
 const AS_OF = lastMarketClose(new Date()).toISOString();
 
-/** 판단: 삼성전자 수치는 features/stock/mock.ts 의 mockStock 과 맞췄다.
+/** 판단: 삼성전자 수치는 features/stock/mock.ts 의 mockStocks['005930'] 코드와 맞춤
  *  홈에서 눌러 들어간 브리핑 화면과 숫자가 다르면 목업이라도 이상해 보인다. */
 
 export const mockIndexBoard: IndexBoard = {
@@ -181,3 +181,9 @@ export const mockWatchlist: Watchlist = {
 
 /** 빈 상태를 눈으로 확인할 때 mockWatchlist 대신 이걸 넘긴다. */
 export const mockEmptyWatchlist: Watchlist = { asOf: AS_OF, items: [] };
+
+/** 빈 상태를 눈으로 확인할 때 mockSignalBoard 대신 아래 내용을 넘긴다. */
+export const mockEmptySignalBoard: SignalBoard = {
+  ...mockSignalBoard,
+  signals: [],
+};
