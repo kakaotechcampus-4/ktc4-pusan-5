@@ -1,0 +1,11 @@
+# Windows·macOS 혼용 팀. 줄바꿈 때문에 diff가 전부 바뀌는 사고를 막는다.
+* text=auto eol=lf
+
+# 셸 스크립트와 git hook 은 반드시 LF. CRLF 면 실행 자체가 실패한다.
+*.sh          text eol=lf
+.githooks/*   text eol=lf
+
+# 바이너리
+*.png binary
+*.jpg binary
+*.woff2 binary
