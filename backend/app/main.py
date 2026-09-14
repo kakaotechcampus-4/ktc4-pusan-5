@@ -1,13 +1,22 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import app.models
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.core.errors import AppError, app_error_handler
+
+from app.core.errors import (
+    AppError,
+    app_error_handler,
+    http_exception_handler,
+    unhandled_exception_handler,
+    validation_error_handler,
+)
 
 
 @asynccontextmanager
@@ -29,6 +38,9 @@ app.add_middleware(
 )
 
 app.add_exception_handler(AppError, app_error_handler)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 
 @app.get("/health")
