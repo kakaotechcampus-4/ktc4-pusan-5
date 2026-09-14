@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     app_name: str = "BASIS API"
     cors_origins: list[str] = ["http://localhost:5173"]
+    database_url: str = "postgresql+asyncpg://basis:basis@localhost:5432/basis"
 
     # 외부 API 키
     naver_client_id: str = ""

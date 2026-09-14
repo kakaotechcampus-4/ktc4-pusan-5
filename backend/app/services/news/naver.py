@@ -47,6 +47,10 @@ def parse_items(raw_items: list[dict]) -> list[NewsItem]:
     return items
 
 
+class NaverNewsError(Exception):
+    """네이버 뉴스 검색 실패. 원인 예외는 __cause__ 에 남는다."""
+
+
 async def search(
     query: str, *, display: int = 20, sort: str = "date"
 ) -> list[NewsItem]:
@@ -56,7 +60,12 @@ async def search(
         "X-NCP-APIGW-API-KEY": settings.naver_client_secret,
     }
     params = {"query": query, "display": display, "sort": sort, "format": "json"}
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(NAVER_NEWS_URL, headers=headers, params=params)
-        resp.raise_for_status()
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(NAVER_NEWS_URL, headers=headers, params=params)
+            resp.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        raise NaverNewsError(f"{query}: HTTP {e.response.status_code}") from e
+    except httpx.HTTPError as e:
+        raise NaverNewsError(f"{query}: {type(e).__name__}") from e
     return parse_items(resp.json().get("items", []))
