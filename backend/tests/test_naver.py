@@ -1,4 +1,5 @@
 import httpx
+import pytest
 import respx
 
 from app.services.news import naver
@@ -36,3 +37,10 @@ async def test_search_calls_naver_and_returns_items():
     assert route.called
     assert route.calls.last.request.url.params["display"] == "5"
     assert len(items) == 1
+
+
+@respx.mock
+async def test_search_wraps_http_error():
+    respx.get(NAVER_NEWS_URL).mock(return_value=httpx.Response(401))
+    with pytest.raises(naver.NaverNewsError):
+        await naver.search("삼성전자")

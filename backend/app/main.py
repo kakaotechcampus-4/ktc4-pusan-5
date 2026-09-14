@@ -9,7 +9,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 import app.models
 from app.core.config import settings
 from app.core.database import Base, engine
-
 from app.core.errors import (
     AppError,
     app_error_handler,
