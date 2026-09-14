@@ -4,8 +4,13 @@ version = "0.1.0"
 description = "BASIS API 서버 (FastAPI)"
 requires-python = ">=3.12"
 dependencies = [
+    "asyncpg>=0.31.0",
     "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    "sqlalchemy[asyncio]>=2.0.52",
+    "trafilatura>=2.2.0",
     "uvicorn[standard]>=0.52.4",
 ]
 
@@ -13,6 +18,7 @@ dependencies = [
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "respx>=0.23.1",
     "ruff>=0.16.6",
 ]
 
