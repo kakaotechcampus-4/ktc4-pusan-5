@@ -41,7 +41,8 @@ export function IndexSection({
   );
 }
 
-const GRID = 'grid grid-cols-2 gap-2 sm:grid-cols-4';
+/** 2행×3열 배치(요청 순서: 코스피·코스닥·금현물 / S&P 500·나스닥·달러 환율). */
+const GRID = 'grid grid-cols-2 gap-2 sm:grid-cols-3';
 
 function IndexTiles({ indices }: { indices: MarketIndex[] }) {
   return (
@@ -64,7 +65,7 @@ function IndexTiles({ indices }: { indices: MarketIndex[] }) {
 function IndexTilesSkeleton() {
   return (
     <div className={GRID}>
-      {Array.from({ length: 4 }).map((_, i) => (
+      {Array.from({ length: 6 }).map((_, i) => (
         <Skeleton key={i} className="h-25" />
       ))}
     </div>
