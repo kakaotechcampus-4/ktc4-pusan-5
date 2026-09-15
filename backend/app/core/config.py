@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     naver_client_secret: str = ""
     kis_app_key: str = ""
     kis_app_secret: str = ""
+    dart_api_key: str = ""
+    ecos_api_key: str = ""
 
     # 카카오 로그인
     kakao_client_id: str = ""
