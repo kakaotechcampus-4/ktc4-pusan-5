@@ -1,1 +1,0 @@
-status 200, body: {"realtime_start": "2026-09-11", "realtime_end": "2026-09-11", "observation_start": "2026-09-05", "observation_end": "2026-09-06", "units": "lin", "output_type": 1, "file_type": "json", "order_by": "observation_date", "sort_order": "asc", "count": 0, "offset": 0, "limit": 100000, "observations": []}
