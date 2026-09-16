@@ -4,12 +4,13 @@ import type { StockDetail, StockQuote } from '../mock';
 
 type Row = { label: string; value: string; description?: string };
 
-// 주요 지표 리스트
- 
-export function AtAGlanceCard({ stock, detail }: { stock: StockQuote; detail: StockDetail }) {
+/**
+ * stock·detail을 라벨-값 리스트로 바꾸는 순수 함수.
+ * 렌더링과 분리 -> 항목 구성이 바뀔 때 이 함수만 보면 됨
+ */
+function buildRows(stock: StockQuote, detail: StockDetail): Row[] {
   const a = detail.atAGlance;
-
-  const rows: Row[] = [
+  return [
     { label: '시가총액', value: formatCompactKRW(stock.marketCap) },
     { label: '거래량', value: `${formatPrice(stock.volume)}주` },
     {
@@ -47,6 +48,11 @@ export function AtAGlanceCard({ stock, detail }: { stock: StockQuote; detail: St
     { label: '52주 최고', value: `${formatPrice(a.week52High)}원` },
     { label: '52주 최저', value: `${formatPrice(a.week52Low)}원` },
   ];
+}
+
+/* 헤더 근처의 요약 리스트 */
+export function AtAGlanceCard({ stock, detail }: { stock: StockQuote; detail: StockDetail }) {
+  const rows = buildRows(stock, detail);
 
   return (
     <Card tone="plain" className="flex-1">

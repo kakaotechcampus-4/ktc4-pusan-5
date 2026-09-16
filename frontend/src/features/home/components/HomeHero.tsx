@@ -1,29 +1,8 @@
-import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { Button, Input, Kicker, Skeleton, StockAvatar } from '@/components/ui';
+import { Kicker, Skeleton } from '@/components/ui';
 import { formatAsOf } from '@/lib/format';
-import { mockSearchIndex } from '../mock';
-
-const MAX_SUGGESTIONS = 6;
+import { StockSearchBox } from './StockSearchBox';
 
 export function HomeHero({ asOf, loading = false }: { asOf?: string; loading?: boolean }) {
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
-
-  const trimmed = query.trim();
-  const suggestions = trimmed
-    ? mockSearchIndex
-        .filter((stock) => stock.name.toLowerCase().includes(trimmed.toLowerCase()))
-        .slice(0, MAX_SUGGESTIONS)
-    : [];
-  const showSuggestions = open && suggestions.length > 0;
-  const showEmpty = open && trimmed.length > 0 && suggestions.length === 0;
-
-
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-  }
-
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
@@ -42,55 +21,7 @@ export function HomeHero({ asOf, loading = false }: { asOf?: string; loading?: b
         오늘 안에 이해합니다
       </h1>
 
-      <div className="flex max-w-lg flex-col gap-2">
-        <div className="relative">
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => setOpen(true)}
-              onBlur={() => setTimeout(() => setOpen(false), 150)}
-              placeholder="종목 · 개념 · 용어 검색"
-              aria-label="종목 또는 개념 검색"
-              aria-describedby="home-search-note"
-              role="combobox"
-              aria-expanded={showSuggestions}
-              aria-autocomplete="list"
-              autoComplete="off"
-            />
-            <Button type="submit" variant="primary">
-              검색
-            </Button>
-          </form>
-
-          {(showSuggestions || showEmpty) && (
-            <ul
-              role="listbox"
-              className="border-divider bg-canvas absolute top-full right-0 left-0 z-20 mt-1 flex list-none flex-col overflow-hidden rounded-md border shadow-md"
-            >
-              {showEmpty && (
-                <li className="px-3 py-2 text-sm text-neutral-600">검색 결과가 없습니다</li>
-              )}
-              {suggestions.map((stock) => (
-                <li key={stock.code} role="option">
-                  <Link
-                    to={`/stock/${stock.code}`}
-                    className="text-ink flex items-center gap-2 px-3 py-2 no-underline hover:bg-neutral-100"
-                  >
-                    <StockAvatar initial={stock.initial} size="sm" />
-                    <span className="text-sm font-semibold">{stock.name}</span>
-                    <span className="num ml-auto text-xs text-neutral-500">{stock.code}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <p id="home-search-note" className="text-xs text-neutral-600">
-          자동완성에서 종목을 선택하면 상세 페이지로 이동합니다. 자유 검색은 아직 동작하지 않습니다.
-        </p>
-      </div>
+      <StockSearchBox />
     </section>
   );
 }
