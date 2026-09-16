@@ -1,0 +1,35 @@
+{
+  "slug": "dividend",
+  "name": "배당",
+  "aliases": [
+    "배당금",
+    "현금배당"
+  ],
+  "category": "shareholder-return/dividend",
+  "extraCategories": null,
+  "summary": "이익의 일부를 현금이나 주식으로 주주에게 나눠주는 것. 보유만 하고 있으면 기준일에 자동으로 배정됩니다.",
+  "body": "배당은 가장 직관적인 [주주환원](shareholder-return) 방식입니다. 배당기준일에 주주명부에 있으면 배당을 받고, 실제 입금은 그 뒤 몇 주 후에 이뤄집니다. 주가 대비 배당금 비율을 배당수익률이라 부릅니다.\n\n중요한 것은 수익률의 절대값보다 지속성입니다. 이익이 안정적인 기업은 배당을 꾸준히 늘릴 수 있고, 그 자체가 사업의 품질을 보여주는 신호입니다. 반대로 주가 급락 때문에 수익률만 높아진 경우는 함정일 수 있습니다.",
+  "related": [
+    {
+      "slug": "shareholder-return",
+      "reason": "배당이 속한 상위 개념"
+    },
+    {
+      "slug": "treasury-stock",
+      "reason": "주식 수를 줄이는 다른 방식"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "배당을 받으려면 배당기준일에 주식을 보유하고 있어야 한다.",
+      "answer": true,
+      "explanation": "기준일 주주명부 기준으로 배정됩니다."
+    },
+    {
+      "question": "배당수익률이 높을수록 항상 좋은 투자다.",
+      "answer": false,
+      "explanation": "주가 급락으로 수치만 높아진 경우가 있습니다."
+    }
+  ],
+  "sources": []
+}

@@ -1,0 +1,35 @@
+{
+  "slug": "roe",
+  "name": "ROE",
+  "aliases": [
+    "자기자본이익률",
+    "Return on Equity"
+  ],
+  "category": "valuation/profitability",
+  "extraCategories": null,
+  "summary": "주주가 넣은 자본으로 얼마나 효율적으로 이익을 냈는지 보여주는 지표. 자본 대비 이익률입니다.",
+  "body": "ROE 10%는 주주 자본 100만 원으로 1년에 10만 원을 벌었다는 뜻입니다. 같은 자본으로 더 많이 버는 회사가 좋은 사업 구조를 가졌을 가능성이 높습니다. 그래서 장기 투자자들이 가장 먼저 확인하는 지표 중 하나입니다.\n\n다만 분모가 자본이라는 점이 함정입니다. 빚을 늘려 자본 비중을 줄이면 ROE는 올라갑니다. [자사주](treasury-stock) 소각도 자본을 줄여 ROE를 높입니다. 그래서 부채비율과 함께 보고, [PER](per)과 짝지어 적정 배수를 가늠하는 방식으로 씁니다.",
+  "related": [
+    {
+      "slug": "per",
+      "reason": "적정 배수 판단의 짝"
+    },
+    {
+      "slug": "shareholder-return",
+      "reason": "자본 정책이 지표를 바꿈"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "ROE가 높을수록 주주 자본을 효율적으로 쓰고 있다는 뜻이다.",
+      "answer": true,
+      "explanation": "같은 자본으로 더 많은 이익을 냅니다."
+    },
+    {
+      "question": "ROE는 부채 규모와 무관하게 결정된다.",
+      "answer": false,
+      "explanation": "레버리지로 부풀려질 수 있습니다."
+    }
+  ],
+  "sources": []
+}

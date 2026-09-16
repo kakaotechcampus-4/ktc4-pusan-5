@@ -1,0 +1,35 @@
+{
+  "slug": "disclosure",
+  "name": "공시",
+  "aliases": [
+    "기업공시",
+    "DART"
+  ],
+  "category": "disclosure/periodic-disclosure",
+  "extraCategories": null,
+  "summary": "기업이 투자자에게 알려야 하는 중요 정보를 공식 창구로 공개하는 제도. 모든 뉴스보다 공시가 먼저입니다.",
+  "body": "실적, 자사주 매입, 유상증자, 대형 수주는 모두 공시로 먼저 나옵니다. 언론 보도는 공시를 해석한 2차 자료입니다. DART에서 누구나 원문을 무료로 볼 수 있어, 공시를 직접 읽는 습관만으로 소문과 사실을 구분할 수 있습니다.\n\n공시는 정기공시(사업·반기·분기보고서), 주요사항보고, 수시공시, 지분공시로 나뉩니다. 초보 투자자라면 분기보고서의 사업 개요와 [재무제표](financial-statements) 주석, 그리고 [자사주](treasury-stock)·유상증자 같은 주요사항보고만 챙겨도 충분합니다.",
+  "related": [
+    {
+      "slug": "treasury-stock",
+      "reason": "대표적인 주요사항보고"
+    },
+    {
+      "slug": "financial-statements",
+      "reason": "정기공시의 핵심 내용"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "기업의 자사주 매입 결정은 공시 대상이다.",
+      "answer": true,
+      "explanation": "자사주 취득·처분은 의무 공시 사항입니다."
+    },
+    {
+      "question": "공시는 기관 투자자만 열람할 수 있다.",
+      "answer": false,
+      "explanation": "DART에서 누구나 볼 수 있습니다."
+    }
+  ],
+  "sources": []
+}
