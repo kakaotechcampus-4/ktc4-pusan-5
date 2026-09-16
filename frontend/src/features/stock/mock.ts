@@ -227,6 +227,142 @@ export type FinancialSummary = {
   netIncome: number;
 };
 
+/* ── 재무 추이 (5년치) / 재무 건전성 / 분기별 투자 지표 ──────────────────── */
+
+export type FinancialTrendPoint = {
+  /** 'YYYY' */
+  year: string;
+  revenue: number;
+  operatingProfit: number;
+  eps: number;
+};
+
+export type FinancialHealth = {
+  /** 부채비율(%) */
+  debtRatio: number;
+  /** 자기자본이익률(%) */
+  roe: number;
+  /** 유동비율(%) */
+  currentRatio: number;
+};
+
+export type QuarterlyMetric = {
+  /** '2026 Q3' */
+  quarter: string;
+  /** 상대강도(0~100) */
+  rs: number;
+  /** 매출 성장률(전년 동기 대비, %) */
+  revenueGrowth: number;
+  operatingProfitGrowth: number;
+  netIncomeGrowth: number;
+  marketCap: number;
+  per: number;
+  pbr: number;
+  roe: number;
+  debtRatio: number;
+  operatingProfit: number;
+  netIncome: number;
+  eps: number;
+};
+
+/**
+ * 목표값으로 수렴하도록 걷는 시계열 생성기. candle 생성기와 같은 방식이다.
+ * 시작점은 목표 근방에서 무작위로 잡고, 마지막 값은 항상 target과 정확히 같다.
+ */
+function walkToTarget(
+  rand: () => number,
+  target: number,
+  steps: number,
+  volatility: number,
+): number[] {
+  const magnitude = Math.abs(target) || 1;
+  let v = target + (rand() - 0.5) * magnitude * 0.6;
+  const out: number[] = [];
+  for (let i = 0; i < steps; i++) {
+    const remaining = steps - i;
+    const pull = (target - v) / Math.max(remaining, 1);
+    const noise = (rand() - 0.5) * volatility * magnitude;
+    v = v + pull + noise;
+    out.push(v);
+  }
+  out[out.length - 1] = target;
+  return out;
+}
+
+function quarterLabels(count: number, endYear: number, endQuarter: number): string[] {
+  const labels: string[] = [];
+  let y = endYear;
+  let q = endQuarter;
+  for (let i = 0; i < count; i++) {
+    labels.unshift(`${y} Q${q}`);
+    q -= 1;
+    if (q === 0) {
+      q = 4;
+      y -= 1;
+    }
+  }
+  return labels;
+}
+
+function buildFinancialTrend(
+  code: string,
+  stock: StockQuote,
+  financials: FinancialSummary,
+): FinancialTrendPoint[] {
+  const rand = makeRng(`${code}-trend`);
+  const years = ['2022', '2023', '2024', '2025', '2026'];
+  const eps = Math.round(stock.price / stock.per);
+
+  const revenues = walkToTarget(rand, financials.revenue, years.length, 0.12);
+  const profits = walkToTarget(rand, financials.operatingProfit, years.length, 0.2);
+  const epsSeries = walkToTarget(rand, eps, years.length, 0.18);
+
+  return years.map((year, i) => ({
+    year,
+    revenue: Math.round(revenues[i]),
+    operatingProfit: Math.round(profits[i]),
+    eps: Math.round(epsSeries[i]),
+  }));
+}
+
+const QUARTER_COUNT = 8;
+
+function buildQuarterlyMetrics(
+  code: string,
+  stock: StockQuote,
+  financials: FinancialSummary,
+  health: FinancialHealth,
+): QuarterlyMetric[] {
+  const rand = makeRng(`${code}-quarterly`);
+  const labels = quarterLabels(QUARTER_COUNT, 2026, 3);
+  const eps = Math.round(stock.price / stock.per);
+
+  const marketCaps = walkToTarget(rand, stock.marketCap, QUARTER_COUNT, 0.12);
+  const pers = walkToTarget(rand, stock.per, QUARTER_COUNT, 0.15);
+  const pbrs = walkToTarget(rand, stock.pbr, QUARTER_COUNT, 0.15);
+  const roes = walkToTarget(rand, health.roe, QUARTER_COUNT, 0.2);
+  const debtRatios = walkToTarget(rand, health.debtRatio, QUARTER_COUNT, 0.1);
+  const operatingProfits = walkToTarget(rand, financials.operatingProfit / 4, QUARTER_COUNT, 0.3);
+  const netIncomes = walkToTarget(rand, financials.netIncome / 4, QUARTER_COUNT, 0.3);
+  const epsList = walkToTarget(rand, eps / 4, QUARTER_COUNT, 0.3);
+
+  return labels.map((quarter, i) => ({
+    quarter,
+    rs: Math.round(30 + rand() * 60),
+    revenueGrowth: Math.round((rand() * 30 - 10) * 10) / 10,
+    operatingProfitGrowth: Math.round((rand() * 40 - 15) * 10) / 10,
+    netIncomeGrowth: Math.round((rand() * 40 - 15) * 10) / 10,
+    marketCap: Math.round(marketCaps[i]),
+    per: Math.round(pers[i] * 100) / 100,
+    pbr: Math.round(pbrs[i] * 100) / 100,
+    roe: Math.round(roes[i] * 10) / 10,
+    debtRatio: Math.round(debtRatios[i] * 10) / 10,
+    operatingProfit: Math.round(operatingProfits[i]),
+    netIncome: Math.round(netIncomes[i]),
+    eps: Math.round(epsList[i]),
+  }));
+}
+
 /* ── AI 생성 보고서 ─────────────────────────────────────────────────────────
  * 가드레일: 매수·매도 같은 투자의견 문구를 넣지 않는다. (DESIGN.md 7절, 루트 CLAUDE.md)
  * 목표주가를 넣는 경우 반드시 출처를 함께 둔다. */
@@ -248,16 +384,31 @@ export type StockDetail = {
   shortSelling: ShortSelling;
   marginBalance: MarginBalance;
   financials: FinancialSummary;
+  financialTrend: FinancialTrendPoint[];
+  financialHealth: FinancialHealth;
+  quarterlyMetrics: QuarterlyMetric[];
   aiReport: AiReport;
 };
 
 const GENERATED_AT = '2026-08-21T15:40:00+09:00';
 
+type StockDetailInput = Omit<StockDetail, 'atAGlance' | 'financialTrend' | 'quarterlyMetrics'>;
+
+/** atAGlance·financialTrend·quarterlyMetrics는 stock/financials/financialHealth에서 파생되므로 여기서 한 번만 계산한다. */
+function buildStockDetail(code: string, input: StockDetailInput): StockDetail {
+  const stock = mockStocks[code];
+  return {
+    ...input,
+    atAGlance: buildAtAGlance(stock, mockPriceHistory[code]),
+    financialTrend: buildFinancialTrend(code, stock, input.financials),
+    quarterlyMetrics: buildQuarterlyMetrics(code, stock, input.financials, input.financialHealth),
+  };
+}
+
 export const mockStockDetails: Record<string, StockDetail> = {
-  '005930': {
+  '005930': buildStockDetail('005930', {
     tradingValue: 886_147_200_000,
     foreignOwnership: 51.2,
-    atAGlance: buildAtAGlance(mockStocks['005930'], mockPriceHistory['005930']),
     investorFlow: {
       individual: -1_204_300,
       foreign: -2_680_100,
@@ -271,6 +422,7 @@ export const mockStockDetails: Record<string, StockDetail> = {
       operatingProfit: 89_490_000_000_000,
       netIncome: 71_620_000_000_000,
     },
+    financialHealth: { debtRatio: 27.4, roe: 9.8, currentRatio: 218.5 },
     aiReport: {
       summaryPoints: [
         '외국인 매도세와 반도체 업황 우려가 겹치며 최근 하락 마감했습니다.',
@@ -284,11 +436,10 @@ export const mockStockDetails: Record<string, StockDetail> = {
       generatedAt: GENERATED_AT,
       sources: ['한국거래소', '연합인포맥스'],
     },
-  },
-  '000660': {
+  }),
+  '000660': buildStockDetail('000660', {
     tradingValue: 5_397_600_000_000,
     foreignOwnership: 54.6,
-    atAGlance: buildAtAGlance(mockStocks['000660'], mockPriceHistory['000660']),
     investorFlow: {
       individual: -2_884_200,
       foreign: 3_120_500,
@@ -302,6 +453,7 @@ export const mockStockDetails: Record<string, StockDetail> = {
       operatingProfit: 23_470_000_000_000,
       netIncome: 17_050_000_000_000,
     },
+    financialHealth: { debtRatio: 41.2, roe: 15.6, currentRatio: 187.3 },
     aiReport: {
       summaryPoints: [
         'HBM 수출 호조에 이틀 연속 오르며 반도체 업종 내 상대 강세를 보였습니다.',
@@ -313,11 +465,10 @@ export const mockStockDetails: Record<string, StockDetail> = {
       generatedAt: GENERATED_AT,
       sources: ['한국거래소', '연합인포맥스'],
     },
-  },
-  '032830': {
+  }),
+  '032830': buildStockDetail('032830', {
     tradingValue: 292_600_000_000,
     foreignOwnership: 38.4,
-    atAGlance: buildAtAGlance(mockStocks['032830'], mockPriceHistory['032830']),
     investorFlow: {
       individual: -412_800,
       foreign: 218_400,
@@ -331,6 +482,7 @@ export const mockStockDetails: Record<string, StockDetail> = {
       operatingProfit: 2_180_000_000_000,
       netIncome: 1_940_000_000_000,
     },
+    financialHealth: { debtRatio: 892.1, roe: 8.4, currentRatio: 105.2 },
     aiReport: {
       summaryPoints: [
         '삼성전자 주주환원 계획 발표에 배당 기대가 몰리며 급등했습니다.',
@@ -342,11 +494,10 @@ export const mockStockDetails: Record<string, StockDetail> = {
       generatedAt: GENERATED_AT,
       sources: ['한국거래소', '연합인포맥스'],
     },
-  },
-  '373220': {
+  }),
+  '373220': buildStockDetail('373220', {
     tradingValue: 632_760_000_000,
     foreignOwnership: 41.7,
-    atAGlance: buildAtAGlance(mockStocks['373220'], mockPriceHistory['373220']),
     investorFlow: {
       individual: 884_200,
       foreign: -1_204_600,
@@ -360,6 +511,7 @@ export const mockStockDetails: Record<string, StockDetail> = {
       operatingProfit: -280_000_000_000,
       netIncome: -410_000_000_000,
     },
+    financialHealth: { debtRatio: 118.6, roe: -3.2, currentRatio: 132.4 },
     aiReport: {
       summaryPoints: [
         '미국 장기 국채금리 상승에 2차전지 업종 전반이 약세를 보였습니다.',
@@ -371,11 +523,10 @@ export const mockStockDetails: Record<string, StockDetail> = {
       generatedAt: GENERATED_AT,
       sources: ['한국거래소', '연합인포맥스'],
     },
-  },
-  '009150': {
+  }),
+  '009150': buildStockDetail('009150', {
     tradingValue: 276_360_000_000,
     foreignOwnership: 33.9,
-    atAGlance: buildAtAGlance(mockStocks['009150'], mockPriceHistory['009150']),
     investorFlow: {
       individual: 218_400,
       foreign: -184_200,
@@ -389,6 +540,7 @@ export const mockStockDetails: Record<string, StockDetail> = {
       operatingProfit: 512_000_000_000,
       netIncome: 398_000_000_000,
     },
+    financialHealth: { debtRatio: 68.9, roe: 7.1, currentRatio: 145.8 },
     aiReport: {
       summaryPoints: [
         '대형주 쏠림에 소외되며 낙폭이 커졌습니다.',
@@ -399,11 +551,10 @@ export const mockStockDetails: Record<string, StockDetail> = {
       generatedAt: GENERATED_AT,
       sources: ['한국거래소', '연합인포맥스'],
     },
-  },
-  '196170': {
+  }),
+  '196170': buildStockDetail('196170', {
     tradingValue: 313_600_000_000,
     foreignOwnership: 12.8,
-    atAGlance: buildAtAGlance(mockStocks['196170'], mockPriceHistory['196170']),
     investorFlow: {
       individual: 612_400,
       foreign: -412_800,
@@ -417,6 +568,7 @@ export const mockStockDetails: Record<string, StockDetail> = {
       operatingProfit: 98_000_000_000,
       netIncome: 74_000_000_000,
     },
+    financialHealth: { debtRatio: 32.5, roe: 4.2, currentRatio: 612.3 },
     aiReport: {
       summaryPoints: [
         '위탁개발생산(CDMO) 계약 관련 불확실성이 부각되며 매도세가 유입됐습니다.',
@@ -428,5 +580,5 @@ export const mockStockDetails: Record<string, StockDetail> = {
       generatedAt: GENERATED_AT,
       sources: ['한국거래소', '연합인포맥스'],
     },
-  },
+  }),
 };
