@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { cn } from '@/lib/cn';
 import { Header } from './Header';
 
 /**
@@ -26,12 +27,31 @@ export function PageShell({
   );
 }
 
-/** 본문 + 우측 고정 패널 2단. 종목 브리핑의 챗 패널이 여기 들어간다. */
-export function SplitLayout({ main, side }: { main: ReactNode; side: ReactNode }) {
+/**
+ * align="start"(기본)는 각자 자기 내용 높이만큼만 차지한다.
+ * align="stretch"는 lg 이상에서 두 칸 높이를 서로 맞춘다
+ * 높이가 다른 층일 때 사용
+ */
+export function SplitLayout({
+  main,
+  side,
+  align = 'start',
+}: {
+  main: ReactNode;
+  side: ReactNode;
+  align?: 'start' | 'stretch';
+}) {
   return (
-    <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_var(--container-side)]">
-      <div className="flex min-w-0 flex-col gap-6">{main}</div>
-      <div>{side}</div>
+    <div
+      className={cn(
+        'grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_var(--container-side)]',
+        align === 'start' ? 'items-start' : 'items-stretch',
+      )}
+    >
+      <div className={cn('flex min-w-0 flex-col gap-6', align === 'stretch' && 'h-full')}>
+        {main}
+      </div>
+      <div className={cn(align === 'stretch' && 'flex h-full flex-col')}>{side}</div>
     </div>
   );
 }
