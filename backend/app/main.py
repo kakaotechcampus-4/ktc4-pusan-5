@@ -16,6 +16,7 @@ from app.core.errors import (
     unhandled_exception_handler,
     validation_error_handler,
 )
+from app.routers import concepts
 from app.routers.auth import router as auth_router
 
 
@@ -42,6 +43,7 @@ app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
+app.include_router(concepts.router)
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
 

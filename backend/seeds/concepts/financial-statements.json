@@ -1,0 +1,38 @@
+{
+  "slug": "financial-statements",
+  "name": "재무제표",
+  "aliases": [
+    "재무 3표",
+    "재무보고서"
+  ],
+  "category": "financial-statements/income-statement",
+  "extraCategories": [
+    "financial-statements/balance-sheet",
+    "financial-statements/cash-flow-statement"
+  ],
+  "summary": "회사의 성적표. 얼마 벌었는지, 무엇을 가졌고 빚은 얼마인지, 현금이 실제로 어떻게 움직였는지를 담습니다.",
+  "body": "세 장으로 이뤄집니다. 손익계산서는 기간의 성과, 재무상태표는 시점의 재산, 현금흐름표는 실제 돈의 이동을 보여줍니다. 이익은 회계 판단이 섞이지만 현금은 상대적으로 조작이 어렵기 때문에, 이익과 현금흐름의 방향이 다르면 주석을 확인해야 합니다.\n\n초보라면 매출·영업이익·부채비율 세 가지에서 시작하세요. 여기에 [CAPEX](capex)와 감가상각을 더하면 회사가 성장에 얼마를 쓰고 있는지 보이고, 주석의 우발부채까지 보면 숨은 위험도 확인할 수 있습니다.",
+  "related": [
+    {
+      "slug": "capex",
+      "reason": "현금흐름표에서 확인"
+    },
+    {
+      "slug": "disclosure",
+      "reason": "재무제표가 공개되는 창구"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "재무제표 주석에는 지급보증 같은 우발부채가 기재된다.",
+      "answer": true,
+      "explanation": "본문 숫자 밖의 위험은 주석에서 확인합니다."
+    },
+    {
+      "question": "회계 이익과 영업활동현금흐름은 항상 같은 방향으로 움직인다.",
+      "answer": false,
+      "explanation": "운전자본 변화 등으로 어긋날 수 있습니다."
+    }
+  ],
+  "sources": []
+}
