@@ -1,0 +1,35 @@
+{
+  "slug": "depreciation",
+  "name": "감가상각",
+  "aliases": [
+    "감가상각비",
+    "상각"
+  ],
+  "category": "financial-statements/accounting-treatment",
+  "extraCategories": null,
+  "summary": "설비 취득 비용을 사용 기간에 나눠 비용으로 반영하는 회계 처리. 현금은 이미 나갔고 장부만 나중에 반응합니다.",
+  "body": "1조 원짜리 설비를 10년 쓴다면 매년 1천억 원씩 비용으로 인식합니다. 실제 현금은 구입 시점에 나갔으므로, 감가상각비가 큰 회사는 장부 이익보다 현금흐름이 좋아 보입니다. EBITDA를 쓰는 이유가 여기 있습니다.\n\n설비 투자가 큰 산업에서 특히 중요합니다. [CAPEX](capex)가 커지면 몇 년 뒤 감가상각비가 늘어 이익률이 눌리고, 감가상각이 끝난 설비가 계속 가동되면 이익률이 튀어오릅니다. 이 시점 차이를 이해하면 사이클 업종의 이익 흐름이 읽힙니다.",
+  "related": [
+    {
+      "slug": "capex",
+      "reason": "감가상각의 원인"
+    },
+    {
+      "slug": "financial-statements",
+      "reason": "손익과 현금흐름의 차이"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "감가상각비는 매년 실제 현금이 유출되는 비용이다.",
+      "answer": false,
+      "explanation": "현금은 구입 시점에 이미 나갔습니다."
+    },
+    {
+      "question": "감가상각이 끝난 설비가 가동되면 이익률이 개선된다.",
+      "answer": true,
+      "explanation": "비용은 줄고 매출은 유지되기 때문입니다."
+    }
+  ],
+  "sources": []
+}

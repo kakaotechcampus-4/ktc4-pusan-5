@@ -1,0 +1,78 @@
+/**
+ * 브라우저에서 fetch로 백엔드 주소를 호출
+ *
+ * 에러 응답 형태
+ *   { "error": { "code": "CONCEPT_NOT_FOUND", "message": "개념을 찾을 수 없습니다" } }
+ */
+import type { Concept, ConceptListResponse } from '@/features/concepts/types';
+
+/** 베이스 URL 은 .env 로만 읽는다. 코드에 URL 을 박지 않는다. */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+
+/** 서버가 형태를 지키지 못했거나 네트워크가 끊겼을 때 쓰는 코드 */
+const NETWORK_ERROR = 'NETWORK_ERROR';
+const INVALID_RESPONSE = 'INVALID_RESPONSE';
+
+/**
+ * 화면이 처리하는 단일 에러.
+ * status 0 은 응답을 받지 못한 경우(네트워크 실패)
+ */
+export class ApiError extends Error {
+  readonly code: string;
+  readonly status: number;
+
+  constructor(code: string, message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+type ErrorPayload = {
+  error?: { code?: string; message?: string };
+};
+
+async function readApiError(response: Response): Promise<ApiError> {
+  let payload: ErrorPayload | null;
+  try {
+    payload = (await response.json()) as ErrorPayload;
+  } catch {
+    payload = null;
+  }
+
+  const code = payload?.error?.code ?? INVALID_RESPONSE;
+  const message = payload?.error?.message ?? '요청을 처리하지 못했습니다';
+  return new ApiError(code, message, response.status);
+}
+
+async function request<T>(path: string): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: { Accept: 'application/json' },
+    });
+  } catch {
+    throw new ApiError(NETWORK_ERROR, '서버에 연결하지 못했습니다', 0);
+  }
+
+  if (!response.ok) {
+    throw await readApiError(response);
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError(INVALID_RESPONSE, '응답을 해석하지 못했습니다', response.status);
+  }
+}
+
+/** 개념 상세, 없으면 CONCEPT_NOT_FOUND ApiError */
+export function getConcept(slug: string): Promise<Concept> {
+  return request<Concept>(`/api/concepts/${encodeURIComponent(slug)}`);
+}
+
+/** 개념 목록, 현재 미구현 */
+export function listConcepts(): Promise<ConceptListResponse> {
+  return request<ConceptListResponse>('/api/concepts');
+}
