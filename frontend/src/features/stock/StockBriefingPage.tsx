@@ -2,17 +2,20 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ErrorBox } from '@/components/ui';
 import { SplitLayout } from '@/components/layout/PageShell';
-import { mockStocks, mockBriefings } from './mock';
+import { mockPriceHistory, mockStockDetails, mockStocks } from './mock';
 import { StockHeader, StockHeaderSkeleton } from './components/StockHeader';
-import { StockStats, StockStatsSkeleton } from './components/StockStats';
-import { BriefingSection, type BriefingStatus } from './components/BriefingSection';
-import { ConceptChatPanel } from './components/ConceptChatPanel';
+import { PriceActionSection } from './components/PriceActionSection';
+import { AtAGlanceCard } from './components/AtAGlanceCard';
+import { InvestorFlowSection } from './components/InvestorFlowSection';
+import { ShortMarginSection } from './components/ShortMarginSection';
+import { FinancialSummarySection } from './components/FinancialSummarySection';
+import { AiReportSection, type AiReportStatus } from './components/AiReportSection';
 
 type StockStatus = 'loading' | 'error' | 'success';
 
 // 판단: 실제 fetch가 없어서 타이머로 상태 전이를 흉내낸다.
 // 실제 연동 시 이 useEffect 두 개를 lib/api.ts 호출로 바꾸면 아래 렌더 분기는 그대로 쓸 수 있다.
-// 시세는 empty가 없다 — 종목을 못 찾는 경우는 STOCK_NOT_FOUND 에러로 처리하기로 했다(브리핑과 다름).
+// 시세는 empty가 없다 — 종목을 못 찾는 경우는 STOCK_NOT_FOUND 에러로 처리하기로 했다(리포트와 다름).
 // mockStocks 에 없는 code 로 들어오면 "못 찾은 경우"로 인지하고 에러로 취급함
 // error 분기를 눈으로 보려면 존재하지 않는 code(/stock/000000)로 들어가서 확인 가능
 function useMockStockStatus(code: string | undefined): StockStatus {
@@ -36,8 +39,8 @@ function useMockStockStatus(code: string | undefined): StockStatus {
   return status;
 }
 
-function useMockBriefingStatus(code: string | undefined): [BriefingStatus, () => void] {
-  const [status, setStatus] = useState<BriefingStatus>('loading');
+function useMockReportStatus(code: string | undefined): [AiReportStatus, () => void] {
+  const [status, setStatus] = useState<AiReportStatus>('loading');
   const [attempt, setAttempt] = useState(0);
 
   const [trackedCode, setTrackedCode] = useState(code);
@@ -63,20 +66,10 @@ function useMockBriefingStatus(code: string | undefined): [BriefingStatus, () =>
 export function StockBriefingPage() {
   const { code } = useParams();
   const stockStatus = useMockStockStatus(code);
-  const [briefingStatus, retryBriefing] = useMockBriefingStatus(code);
+  const [reportStatus, retryReport] = useMockReportStatus(code);
 
   if (stockStatus === 'loading') {
-    return (
-      <SplitLayout
-        main={
-          <>
-            <StockHeaderSkeleton />
-            <StockStatsSkeleton />
-          </>
-        }
-        side={<ConceptChatPanel />}
-      />
-    );
+    return <StockHeaderSkeleton />;
   }
 
   if (stockStatus === 'error') {
@@ -91,18 +84,23 @@ export function StockBriefingPage() {
 
   // stockStatus === 'success' 는 useMockStockStatus 가 code를 mockStocks에서 찾았을 때만 나옴
   const stock = mockStocks[code!];
-  const briefing = mockBriefings[code!];
+  const detail = mockStockDetails[code!];
+  const history = mockPriceHistory[code!];
 
   return (
-    <SplitLayout
-      main={
-        <>
-          <StockHeader stock={stock} />
-          <StockStats stock={stock} />
-          <BriefingSection status={briefingStatus} briefing={briefing} onRetry={retryBriefing} />
-        </>
-      }
-      side={<ConceptChatPanel />}
-    />
+    <>
+      <StockHeader stock={stock} />
+
+      <SplitLayout
+        align="stretch"
+        main={<PriceActionSection history={history} />}
+        side={<AtAGlanceCard stock={stock} detail={detail} />}
+      />
+
+      <InvestorFlowSection flow={detail.investorFlow} />
+      <ShortMarginSection shortSelling={detail.shortSelling} marginBalance={detail.marginBalance} />
+      <FinancialSummarySection financials={detail.financials} />
+      <AiReportSection status={reportStatus} report={detail.aiReport} onRetry={retryReport} />
+    </>
   );
 }

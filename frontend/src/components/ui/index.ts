@@ -8,3 +8,4 @@ export { Empty, ErrorBox, Skeleton, SkeletonText } from './State';
 export { StockAvatar } from './StockAvatar';
 export { Modal } from './Modal';
 export { Tabs } from './Tabs';
+export { InfoTip } from './InfoTip';
