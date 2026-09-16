@@ -6,10 +6,7 @@ import { useMockReportStatus, useMockStockStatus } from './useStockDetail';
 import { StockHeader, StockHeaderSkeleton } from './components/StockHeader';
 import { PriceActionSection } from './components/PriceActionSection';
 import { AtAGlanceCard } from './components/AtAGlanceCard';
-import { InvestorFlowSection } from './components/InvestorFlowSection';
-import { ShortMarginSection } from './components/ShortMarginSection';
-import { FinancialSummarySection } from './components/FinancialSummarySection';
-import { AiReportSection } from './components/AiReportSection';
+import { StockInsightSection } from './components/StockInsightSection';
 
 /** 종목 상세 페이지. 화면 조립만 담당한다 — 로딩 상태 시뮬레이션은 useStockDetail이 맡는다. */
 export function StockBriefingPage() {
@@ -46,10 +43,11 @@ export function StockBriefingPage() {
         side={<AtAGlanceCard stock={stock} detail={detail} />}
       />
 
-      <InvestorFlowSection flow={detail.investorFlow} />
-      <ShortMarginSection shortSelling={detail.shortSelling} marginBalance={detail.marginBalance} />
-      <FinancialSummarySection financials={detail.financials} />
-      <AiReportSection status={reportStatus} report={detail.aiReport} onRetry={retryReport} />
+      <StockInsightSection
+        detail={detail}
+        reportStatus={reportStatus}
+        onRetryReport={retryReport}
+      />
     </>
   );
 }

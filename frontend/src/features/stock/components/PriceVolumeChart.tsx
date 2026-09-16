@@ -1,15 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { CandlestickSeries, ColorType, HistogramSeries, createChart } from 'lightweight-charts';
+import { cssVar } from '../chartColors';
 import type { Candle } from '../mock';
-
-/**
- * lightweight-charts는 캔버스 렌더링이라 Tailwind 클래스를 못 받음
- * theme.css의 CSS 커스텀 프로퍼티를 사용
- */
-function cssVar(name: string, fallback: string): string {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return value || fallback;
-}
 
 export function PriceVolumeChart({ candles }: { candles: Candle[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
