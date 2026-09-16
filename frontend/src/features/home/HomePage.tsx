@@ -1,10 +1,21 @@
 import { useEffect, useState } from 'react';
 import { SplitLayout } from '@/components/layout/PageShell';
-import { mockIndexBoard, mockSignalBoard, mockWatchlist } from './mock';
+import {
+  mockIndexBoard,
+  mockInvestorFlow,
+  mockMarketInsights,
+  mockRankingPool,
+  mockSectorRanks,
+  mockSignalBoard,
+  mockWatchlist,
+} from './mock';
 import { HomeHero } from './components/HomeHero';
 import { IndexSection } from './components/IndexTiles';
 import { SignalSection, type SignalStatus } from './components/SignalList';
 import { WatchlistCard, type WatchlistStatus } from './components/WatchlistCard';
+import { RankingSection } from './components/RankingSection';
+import { MarketFlowSection } from './components/MarketFlowSection';
+import { MarketInsightSection } from './components/MarketInsightSection';
 
 type LoadState = 'loading' | 'error' | 'success';
 
@@ -50,6 +61,9 @@ export function HomePage() {
   const [indexState, retryIndex] = useMockLoad(400, 'success');
   const [signalState, retrySignal] = useMockLoad(900, 'success');
   const [watchState, retryWatch] = useMockLoad(700, 'success');
+  const [rankingState, retryRanking] = useMockLoad(600, 'success');
+  const [flowState, retryFlow] = useMockLoad(1000, 'success');
+  const [insightState, retryInsight] = useMockLoad(1100, 'success');
 
   const watchlistStatus: WatchlistStatus =
     watchState === 'success' && mockWatchlist.items.length === 0 ? 'empty' : watchState;
@@ -66,11 +80,28 @@ export function HomePage() {
 
       <IndexSection status={indexState} indices={mockIndexBoard.indices} onRetry={retryIndex} />
 
+      <SignalSection status={signalStatus} board={mockSignalBoard} onRetry={retrySignal} />
+
       <SplitLayout
-        main={<SignalSection status={signalStatus} board={mockSignalBoard} onRetry={retrySignal} />}
+        main={
+          <RankingSection status={rankingState} pool={mockRankingPool} onRetry={retryRanking} />
+        }
         side={
           <WatchlistCard status={watchlistStatus} watchlist={mockWatchlist} onRetry={retryWatch} />
         }
+      />
+
+      <MarketFlowSection
+        status={flowState}
+        flow={mockInvestorFlow}
+        sectors={mockSectorRanks}
+        onRetry={retryFlow}
+      />
+
+      <MarketInsightSection
+        status={insightState}
+        insights={mockMarketInsights}
+        onRetry={retryInsight}
       />
     </>
   );
