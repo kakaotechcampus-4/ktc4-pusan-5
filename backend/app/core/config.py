@@ -15,9 +15,20 @@ class Settings(BaseSettings):
     naver_client_secret: str = ""
     kis_app_key: str = ""
     kis_app_secret: str = ""
-
     dart_api_key: str = ""
     ecos_api_key: str = ""
+
+    # 카카오 로그인
+    kakao_client_id: str = ""
+    kakao_client_secret: str = ""
+    kakao_redirect_uri: str = ""
+
+    # 자체 세션(JWT)
+    jwt_secret_key: str = ""
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 20160  # 14일
+    cookie_secure: bool = True  # 로컬 http 개발 환경에서만 .env 로 false 로 내린다
+
 
 
 settings = Settings()

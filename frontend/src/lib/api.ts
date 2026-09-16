@@ -4,10 +4,11 @@
  * 에러 응답 형태
  *   { "error": { "code": "CONCEPT_NOT_FOUND", "message": "개념을 찾을 수 없습니다" } }
  */
+import type { ApiErrorBody, User } from './types';
 import type { Concept, ConceptListResponse } from '@/features/concepts/types';
 
 /** 베이스 URL 은 .env 로만 읽는다. 코드에 URL 을 박지 않는다. */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 /** 서버가 형태를 지키지 못했거나 네트워크가 끊겼을 때 쓰는 코드 */
 const NETWORK_ERROR = 'NETWORK_ERROR';
@@ -29,28 +30,24 @@ export class ApiError extends Error {
   }
 }
 
-type ErrorPayload = {
-  error?: { code?: string; message?: string };
-};
-
 async function readApiError(response: Response): Promise<ApiError> {
-  let payload: ErrorPayload | null;
-  try {
-    payload = (await response.json()) as ErrorPayload;
-  } catch {
-    payload = null;
-  }
-
-  const code = payload?.error?.code ?? INVALID_RESPONSE;
-  const message = payload?.error?.message ?? '요청을 처리하지 못했습니다';
+  const body: ApiErrorBody | null = await response.json().catch(() => null);
+  const code = body?.error?.code ?? INVALID_RESPONSE;
+  const message = body?.error?.message ?? '요청을 처리하지 못했습니다';
   return new ApiError(code, message, response.status);
 }
 
-async function request<T>(path: string): Promise<T> {
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
-      headers: { Accept: 'application/json' },
+      ...init,
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...init?.headers,
+      },
     });
   } catch {
     throw new ApiError(NETWORK_ERROR, '서버에 연결하지 못했습니다', 0);
@@ -58,6 +55,10 @@ async function request<T>(path: string): Promise<T> {
 
   if (!response.ok) {
     throw await readApiError(response);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   try {
@@ -75,4 +76,19 @@ export function getConcept(slug: string): Promise<Concept> {
 /** 개념 목록, 현재 미구현 */
 export function listConcepts(): Promise<ConceptListResponse> {
   return request<ConceptListResponse>('/api/concepts');
+}
+
+export function fetchMe(): Promise<User> {
+  return request<User>('/api/auth/me');
+}
+
+export function loginWithKakao(code: string): Promise<User> {
+  return request<User>('/api/auth/kakao', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+}
+
+export function logout(): Promise<void> {
+  return request<void>('/api/auth/logout', { method: 'POST' });
 }

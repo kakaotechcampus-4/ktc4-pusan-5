@@ -5,30 +5,39 @@ import { HomePage } from '@/features/home/HomePage';
 import { StockBriefingPage } from '@/features/stock/StockBriefingPage';
 import { ConceptPage } from '@/features/concepts/ConceptPage';
 import { LoginModal } from '@/features/auth/LoginModal';
+import { KakaoCallbackPage } from '@/features/auth/KakaoCallbackPage';
+import { AuthProvider } from '@/features/auth/AuthProvider';
+import { useAuth } from '@/features/auth/useAuth';
 
-export function App() {
+function AppShell() {
   const [loginOpen, setLoginOpen] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
+  const { status, logout } = useAuth();
 
   return (
     <>
       <PageShell
-        loggedIn={loggedIn}
+        loggedIn={status === 'authenticated'}
         onLoginClick={() => setLoginOpen(true)}
-        onLogoutClick={() => setLoggedIn(false)}
+        onLogoutClick={() => {
+          void logout();
+        }}
       >
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/stock/:code" element={<StockBriefingPage />} />
           <Route path="/concepts/:slug" element={<ConceptPage />} />
+          <Route path="/oauth/kakao/callback" element={<KakaoCallbackPage />} />
         </Routes>
       </PageShell>
-      <LoginModal
-        key={String(loginOpen)}
-        open={loginOpen}
-        onClose={() => setLoginOpen(false)}
-        onSuccess={() => setLoggedIn(true)}
-      />
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
     </>
+  );
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   );
 }
