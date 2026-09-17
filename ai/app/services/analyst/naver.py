@@ -24,19 +24,16 @@ HTTP 호출이 1,000회를 넘는다. 매번 AsyncClient 를 새로 열면 TCP �
 """
 
 import asyncio
-import hashlib
 import html
 import logging
 import re
-import tempfile
 from datetime import UTC, date, datetime
-from pathlib import Path
 from typing import Any, Self
 
 import httpx
 
 from app.core.config import settings
-from app.services.analyst.pdf import PDF_MAX_BYTES, extract_pdf_text
+from app.services.analyst.pdf import pdf_text_from_bytes
 from app.services.analyst.schema import AnalystReportItem, PdfText
 
 logger = logging.getLogger(__name__)
@@ -240,7 +237,7 @@ class NaverResearchClient:
         return r.json().get("researchContent") or {}
 
     async def fetch_pdf_text(self, url: str | None) -> PdfText:
-        """PDF 를 임시 폴더에 받아 텍스트만 뽑고 파일은 지운다. 원본은 남기지 않는다."""
+        """attachUrl 로 PDF 를 받아 텍스트만 남긴다. 판정은 pdf.py 가 한다."""
         if not url:
             return PdfText(status="skipped", error="첨부 없음")
         try:
@@ -251,44 +248,8 @@ class NaverResearchClient:
         # 사유는 body_error 로 DB 에 남으니 나중에 그 행만 다시 돌리면 된다.
         except Exception as exc:  # noqa: BLE001 — 네트워크·404·타임아웃·인코딩 등
             return PdfText(status="failed", error=f"{type(exc).__name__}: {exc}"[:500])
-
-        if len(blob) > PDF_MAX_BYTES:
-            return PdfText(status="failed", error=f"용량 초과 {len(blob)}B")
-        if not blob.startswith(b"%PDF"):
-            return PdfText(status="failed", error="PDF 서명 없음")
-
-        sha = hashlib.sha256(blob).hexdigest()
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "report.pdf"
-            path.write_bytes(blob)
-            try:
-                # 동기 함수라 별도 스레드에서 돌린다. 안 그러면 이벤트 루프가 멈춘다.
-                text, how, pages = await asyncio.to_thread(extract_pdf_text, path)
-            # pypdf 는 깨진 PDF 에서 온갖 예외를 낸다. 여기서도 한 건만 버린다.
-            except Exception as exc:  # noqa: BLE001
-                return PdfText(
-                    status="failed",
-                    sha256=sha,
-                    size_bytes=len(blob),
-                    error=f"{type(exc).__name__}: {exc}"[:500],
-                )
-        # TemporaryDirectory 를 나오면 PDF 파일은 사라진다. 남는 건 텍스트와 해시뿐이다.
-
-        if not text:
-            # 이미지로만 된 스캔본. OCR 없이는 못 읽으니 failed 가 아니라 empty 로 구분한다.
-            # 쪽수는 남긴다 — 본문이 없어도 분량은 알 수 있고, 나중에 OCR 대상을 고를 때 쓴다.
-            return PdfText(
-                status="empty", sha256=sha, size_bytes=len(blob), pages=pages, extractor=how
-            )
-        return PdfText(
-            status="ok",
-            text=text,
-            chars=len(text),
-            sha256=sha,
-            size_bytes=len(blob),
-            pages=pages,
-            extractor=how,
-        )
+        # 동기 함수라 별도 스레드에서 돌린다. 안 그러면 이벤트 루프가 멈춘다.
+        return await asyncio.to_thread(pdf_text_from_bytes, blob)
 
     async def collect_since(
         self,

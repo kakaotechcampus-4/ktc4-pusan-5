@@ -1,8 +1,9 @@
 """PDF 텍스트 추출. 임시 PDF 를 직접 만들어 실제로 pdftotext 를 태운다."""
 
+import hashlib
 from pathlib import Path
 
-from app.services.analyst.pdf import extract_pdf_text
+from app.services.analyst.pdf import PDF_MAX_BYTES, extract_pdf_text, pdf_text_from_bytes
 
 
 def _three_page_pdf(path: Path) -> Path:
@@ -63,3 +64,59 @@ def test_falls_back_to_pypdf_when_pdftotext_returns_nothing(tmp_path: Path, monk
     assert pages == 3
     assert "page 1" in text
 
+
+# ---------------------------------------------------------- 바이트 → PdfText
+#
+# 여기가 네이버와 텔레그램이 같이 쓰는 자리다. 처음에는 이 판정이 네이버 클라이언트
+# 안에 있었는데, 텔레그램 수집기를 만들면서 같은 코드를 그대로 베끼게 돼서 옮겼다.
+
+
+def test_pdf_text_from_bytes_returns_ok_with_text(tmp_path: Path) -> None:
+    blob = _three_page_pdf(tmp_path / "t.pdf").read_bytes()
+    result = pdf_text_from_bytes(blob)
+    assert result.status == "ok"
+    assert result.pages == 3
+    assert "page 1" in result.text
+    assert result.sha256 == hashlib.sha256(blob).hexdigest()
+    assert result.size_bytes == len(blob)
+
+
+def test_pdf_text_from_bytes_rejects_non_pdf() -> None:
+    """확장자만 .pdf 인 파일이 실제로 온다. 서명을 본다."""
+    result = pdf_text_from_bytes(b"<html>Not Found</html>")
+    assert result.status == "failed"
+    assert "서명" in result.error
+
+
+def test_pdf_text_from_bytes_rejects_oversized() -> None:
+    result = pdf_text_from_bytes(b"%PDF-1.4" + b"0" * PDF_MAX_BYTES)
+    assert result.status == "failed"
+    assert "용량" in result.error
+
+
+def test_pdf_text_from_bytes_marks_empty_when_no_text(tmp_path: Path, monkeypatch) -> None:
+    """글자가 0자여도 failed 가 아니다. 이미지 스캔본이라 OCR 말고는 방법이 없다.
+
+    쪽수는 남긴다 — 나중에 OCR 대상을 고를 때 쓴다.
+    """
+    from app.services.analyst import pdf as pdf_mod
+
+    monkeypatch.setattr(pdf_mod, "extract_pdf_text", lambda _: ("", "pdftotext", 44))
+    result = pdf_text_from_bytes(_three_page_pdf(tmp_path / "t.pdf").read_bytes())
+    assert result.status == "empty"
+    assert result.pages == 44
+    assert result.sha256  # 해시는 남는다. 같은 PDF 인지 나중에 비교한다
+
+
+def test_pdf_text_from_bytes_survives_broken_pdf(tmp_path: Path, monkeypatch) -> None:
+    """pypdf 는 깨진 PDF 에서 온갖 예외를 낸다. 한 건만 버리고 배치는 계속 간다."""
+    from app.services.analyst import pdf as pdf_mod
+
+    def boom(_):
+        raise ValueError("깨진 xref")
+
+    monkeypatch.setattr(pdf_mod, "extract_pdf_text", boom)
+    result = pdf_text_from_bytes(_three_page_pdf(tmp_path / "t.pdf").read_bytes())
+    assert result.status == "failed"
+    assert "ValueError" in result.error
+    assert result.sha256  # 어느 파일이 깨졌는지 알 수 있어야 한다

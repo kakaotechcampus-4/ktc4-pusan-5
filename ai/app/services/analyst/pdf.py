@@ -1,12 +1,19 @@
 """PDF → 텍스트.
 
-네트워크와 무관한 순수 변환이라 클라이언트에서 떼어냈다. 테스트도 여기만 따로 돈다.
+받아오는 방법(네이버는 HTTP, 텔레그램은 Telethon)은 각 어댑터가 갖고, **받아온
+바이트를 판정해 PdfText 로 만드는 일은 여기 하나로 모은다.** 처음에는 이 판정을
+네이버 클라이언트 안에 뒀는데, 텔레그램 수집기를 만들면서 같은 코드를 그대로 베끼게 됐다.
+용량 확인·%PDF 서명·sha256·임시파일·empty 판정이 전부 출처와 무관하다.
 """
 
+import hashlib
 import logging
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
+
+from app.services.analyst.schema import PdfText
 
 logger = logging.getLogger(__name__)
 
@@ -59,3 +66,50 @@ def extract_pdf_text(path: Path) -> tuple[str, str, int | None]:
     # pypdf 는 폼피드를 안 넣는다. 위에서 \f 로 쪽을 세므로 여기서 직접 끼워넣는다.
     text = "\f".join((p.extract_text() or "") for p in reader.pages)
     return text.strip()[:MAX_BODY_CHARS], "pypdf", len(reader.pages)
+
+
+def pdf_text_from_bytes(blob: bytes) -> PdfText:
+    """받아온 PDF 바이트 → PdfText. **동기 함수다** — 호출부가 to_thread 로 돌린다.
+
+    임시 폴더에 썼다가 블록을 나오면서 지운다. 원본은 남기지 않는다.
+    상태를 셋으로 가른다.
+
+        ok      텍스트가 나왔다
+        empty   PDF 는 멀쩡한데 글자가 0자다. 이미지로만 된 스캔본이라 OCR 말고는
+                방법이 없다. 파이프라인 실패가 아니라서 failed 와 구분한다.
+                쪽수는 남긴다 — 나중에 OCR 대상을 고를 때 쓴다.
+        failed  용량 초과, PDF 가 아님, 추출 중 예외
+    """
+    if len(blob) > PDF_MAX_BYTES:
+        return PdfText(status="failed", error=f"용량 초과 {len(blob)}B")
+    if not blob.startswith(b"%PDF"):
+        return PdfText(status="failed", error="PDF 서명 없음")
+
+    sha = hashlib.sha256(blob).hexdigest()
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "report.pdf"
+        path.write_bytes(blob)
+        try:
+            text, how, pages = extract_pdf_text(path)
+        # pypdf 는 깨진 PDF 에서 온갖 예외를 낸다. 한 건만 버리고 배치는 계속 간다.
+        except Exception as exc:  # noqa: BLE001
+            return PdfText(
+                status="failed",
+                sha256=sha,
+                size_bytes=len(blob),
+                error=f"{type(exc).__name__}: {exc}"[:500],
+            )
+
+    if not text:
+        return PdfText(
+            status="empty", sha256=sha, size_bytes=len(blob), pages=pages, extractor=how
+        )
+    return PdfText(
+        status="ok",
+        text=text,
+        chars=len(text),
+        sha256=sha,
+        size_bytes=len(blob),
+        pages=pages,
+        extractor=how,
+    )
