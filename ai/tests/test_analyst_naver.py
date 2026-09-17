@@ -59,7 +59,8 @@ INDUSTRY_DETAIL = {
 }
 
 
-def test_목록_한줄_파싱() -> None:
+def test_parse_list_row_maps_naver_fields() -> None:
+    """네이버 목록 한 줄을 AnalystReportItem 으로."""
     item = parse_list_row("company", LIST_ROW)
     assert item.source_id == "96141"  # int 로 오지만 문자열로 통일한다
     assert item.item_code == "271560"
@@ -67,7 +68,8 @@ def test_목록_한줄_파싱() -> None:
     assert item.read_count == 613
 
 
-def test_상세_병합() -> None:
+def test_merge_detail_fills_summary_and_goal_price() -> None:
+    """요약·목표주가·PDF 링크는 상세 응답에만 있다."""
     item = merge_detail(parse_list_row("company", LIST_ROW), DETAIL)
     assert item.opinion == "매수"
     assert item.goal_price == 180_000
@@ -79,7 +81,7 @@ def test_상세_병합() -> None:
     assert item.attach_url is not None and item.attach_url.endswith(".pdf")
 
 
-def test_산업분석은_종목_없이도_파싱된다() -> None:
+def test_industry_report_parses_without_item_code() -> None:
     row = {**LIST_ROW, "researchId": 46078, "itemCode": None, "itemName": None}
     item = merge_detail(parse_list_row("industry", row), INDUSTRY_DETAIL)
     assert item.item_code is None
@@ -88,14 +90,16 @@ def test_산업분석은_종목_없이도_파싱된다() -> None:
     assert item.summary_text == "방산 예산이 늘었다"
 
 
-def test_HTML_걷어내기() -> None:
+def test_strip_html_keeps_line_breaks() -> None:
+    """네이버 요약은 HTML 이다. 태그는 걷되 <br> 은 줄바꿈으로 살린다."""
     assert strip_html("<p>가<br>나</p>") == "가\n나"
     assert strip_html("<p>&amp;컴퍼니</p>") == "&컴퍼니"
     assert strip_html("") is None
     assert strip_html(None) is None
 
 
-def test_숫자_변환() -> None:
+def test_to_int_handles_commas_and_blanks() -> None:
+    """네이버는 숫자를 문자열로 준다. 빈 값·콤마·'-' 가 섞여 온다."""
     assert to_int("180,000") == 180_000
     assert to_int("") is None
     assert to_int("-") is None
@@ -103,7 +107,7 @@ def test_숫자_변환() -> None:
     assert to_int("0") == 0
 
 
-def test_AI_생성_자료는_제외한다() -> None:
+def test_skips_ai_generated_reports() -> None:
     """한국IR협의회가 AI 로 만들어 올리는 자료는 애널리스트 리포트가 아니다.
 
     실제로 데이터도 틀려 있다 — 아이디스홀딩스(054800)와 씨에스베어링(297090)이
@@ -126,7 +130,7 @@ def test_AI_생성_자료는_제외한다() -> None:
     assert is_ai_generated(parse_list_row("company", row3)) is False
 
 
-def test_업종의견은_앞부분에서만_찾는다() -> None:
+def test_sector_view_ignores_compliance_appendix() -> None:
     """리포트 뒤쪽 컴플라이언스 부록에 과거 의견이 잔뜩 있어서 뒤를 보면 안 된다."""
     head = "투자의견 Overweight 유지. Top picks: 인텔리안테크, RFHIC\n" + "본문 " * 500
     tail = "투자의견 비율 매수 87% 중립 12%\n투자의견 변동 내역: Underweight\n" * 20
@@ -173,7 +177,7 @@ class FakeClient:
         pass
 
 
-async def test_since_이전이면_멈춘다() -> None:
+async def test_collect_since_stops_at_older_rows() -> None:
     fake = FakeClient()
     client = NaverResearchClient(client=fake)  # type: ignore[arg-type]
     items = await client.collect_since("company", date(2026, 9, 13), page_size=2)
@@ -181,7 +185,7 @@ async def test_since_이전이면_멈춘다() -> None:
     assert len(fake.calls) == 2  # 2페이지를 보고 멈췄다
 
 
-async def test_이미_있는_건_다시_안_가져온다() -> None:
+async def test_collect_since_skips_known_ids() -> None:
     client = NaverResearchClient(client=FakeClient())  # type: ignore[arg-type]
     items = await client.collect_since(
         "company", date(2026, 9, 13), page_size=2, known_ids={"96141"}

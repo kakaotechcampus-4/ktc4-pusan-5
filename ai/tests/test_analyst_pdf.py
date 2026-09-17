@@ -32,7 +32,7 @@ def _three_page_pdf(path: Path) -> Path:
     return path
 
 
-def test_페이지수는_폼피드로_센다(tmp_path: Path) -> None:
+def test_page_count_comes_from_form_feeds(tmp_path: Path) -> None:
     r"""pdftotext 는 페이지 수를 따로 안 준다. 페이지 사이 폼피드(\f)를 세서 얻는다."""
     text, how, pages = extract_pdf_text(_three_page_pdf(tmp_path / "t.pdf"))
     assert how == "pdftotext"
@@ -40,7 +40,7 @@ def test_페이지수는_폼피드로_센다(tmp_path: Path) -> None:
     assert "page 1" in text
 
 
-def test_pdftotext가_빈_결과를_주면_pypdf로_넘어간다(tmp_path: Path, monkeypatch) -> None:
+def test_falls_back_to_pypdf_when_pdftotext_returns_nothing(tmp_path: Path, monkeypatch) -> None:
     """poppler 26.07 은 Catalog 를 못 읽고도 **종료코드 0** 을 준다.
 
     받아온 PDF 55건 중 21건이 그랬고, 그중 203쪽짜리 리포트가 본문 0자로 들어갔다.
@@ -62,3 +62,4 @@ def test_pdftotext가_빈_결과를_주면_pypdf로_넘어간다(tmp_path: Path,
     assert how == "pypdf"  # rc=0 이어도 글자가 없으면 폴백한다
     assert pages == 3
     assert "page 1" in text
+
