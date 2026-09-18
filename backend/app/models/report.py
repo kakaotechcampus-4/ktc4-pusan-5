@@ -5,7 +5,15 @@ report_citation: 어떤 블록(또는 리포트 전체)이 어떤 근거카드�
 """
 from datetime import UTC, datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -44,6 +52,11 @@ class ReportBlock(Base):
     """
 
     __tablename__ = "report_block"
+    __table_args__ = (
+        # report_citation이 (block_id, report_id) 복합 FK로 이 테이블을 참조하기 위한 대상.
+        # Postgres 복합 FK는 참조 대상 컬럼 조합에 명시적 unique 제약이 있어야 해서 추가.
+        UniqueConstraint("id", "report_id", name="uq_report_block_id_report_id"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     report_id: Mapped[int] = mapped_column(ForeignKey("report.id"), nullable=False)
@@ -59,16 +72,27 @@ class ReportBlock(Base):
     )
 
     report: Mapped["Report"] = relationship(back_populates="blocks")
-    citations: Mapped[list["ReportCitation"]] = relationship(back_populates="block")
+    # citation.report_id는 report_id 단독 FK(report)와 (block_id, report_id) 복합 FK(block)
+    # 양쪽에서 같이 쓰인다. 의도된 중복이라 SAWarning을 overlaps로 명시해 끈다.
+    citations: Mapped[list["ReportCitation"]] = relationship(back_populates="block", overlaps="citations")
 
 
 class ReportCitation(Base):
     __tablename__ = "report_citation"
+    __table_args__ = (
+        # block_id가 채워져 있으면 그 block이 반드시 이 row의 report_id 소속이도록 강제한다.
+        # block_id가 NULL(리포트 전체 인용)이면 복합 FK는 검사되지 않는다.
+        ForeignKeyConstraint(
+            ["block_id", "report_id"],
+            ["report_block.id", "report_block.report_id"],
+            name="fk_report_citation_block_report",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     report_id: Mapped[int] = mapped_column(ForeignKey("report.id"), nullable=False)
     # 블록 단위 인용이면 채워짐. 리포트 전체에 걸린 인용(블록으로 안 쪼개진 경우)이면 NULL.
-    block_id: Mapped[int | None] = mapped_column(ForeignKey("report_block.id"), nullable=True)
+    block_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     source_card_id: Mapped[int] = mapped_column(ForeignKey("source_card.id"), nullable=False)
 
     excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)  # 원문 재게시 아님, 짧은 발췌만
@@ -79,5 +103,5 @@ class ReportCitation(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
-    report: Mapped["Report"] = relationship(back_populates="citations")
-    block: Mapped["ReportBlock | None"] = relationship(back_populates="citations")
+    report: Mapped["Report"] = relationship(back_populates="citations", overlaps="citations")
+    block: Mapped["ReportBlock | None"] = relationship(back_populates="citations", overlaps="citations,report")
