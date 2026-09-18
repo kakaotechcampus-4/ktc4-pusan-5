@@ -1,6 +1,5 @@
-from datetime import UTC, datetime
-
-from sqlalchemy import select
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import User
@@ -13,26 +12,25 @@ async def get_or_create_user(
     nickname: str,
     email: str,
 ) -> User:
-    #kakao_id 로 조회
-    #없으면 새로 만들고 / 있으면 정보 불러옴
-    user = (
-        await session.execute(select(User).where(User.kakao_id == kakao_id))
-    ).scalar_one_or_none()
-
-    if user is None:
-        user = User(
-            kakao_id=kakao_id,
-            nickname=nickname,
-            email=email,
+    # kakao_id 로 atomic upsert.
+    # INSERT ... ON CONFLICT (kakao_id) DO UPDATE ... RETURNING
+    stmt = (
+        pg_insert(User)
+        .values(kakao_id=kakao_id, nickname=nickname, email=email)
+        .on_conflict_do_update(
+            index_elements=[User.kakao_id],
+            set_={
+                "nickname": nickname,
+                "email": email,
+                "last_login_at": func.now(),
+            },
         )
-        session.add(user)
-    else:
-        user.nickname = nickname
-        user.email = email
-        user.last_login_at = datetime.now(UTC)
-
+        .returning(User)
+    )
+    # RETURNING으로 받은 최신 값으로 덮어씌움
+    result = await session.execute(stmt, execution_options={"populate_existing": True})
+    user = result.scalar_one()
     await session.flush()
-    await session.refresh(user)
     return user
 
 
