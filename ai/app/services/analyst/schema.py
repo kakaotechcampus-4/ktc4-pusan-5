@@ -28,6 +28,10 @@ class AnalystReportItem(BaseModel):
     """목록 한 줄 + 상세를 합친 것. DB 한 행이 된다."""
 
     source_id: str
+    # 출처가 준 원본 구분. 네이버 API 카테고리 5종이 그대로 들어간다.
+    # 자연키가 이걸 쓴다 — researchId 가 이 구분 안에서만 유일해서다.
+    source_category: str
+    # 우리 분류 4종. invest·daily 는 여기서 market 이 된다.
     category: str
     title: str
     broker: str

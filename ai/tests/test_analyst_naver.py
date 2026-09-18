@@ -8,6 +8,7 @@ from datetime import date
 import pytest
 
 from app.services.analyst.naver import (
+    CATEGORIES,
     NaverResearchClient,
     extract_sector_view,
     is_ai_generated,
@@ -63,6 +64,8 @@ def test_parse_list_row_maps_naver_fields() -> None:
     """네이버 목록 한 줄을 AnalystReportItem 으로."""
     item = parse_list_row("company", LIST_ROW)
     assert item.source_id == "96141"  # int 로 오지만 문자열로 통일한다
+    assert item.source_category == "company"
+    assert item.category == "company"
     assert item.item_code == "271560"
     assert item.write_date == date(2026, 9, 14)
     assert item.read_count == 613
@@ -191,3 +194,42 @@ async def test_collect_since_skips_known_ids() -> None:
         "company", date(2026, 9, 13), page_size=2, known_ids={"96141"}
     )
     assert [i.source_id for i in items] == ["96140"]
+
+
+def test_invest_and_daily_share_researchid_but_stay_distinct() -> None:
+    """invest 와 daily 를 market 으로 합쳐도 서로 다른 행으로 남아야 한다.
+
+    두 카테고리의 researchId 시퀀스가 각자 올라가서 구간이 어긋나 있을 뿐,
+    번호 자체는 겹친다. 실측(2026-09-18)으로 invest 2026-01-16 자 37550 과
+    daily 2026-09-17 자 37550 이 둘 다 살아 있었고 같은 번호대에서 42건이 겹쳤다.
+
+    category 로 구별하려 들면 둘 다 market 이라 같은 건이 된다. source_category
+    가 갈라준다.
+    """
+    row = {"researchId": 37550, "title": "x", "brokerName": "대신증권",
+           "writeDate": "2026-01-16"}
+    a = parse_list_row("invest", row)
+    b = parse_list_row("daily", {**row, "writeDate": "2026-09-17"})
+
+    assert a.source_id == b.source_id == "37550"
+    assert a.category == b.category == "market"       # 여기서는 같아진다
+    assert a.source_category != b.source_category     # 여기서 갈린다
+
+    def key(item):
+        return ("naver", item.source_category, item.source_id)
+
+    assert key(a) != key(b)
+
+
+def test_naver_categories_map_to_four_kinds() -> None:
+    """네이버 5종이 우리 4종으로 들어온다. invest·daily 만 합쳐진다."""
+    got = {c: parse_list_row(c, {"researchId": 1, "title": "x", "brokerName": "y",
+                                 "writeDate": "2026-09-14"}).category
+           for c in CATEGORIES}
+    assert got == {
+        "company": "company",
+        "industry": "industry",
+        "economy": "economy",
+        "invest": "market",
+        "daily": "market",
+    }

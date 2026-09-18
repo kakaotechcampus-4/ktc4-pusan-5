@@ -160,10 +160,23 @@ def extract_sector_view(body: str | None) -> tuple[str | None, list[str]]:
     return opinion, picks[:5]
 
 
+# 네이버가 주는 카테고리 → 우리 분류.
+# invest(투자전략)와 daily(시황)를 market 하나로 합친다. 둘이 안 갈리기 때문인데
+# 근거는 모델 주석에 적었다. 원본 구분은 source_category 에 그대로 남는다.
+TO_CATEGORY = {
+    "company": "company",
+    "industry": "industry",
+    "economy": "economy",
+    "invest": "market",
+    "daily": "market",
+}
+
+
 def parse_list_row(category: str, row: dict[str, Any]) -> AnalystReportItem:
     return AnalystReportItem(
         source_id=str(row["researchId"]),
-        category=category,
+        source_category=category,
+        category=TO_CATEGORY[category],
         title=(row.get("title") or "").strip(),
         broker=(row.get("brokerName") or "").strip(),
         write_date=date.fromisoformat(row["writeDate"]),
@@ -299,7 +312,9 @@ class NaverResearchClient:
         out: list[tuple[AnalystReportItem, PdfText | None]] = []
         for item in items:
             try:
-                detail = await self.fetch_detail(item.category, item.source_id)
+                # URL 에는 **원본 구분**이 들어간다. category 는 invest·daily 가 market 으로
+                # 합쳐진 값이라 그걸 넣으면 없는 경로가 된다.
+                detail = await self.fetch_detail(item.source_category, item.source_id)
                 merge_detail(item, detail)
             except NaverResearchError as exc:
                 logger.warning("%s — 이 건은 건너뛴다", exc)

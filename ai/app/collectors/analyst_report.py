@@ -39,6 +39,7 @@ def _to_row(item: AnalystReportItem, pdf: PdfText | None) -> dict:
     return {
         "source": SOURCE,
         "source_id": item.source_id,
+        "source_category": item.source_category,
         "category": item.category,
         "item_code": item.item_code,
         "item_name": item.item_name,
@@ -83,7 +84,7 @@ async def collect(
     saved: dict[str, int] = {}
     async with NaverResearchClient() as naver, SessionLocal() as session:
         for category in categories:
-            seen = await known_ids(session, SOURCE, category, since)
+            seen = await known_ids(session, SOURCE, since, category)
             items = await naver.collect_since(category, since, known_ids=seen)
             if limit:
                 items = items[:limit]
