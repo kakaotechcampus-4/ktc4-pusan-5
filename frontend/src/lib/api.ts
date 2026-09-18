@@ -73,7 +73,7 @@ export function getConcept(slug: string): Promise<Concept> {
   return request<Concept>(`/api/concepts/${encodeURIComponent(slug)}`);
 }
 
-/** 개념 목록, 현재 미구현 */
+/** 개념 목록, slug 순 정렬로 옴 */
 export function listConcepts(): Promise<ConceptListResponse> {
   return request<ConceptListResponse>('/api/concepts');
 }
