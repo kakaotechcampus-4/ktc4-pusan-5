@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ErrorBox, Skeleton } from '@/components/ui';
 import { ApiError } from '@/lib/api';
 import { useAuth } from './useAuth';
-import { buildKakaoAuthUrl } from './kakaoAuth';
+import { buildKakaoAuthUrl, clearStoredState, peekStoredState } from './kakaoAuth';
 
 const ERROR_MESSAGES: Record<string, string> = {
   KAKAO_AUTH_FAILED: '카카오 인증에 실패했습니다',
@@ -24,10 +24,18 @@ export function KakaoCallbackPage() {
   const [error, setError] = useState<string | null>(null);
   const requested = useRef(false);
   const code = searchParams.get('code');
+  const state = searchParams.get('state');
+  // state가 로그인 시작 시 저장해둔 값과 다르면 CSRF로 의심한다. 
+  //리액트 컴포넌트의 렌더 함수 규칙 : 렌더 중에는 외부 상태를 바꾸면(부수효과) 안됨
+  // peekStoredState에는 지우는 효과 없고 아래의 effect가 지움
+  const stateValid = state !== null && state === peekStoredState();
 
   useEffect(() => {
     if (!code || requested.current) return;
     requested.current = true;
+    clearStoredState();
+
+    if (!stateValid) return; // 렌더 시점에 에러 화면으로 분기
 
     loginWithKakao(code)
       .then(() => navigate('/', { replace: true }))
@@ -36,7 +44,7 @@ export function KakaoCallbackPage() {
           err instanceof ApiError ? (ERROR_MESSAGES[err.code] ?? err.message) : undefined;
         setError(message ?? '로그인에 실패했습니다');
       });
-  }, [code, loginWithKakao, navigate]);
+  }, [code, stateValid, loginWithKakao, navigate]);
 
   // code가 없는 경우를 렌더 중 분기 처리
   if (!code) {
@@ -45,6 +53,18 @@ export function KakaoCallbackPage() {
         <ErrorBox
           title="로그인에 실패했습니다"
           description="카카오 인증 코드를 받지 못했습니다"
+          onRetry={retryLogin}
+        />
+      </div>
+    );
+  }
+
+  if (!stateValid) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16">
+        <ErrorBox
+          title="로그인에 실패했습니다"
+          description="로그인 요청을 확인할 수 없습니다. 처음부터 다시 시도해주세요"
           onRetry={retryLogin}
         />
       </div>
