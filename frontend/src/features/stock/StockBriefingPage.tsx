@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom';
 import { ErrorBox } from '@/components/ui';
 import { SplitLayout } from '@/components/layout/PageShell';
 import { mockPriceHistory, mockStockDetails, mockStocks } from './mock';
-import { useMockReportStatus, useMockStockStatus } from './useStockDetail';
+import { useMockStockStatus } from './useStockDetail';
 import { StockHeader, StockHeaderSkeleton } from './components/StockHeader';
 import { PriceActionSection } from './components/PriceActionSection';
 import { AtAGlanceCard } from './components/AtAGlanceCard';
@@ -12,7 +12,6 @@ import { StockInsightSection } from './components/StockInsightSection';
 export function StockBriefingPage() {
   const { code } = useParams();
   const stockStatus = useMockStockStatus(code);
-  const [reportStatus, retryReport] = useMockReportStatus(code);
 
   if (stockStatus === 'loading') {
     return <StockHeaderSkeleton />;
@@ -43,11 +42,7 @@ export function StockBriefingPage() {
         side={<AtAGlanceCard stock={stock} detail={detail} />}
       />
 
-      <StockInsightSection
-        detail={detail}
-        reportStatus={reportStatus}
-        onRetryReport={retryReport}
-      />
+      <StockInsightSection detail={detail} code={code} />
     </>
   );
 }
