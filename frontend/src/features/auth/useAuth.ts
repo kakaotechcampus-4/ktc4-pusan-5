@@ -2,7 +2,10 @@
 import { createContext, useContext } from 'react';
 import type { User } from '@/lib/types';
 
-export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
+//'error' : /api/auth/me 확인 자체가 실패한 상태(5xx / 네트워크 오류 / 401 403 외 기타 4xx).
+// 로그인 여부를 서버가 확정해준 것이 아니기 때문에 'unauthenticated'와 구분함
+
+export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'error';
 
 export type AuthContextValue = {
   user: User | null;
