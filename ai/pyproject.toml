@@ -5,7 +5,12 @@ description = "BASIS 리포트 수집 파이프라인"
 requires-python = ">=3.12"
 dependencies = [
     "asyncpg>=0.31.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    # pdftotext(poppler)가 못 읽는 PDF 가 있어서 폴백으로 둔다.
+    # poppler 26.07 은 Catalog 를 못 읽고도 종료코드 0 을 준다 — pypdf 는 같은 파일을 읽는다.
+    "pypdf>=6.0.0",
     "sqlalchemy[asyncio]>=2.0.52",
 ]
 
