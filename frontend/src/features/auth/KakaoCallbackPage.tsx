@@ -26,9 +26,9 @@ export function KakaoCallbackPage() {
   const code = searchParams.get('code');
   const state = searchParams.get('state');
   // state가 로그인 시작 시 저장해둔 값과 다르면 CSRF로 의심한다. 
-  //리액트 컴포넌트의 렌더 함수 규칙 : 렌더 중에는 외부 상태를 바꾸면(부수효과) 안됨
+  // 검증을 한 번만 하도록 변경(useState)
   // peekStoredState에는 지우는 효과 없고 아래의 effect가 지움
-  const stateValid = state !== null && state === peekStoredState();
+  const [stateValid] = useState(() => state !== null && state === peekStoredState());
 
   useEffect(() => {
     if (!code || requested.current) return;
