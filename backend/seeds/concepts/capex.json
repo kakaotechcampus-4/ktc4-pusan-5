@@ -1,0 +1,44 @@
+{
+  "slug": "capex",
+  "name": "CAPEX",
+  "aliases": [
+    "설비투자",
+    "자본적지출"
+  ],
+  "category": "financial-statements/cash-flow-statement",
+  "extraCategories": null,
+  "summary": "공장·장비·기술처럼 미래를 위한 자산에 쓰는 지출. 오늘의 현금을 내주고 내일의 경쟁력을 사는 결정입니다.",
+  "body": "CAPEX는 손익계산서에 한 번에 비용으로 잡히지 않습니다. 자산으로 올린 뒤 사용 기간에 걸쳐 [감가상각](depreciation)으로 나눠 비용화합니다. 그래서 CAPEX가 큰 해에는 이익이 멀쩡해 보이지만 현금은 크게 빠져나갑니다. 투자활동현금흐름을 함께 봐야 하는 이유입니다.\n\n반도체·조선처럼 설비가 경쟁력인 산업에서는 CAPEX 규모가 곧 미래 점유율입니다. 반대로 수요가 꺾이는 국면의 대규모 투자는 고정비 부담으로 돌아옵니다. 그래서 같은 투자 발표가 호재로도 악재로도 읽힙니다.\n\n최근에는 AI 인프라 투자가 CAPEX 논쟁의 중심입니다. 빅테크의 자체 CAPEX가 계속 늘어나는지 여부가 [순환금융](circular-financing) 논란에서 \"수요가 실재하는가\"를 판정하는 기준으로 쓰입니다.",
+  "related": [
+    {
+      "slug": "depreciation",
+      "reason": "CAPEX가 비용으로 바뀌는 경로"
+    },
+    {
+      "slug": "circular-financing",
+      "reason": "AI 수요 실재 판단 기준"
+    },
+    {
+      "slug": "financial-statements",
+      "reason": "현금흐름표에서 확인"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "CAPEX는 투자활동현금흐름에 유출로 기록된다.",
+      "answer": true,
+      "explanation": "자산 취득이므로 투자활동에 잡힙니다."
+    },
+    {
+      "question": "CAPEX가 큰 해에는 이익이 즉시 같은 금액만큼 줄어든다.",
+      "answer": false,
+      "explanation": "감가상각으로 여러 해에 나눠 반영됩니다."
+    },
+    {
+      "question": "수요 둔화 국면의 대규모 증설은 고정비 부담이 될 수 있다.",
+      "answer": true,
+      "explanation": "가동률이 낮아지면 원가 부담이 커집니다."
+    }
+  ],
+  "sources": []
+}

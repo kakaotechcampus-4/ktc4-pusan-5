@@ -37,17 +37,29 @@ export function formatPctArrow(value: number): string {
   return `${abs}%`;
 }
 
-/** 시가총액 등 큰 금액. 12430000000000 → "12조 4,300억" */
+/** \uBC30\uC218 \uC9C0\uD45C(PER\u00B7PBR). 11.4 \u2192 "11.40\uBC30" */
+export function formatMultiple(value: number): string {
+  return `${value.toFixed(2)}\uBC30`;
+}
+
+/** \uB4F1\uB77D\uC774 \uC544\uB2CC \uBD80\uD638 \uC5C6\uB294 \uBE44\uC728(\uC678\uAD6D\uC778 \uBCF4\uC720\uC728, \uACF5\uB9E4\uB3C4 \uBE44\uC911 \uB4F1). 51.2 \u2192 "51.2%" */
+export function formatRatio(value: number, digits = 1): string {
+  return `${value.toFixed(digits)}%`;
+}
+
+/** 시가총액 등 큰 금액. 12430000000000 → "12조 4,300억" (음수는 -410000000000 → "−4,100억") */
 export function formatCompactKRW(value: number): string {
   const JO = 1_0000_0000_0000;
   const EOK = 1_0000_0000;
-  if (Math.abs(value) >= JO) {
-    const jo = Math.floor(value / JO);
-    const eok = Math.floor((value % JO) / EOK);
-    return eok > 0 ? `${jo}조 ${eok.toLocaleString('ko-KR')}억` : `${jo}조`;
+  const sign = value < 0 ? MINUS : '';
+  const abs = Math.abs(value);
+  if (abs >= JO) {
+    const jo = Math.floor(abs / JO);
+    const eok = Math.floor((abs % JO) / EOK);
+    return eok > 0 ? `${sign}${jo}조 ${eok.toLocaleString('ko-KR')}억` : `${sign}${jo}조`;
   }
-  if (Math.abs(value) >= EOK) {
-    return `${Math.floor(value / EOK).toLocaleString('ko-KR')}억`;
+  if (abs >= EOK) {
+    return `${sign}${Math.floor(abs / EOK).toLocaleString('ko-KR')}억`;
   }
   return formatPrice(value);
 }
