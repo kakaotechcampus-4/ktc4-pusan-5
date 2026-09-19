@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Tabs, Tag } from '@/components/ui';
 import { SectionHead } from '@/components/layout/PageShell';
 import type { StockDetail } from '../mock';
-import { AiReportSection, type AiReportStatus } from './AiReportSection';
+import { useMockReportStatus } from '../useStockDetail';
+import { AiReportSection } from './AiReportSection';
 import { DetailInfoTab } from './DetailInfoTab';
 
 type InsightTab = 'ai' | 'detail';
@@ -18,14 +19,13 @@ const TABS: { value: InsightTab; label: string }[] = [
  */
 export function StockInsightSection({
   detail,
-  reportStatus,
-  onRetryReport,
+  code,
 }: {
   detail: StockDetail;
-  reportStatus: AiReportStatus;
-  onRetryReport: () => void;
+  code: string | undefined;
 }) {
   const [tab, setTab] = useState<InsightTab>('ai');
+  const [reportStatus, retryReport] = useMockReportStatus(code);
 
   return (
     <section className="flex flex-col gap-3">
@@ -36,7 +36,7 @@ export function StockInsightSection({
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
 
       {tab === 'ai' && (
-        <AiReportSection status={reportStatus} report={detail.aiReport} onRetry={onRetryReport} />
+        <AiReportSection status={reportStatus} report={detail.aiReport} onRetry={retryReport} />
       )}
       {tab === 'detail' && <DetailInfoTab detail={detail} />}
     </section>

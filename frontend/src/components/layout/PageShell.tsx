@@ -6,20 +6,10 @@ import { Header } from './Header';
  * 모든 페이지는 이걸로 감싼다. 최대 폭·좌우 여백·헤더가 여기서 한 번에 정해진다.
  * 페이지마다 헤더를 새로 만들거나 max-w 를 다시 지정하지 않는다.
  */
-export function PageShell({
-  children,
-  loggedIn,
-  onLoginClick,
-  onLogoutClick,
-}: {
-  children: ReactNode;
-  loggedIn?: boolean;
-  onLoginClick?: () => void;
-  onLogoutClick?: () => void;
-}) {
+export function PageShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <Header loggedIn={loggedIn} onLoginClick={onLoginClick} onLogoutClick={onLogoutClick} />
+      <Header />
       <main className="max-w-page mx-auto flex w-full flex-col gap-8 px-6 pt-8 pb-30">
         {children}
       </main>
