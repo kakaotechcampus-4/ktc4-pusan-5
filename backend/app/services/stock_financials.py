@@ -31,6 +31,14 @@ class AnnualIncome:
 class AnnualEps:
     period_end: date
     eps: Decimal | None
+    roe: Decimal | None = None
+    debt_ratio: Decimal | None = None
+
+
+@dataclass(frozen=True)
+class AnnualStability:
+    period_end: date
+    current_ratio: Decimal | None
 
 
 def _period(raw: object) -> date:
@@ -126,5 +134,33 @@ async def fetch_eps(kis: _Getter, code: str) -> list[AnnualEps]:
         if period in seen:
             raise MarketDataError("INVALID_RESPONSE")
         seen.add(period)
-        result.append(AnnualEps(period, _number(row.get("eps"))))
+        result.append(
+            AnnualEps(
+                period,
+                _number(row.get("eps")),
+                _number(row.get("roe_val")),
+                _number(row.get("lblt_rate")),
+            )
+        )
+    return sorted(result, key=lambda x: x.period_end)
+
+
+async def fetch_stability(kis: _Getter, code: str) -> list[AnnualStability]:
+    if not re.fullmatch(r"[0-9A-Z]{6}", code):
+        raise MarketDataError("INVALID_RESPONSE")
+    body = await kis.get(
+        "/uapi/domestic-stock/v1/finance/stability-ratio",
+        "FHKST66430600",
+        {"FID_DIV_CLS_CODE": "0", "FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": code},
+    )
+    result: list[AnnualStability] = []
+    seen: set[date] = set()
+    for row in _rows(body):
+        if "crnt_rate" not in row:
+            raise MarketDataError("INVALID_RESPONSE")
+        period = _period(row.get("stac_yymm"))
+        if period in seen:
+            raise MarketDataError("INVALID_RESPONSE")
+        seen.add(period)
+        result.append(AnnualStability(period, _number(row.get("crnt_rate"))))
     return sorted(result, key=lambda x: x.period_end)

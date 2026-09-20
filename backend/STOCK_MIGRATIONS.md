@@ -28,3 +28,9 @@ Application startup and the market collector exclude the seven stock tables from
 `create_all`; apply `uv run alembic upgrade head` before starting either process.
 Use `uv run alembic check` to verify the managed schema. Existing non-stock tables
 remain on the repository's prior initialization path.
+
+Revision `20260920_03` adds nullable `roe` and `debt_ratio` columns to annual
+EPS, adds `stock_annual_stability`, and permits `stability` jobs. Upgrade keeps
+existing EPS rows but clears their `last_success_at` so the new fields are
+fetched without waiting for the normal TTL. Downgrade removes stability
+jobs/state, the stability table, and the two EPS health columns.

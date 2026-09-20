@@ -16,6 +16,21 @@ class AnnualIncome(CamelModel):
 class AnnualEps(CamelModel):
     fiscal_period: str
     eps: FiniteFloat | None = None
+    roe: FiniteFloat | None = None
+    debt_ratio: FiniteFloat | None = None
+
+
+class AnnualStability(CamelModel):
+    fiscal_period: str
+    current_ratio: FiniteFloat | None = None
+
+
+class FinancialHealth(CamelModel):
+    fiscal_period: str
+    debt_ratio: FiniteFloat | None = None
+    roe: FiniteFloat | None = None
+    operating_margin: FiniteFloat | None = None
+    current_ratio: FiniteFloat | None = None
 
 
 class StockFinancials(CamelModel):
@@ -24,3 +39,4 @@ class StockFinancials(CamelModel):
     basis: Literal["provider"] = "provider"
     income: Resource[list[AnnualIncome]]
     eps: Resource[list[AnnualEps]]
+    health: Resource[FinancialHealth]

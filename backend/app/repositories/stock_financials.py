@@ -4,9 +4,9 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.stock_financials import StockAnnualEps, StockAnnualIncome
+from app.models.stock_financials import StockAnnualEps, StockAnnualIncome, StockAnnualStability
 
-MODELS = {"income": StockAnnualIncome, "eps": StockAnnualEps}
+MODELS = {"income": StockAnnualIncome, "eps": StockAnnualEps, "stability": StockAnnualStability}
 
 
 async def list_periods(session: AsyncSession, code: str, resource: str):

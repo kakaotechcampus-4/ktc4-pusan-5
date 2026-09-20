@@ -4,7 +4,14 @@ from decimal import Decimal
 import pytest
 
 from app.services.market_data import MarketDataError
-from app.services.stock_financials import AnnualEps, AnnualIncome, fetch_eps, fetch_income
+from app.services.stock_financials import (
+    AnnualEps,
+    AnnualIncome,
+    AnnualStability,
+    fetch_eps,
+    fetch_income,
+    fetch_stability,
+)
 
 
 class FakeKis:
@@ -39,10 +46,15 @@ async def test_income_annual_dict_output_preserves_fiscal_month():
 @pytest.mark.asyncio
 async def test_eps_list_is_sorted_and_blank_is_none():
     kis = FakeKis(
-        {"output": [{"stac_yymm": "202412", "eps": ""}, {"stac_yymm": "202503", "eps": "2.5"}]}
+        {
+            "output": [
+                {"stac_yymm": "202412", "eps": "", "roe_val": "92.68", "lblt_rate": "32.80"},
+                {"stac_yymm": "202503", "eps": "2.5"},
+            ]
+        }
     )
     assert await fetch_eps(kis, "000660") == [
-        AnnualEps(date(2024, 12, 31), None),
+        AnnualEps(date(2024, 12, 31), None, Decimal("92.68"), Decimal("32.80")),
         AnnualEps(date(2025, 3, 31), Decimal("2.5")),
     ]
     assert kis.calls[0][2] == {
@@ -99,3 +111,14 @@ async def test_rejects_duplicate_or_bad_period():
 async def test_invalid_period_or_changed_payload_is_failure(row):
     with pytest.raises(MarketDataError):
         await fetch_eps(FakeKis({"output": [row]}), "000660")
+
+
+@pytest.mark.asyncio
+async def test_stability_requires_current_ratio_and_preserves_percent():
+    kis = FakeKis({"output": {"stac_yymm": "202512", "crnt_rate": "259.15"}})
+    assert await fetch_stability(kis, "000660") == [
+        AnnualStability(date(2025, 12, 31), Decimal("259.15"))
+    ]
+    assert kis.calls[0][1] == "FHKST66430600"
+    with pytest.raises(MarketDataError):
+        await fetch_stability(FakeKis({"output": {"stac_yymm": "202512"}}), "000660")

@@ -90,12 +90,12 @@ class StockWorker:
                         QuoteData.model_validate(value.quote)
                     if value.metrics is not None:
                         MetricsData.model_validate(value.metrics)
-                elif job.resource in ("income", "eps"):
-                    fetch = (
-                        stock_financials.fetch_income
-                        if job.resource == "income"
-                        else stock_financials.fetch_eps
-                    )
+                elif job.resource in ("income", "eps", "stability"):
+                    fetch = {
+                        "income": stock_financials.fetch_income,
+                        "eps": stock_financials.fetch_eps,
+                        "stability": stock_financials.fetch_stability,
+                    }[job.resource]
                     value = await fetch(self.kis, job.stock_code)
                 elif job.resource == "prices":
                     value = await stock_data.fetch_prices(
@@ -139,7 +139,7 @@ class StockWorker:
                     or value.metrics_error
                     or ("OUTDATED_RESPONSE" if rejected else None)
                 )
-            elif not error and job.resource in ("income", "eps"):
+            elif not error and job.resource in ("income", "eps", "stability"):
                 error = await save_periods(
                     session, job.stock_code, job.resource, [asdict(row) for row in value], now
                 )

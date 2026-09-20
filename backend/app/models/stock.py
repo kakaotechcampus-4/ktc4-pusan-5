@@ -130,7 +130,7 @@ class StockCollectionJob(Base):
             "status IN ('queued','running','idle','failed')", name="ck_stock_collection_job_status"
         ),
         CheckConstraint(
-            "resource IN ('snapshot','prices','income','eps')", name="ck_stock_collection_job_resource"
+            "resource IN ('snapshot','prices','income','eps','stability')", name="ck_stock_collection_job_resource"
         ),
         CheckConstraint(
             "range_end >= range_start AND attempts >= 0",

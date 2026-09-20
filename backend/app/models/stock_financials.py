@@ -33,5 +33,22 @@ class StockAnnualEps(Base):
     )
     period_end: Mapped[date] = mapped_column(Date, primary_key=True)
     eps: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
+    roe: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
+    debt_ratio: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
+    source: Mapped[str] = mapped_column(String(12), default="KIS")
+    collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class StockAnnualStability(Base):
+    __tablename__ = "stock_annual_stability"
+    __table_args__ = (
+        PrimaryKeyConstraint("stock_code", "period_end", name="pk_stock_annual_stability"),
+    )
+    stock_code: Mapped[str] = mapped_column(
+        ForeignKey("stock.code", name="fk_stock_annual_stability_stock_code_stock"),
+        primary_key=True,
+    )
+    period_end: Mapped[date] = mapped_column(Date, primary_key=True)
+    current_ratio: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
     source: Mapped[str] = mapped_column(String(12), default="KIS")
     collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

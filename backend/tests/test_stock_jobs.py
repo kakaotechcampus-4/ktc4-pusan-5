@@ -112,7 +112,9 @@ async def test_claim_skips_job_locked_by_another_worker():
                 first_job = await claim(first, now)
                 assert first_job is not None
                 second_job = await claim(second, now)
-                assert second_job is None
+                assert first_job.stock_code == code
+                # 개발 DB의 다른 대기 작업은 정상적으로 가져올 수 있다.
+                assert second_job is None or second_job.id != first_job.id
         finally:
             await first_transaction.rollback()
             await second_transaction.rollback()

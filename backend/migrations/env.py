@@ -35,6 +35,7 @@ MANAGED_TABLES = {
     "stock_data_coverage",
     "stock_annual_income",
     "stock_annual_eps",
+    "stock_annual_stability",
 }
 for table in stock_models.Base.metadata.sorted_tables:
     if table.name in MANAGED_TABLES:
