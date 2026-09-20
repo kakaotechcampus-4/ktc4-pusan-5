@@ -4,12 +4,24 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.stock_financials import StockAnnualEps, StockAnnualIncome, StockAnnualStability
+from app.models.stock_financials import (
+    StockAnnualEps,
+    StockAnnualIncome,
+    StockAnnualStability,
+    StockQuarterlyIncome,
+    StockQuarterlyRatio,
+)
 
-MODELS = {"income": StockAnnualIncome, "eps": StockAnnualEps, "stability": StockAnnualStability}
+MODELS = {
+    "income": StockAnnualIncome,
+    "eps": StockAnnualEps,
+    "stability": StockAnnualStability,
+    "quarter_income": StockQuarterlyIncome,
+    "quarter_ratios": StockQuarterlyRatio,
+}
 
 
-async def list_periods(session: AsyncSession, code: str, resource: str):
+async def list_periods(session: AsyncSession, code: str, resource: str, limit: int = 5):
     model = MODELS[resource]
     return list(
         (
@@ -17,7 +29,7 @@ async def list_periods(session: AsyncSession, code: str, resource: str):
                 select(model)
                 .where(model.stock_code == code)
                 .order_by(model.period_end.desc())
-                .limit(5)
+                .limit(limit)
             )
         ).all()
     )

@@ -86,7 +86,13 @@ async def test_health_persists_and_reuses_financial_jobs(stock_db):
                 select(StockCollectionJob).where(StockCollectionJob.stock_code == "TST001")
             )
         ).all()
-        assert sorted(job.resource for job in jobs) == ["eps", "income", "stability"]
+        assert sorted(job.resource for job in jobs) == [
+            "eps",
+            "income",
+            "quarter_income",
+            "quarter_ratios",
+            "stability",
+        ]
         for kind, row in (
             (
                 "income",

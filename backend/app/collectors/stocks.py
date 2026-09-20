@@ -13,8 +13,10 @@ from app.core.database import SessionLocal
 from app.models.stock import Stock, StockCollectionState
 from app.repositories import stock as repo
 from app.repositories.stock_financials import save_periods
+from app.repositories.stock_history import save_history
 from app.schemas.stock import MetricsData, QuoteData
-from app.services import stock_data, stock_financials
+from app.services import stock_data, stock_financials, stock_history
+from app.services.krx_history import krx_rows
 from app.services.market_data import MarketDataError
 from app.services.stock_detail import ACTIVE_WINDOW, snapshot_ttl
 
@@ -90,13 +92,37 @@ class StockWorker:
                         QuoteData.model_validate(value.quote)
                     if value.metrics is not None:
                         MetricsData.model_validate(value.metrics)
-                elif job.resource in ("income", "eps", "stability"):
+                elif job.resource in (
+                    "income",
+                    "eps",
+                    "stability",
+                    "quarter_income",
+                    "quarter_ratios",
+                ):
                     fetch = {
                         "income": stock_financials.fetch_income,
                         "eps": stock_financials.fetch_eps,
                         "stability": stock_financials.fetch_stability,
+                        "quarter_income": stock_financials.fetch_quarterly_income,
+                        "quarter_ratios": stock_financials.fetch_quarterly_ratios,
                     }[job.resource]
                     value = await fetch(self.kis, job.stock_code)
+                elif job.resource in ("history_cap", "history_rs"):
+                    async with SessionLocal() as lookup:
+                        stock = await lookup.get(Stock, job.stock_code)
+                        market = stock.market
+
+                    async def cached_rows(market, kind, day):
+                        return await krx_rows(self.client, market, kind, day)
+
+                    if job.resource == "history_cap":
+                        value = await stock_history.fetch_cap(
+                            self.client, job.stock_code, market, job.range_start, cached_rows
+                        )
+                    else:
+                        value = await stock_history.fetch_rs(
+                            self.kis, job.stock_code, market, job.range_start, cached_rows
+                        )
                 elif job.resource == "prices":
                     value = await stock_data.fetch_prices(
                         self.kis, job.stock_code, job.range_start, job.range_end
@@ -139,9 +165,19 @@ class StockWorker:
                     or value.metrics_error
                     or ("OUTDATED_RESPONSE" if rejected else None)
                 )
-            elif not error and job.resource in ("income", "eps", "stability"):
+            elif not error and job.resource in (
+                "income",
+                "eps",
+                "stability",
+                "quarter_income",
+                "quarter_ratios",
+            ):
                 error = await save_periods(
                     session, job.stock_code, job.resource, [asdict(row) for row in value], now
+                )
+            elif not error and job.resource in ("history_cap", "history_rs"):
+                await save_history(
+                    session, job.stock_code, job.range_start, job.resource, value, now
                 )
             elif not error:
                 await repo.save_prices(session, job, [asdict(row) for row in value], now)

@@ -34,3 +34,14 @@ EPS, adds `stock_annual_stability`, and permits `stability` jobs. Upgrade keeps
 existing EPS rows but clears their `last_success_at` so the new fields are
 fetched without waiting for the normal TTL. Downgrade removes stability
 jobs/state, the stability table, and the two EPS health columns.
+
+Revision `20260920_04` adds quarterly YTD income and ratio tables and permits
+`quarter_income` and `quarter_ratios` jobs. Quarterly income retains the
+provider's `fiscal_year_end_month` so non-December fiscal calendars are not
+mistakenly converted into ordinary calendar quarters. Downgrade removes those
+quarterly jobs/state rows and both tables.
+
+Revision `20260920_05` adds `stock_period_market` for historical market cap and
+relative strength values, plus `krx_historical_cache`, a shared market/date
+response cache for KRX stock and index requests. It permits `history_cap` and
+`history_rs` jobs and removes those jobs/state rows on downgrade.

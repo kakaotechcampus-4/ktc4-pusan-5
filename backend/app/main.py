@@ -28,7 +28,11 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(
             lambda sync: Base.metadata.create_all(
                 sync,
-                tables=[t for t in Base.metadata.sorted_tables if not t.name.startswith("stock")],
+                tables=[
+                    t
+                    for t in Base.metadata.sorted_tables
+                    if not t.name.startswith("stock") and t.name != "krx_historical_cache"
+                ],
             )
         )
     yield

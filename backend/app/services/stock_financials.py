@@ -28,6 +28,11 @@ class AnnualIncome:
 
 
 @dataclass(frozen=True)
+class QuarterlyIncome(AnnualIncome):
+    fiscal_year_end_month: int | None = None
+
+
+@dataclass(frozen=True)
 class AnnualEps:
     period_end: date
     eps: Decimal | None
@@ -89,13 +94,17 @@ def _rows(body: dict) -> list[dict]:
     raise MarketDataError("INVALID_RESPONSE")
 
 
-async def fetch_income(kis: _Getter, code: str) -> list[AnnualIncome]:
+async def _fetch_income(kis: _Getter, code: str, period_selector: str) -> list[AnnualIncome]:
     if not re.fullmatch(r"[0-9A-Z]{6}", code):
         raise MarketDataError("INVALID_RESPONSE")
     body = await kis.get(
         "/uapi/domestic-stock/v1/finance/income-statement",
         "FHKST66430200",
-        {"FID_DIV_CLS_CODE": "0", "FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": code},
+        {
+            "FID_DIV_CLS_CODE": period_selector,
+            "FID_COND_MRKT_DIV_CODE": "J",
+            "FID_INPUT_ISCD": code,
+        },
     )
     result: list[AnnualIncome] = []
     seen: set[date] = set()
@@ -117,13 +126,17 @@ async def fetch_income(kis: _Getter, code: str) -> list[AnnualIncome]:
     return sorted(result, key=lambda x: x.period_end)
 
 
-async def fetch_eps(kis: _Getter, code: str) -> list[AnnualEps]:
+async def _fetch_ratios(kis: _Getter, code: str, period_selector: str) -> list[AnnualEps]:
     if not re.fullmatch(r"[0-9A-Z]{6}", code):
         raise MarketDataError("INVALID_RESPONSE")
     body = await kis.get(
         "/uapi/domestic-stock/v1/finance/financial-ratio",
         "FHKST66430300",
-        {"FID_DIV_CLS_CODE": "0", "FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": code},
+        {
+            "FID_DIV_CLS_CODE": period_selector,
+            "FID_COND_MRKT_DIV_CODE": "J",
+            "FID_INPUT_ISCD": code,
+        },
     )
     result: list[AnnualEps] = []
     seen: set[date] = set()
@@ -143,6 +156,45 @@ async def fetch_eps(kis: _Getter, code: str) -> list[AnnualEps]:
             )
         )
     return sorted(result, key=lambda x: x.period_end)
+
+
+async def fetch_income(kis: _Getter, code: str) -> list[AnnualIncome]:
+    return await _fetch_income(kis, code, "0")
+
+
+async def fetch_eps(kis: _Getter, code: str) -> list[AnnualEps]:
+    return await _fetch_ratios(kis, code, "0")
+
+
+async def fetch_quarterly_income(kis: _Getter, code: str) -> list[QuarterlyIncome]:
+    """Fetch quarterly income; KIS returns cumulative year-to-date values."""
+    rows = await _fetch_income(kis, code, "1")
+    fiscal_month: int | None = None
+    body = await kis.get(
+        "/uapi/domestic-stock/v1/quotations/search-stock-info",
+        "CTPF1002R",
+        {"PRDT_TYPE_CD": "300", "PDNO": code},
+    )
+    output = body.get("output")
+    if isinstance(output, list):
+        output = output[0] if output else None
+    if isinstance(output, dict):
+        raw = str(output.get("setl_mmdd", "")).strip()
+        if re.fullmatch(r"\d{2}(?:\d{2})?", raw):
+            try:
+                date(2000, int(raw[:2]), int(raw[2:]) if len(raw) == 4 else 1)
+            except ValueError:
+                raise MarketDataError("INVALID_RESPONSE") from None
+            fiscal_month = int(raw[:2])
+    return [
+        QuarterlyIncome(r.period_end, r.revenue, r.operating_profit, r.net_income, fiscal_month)
+        for r in rows
+    ]
+
+
+async def fetch_quarterly_ratios(kis: _Getter, code: str) -> list[AnnualEps]:
+    """Fetch quarterly ratios; values are preserved exactly as KIS reports them."""
+    return await _fetch_ratios(kis, code, "1")
 
 
 async def fetch_stability(kis: _Getter, code: str) -> list[AnnualStability]:

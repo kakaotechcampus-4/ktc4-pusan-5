@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, PrimaryKeyConstraint, String
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, PrimaryKeyConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -50,5 +50,44 @@ class StockAnnualStability(Base):
     )
     period_end: Mapped[date] = mapped_column(Date, primary_key=True)
     current_ratio: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
+    source: Mapped[str] = mapped_column(String(12), default="KIS")
+    collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class StockQuarterlyIncome(Base):
+    """Provider quarterly income values, reported as cumulative YTD amounts."""
+
+    __tablename__ = "stock_quarterly_income"
+    __table_args__ = (
+        PrimaryKeyConstraint("stock_code", "period_end", name="pk_stock_quarterly_income"),
+    )
+    stock_code: Mapped[str] = mapped_column(
+        ForeignKey("stock.code", name="fk_stock_quarterly_income_stock_code_stock"),
+        primary_key=True,
+    )
+    period_end: Mapped[date] = mapped_column(Date, primary_key=True)
+    fiscal_year_end_month: Mapped[int | None] = mapped_column(Integer)
+    revenue: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
+    operating_profit: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
+    net_income: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
+    source: Mapped[str] = mapped_column(String(12), default="KIS")
+    collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class StockQuarterlyRatio(Base):
+    """Provider quarterly ratio values, keyed by period end."""
+
+    __tablename__ = "stock_quarterly_ratio"
+    __table_args__ = (
+        PrimaryKeyConstraint("stock_code", "period_end", name="pk_stock_quarterly_ratio"),
+    )
+    stock_code: Mapped[str] = mapped_column(
+        ForeignKey("stock.code", name="fk_stock_quarterly_ratio_stock_code_stock"),
+        primary_key=True,
+    )
+    period_end: Mapped[date] = mapped_column(Date, primary_key=True)
+    eps: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
+    roe: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
+    debt_ratio: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
     source: Mapped[str] = mapped_column(String(12), default="KIS")
     collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

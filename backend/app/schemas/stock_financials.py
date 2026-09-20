@@ -4,6 +4,7 @@ from pydantic import FiniteFloat
 
 from app.schemas.base import CamelModel
 from app.schemas.stock import Resource
+from app.schemas.stock_investment import InvestmentPoint
 
 
 class AnnualIncome(CamelModel):
@@ -40,3 +41,4 @@ class StockFinancials(CamelModel):
     income: Resource[list[AnnualIncome]]
     eps: Resource[list[AnnualEps]]
     health: Resource[FinancialHealth]
+    investment: Resource[list[InvestmentPoint]]

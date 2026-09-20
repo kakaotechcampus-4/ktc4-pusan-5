@@ -14,7 +14,10 @@ from app.schemas.stock_financials import (
     FinancialHealth,
     StockFinancials,
 )
+from app.schemas.stock_investment import QuarterlyIncome
 from app.services.stock_detail import require_stock
+from app.services.stock_history_detail import enrich_history
+from app.services.stock_investment import investment_summary
 
 FINANCIAL_TTL = 86400
 
@@ -27,10 +30,18 @@ async def financials(session: AsyncSession, code: str) -> StockFinancials:
         ("income", AnnualIncome, ("revenue", "operating_profit", "net_income")),
         ("eps", AnnualEps, ("eps", "roe", "debt_ratio")),
         ("stability", AnnualStability, ("current_ratio",)),
+        (
+            "quarter_income",
+            QuarterlyIncome,
+            ("revenue", "operating_profit", "net_income", "fiscal_year_end_month"),
+        ),
+        ("quarter_ratios", AnnualEps, ("eps", "roe", "debt_ratio")),
     )
     for kind, schema, fields in definitions:
         state = await session.get(StockCollectionState, (code, kind))
-        records = await list_periods(session, code, kind)
+        records = await list_periods(
+            session, code, kind, limit=30 if kind.startswith("quarter_") else 5
+        )
         data = []
         for row in reversed(records):
             data.append(
@@ -79,8 +90,15 @@ async def financials(session: AsyncSession, code: str) -> StockFinancials:
             else None,
         )
     response = StockFinancials(
-        code=code, income=sections["income"], eps=sections["eps"], health=health_summary(sections)
+        code=code,
+        income=sections["income"],
+        eps=sections["eps"],
+        health=health_summary({kind: sections[kind] for kind in ("income", "eps", "stability")}),
+        investment=investment_summary(
+            sections["quarter_income"], sections["quarter_ratios"], sections["income"]
+        ),
     )
+    response.investment = await enrich_history(session, code, response.investment)
     await session.commit()
     return response
 

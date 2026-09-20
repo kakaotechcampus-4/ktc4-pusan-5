@@ -18,7 +18,10 @@ if str(BACKEND_DIR) not in sys.path:
 
 from app.core.config import settings
 from app.models import stock as stock_models
-from app.models import stock_financials  # noqa: F401 — register financial tables on Base.metadata
+from app.models import (
+    stock_financials,  # noqa: F401 — register financial tables on Base.metadata
+    stock_history,  # noqa: F401 — register history tables on Base.metadata
+)
 
 config = context.config
 if config.config_file_name is not None:
@@ -36,6 +39,10 @@ MANAGED_TABLES = {
     "stock_annual_income",
     "stock_annual_eps",
     "stock_annual_stability",
+    "stock_quarterly_income",
+    "stock_quarterly_ratio",
+    "stock_period_market",
+    "krx_historical_cache",
 }
 for table in stock_models.Base.metadata.sorted_tables:
     if table.name in MANAGED_TABLES:
