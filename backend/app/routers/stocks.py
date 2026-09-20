@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query
@@ -21,9 +22,10 @@ async def overview(code: Code, session: AsyncSession = Depends(get_session)):
 async def prices(
     code: Code,
     period: Annotated[Period, Query()] = "1Y",
+    from_date: Annotated[date | None, Query(alias="fromDate")] = None,
     session: AsyncSession = Depends(get_session),
 ):
-    return await stock_detail.prices(session, code, period)
+    return await stock_detail.prices(session, code, period, from_date)
 
 
 @router.get("/{code}/financials", response_model=StockFinancials)

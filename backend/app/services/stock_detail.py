@@ -134,7 +134,9 @@ async def overview(session: AsyncSession, code: str) -> StockOverview:
     return response
 
 
-def requested_range(period: str, listed_at: date | None, today: date) -> tuple[date, date]:
+def requested_range(
+    period: str, listed_at: date | None, today: date, from_date: date | None = None
+) -> tuple[date, date]:
     end = today - timedelta(days=1)  # 완성된 일봉만; 오늘 시세는 overview에서 조회한다.
     days = {"1M": 31, "3M": 93, "1Y": 366, "5Y": 366 * 5}
     start = (
@@ -142,8 +144,11 @@ def requested_range(period: str, listed_at: date | None, today: date) -> tuple[d
         if period == "ALL"
         else end - timedelta(days=days[period] - 1)
     )
-    if listed_at:
-        start = max(start, listed_at)
+    if from_date is not None:
+        if from_date > end:
+            raise AppError("INVALID_DATE_RANGE", "조회 시작일은 기준일보다 미래일 수 없습니다.", 422)
+        start = min(start, from_date)
+    start = max(start, listed_at or date(1990, 1, 1))
     return min(start, end), end
 
 
@@ -156,11 +161,13 @@ def chunks(start: date, end: date):
         cursor = boundary + timedelta(days=1)
 
 
-async def prices(session: AsyncSession, code: str, period: str) -> StockPrices:
+async def prices(
+    session: AsyncSession, code: str, period: str, from_date: date | None = None
+) -> StockPrices:
     stock = await require_stock(session, code)
     now = datetime.now(UTC)
     today = now.astimezone(ZoneInfo("Asia/Seoul")).date()
-    start, end = requested_range(period, stock.listed_at, today)
+    start, end = requested_range(period, stock.listed_at, today, from_date)
     await touch(session, code, "prices", now)
     covers = list(
         (
