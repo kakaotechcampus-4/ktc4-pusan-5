@@ -4,6 +4,12 @@ Alembic begins with the seven tables declared in `app.models.stock`:
 `stock`, `stock_quote_snapshot`, `stock_metric_snapshot`, `stock_daily_price`,
 `stock_collection_state`, `stock_collection_job`, and `stock_data_coverage`.
 
+Revision `20260920_02` adds `stock_annual_income` and `stock_annual_eps` for
+annual financial trends and expands the job resource check to permit `income`
+and `eps`. It is additive and leaves existing rows untouched on upgrade. A
+downgrade removes those tables and explicitly deletes their income and EPS job
+and state rows before restoring the original resource check.
+
 The application already has tables created before Alembic was introduced. They
 have no baseline revision in this directory. The initial revision is explicit
 and creates only the seven stock tables; it does not create, alter, or drop

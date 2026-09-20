@@ -1,12 +1,12 @@
 # 종목 상세 lazy 수집
 
-이번 범위는 종목 기본정보, 시세, 주요 지표, 일봉 차트다. 재무 추이와 AI 보고서는
-실제 데이터에 연결하지 않으며 상세 화면에서 목업 숫자를 제공하지 않는다.
+종목 기본정보, 시세, 주요 지표, 일봉 차트, 재무 추이를 실제 데이터에 연결한다.
+AI 보고서는 이번 범위에서 제외하며 목업 숫자를 제공하지 않는다.
 
 ## 실행
 
 ```bash
-# backend 디렉터리에서 기존 DB를 유지한 채 신규 7개 테이블 생성
+# backend 디렉터리에서 기존 DB를 유지한 채 종목 관련 테이블과 후속 변경 적용
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 uv run python -m app.collectors.market --loop
@@ -32,6 +32,8 @@ revision을 대조해야 한다. `uv run alembic check`는 관리 중인 stock �
 | stock_daily_price | 종목+거래일+raw PK, 원주가 OHLCV |
 | stock_collection_state | 종목+영역 PK, 조회 수요·성공/실패·재시도 상태 |
 | stock_collection_job | 종목+영역+90일 구간 UNIQUE, 임대 토큰으로 작업 소유권 확인 |
+| stock_annual_income | 종목+결산일 PK, 매출액/영업이익/순이익 원 단위 |
+| stock_annual_eps | 종목+결산일 PK, EPS 원 단위 |
 | stock_data_coverage | 종목+가격 기준+구간 PK, 빈 응답을 포함해 확인한 기간 기록 |
 
 KIS 공식 KOSPI/KOSDAQ 마스터의 6자리 코드를 저장한다. 마스터에 있는 ETF 등도 포함될 수
@@ -46,6 +48,7 @@ collectedAt은 수집 시각이며 실제 체결 시각이라고 표시하지 �
 
 ## API 계약
 
+- `GET /api/stocks/{code}/financials`: 독립된 income/eps Resource, source=KIS, basis=provider
 - `GET /api/stocks/{code}/overview`: stock, quote, metrics
 - `GET /api/stocks/{code}/prices?period=1Y`: 1M/3M/1Y/5Y/ALL
 
@@ -84,3 +87,21 @@ uv run alembic check
 
 외부 API 테스트는 모킹하고, 저장소 테스트는 rollback 또는 고유 테스트 종목 정리로 격리한다.
 실제 응답 검증: SK하이닉스/삼성전자에서 cold pending→ready와 기존 DB 재사용을 확인한다.
+
+## 재무 추이
+
+KIS 손익계산서(FHKST66430200)와 재무비율(FHKST66430300)을 연간 구분 0으로 조회한다.
+이 구분에도 최신 중간결산이 포함될 수 있다. 따라서 연간 수치끼리의 동등 비교나 성장률을
+계산하지 않고 원천 결산연월 `fiscalPeriod: YYYY-MM`을 그대로 표시한다. 연결/별도 구분은
+이 응답으로 확정하지 않으며 `basis=provider`로 명시한다. 원천 공시 시각도 추정하지 않는다.
+
+손익 3개 필드는 억원에서 원으로 변환하고 EPS는 원 그대로 보존한다. SK하이닉스
+2025년 실조회 세 금액을 [공식 실적 발표](https://news.skhynix.co.kr/2025-business-results/)와
+대조해 단위를 검증했다. nullable NUMERIC(24,8)로 저장하고 null/0/음수를 구별한다.
+DB에는 공급자가 반환한 기간을 저장하고 API는 영역별 최근 5개 결산연월을 반환한다.
+화면은 두 영역을 정확히 같은 결산연월로만 합쳐 최신 5개를 표시한다.
+
+조회 수요가 있을 때만 24시간 TTL로 각 영역 작업을 등록한다. 손익/EPS는 별도 작업이므로
+한쪽 실패는 다른 쪽 정상값을 지우지 않는다. 정상 빈 응답도 24시간 캐시한다. 각 영역은
+소유권이 확인된 트랜잭션에서 전체 응답을 교체하여 정정을 반영하며, 저장된 최신 결산월보다
+뒤처진 응답은 거부한다. 홈/시세와 같은 KIS 클라이언트 및 순차 실행 예산을 공유한다.

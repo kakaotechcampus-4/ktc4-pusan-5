@@ -18,6 +18,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 from app.core.config import settings
 from app.models import stock as stock_models
+from app.models import stock_financials  # noqa: F401 — register financial tables on Base.metadata
 
 config = context.config
 if config.config_file_name is not None:
@@ -32,6 +33,8 @@ MANAGED_TABLES = {
     "stock_collection_state",
     "stock_collection_job",
     "stock_data_coverage",
+    "stock_annual_income",
+    "stock_annual_eps",
 }
 for table in stock_models.Base.metadata.sorted_tables:
     if table.name in MANAGED_TABLES:

@@ -12,8 +12,9 @@ from sqlalchemy.dialects.postgresql import insert
 from app.core.database import SessionLocal
 from app.models.stock import Stock, StockCollectionState
 from app.repositories import stock as repo
+from app.repositories.stock_financials import save_periods
 from app.schemas.stock import MetricsData, QuoteData
-from app.services import stock_data
+from app.services import stock_data, stock_financials
 from app.services.market_data import MarketDataError
 from app.services.stock_detail import ACTIVE_WINDOW, snapshot_ttl
 
@@ -89,7 +90,14 @@ class StockWorker:
                         QuoteData.model_validate(value.quote)
                     if value.metrics is not None:
                         MetricsData.model_validate(value.metrics)
-                else:
+                elif job.resource in ("income", "eps"):
+                    fetch = (
+                        stock_financials.fetch_income
+                        if job.resource == "income"
+                        else stock_financials.fetch_eps
+                    )
+                    value = await fetch(self.kis, job.stock_code)
+                elif job.resource == "prices":
                     value = await stock_data.fetch_prices(
                         self.kis, job.stock_code, job.range_start, job.range_end
                     )
@@ -130,6 +138,10 @@ class StockWorker:
                     value.quote_error
                     or value.metrics_error
                     or ("OUTDATED_RESPONSE" if rejected else None)
+                )
+            elif not error and job.resource in ("income", "eps"):
+                error = await save_periods(
+                    session, job.stock_code, job.resource, [asdict(row) for row in value], now
                 )
             elif not error:
                 await repo.save_prices(session, job, [asdict(row) for row in value], now)
