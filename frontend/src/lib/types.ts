@@ -85,6 +85,7 @@ export type StockFinancials = {
   income: Resource<FinancialIncomePoint[]>;
   eps: Resource<FinancialEpsPoint[]>;
   health: Resource<FinancialHealthData>;
+  investment: Resource<InvestmentPoint[]>;
 };
 
 export type FinancialHealthData = {
@@ -93,6 +94,37 @@ export type FinancialHealthData = {
   roe: number | null;
   operatingMargin: number | null;
   currentRatio: number | null;
+};
+
+export type GrowthStatus =
+  | 'value'
+  | 'turned_profit'
+  | 'turned_loss'
+  | 'loss_narrowed'
+  | 'loss_widened'
+  | 'loss_unchanged'
+  | 'zero_base'
+  | 'unavailable';
+
+export type Growth = { value: number | null; status: GrowthStatus };
+
+export type InvestmentPoint = {
+  fiscalPeriod: string;
+  revenueGrowth: Growth;
+  operatingProfitGrowth: Growth;
+  netIncomeGrowth: Growth;
+  operatingProfit: number | null;
+  netIncome: number | null;
+  epsCumulative: number | null;
+  roe: number | null;
+  debtRatio: number | null;
+  rs: number | null;
+  rsAsOf: string | null;
+  rsBaseDate: string | null;
+  marketCap: number | null;
+  marketCapAsOf: string | null;
+  per: number | null;
+  pbr: number | null;
 };
 
 export type ApiErrorBody = {

@@ -29,6 +29,13 @@ export function formatPct(value: number): string {
   return `${abs}%`;
 }
 
+export function formatPercentPoint(value: number): string {
+  const abs = Math.abs(value).toFixed(2);
+  if (value > 0) return `+${abs}%p`;
+  if (value < 0) return `−${abs}%p`;
+  return `${abs}%p`;
+}
+
 /** 등락률. -1.084 → "▼ 1.08%" (화살표 방식) */
 export function formatPctArrow(value: number): string {
   const abs = Math.abs(value).toFixed(2);

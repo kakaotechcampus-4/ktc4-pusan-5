@@ -3,6 +3,7 @@ import type {
   FinancialEpsPoint,
   FinancialHealthData,
   FinancialIncomePoint,
+  InvestmentPoint,
   Resource,
   StockFinancials,
 } from '@/lib/types';
@@ -11,6 +12,7 @@ import { useStockFinancials } from './useStockFinancials';
 import { mergeAnnualRows } from './financialUtils';
 import { AnnualFinancialTrend } from './components/AnnualFinancialTrend';
 import { FinancialHealthSummary } from './components/FinancialHealthSummary';
+import { QuarterlyMetricsTable } from './components/QuarterlyMetricsTable';
 
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>();
@@ -46,8 +48,9 @@ function financials(
     operatingMargin: 12,
     currentRatio: 150,
   }),
+  investment: Resource<InvestmentPoint[]> = resource('ready', []),
 ): StockFinancials {
-  return { code, source: 'KIS', basis: 'provider', income, eps, health };
+  return { code, source: 'KIS', basis: 'provider', income, eps, health, investment };
 }
 
 async function settle() {
@@ -80,7 +83,10 @@ describe('useStockFinancials', () => {
 
   it('keeps polling while only health is pending and stops once complete', async () => {
     const pending = financials('A', resource('ready', []), resource('ready', []));
-    pending.health = resource<FinancialHealthData>('pending', null, { refreshing: true, retryAfterSeconds: 3 });
+    pending.health = resource<FinancialHealthData>('pending', null, {
+      refreshing: true,
+      retryAfterSeconds: 3,
+    });
     const ready = financials('A', resource('ready', []), resource('ready', []));
     ready.health = resource('ready', {
       fiscalPeriod: '2026-06',
@@ -98,6 +104,30 @@ describe('useStockFinancials', () => {
     expect(financialsRequest).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps polling while only investment is pending and stops once complete', async () => {
+    const pending = financials(
+      'A',
+      resource('ready', []),
+      resource('ready', []),
+      undefined,
+      resource<InvestmentPoint[]>('pending', null),
+    );
+    const ready = financials(
+      'A',
+      resource('ready', []),
+      resource('ready', []),
+      undefined,
+      resource('ready', []),
+    );
+    financialsRequest.mockResolvedValueOnce(pending).mockResolvedValueOnce(ready);
+    const { result } = renderHook(() => useStockFinancials('A'));
+    await settle();
+    expect(result.current.data?.investment.status).toBe('pending');
+    await act(async () => vi.advanceTimersByTimeAsync(3000));
+    expect(financialsRequest).toHaveBeenCalledTimes(2);
+    expect(result.current.data?.investment.status).toBe('ready');
+  });
+
   it('merges exact periods while preserving null, zero, and negative values', () => {
     const income: FinancialIncomePoint[] = [
       { fiscalPeriod: '2024-12', revenue: 0, operatingProfit: -10, netIncome: null },
@@ -110,6 +140,37 @@ describe('useStockFinancials', () => {
       { fiscalPeriod: '2023-12', revenue: null, operatingProfit: null, netIncome: null, eps: -2 },
       { fiscalPeriod: '2024-12', revenue: 0, operatingProfit: -10, netIncome: null, eps: 0 },
     ]);
+  });
+
+  it('renders eight investment periods and contract growth statuses', () => {
+    const points: InvestmentPoint[] = Array.from({ length: 8 }, (_, index) => ({
+      fiscalPeriod: `${2024 + Math.floor(index / 4)}-${String(((index % 4) + 1) * 3).padStart(2, '0')}`,
+      revenueGrowth: {
+        value: index === 0 ? null : 4,
+        status: index === 0 ? 'turned_profit' : 'value',
+      },
+      operatingProfitGrowth: { value: null, status: 'loss_narrowed' },
+      netIncomeGrowth: { value: null, status: 'zero_base' },
+      operatingProfit: null,
+      netIncome: -1,
+      epsCumulative: index,
+      roe: 1,
+      debtRatio: 2,
+      rs: index === 0 ? 1.25 : null,
+      rsAsOf: index === 0 ? '2024-03-29' : null,
+      rsBaseDate: index === 0 ? '2023-03-29' : null,
+      marketCap: index === 0 ? 1000000000000 : null,
+      marketCapAsOf: null,
+      per: null,
+      pbr: null,
+    }));
+    render(<QuarterlyMetricsTable investment={resource('ready', points)} />);
+    expect(screen.getAllByText(/^20\d{2}\.\d{2}$/)).toHaveLength(8);
+    expect(screen.getByText('2025.12')).toBeTruthy();
+    expect(screen.getByText('+1.25%p')).toBeTruthy();
+    expect(screen.getByText('1조')).toBeTruthy();
+    expect(screen.getAllByText('흑자전환')).toHaveLength(1);
+    expect(screen.getAllByText('적자축소')).toHaveLength(8);
   });
 
   it('keeps successful income visible when EPS is unavailable', async () => {

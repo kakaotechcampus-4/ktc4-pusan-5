@@ -1,7 +1,8 @@
-import { Card, Empty, Kicker } from '@/components/ui';
+import { Card, Kicker } from '@/components/ui';
 import type { StockFinancials } from '@/lib/types';
 import { AnnualFinancialTrend } from './AnnualFinancialTrend';
 import { FinancialHealthSummary } from './FinancialHealthSummary';
+import { QuarterlyMetricsTable } from './QuarterlyMetricsTable';
 
 export function DetailInfoTab({
   financials,
@@ -25,7 +26,7 @@ export function DetailInfoTab({
       </Card>
       <Card tone="plain">
         <Kicker>투자 지표</Kicker>
-        <Empty title="준비 중입니다" />
+        <QuarterlyMetricsTable investment={financials?.investment ?? null} error={error} />
       </Card>
     </div>
   );
