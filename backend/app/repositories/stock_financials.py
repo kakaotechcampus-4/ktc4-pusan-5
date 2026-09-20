@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,14 +45,25 @@ async def save_periods(
     previous = await session.scalar(
         select(func.max(model.period_end)).where(model.stock_code == code)
     )
+    if not dates:
+        # An empty response is a valid empty snapshot only for a stock with no
+        # previously collected periods. Never erase a usable snapshot because
+        # an upstream endpoint temporarily returned no rows.
+        return "EMPTY_RESPONSE" if previous else None
     if dates and previous and max(dates) < previous:
         return "OUTDATED_RESPONSE"
-    # 전체 스냅샷을 한 트랜잭션에서 교체한다. 정상 빈 응답과 조회 실패는 구별한다.
-    await session.execute(delete(model).where(model.stock_code == code))
-    if rows:
-        await session.execute(
-            insert(model).values(
-                [{**row, "stock_code": code, "source": "KIS", "collected_at": now} for row in rows]
-            )
+    # Upsert each returned period. Providers may omit older periods or return
+    # explicit null corrections; neither should delete unrelated history.
+    values = [{**row, "stock_code": code, "source": "KIS", "collected_at": now} for row in rows]
+    statement = insert(model).values(values)
+    await session.execute(
+        statement.on_conflict_do_update(
+            index_elements=["stock_code", "period_end"],
+            set_={
+                key: statement.excluded[key]
+                for key in values[0]
+                if key not in ("stock_code", "period_end")
+            }
         )
+    )
     return None

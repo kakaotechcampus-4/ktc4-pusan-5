@@ -166,11 +166,94 @@ async def test_older_financial_response_is_rejected_same_period_is_replaced(stoc
             is None
         )
         assert await session.scalar(
+            select(StockAnnualIncome.operating_profit).where(
+                StockAnnualIncome.stock_code == "TST001",
+                StockAnnualIncome.period_end == date(2026, 3, 31),
+            )
+        ) is None
+        assert await session.scalar(
             select(StockAnnualIncome.revenue).where(
                 StockAnnualIncome.stock_code == "TST001",
                 StockAnnualIncome.period_end == date(2026, 3, 31),
             )
         ) == Decimal(250)
+
+
+async def test_partial_financial_response_retains_omitted_periods(stock_db):
+    now = datetime.now(UTC)
+    async with stock_db() as session:
+        await stock_financials.save_periods(
+            session,
+            "TST001",
+            "income",
+            [
+                {
+                    "period_end": date(2025, 3, 31),
+                    "revenue": Decimal(100),
+                    "operating_profit": Decimal(10),
+                    "net_income": Decimal(5),
+                },
+                {
+                    "period_end": date(2026, 3, 31),
+                    "revenue": Decimal(200),
+                    "operating_profit": Decimal(20),
+                    "net_income": Decimal(10),
+                },
+            ],
+            now,
+        )
+        assert (
+            await stock_financials.save_periods(
+                session,
+                "TST001",
+                "income",
+                [
+                    {
+                        "period_end": date(2026, 3, 31),
+                        "revenue": Decimal(250),
+                        "operating_profit": Decimal(25),
+                        "net_income": Decimal(12),
+                    }
+                ],
+                now + timedelta(seconds=1),
+            )
+            is None
+        )
+        rows = (
+            await session.scalars(
+                select(StockAnnualIncome)
+                .where(StockAnnualIncome.stock_code == "TST001")
+                .order_by(StockAnnualIncome.period_end)
+            )
+        ).all()
+        assert [(row.period_end, row.revenue) for row in rows] == [
+            (date(2025, 3, 31), Decimal(100)),
+            (date(2026, 3, 31), Decimal(250)),
+        ]
+
+
+async def test_empty_financial_response_preserves_existing_rows(stock_db):
+    now = datetime.now(UTC)
+    async with stock_db() as session:
+        await stock_financials.save_periods(
+            session,
+            "TST001",
+            "income",
+            [
+                {
+                    "period_end": date(2026, 3, 31),
+                    "revenue": Decimal(200),
+                    "operating_profit": Decimal(20),
+                    "net_income": Decimal(10),
+                }
+            ],
+            now,
+        )
+        assert await stock_financials.save_periods(
+            session, "TST001", "income", [], now + timedelta(seconds=1)
+        ) == "EMPTY_RESPONSE"
+        row = await session.get(StockAnnualIncome, ("TST001", date(2026, 3, 31)))
+        assert row.revenue == Decimal(200)
 
 
 async def test_worker_saves_income_and_failed_eps_keeps_previous_rows(stock_db, monkeypatch):
