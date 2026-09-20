@@ -108,3 +108,16 @@ export function formatMarketValue(value: number, unit: string | null): string {
   });
   return unit === 'KRW/USD' ? `${formatted}원` : formatted;
 }
+
+/** 시세 시각은 접속 기기의 시간대와 관계없이 한국 시간으로 표시한다. */
+export function formatQuoteTimestamp(value: string): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(value));
+}

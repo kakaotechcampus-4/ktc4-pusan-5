@@ -1,5 +1,5 @@
 import { Change, Kicker, Tag, SkeletonText, Skeleton } from '@/components/ui';
-import { formatAsOf, formatPrice } from '@/lib/format';
+import { formatPrice, formatQuoteTimestamp } from '@/lib/format';
 import type { Resource, StockIdentity, StockQuoteData } from '@/lib/types';
 
 export function StockHeaderSkeleton() {
@@ -20,6 +20,8 @@ export function StockHeader({
   quote: Resource<StockQuoteData> | null;
 }) {
   const data = quote?.data;
+  const timestamp = quote?.sourceAsOf ?? quote?.collectedAt;
+  const timestampLabel = quote?.sourceAsOf ? '시세 기준' : '수집 시각';
   return (
     <section>
       <Kicker>종목 브리핑</Kicker>
@@ -44,8 +46,11 @@ export function StockHeader({
           현재 시세를 가져오지 못했습니다.
         </p>
       )}
-      {quote?.sourceAsOf && (
-        <p className="text-sm text-neutral-600">{formatAsOf(new Date(quote.sourceAsOf))}</p>
+      {data && timestamp && (
+        <p className="text-xs text-neutral-600">
+          {timestampLabel} · <time dateTime={timestamp}>{formatQuoteTimestamp(timestamp)}</time>{' '}
+          (KST)
+        </p>
       )}
     </section>
   );
