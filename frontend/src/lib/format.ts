@@ -90,6 +90,10 @@ export function formatMarketDate(value: string): string {
   return value.replaceAll('-', '. ');
 }
 
+export function formatFiscalPeriod(value: string): string {
+  return value.replace('-', '.');
+}
+
 export function formatMarketValue(value: number, unit: string | null): string {
   const formatted = value.toLocaleString('ko-KR', {
     minimumFractionDigits: 2,

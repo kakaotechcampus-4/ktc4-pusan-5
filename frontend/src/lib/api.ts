@@ -9,6 +9,7 @@ import type {
   MarketOverview,
   StockOverview,
   StockPriceResource,
+  StockFinancials,
   PricePeriod,
   User,
 } from './types';
@@ -117,4 +118,8 @@ export function getStockPrices(
     `/api/stocks/${encodeURIComponent(code)}/prices?period=${period}`,
     { signal },
   );
+}
+
+export function getStockFinancials(code: string, signal?: AbortSignal): Promise<StockFinancials> {
+  return request<StockFinancials>(`/api/stocks/${encodeURIComponent(code)}/financials`, { signal });
 }

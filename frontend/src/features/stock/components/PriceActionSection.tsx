@@ -1,5 +1,4 @@
-import { Card, Empty, ErrorBox, Kicker, Skeleton, Tabs } from '@/components/ui';
-import { formatMarketDate } from '@/lib/format';
+import { Card, Empty, ErrorBox, Kicker, Skeleton, Tabs, Tag } from '@/components/ui';
 import type { PricePeriod, StockPriceResource } from '@/lib/types';
 import { PriceVolumeChart } from './PriceVolumeChart';
 
@@ -28,22 +27,12 @@ export function PriceActionSection({
     <Card tone="plain" className="flex-1">
       <Kicker>PRICE ACTION · 주가와 거래량</Kicker>
       <Tabs tabs={TABS} value={period} onChange={onPeriodChange} />
-      {prices && (
-        <p className="text-xs text-neutral-600">
-          원주가 · {formatMarketDate(prices.coverage.fromDate)} ~{' '}
-          {formatMarketDate(prices.coverage.toDate)}
-        </p>
-      )}
       {prices?.refreshing && (
-        <p role="status" className="text-sm text-neutral-600">
-          요청한 기간의 데이터를 수집 중입니다.
-        </p>
+        <span className="sr-only" role="status">
+          주가 데이터 불러오는 중
+        </span>
       )}
-      {prices?.status === 'stale' && !prices.refreshing && (
-        <p role="status" className="text-sm text-neutral-600">
-          갱신 지연 · 저장된 데이터를 표시합니다.
-        </p>
-      )}
+      {prices?.status === 'stale' && !prices.refreshing && <Tag>이전 데이터</Tag>}
       {error ? (
         <>
           {

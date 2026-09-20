@@ -66,6 +66,26 @@ export type StockOverview = {
   metrics: Resource<StockMetricsData>;
 };
 
+export type FinancialIncomePoint = {
+  fiscalPeriod: string;
+  revenue: number | null;
+  operatingProfit: number | null;
+  netIncome: number | null;
+};
+
+export type FinancialEpsPoint = {
+  fiscalPeriod: string;
+  eps: number | null;
+};
+
+export type StockFinancials = {
+  code: string;
+  source: 'KIS';
+  basis: 'provider';
+  income: Resource<FinancialIncomePoint[]>;
+  eps: Resource<FinancialEpsPoint[]>;
+};
+
 export type ApiErrorBody = {
   error: {
     code: string;

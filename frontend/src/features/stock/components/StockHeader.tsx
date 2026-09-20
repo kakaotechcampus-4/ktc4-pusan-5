@@ -1,5 +1,5 @@
 import { Change, Kicker, Tag, SkeletonText, Skeleton } from '@/components/ui';
-import { formatAsOf, formatCollectedAt, formatPrice } from '@/lib/format';
+import { formatAsOf, formatPrice } from '@/lib/format';
 import type { Resource, StockIdentity, StockQuoteData } from '@/lib/types';
 
 export function StockHeaderSkeleton() {
@@ -38,11 +38,7 @@ export function StockHeader({
         {data && <Change value={data.changeAmount} unit="price" size="base" />}
         {data && <Change value={data.change} size="base" />}
       </div>
-      {quote?.status === 'stale' && (
-        <p role="status" className="text-sm text-neutral-600">
-          갱신 지연 · 마지막 정상 시세입니다.
-        </p>
-      )}
+      {quote?.status === 'stale' && <Tag>이전 시세</Tag>}
       {quote?.status === 'unavailable' && (
         <p role="status" className="text-sm text-neutral-600">
           현재 시세를 가져오지 못했습니다.
@@ -50,9 +46,6 @@ export function StockHeader({
       )}
       {quote?.sourceAsOf && (
         <p className="text-sm text-neutral-600">{formatAsOf(new Date(quote.sourceAsOf))}</p>
-      )}
-      {quote?.collectedAt && !quote.sourceAsOf && (
-        <p className="text-sm text-neutral-600">{formatCollectedAt(quote.collectedAt)}</p>
       )}
     </section>
   );

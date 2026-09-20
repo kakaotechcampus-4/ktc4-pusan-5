@@ -48,7 +48,7 @@ export function StockBriefingPage() {
         }
         side={<AtAGlanceCard quote={overview.quote} metrics={overview.metrics} />}
       />
-      <StockInsightSection />
+      <StockInsightSection code={code} />
     </>
   );
 }

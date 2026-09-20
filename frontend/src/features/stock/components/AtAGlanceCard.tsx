@@ -1,4 +1,4 @@
-import { Card, Empty, InfoTip, Kicker, SkeletonText } from '@/components/ui';
+import { Card, Empty, InfoTip, Kicker, SkeletonText, Tag } from '@/components/ui';
 import { formatCompactKRW, formatMultiple, formatPrice, formatRatio } from '@/lib/format';
 import type { Resource, StockMetricsData, StockQuoteData } from '@/lib/types';
 
@@ -59,11 +59,7 @@ export function AtAGlanceCard({
       {quote?.status === 'unavailable' && (
         <p className="mb-2 text-sm text-neutral-600">현재 시세를 준비하지 못했습니다</p>
       )}
-      {metrics?.status === 'stale' && (
-        <p role="status" className="mb-2 text-sm text-neutral-600">
-          주요 지표 갱신 지연 · 마지막 정상값입니다.
-        </p>
-      )}
+      {metrics?.status === 'stale' && <Tag>이전 지표</Tag>}
       {metrics?.status === 'unavailable' && (
         <p className="mb-2 text-sm text-neutral-600">주요 지표를 준비하지 못했습니다</p>
       )}
