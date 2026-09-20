@@ -91,6 +91,49 @@ describe('useStockDetail', () => {
     vi.useRealTimers();
   });
 
+  it('loads older history once, retains candles while pending, and resets on period changes', async () => {
+    overviewRequest.mockResolvedValue(overview('A'));
+    pricesRequest.mockResolvedValueOnce(prices('A', '3M'));
+    let resolvePage!: (value: StockPriceResource) => void;
+    pricesRequest.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolvePage = resolve;
+        }),
+    );
+    const { result, rerender } = renderHook(
+      ({ period }: { period: PricePeriod }) => useStockDetail('A', period),
+      { initialProps: { period: '3M' } },
+    );
+    await settle();
+    act(() => {
+      result.current.loadEarlier();
+      result.current.loadEarlier();
+    });
+    await settle();
+    expect(pricesRequest).toHaveBeenCalledTimes(2);
+    expect(pricesRequest.mock.calls[1][3]).toBe('2025-10-01');
+    expect(result.current.prices?.data).toHaveLength(1);
+    act(() => result.current.loadEarlier());
+    expect(pricesRequest).toHaveBeenCalledTimes(2);
+    const pending = {
+      ...prices('A', '3M', 'stale'),
+      refreshing: true,
+      coverage: { fromDate: '2025-10-01', toDate: '2026-01-02', complete: false },
+    };
+    await act(async () => resolvePage(pending));
+    act(() => result.current.loadEarlier());
+    expect(pricesRequest).toHaveBeenCalledTimes(2);
+    pricesRequest.mockResolvedValue(prices('A', '1Y'));
+    rerender({ period: '1Y' });
+    await settle();
+    expect(pricesRequest.mock.calls.at(-1)?.[3]).toBeUndefined();
+    pricesRequest.mockResolvedValue(prices('A', '3M'));
+    rerender({ period: '3M' });
+    await settle();
+    expect(pricesRequest.mock.calls.at(-1)?.[3]).toBeUndefined();
+  });
+
   it('polls a pending chart until it becomes ready', async () => {
     overviewRequest.mockResolvedValue(overview('A'));
     pricesRequest

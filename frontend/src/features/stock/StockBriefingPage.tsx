@@ -12,8 +12,16 @@ import { StockInsightSection } from './components/StockInsightSection';
 export function StockBriefingPage() {
   const { code } = useParams();
   const [period, setPeriod] = useState<PricePeriod>('1Y');
-  const { overview, overviewError, prices, priceError, retryOverview, retryPrices } =
-    useStockDetail(code, period);
+  const {
+    overview,
+    overviewError,
+    prices,
+    priceError,
+    retryOverview,
+    retryPrices,
+    loadEarlier,
+    canLoadEarlier,
+  } = useStockDetail(code, period);
 
   if (!code || (overviewError && !overview.stock))
     return (
@@ -39,7 +47,10 @@ export function StockBriefingPage() {
         align="stretch"
         main={
           <PriceActionSection
+            key={code}
             period={period}
+            onLoadEarlier={loadEarlier}
+            canLoadEarlier={canLoadEarlier}
             prices={prices}
             error={priceError}
             onRetry={retryPrices}

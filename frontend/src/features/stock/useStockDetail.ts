@@ -54,6 +54,11 @@ export function useStockDetail(code: string | undefined, period: PricePeriod) {
     data: null,
     error: null,
   });
+  const [historyStart, setHistoryStart] = useState<{ key: string; date?: string }>({
+    key: priceKey,
+  });
+  if (historyStart.key !== priceKey) setHistoryStart({ key: priceKey });
+  const fromDate = historyStart?.key === priceKey ? historyStart.date : undefined;
   const [overviewRetry, setOverviewRetry] = useState(0);
   const [priceRetry, setPriceRetry] = useState(0);
 
@@ -138,7 +143,9 @@ export function useStockDetail(code: string | undefined, period: PricePeriod) {
     const load = () => {
       if (cancelled || hidden || activeRequest) return;
       const requestId = ++generation;
-      const request = requestWithTimeout((signal) => getStockPrices(code, period, signal));
+      const request = requestWithTimeout((signal) =>
+        getStockPrices(code, period, signal, fromDate),
+      );
       activeRequest = request.abort;
       request.promise
         .then((data) => {
@@ -178,12 +185,35 @@ export function useStockDetail(code: string | undefined, period: PricePeriod) {
       activeRequest?.();
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [code, period, priceKey, priceRetry]);
+  }, [code, period, priceKey, priceRetry, fromDate]);
 
   const retryOverview = useCallback(() => setOverviewRetry((value) => value + 1), []);
   const retryPrices = useCallback(() => setPriceRetry((value) => value + 1), []);
   const overview = overviewState.key === overviewKey ? overviewState.data : null;
   const prices = priceState.key === priceKey ? priceState.data : null;
+  const earliestDate = overview?.stock.listedAt ?? '1990-01-01';
+  const canLoadEarlier = Boolean(
+    period !== 'ALL' &&
+    prices &&
+    overview?.stock.listingStatus === 'listed' &&
+    prices.coverage.fromDate > earliestDate,
+  );
+  const loadEarlier = useCallback(() => {
+    if (
+      !canLoadEarlier ||
+      !prices ||
+      !prices.coverage.complete ||
+      prices.refreshing ||
+      priceState.error
+    )
+      return;
+    // While a request is in flight, coverage still describes the previous response.
+    if (fromDate && fromDate < prices.coverage.fromDate) return;
+    const start = new Date(`${prices.coverage.fromDate}T00:00:00Z`);
+    start.setUTCDate(start.getUTCDate() - (period === '5Y' ? 366 : 93));
+    const date = start.toISOString().slice(0, 10);
+    setHistoryStart({ key: priceKey, date: date < earliestDate ? earliestDate : date });
+  }, [canLoadEarlier, prices, priceState.error, fromDate, period, priceKey, earliestDate]);
   return useMemo(
     () => ({
       overview: overview ?? { stock: null, quote: null, metrics: null },
@@ -192,6 +222,8 @@ export function useStockDetail(code: string | undefined, period: PricePeriod) {
       priceError: priceState.key === priceKey ? priceState.error : null,
       retryOverview,
       retryPrices,
+      loadEarlier,
+      canLoadEarlier,
     }),
     [
       overview,
@@ -204,6 +236,8 @@ export function useStockDetail(code: string | undefined, period: PricePeriod) {
       prices,
       retryOverview,
       retryPrices,
+      loadEarlier,
+      canLoadEarlier,
     ],
   );
 }

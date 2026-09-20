@@ -16,7 +16,11 @@ export function PriceActionSection({
   error,
   onRetry,
   onPeriodChange,
+  onLoadEarlier,
+  canLoadEarlier,
 }: {
+  onLoadEarlier: () => void;
+  canLoadEarlier: boolean;
   period: PricePeriod;
   prices: StockPriceResource | null;
   error: Error | null;
@@ -33,29 +37,37 @@ export function PriceActionSection({
         </span>
       )}
       {prices?.status === 'stale' && !prices.refreshing && <Tag>이전 데이터</Tag>}
-      {error ? (
-        <>
-          {
-            <ErrorBox
-              title="주가 차트를 불러오지 못했습니다"
-              description="저장된 마지막 데이터를 표시합니다"
-              onRetry={onRetry}
-            />
-          }
-          {prices?.data?.length ? <PriceVolumeChart candles={prices.data} /> : null}
-        </>
-      ) : !prices || (prices.status === 'pending' && !prices.data) ? (
-        <Skeleton className="h-80 w-full" />
-      ) : prices.status === 'unavailable' ? (
+      {error && (
         <ErrorBox
-          title="주가 데이터를 준비하지 못했습니다"
-          description="잠시 후 다시 확인해주세요"
+          title="주가 차트를 불러오지 못했습니다"
+          description="잠시 후 다시 시도해주세요"
           onRetry={onRetry}
         />
-      ) : prices.status === 'empty' || !prices.data?.length ? (
-        <Empty title="해당 기간의 주가 데이터가 없습니다" description="다른 기간을 선택해보세요" />
+      )}
+      {prices?.data?.length ? (
+        <PriceVolumeChart
+          key={period}
+          candles={prices.data}
+          onLoadEarlier={onLoadEarlier}
+          canLoadEarlier={canLoadEarlier}
+        />
+      ) : !prices || prices.status === 'pending' ? (
+        !error && <Skeleton className="h-80 w-full" />
+      ) : prices.status === 'unavailable' ? (
+        !error && (
+          <ErrorBox
+            title="주가 데이터를 준비하지 못했습니다"
+            description="잠시 후 다시 확인해주세요"
+            onRetry={onRetry}
+          />
+        )
       ) : (
-        <PriceVolumeChart candles={prices.data} />
+        !error && (
+          <Empty
+            title="해당 기간의 주가 데이터가 없습니다"
+            description="다른 기간을 선택해보세요"
+          />
+        )
       )}
     </Card>
   );

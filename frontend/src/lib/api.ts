@@ -113,9 +113,10 @@ export function getStockPrices(
   code: string,
   period: PricePeriod,
   signal?: AbortSignal,
+  fromDate?: string,
 ): Promise<StockPriceResource> {
   return request<StockPriceResource>(
-    `/api/stocks/${encodeURIComponent(code)}/prices?period=${period}`,
+    `/api/stocks/${encodeURIComponent(code)}/prices?period=${period}${fromDate ? `&fromDate=${encodeURIComponent(fromDate)}` : ''}`,
     { signal },
   );
 }

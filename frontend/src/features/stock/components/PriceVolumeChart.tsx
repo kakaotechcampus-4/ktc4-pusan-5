@@ -6,15 +6,28 @@ import {
   createChart,
   type IChartApi,
   type ISeriesApi,
+  type LogicalRange,
 } from 'lightweight-charts';
 import { cssVar } from '../chartColors';
 import type { Candle } from '@/lib/types';
 
-export function PriceVolumeChart({ candles }: { candles: Candle[] }) {
+export function PriceVolumeChart({
+  candles,
+  onLoadEarlier,
+  canLoadEarlier,
+}: {
+  candles: Candle[];
+  onLoadEarlier: () => void;
+  canLoadEarlier: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const priceSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const previousCandlesRef = useRef<Candle[]>([]);
+  const interactedRef = useRef(false);
+  const updatingRef = useRef(false);
+  const loadEarlierRef = useRef(onLoadEarlier);
   const upFillRef = useRef('');
   const downFillRef = useRef('');
 
@@ -40,7 +53,20 @@ export function PriceVolumeChart({ candles }: { candles: Candle[] }) {
       },
       grid: { vertLines: { visible: false }, horzLines: { color: divider } },
       rightPriceScale: { borderColor: divider },
-      timeScale: { borderColor: divider },
+      handleScale: false,
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false,
+      },
+      kineticScroll: { mouse: false, touch: false },
+      timeScale: {
+        borderColor: divider,
+        fixRightEdge: true,
+        lockVisibleTimeRangeOnResize: true,
+        shiftVisibleRangeOnNewBar: false,
+      },
     });
 
     const priceSeries = chart.addSeries(CandlestickSeries, {
@@ -62,20 +88,36 @@ export function PriceVolumeChart({ candles }: { candles: Candle[] }) {
     priceSeriesRef.current = priceSeries;
     volumeSeriesRef.current = volumeSeries;
 
-    // 너비만 바꾸면 기존 확대 배율이 그대로 남아 최근 구간만 보이고 왼쪽이 빈다. 리사이즈 때마다 다시 맞춘다.
-    const handleResize = () => {
-      chart.applyOptions({ width: el.clientWidth });
-      chart.timeScale().fitContent();
+    const onRangeChange = (range: LogicalRange | null) => {
+      if (!updatingRef.current && interactedRef.current && range && range.from < 8) {
+        loadEarlierRef.current();
+      }
     };
-    window.addEventListener('resize', handleResize);
+    const onInteraction = () => {
+      interactedRef.current = true;
+    };
+    el.addEventListener('pointerdown', onInteraction);
+    el.addEventListener('wheel', onInteraction, { passive: true });
+    chart.timeScale().subscribeVisibleLogicalRangeChange(onRangeChange);
+    const observer = new ResizeObserver(() => chart.applyOptions({ width: el.clientWidth }));
+    observer.observe(el);
     return () => {
-      window.removeEventListener('resize', handleResize);
+      observer.disconnect();
+      el.removeEventListener('pointerdown', onInteraction);
+      el.removeEventListener('wheel', onInteraction);
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRangeChange);
+      previousCandlesRef.current = [];
+      interactedRef.current = false;
       chart.remove();
       chartRef.current = null;
       priceSeriesRef.current = null;
       volumeSeriesRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    chartRef.current?.timeScale().applyOptions({ fixLeftEdge: !canLoadEarlier });
+  }, [canLoadEarlier]);
 
   // candles가 바뀔 때는 차트를 다시 만들지 않고 데이터만 갱신함
   // 데이터 갱신 effect
@@ -84,6 +126,11 @@ export function PriceVolumeChart({ candles }: { candles: Candle[] }) {
     const volumeSeries = volumeSeriesRef.current;
     if (!priceSeries || !volumeSeries) return;
 
+    const timeScale = chartRef.current!.timeScale();
+    const range = timeScale.getVisibleLogicalRange();
+    const previous = previousCandlesRef.current;
+    const offset = previous.length ? candles.findIndex((c) => c.date === previous[0].date) : -1;
+    updatingRef.current = true;
     const upFill = upFillRef.current;
     const downFill = downFillRef.current;
 
@@ -103,8 +150,21 @@ export function PriceVolumeChart({ candles }: { candles: Candle[] }) {
         color: c.close >= c.open ? upFill : downFill,
       })),
     );
-    chartRef.current?.timeScale().fitContent();
+    if (interactedRef.current && range && offset >= 0) {
+      // Prepending candles changes logical indices, but must not move the visible dates.
+      timeScale.setVisibleLogicalRange({ from: range.from + offset, to: range.to + offset });
+    } else {
+      timeScale.fitContent();
+    }
+    previousCandlesRef.current = candles;
+    updatingRef.current = false;
   }, [candles]);
+
+  useEffect(() => {
+    loadEarlierRef.current = onLoadEarlier;
+    const range = chartRef.current?.timeScale().getVisibleLogicalRange();
+    if (interactedRef.current && range && range.from < 8) onLoadEarlier();
+  }, [onLoadEarlier]);
 
   return <div ref={containerRef} className="h-80 w-full" />;
 }
