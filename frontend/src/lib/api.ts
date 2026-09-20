@@ -4,7 +4,7 @@
  * 에러 응답 형태
  *   { "error": { "code": "CONCEPT_NOT_FOUND", "message": "개념을 찾을 수 없습니다" } }
  */
-import type { ApiErrorBody, User } from './types';
+import type { ApiErrorBody, MarketOverview, User } from './types';
 import type { Concept, ConceptListResponse } from '@/features/concepts/types';
 
 /** 베이스 URL 은 .env 로만 읽는다. 코드에 URL 을 박지 않는다. */
@@ -91,4 +91,8 @@ export function loginWithKakao(code: string): Promise<User> {
 
 export function logout(): Promise<void> {
   return request<void>('/api/auth/logout', { method: 'POST' });
+}
+
+export function getMarketOverview(signal?: AbortSignal): Promise<MarketOverview> {
+  return request<MarketOverview>('/api/market/overview', { signal });
 }

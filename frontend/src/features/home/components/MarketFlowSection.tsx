@@ -1,121 +1,151 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Change, ErrorBox, Kicker, Skeleton, StockAvatar, Tabs } from '@/components/ui';
+import {
+  Card,
+  Change,
+  Empty,
+  ErrorBox,
+  Kicker,
+  Skeleton,
+  StockAvatar,
+  Tabs,
+} from '@/components/ui';
 import { SectionHead, SplitLayout } from '@/components/layout/PageShell';
-import type { FlowItem, SectorRank } from '../mock';
-
-export type MarketFlowStatus = 'loading' | 'error' | 'success';
-
-type FlowTab = 'buy' | 'sell';
-
-const TABS: { value: FlowTab; label: string }[] = [
-  { value: 'buy', label: '매수' },
-  { value: 'sell', label: '매도' },
-];
+import type { FlowBoard, SectorBoard } from '@/lib/types';
 
 export function MarketFlowSection({
-  status,
-  flow,
+  loading,
+  failed,
+  flows,
   sectors,
   onRetry,
 }: {
-  status: MarketFlowStatus;
-  flow: { buy: FlowItem[]; sell: FlowItem[] };
-  sectors: SectorRank[];
+  loading: boolean;
+  failed: boolean;
+  flows: FlowBoard[];
+  sectors: SectorBoard[];
   onRetry: () => void;
 }) {
+  const [flowTab, setFlowTab] = useState<FlowBoard['kind']>('flowBuy');
+  const [sectorTab, setSectorTab] = useState<SectorBoard['kind']>('sectorKospi');
+  const flow = flows.find((board) => board.kind === flowTab);
+  const sector = sectors.find((board) => board.kind === sectorTab);
   return (
     <section>
       <SectionHead title="외국인 및 기관 동향 및 섹터" />
-
-      {status === 'error' && (
-        <ErrorBox
-          title="수급 정보를 불러오지 못했습니다"
-          description="잠시 후 다시 시도해주세요"
-          onRetry={onRetry}
-        />
-      )}
-
-      {status !== 'error' && (
-        <SplitLayout
-          main={<InstitutionalFlowCard loading={status === 'loading'} flow={flow} />}
-          side={<SectorRankCard loading={status === 'loading'} sectors={sectors} />}
-        />
-      )}
+      <SplitLayout
+        main={
+          <Card>
+            <Kicker>외국인·기관 합계 · 기타 법인 포함</Kicker>
+            <Tabs
+              tabs={[
+                { value: 'flowBuy', label: '순매수' },
+                { value: 'flowSell', label: '순매도' },
+              ]}
+              value={flowTab}
+              onChange={setFlowTab}
+            />
+            <BoardState loading={loading} failed={failed} board={flow} onRetry={onRetry}>
+              <ol className="flex list-none flex-col">
+                {flow?.items.map((item, i) => (
+                  <li key={item.code}>
+                    <Link
+                      to={`/stock/${item.code}`}
+                      className="border-divider text-ink flex items-center gap-3 border-b py-2 no-underline hover:bg-neutral-100"
+                    >
+                      <span className="num w-5 flex-none text-xs font-semibold text-neutral-500">
+                        {i + 1}
+                      </span>
+                      <StockAvatar initial={item.name.slice(0, 1)} size="sm" />
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                        {item.name}
+                      </span>
+                      <span className="flex items-baseline gap-0.5">
+                        <Change value={item.netVolume} unit="price" size="sm" />
+                        <span className="text-xs text-neutral-600">주</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            </BoardState>
+          </Card>
+        }
+        side={
+          <Card>
+            <Kicker>업종 지수 등락률 · TOP 5</Kicker>
+            <Tabs
+              tabs={[
+                { value: 'sectorKospi', label: '코스피' },
+                { value: 'sectorKosdaq', label: '코스닥' },
+              ]}
+              value={sectorTab}
+              onChange={setSectorTab}
+            />
+            <BoardState loading={loading} failed={failed} board={sector} onRetry={onRetry}>
+              <ol className="flex list-none flex-col">
+                {sector?.items.map((item, i) => (
+                  <li
+                    key={item.name}
+                    className="border-divider flex items-center gap-3 border-b py-2 last:border-b-0"
+                  >
+                    <span className="num w-5 flex-none text-xs font-semibold text-neutral-500">
+                      {i + 1}
+                    </span>
+                    <span className="min-w-0 flex-1 text-sm font-semibold">{item.name}</span>
+                    <Change value={item.change} display="arrow" size="sm" />
+                  </li>
+                ))}
+              </ol>
+            </BoardState>
+          </Card>
+        }
+      />
     </section>
   );
 }
 
-function InstitutionalFlowCard({
+function BoardState({
   loading,
-  flow,
+  failed,
+  board,
+  onRetry,
+  children,
 }: {
   loading: boolean;
-  flow: { buy: FlowItem[]; sell: FlowItem[] };
+  failed: boolean;
+  board?: FlowBoard | SectorBoard;
+  onRetry: () => void;
+  children: ReactNode;
 }) {
-  const [tab, setTab] = useState<FlowTab>('buy');
-  const items = flow[tab];
-
+  if (loading) return <FlowSkeleton />;
+  const hasItems = Boolean(board?.items.length);
+  const unavailable = failed || board?.status === 'unavailable';
   return (
-    <Card>
-      <Kicker>외국인 및 기관 매매 동향</Kicker>
-      <Tabs tabs={TABS} value={tab} onChange={setTab} />
-
-      {loading ? (
-        <FlowSkeleton />
-      ) : (
-        <ol className="flex list-none flex-col">
-          {items.map((item, i) => (
-            <li key={item.code}>
-              <Link
-                to={`/stock/${item.code}`}
-                className="border-divider text-ink flex items-center gap-3 border-b py-2 no-underline hover:bg-neutral-100"
-              >
-                <span className="num w-5 flex-none text-xs font-semibold text-neutral-500">
-                  {i + 1}
-                </span>
-                <StockAvatar initial={item.initial} size="sm" />
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold">{item.name}</span>
-                <span className="flex items-baseline gap-0.5">
-                  <Change value={item.netVolume} unit="price" size="sm" />
-                  <span className="text-xs text-neutral-600">주</span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ol>
+    <>
+      {unavailable && (
+        <ErrorBox
+          title="정보를 갱신하지 못했습니다"
+          description={hasItems ? '마지막으로 수집한 데이터입니다.' : '잠시 후 다시 시도해주세요.'}
+          onRetry={onRetry}
+        />
       )}
-    </Card>
-  );
-}
-
-function SectorRankCard({ loading, sectors }: { loading: boolean; sectors: SectorRank[] }) {
-  return (
-    <Card>
-      <Kicker>섹터별 순위 · 상승 TOP 5</Kicker>
-
-      {loading ? (
-        <FlowSkeleton />
-      ) : (
-        <ol className="flex list-none flex-col">
-          {sectors.map((sector, i) => (
-            <li
-              key={sector.name}
-              className="border-divider flex items-center gap-3 border-b py-2 last:border-b-0"
-            >
-              <span className="num w-5 flex-none text-xs font-semibold text-neutral-500">
-                {i + 1}
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-sm font-semibold">{sector.name}</span>
-                <span className="text-xs text-neutral-600">대표 종목 {sector.topStock}</span>
-              </span>
-              <Change value={sector.change} display="arrow" size="sm" />
-            </li>
-          ))}
-        </ol>
+      {!failed && board?.status === 'stale' && (
+        <p role="status" className="text-sm text-neutral-700">
+          갱신 지연 · 마지막으로 수집한 데이터입니다.
+        </p>
       )}
-    </Card>
+      {!unavailable && (!board || board.status === 'pending') && (
+        <Empty title="첫 데이터를 수집 중입니다" description="잠시 후 자동으로 갱신됩니다." />
+      )}
+      {!unavailable && board && board.status !== 'pending' && !hasItems && (
+        <Empty
+          title="표시할 데이터가 없습니다"
+          description="거래가 없는 시간에는 순위가 비어 있을 수 있습니다."
+        />
+      )}
+      {hasItems && children}
+    </>
   );
 }
 
