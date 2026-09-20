@@ -6,6 +6,7 @@
 import argparse
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
@@ -14,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 import app.models  # noqa: F401
+from app.collectors.stocks import StockWorker
 from app.core.database import Base, SessionLocal, engine
 from app.repositories.market import list_snapshots, save_result
 from app.repositories.ranking import list_rankings, save_ranking
@@ -154,22 +156,53 @@ async def collect(client: httpx.AsyncClient, kis: KisClient) -> float:
 
 
 async def run(loop: bool) -> None:
+    # 동일 계정의 홈/상세 KIS 호출이 프로세스별로 중복되지 않도록 워커 전체를 단일 리더로 운영.
     try:
-        async with engine.begin() as connection:
-            await connection.run_sync(Base.metadata.create_all)
-        async with httpx.AsyncClient(timeout=15) as client:
-            kis = KisClient(client)
-            while True:
-                delay = 60
-                try:
-                    delay = await collect(client, kis)
-                except (SQLAlchemyError, OSError) as exc:
-                    logger.error("Market collection failed: %s", type(exc).__name__)
-                    if not loop:
-                        raise RuntimeError("Market collection failed") from None
-                if not loop:
-                    break
-                await asyncio.sleep(delay)
+        async with engine.connect() as leader:
+            acquired = await leader.scalar(text("SELECT pg_try_advisory_lock(4927106)"))
+            await leader.commit()
+            if not acquired:
+                logger.info("Another market worker is already running")
+                return
+            try:
+                async with engine.begin() as connection:
+                    await connection.run_sync(
+                        lambda sync: Base.metadata.create_all(
+                            sync,
+                            tables=[
+                                t
+                                for t in Base.metadata.sorted_tables
+                                if not t.name.startswith("stock")
+                            ],
+                        )
+                    )
+                async with httpx.AsyncClient(timeout=15) as client:
+                    kis = KisClient(client)
+                    stocks = StockWorker(client, kis)
+                    next_market = 0.0
+                    while True:
+                        try:
+                            if time.monotonic() >= next_market:
+                                delay = await collect(client, kis)
+                                next_market = time.monotonic() + delay
+                            if not loop:
+                                break
+                            await stocks.catalog()
+                            # 홈 다음 수집 시각을 넘기지 않는 범위에서 상세 요청 한 건씩 수행한다.
+                            budget = min(12, next_market - time.monotonic() - 1)
+                            worked = await stocks.tick(timeout=budget) if budget >= 2 else False
+                            if not worked:
+                                await asyncio.sleep(
+                                    min(1, max(0.1, next_market - time.monotonic()))
+                                )
+                        except (SQLAlchemyError, OSError) as exc:
+                            logger.error("Market collection failed: %s", type(exc).__name__)
+                            if not loop:
+                                raise RuntimeError("Market collection failed") from None
+                            await asyncio.sleep(5)
+            finally:
+                await leader.execute(text("SELECT pg_advisory_unlock(4927106)"))
+                await leader.commit()
     finally:
         await engine.dispose()
 

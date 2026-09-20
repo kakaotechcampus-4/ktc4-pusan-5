@@ -19,12 +19,18 @@ from app.core.errors import (
 from app.routers import concepts
 from app.routers.auth import router as auth_router
 from app.routers.market import router as market_router
+from app.routers.stocks import router as stock_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(
+            lambda sync: Base.metadata.create_all(
+                sync,
+                tables=[t for t in Base.metadata.sorted_tables if not t.name.startswith("stock")],
+            )
+        )
     yield
     await engine.dispose()
 
@@ -46,6 +52,7 @@ app.add_exception_handler(Exception, unhandled_exception_handler)
 
 app.include_router(concepts.router)
 app.include_router(market_router)
+app.include_router(stock_router)
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
 
