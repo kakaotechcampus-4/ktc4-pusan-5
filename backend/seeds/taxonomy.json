@@ -1,0 +1,134 @@
+[
+  {
+    "slug": "disclosure",
+    "name": "기업 공시",
+    "children": [
+      { "slug": "periodic-disclosure", "name": "정기공시" },
+      { "slug": "material-report", "name": "주요사항보고" },
+      { "slug": "ad-hoc-disclosure", "name": "수시공시" },
+      { "slug": "ownership-disclosure", "name": "지분공시" },
+      { "slug": "unfaithful-disclosure", "name": "불성실공시" }
+    ]
+  },
+  {
+    "slug": "financial-statements",
+    "name": "재무제표",
+    "children": [
+      { "slug": "income-statement", "name": "손익계산서" },
+      { "slug": "balance-sheet", "name": "재무상태표" },
+      { "slug": "cash-flow-statement", "name": "현금흐름표" },
+      { "slug": "accounting-treatment", "name": "회계처리" },
+      { "slug": "consolidated-accounting", "name": "연결 회계" }
+    ]
+  },
+  {
+    "slug": "valuation",
+    "name": "밸류에이션",
+    "children": [
+      { "slug": "relative-value", "name": "상대가치" },
+      { "slug": "absolute-value", "name": "절대가치" },
+      { "slug": "profitability", "name": "수익성" },
+      { "slug": "growth", "name": "성장성" },
+      { "slug": "cycle", "name": "사이클" }
+    ]
+  },
+  {
+    "slug": "shareholder-return",
+    "name": "주주환원",
+    "children": [
+      { "slug": "dividend", "name": "배당" },
+      { "slug": "treasury-stock", "name": "자사주" },
+      { "slug": "return-policy", "name": "환원정책" },
+      { "slug": "shareholder-activism", "name": "주주행동" },
+      { "slug": "governance", "name": "지배구조" }
+    ]
+  },
+  {
+    "slug": "market-structure",
+    "name": "시장 구조",
+    "children": [
+      { "slug": "market-segment", "name": "시장 구분" },
+      { "slug": "index", "name": "지수" },
+      { "slug": "trading-rule", "name": "매매제도" },
+      { "slug": "clearing-settlement", "name": "청산·결제" },
+      { "slug": "short-selling", "name": "공매도" }
+    ]
+  },
+  {
+    "slug": "supply-demand",
+    "name": "수급",
+    "children": [
+      { "slug": "investor-type", "name": "투자주체" },
+      { "slug": "fund-flow", "name": "자금흐름" },
+      { "slug": "margin-trading", "name": "신용거래" },
+      { "slug": "event-flow", "name": "이벤트 수급" },
+      { "slug": "trading-metric", "name": "거래지표" }
+    ]
+  },
+  {
+    "slug": "macro",
+    "name": "거시경제",
+    "children": [
+      { "slug": "interest-rate", "name": "금리" },
+      { "slug": "inflation", "name": "물가" },
+      { "slug": "economic-growth", "name": "성장" },
+      { "slug": "monetary-policy", "name": "통화정책" },
+      { "slug": "exchange-rate", "name": "환율" }
+    ]
+  },
+  {
+    "slug": "sector",
+    "name": "산업 섹터",
+    "children": [
+      { "slug": "semiconductor", "name": "반도체" },
+      { "slug": "battery", "name": "2차전지" },
+      { "slug": "shipbuilding-defense", "name": "조선·방산" },
+      { "slug": "bio", "name": "바이오" },
+      { "slug": "platform", "name": "플랫폼" }
+    ]
+  },
+  {
+    "slug": "risk",
+    "name": "리스크",
+    "children": [
+      { "slug": "volatility", "name": "변동성" },
+      { "slug": "diversification", "name": "분산" },
+      { "slug": "position", "name": "포지션" },
+      { "slug": "investor-psychology", "name": "투자심리" },
+      { "slug": "market-abuse", "name": "불공정거래" }
+    ]
+  },
+  {
+    "slug": "products",
+    "name": "상품·파생",
+    "children": [
+      { "slug": "etf", "name": "ETF" },
+      { "slug": "fund", "name": "펀드" },
+      { "slug": "derivatives", "name": "파생상품" },
+      { "slug": "bond", "name": "채권" },
+      { "slug": "overseas-investing", "name": "해외투자" }
+    ]
+  },
+  {
+    "slug": "tax-regulation",
+    "name": "세금·제도",
+    "children": [
+      { "slug": "taxation", "name": "과세" },
+      { "slug": "tax-saving-account", "name": "절세계좌" },
+      { "slug": "tax-filing", "name": "신고" },
+      { "slug": "regulation", "name": "규제" },
+      { "slug": "investor-protection", "name": "투자자보호" }
+    ]
+  },
+  {
+    "slug": "strategy",
+    "name": "투자 전략",
+    "children": [
+      { "slug": "style", "name": "스타일" },
+      { "slug": "research", "name": "리서치" },
+      { "slug": "execution", "name": "실행" },
+      { "slug": "technical-analysis", "name": "기술적 분석" },
+      { "slug": "record", "name": "기록" }
+    ]
+  }
+]

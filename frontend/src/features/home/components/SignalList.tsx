@@ -1,4 +1,3 @@
-
 import { Link } from 'react-router-dom';
 import { Change, Empty, ErrorBox, Skeleton, StockAvatar, Tag } from '@/components/ui';
 import { SectionHead } from '@/components/layout/PageShell';
@@ -37,10 +36,7 @@ export function SignalSection({
       )}
 
       {status === 'empty' && (
-        <Empty
-          title="오늘은 눈에 띄는 시그널이 없습니다"
-          description="잠시 후 다시 확인해주세요"
-        />
+        <Empty title="오늘은 눈에 띄는 시그널이 없습니다" description="잠시 후 다시 확인해주세요" />
       )}
 
       {status === 'success' && (

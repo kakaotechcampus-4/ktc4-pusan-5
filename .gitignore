@@ -66,7 +66,11 @@ target/
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
 
+# 백엔드 API 리서치 원본 응답
+backend/docs/api-research/raw/
+
 # ── 기타 ────────────────────────────────────────────
 *.sqlite3
 *.db
 .terraform/
+SOURCES.md

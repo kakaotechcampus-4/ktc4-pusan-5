@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { cn } from '@/lib/cn';
+import { useAuth } from '@/features/auth/useAuth';
+import { LoginModal } from '@/features/auth/LoginModal';
 
 const NAV = [
   { to: '/', label: '홈' },
@@ -7,12 +10,16 @@ const NAV = [
 ];
 
 export function Header() {
+  const { status, logout } = useAuth();
+  const [loginOpen, setLoginOpen] = useState(false);
+  const loggedIn = status === 'authenticated';
+
   return (
-    <header className="sticky top-0 z-30 border-b border-divider bg-canvas">
-      <nav className="mx-auto flex max-w-page items-center gap-6 px-6 py-3">
-        <Link to="/" className="mr-auto no-underline text-ink">
-          <div className="text-h3 font-bold leading-none tracking-brand">BASIS</div>
-          <div className="text-micro font-semibold tracking-wordmark text-neutral-600">
+    <header className="border-divider bg-canvas sticky top-0 z-30 border-b">
+      <nav className="max-w-page mx-auto flex items-center gap-6 px-6 py-3">
+        <Link to="/" className="text-ink mr-auto no-underline">
+          <div className="text-h3 tracking-brand leading-none font-bold">BASIS</div>
+          <div className="text-micro tracking-wordmark font-semibold text-neutral-600">
             MARKET LITERACY
           </div>
         </Link>
@@ -21,13 +28,21 @@ export function Header() {
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
-              cn('text-sm no-underline hover:text-brand', isActive ? 'text-brand' : 'text-ink')
+              cn('hover:text-brand text-sm no-underline', isActive ? 'text-brand' : 'text-ink')
             }
           >
             {item.label}
           </NavLink>
         ))}
+        <button
+          type="button"
+          className="text-ink hover:text-brand text-sm"
+          onClick={loggedIn ? () => void logout() : () => setLoginOpen(true)}
+        >
+          {loggedIn ? '로그아웃' : '로그인'}
+        </button>
       </nav>
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
     </header>
   );
 }
