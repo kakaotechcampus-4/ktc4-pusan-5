@@ -25,7 +25,7 @@ HYNIX = FIXTURES / "SK하이닉스-2026-09-18-with-indirect__B__r1.json"
 NO_CAUSE = FIXTURES / "SK이노베이션-2026-09-18-with-indirect__B__r2.json"
 
 
-def test_래퍼를_열고_final_text_를_다시_파싱한다() -> None:
+def test_wrapper_is_opened_then_final_text_reparsed() -> None:
     """입력 파일은 2단이다. 바깥은 실험 파이프라인의 실행 기록이고 보고서 JSON 은
     final_text 안에 **문자열로** 들어 있다. 한 번만 파싱하면 보고서가 안 나온다."""
     parsed = parse_report_file(SAMSUNG)
@@ -34,7 +34,7 @@ def test_래퍼를_열고_final_text_를_다시_파싱한다() -> None:
     assert parsed.run_id
 
 
-def test_모르는_래퍼_필드에_걸려_죽지_않는다() -> None:
+def test_unknown_wrapper_fields_are_ignored() -> None:
     """래퍼는 실험 환경 산출물이라 필드가 늘거나 준다. 우리가 보는 다섯 개
     (final_text, json_status, schema_problems, is_error, asked_question) 밖은
     흘려보낸다. 여기서 죽으면 적재가 통째로 멈춘다."""
@@ -50,7 +50,7 @@ def test_모르는_래퍼_필드에_걸려_죽지_않는다() -> None:
     assert parsed.report["ticker"] == "005930"
 
 
-def test_툴_지표와_pubdate_는_실패_판정에_쓰지_않는다() -> None:
+def test_tool_metrics_and_pubdate_do_not_mark_failure() -> None:
     """툴을 막아둬서 툴 지표는 언제나 0 이고, pubdate_* 는 당일 생성으로 바뀌면서
     의미가 없어졌다. pubdate_missing 이 0 이 아니어도 문제가 아니다."""
     parsed = parse_wrapper(
@@ -60,7 +60,7 @@ def test_툴_지표와_pubdate_는_실패_판정에_쓰지_않는다() -> None:
     assert parsed.parse_error is None
 
 
-def test_파싱_실패도_버리지_않고_원본을_남긴다() -> None:
+def test_parse_failure_is_still_loaded_with_raw_json() -> None:
     """원인 분석 자료가 사라지면 왜 깨졌는지 영영 알 수 없다. 상태만 달아 적재한다."""
     parsed = parse_wrapper({"run_id": "r1", "final_text": "{이건 JSON 이 아니다"})
     assert parsed.parse_status == "parse_failed"
@@ -72,7 +72,7 @@ def test_파싱_실패도_버리지_않고_원본을_남긴다() -> None:
     assert report.raw_json is parsed.raw_json
 
 
-def test_실행_실패와_되묻기_위반은_상태로_표시된다() -> None:
+def test_run_error_and_asked_question_become_schema_violation() -> None:
     """파싱은 됐지만 그대로 믿으면 안 되는 회차다. 셋은 원인이 다르지만 '서비스에
     내보내면 안 된다'는 뜻은 같아 한 상태로 묶고, 무엇이 걸렸는지는 사유에 남긴다."""
     parsed = parse_wrapper(
@@ -92,7 +92,7 @@ def test_실행_실패와_되묻기_위반은_상태로_표시된다() -> None:
     assert build_report(parsed).ticker == "005930"
 
 
-def test_background_는_문자열과_객체를_둘_다_받는다() -> None:
+def test_background_accepts_both_string_and_object_items() -> None:
     """프롬프트가 같은 칸에 두 형태를 섞어 낸다. **둘 다 정상값이다.**
     모델에게 일관성을 요구할 수 없으니(프롬프트는 검증 스크립트와 짝이라 못 고친다)
     적재가 {text, watch} 로 펴서 화면이 매번 타입을 확인하지 않게 한다."""
@@ -111,7 +111,7 @@ def test_background_는_문자열과_객체를_둘_다_받는다() -> None:
     ]
 
 
-def test_실제_보고서에서도_혼용이_펴진다() -> None:
+def test_real_report_background_is_normalized() -> None:
     """합성 입력만으로는 부족하다. 실제 산출물에 watch 객체와 문자열이 같은 칸에 있다."""
     report = build_report(parse_report_file(SAMSUNG))
     neutral = report.background["neutral"]
@@ -119,7 +119,7 @@ def test_실제_보고서에서도_혼용이_펴진다() -> None:
     assert any(item["watch"] for item in neutral)
 
 
-def test_counter_가_null_인_것은_정상값이다() -> None:
+def test_null_counter_is_a_valid_value() -> None:
     """방향이 어긋나는 재료가 없는 날과 no_clear_cause 인 날은 counter 가 null 이다.
     빈 문자열로 바꾸면 화면이 '없음'과 '못 채움'을 구분하지 못한다."""
     report = build_report(parse_report_file(NO_CAUSE))
@@ -129,7 +129,7 @@ def test_counter_가_null_인_것은_정상값이다() -> None:
     assert report.factors == []  # no_clear_cause 면 factors 는 빈 배열이다
 
 
-def test_as_of_는_날짜와_합쳐_KST_aware_로_저장된다() -> None:
+def test_as_of_is_combined_with_date_into_kst_aware() -> None:
     """프롬프트 출력은 'HH:MM' 문자열뿐이다. 루트 CLAUDE.md 가 naive datetime 을
     금지하므로 date 와 합쳐 타임존을 붙인다. 원본 문자열은 raw_json 에 남는다."""
     report = build_report(parse_report_file(SAMSUNG))
@@ -138,7 +138,7 @@ def test_as_of_는_날짜와_합쳐_KST_aware_로_저장된다() -> None:
     assert report.raw_json["as_of"] == "15:30"
 
 
-def test_change_pct_는_값이_흔들리지_않는다() -> None:
+def test_change_pct_keeps_its_exact_value() -> None:
     """Decimal(3.37) 은 3.370000000000000106... 이 된다. 루트 CLAUDE.md 가
     가공하지 않은 값을 요구하므로 적재가 값을 바꾸면 안 된다."""
     report = build_report(parse_report_file(SAMSUNG))
@@ -146,7 +146,7 @@ def test_change_pct_는_값이_흔들리지_않는다() -> None:
     assert str(report.change_pct) == "3.37"
 
 
-def test_factor_와_출처는_순서를_지켜_펴진다() -> None:
+def test_factors_and_sources_keep_their_order() -> None:
     """factors 는 중요도 순이라 배열 순서 자체가 정보다. 순서가 섞이면 화면의
     '이유' 절이 덜 중요한 것부터 나온다."""
     report = build_report(parse_report_file(HYNIX))
@@ -159,7 +159,7 @@ def test_factor_와_출처는_순서를_지켜_펴진다() -> None:
     assert first.sources[0].datetime_kst is None or first.sources[0].datetime_kst.tzinfo
 
 
-def test_상한_초과를_잘라내지_않는다(caplog) -> None:
+def test_limit_overflow_is_not_truncated(caplog) -> None:
     """factors 4 / terms 8 / background 전체 6·칸당 3 이 프롬프트의 상한이다.
     적재가 말없이 자르면 실행 점검 스크립트의 상한 위반 검사가 영원히 통과한다.
     그대로 넣고 로그로만 알린다."""
@@ -175,7 +175,7 @@ def test_상한_초과를_잘라내지_않는다(caplog) -> None:
     assert "background" in caplog.text
 
 
-def test_검증_판정은_인자로_받는다() -> None:
+def test_verify_status_is_passed_in_as_an_argument() -> None:
     """적재 모듈이 근거 검증을 수행하지 않는다. 판정과 적재를 분리해야 한쪽을
     고쳐도 다른 쪽이 안 흔들린다. 검증기 연결은 후속 PR 이다."""
     parsed = parse_report_file(SAMSUNG)
