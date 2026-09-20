@@ -173,6 +173,7 @@ async def run(loop: bool) -> None:
                                 t
                                 for t in Base.metadata.sorted_tables
                                 if not t.name.startswith("stock")
+                                and t.name != "krx_historical_cache"
                             ],
                         )
                     )
