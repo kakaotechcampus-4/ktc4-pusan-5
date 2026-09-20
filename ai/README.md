@@ -7,11 +7,14 @@
 
 ```
 ai/
+  alembic/        마이그레이션 (versions/ 에 리비전)
+  alembic.ini     alembic 설정. 영어로만 쓴다 (아래 참고)
   app/
     core/         설정·DB 연결
     models/       테이블 (SQLAlchemy)
     services/     외부 API 클라이언트·파싱
     repositories/ DB 읽기·쓰기
+    skills/       LLM 프롬프트
     collectors/   python -m 으로 도는 수집 배치
   tests/
 ```
@@ -26,10 +29,39 @@ ai/
 의존성이 API 배포 이미지에 같이 실린다.
 
 **대신 대가가 있다.** SQLAlchemy `Base` 가 `backend/app/core/database.py` 와
-여기 둘로 갈라진다. 그래서 backend 의 `create_all` 은 `analyst_reports` 를 모르고,
-여기 `create_all` 은 `news` 를 모른다. 각자 자기 표만 만든다 — 같은 DB 라도 충돌하지 않는다.
+여기 둘로 갈라진다. 그래서 여기 `Base` 는 `news` 를 모르고 backend `Base` 는
+`analyst_reports` 를 모른다. 같은 DB 라도 각자 자기 표만 본다.
 나중에 API 가 리포트를 읽어야 하면 그때 `AnalystReport` 모델을 backend 에서
 import 하거나 읽기 전용 쿼리를 쓴다.
+
+## 스키마는 alembic 으로 바꾼다
+
+`create_all` 을 쓰지 않는다. `create_all` 은 **이미 있는 표를 조용히 건너뛰어서**,
+모델에 칼럼을 더해도 기존 표는 그대로다 — 코드는 새 칼럼을 쓰는데 DB 에는 없는
+상태가 소리 없이 만들어진다.
+
+```bash
+uv run alembic upgrade head                        # 표 만들기·최신으로 올리기
+uv run alembic revision --autogenerate -m "설명"    # 모델을 고친 뒤
+uv run alembic current                             # 지금 어느 리비전인가
+uv run alembic check                               # 모델과 DB 가 어긋났나 (DB 필요)
+```
+
+**이미 `create_all` 로 표를 만들어 쓰던 DB 라면 한 번만** 아래를 먼저 한다.
+`analyst_reports` 가 이미 있어서 `upgrade head` 가 "이미 있다" 로 터지기 때문이다.
+
+```bash
+uv run alembic stamp 0001     # analyst_reports 는 적용된 것으로 친다
+uv run alembic upgrade head   # 나머지(0002~)만 적용된다
+```
+
+`alembic.ini` 는 **영어로만 쓴다.** alembic 이 그 파일을 UTF-8 이 아니라 로캘
+인코딩으로 읽어서, 한국어 Windows 에서 한글 주석이 있으면 `UnicodeDecodeError` 로
+죽는다. 한국어 설명은 `alembic/env.py` 나 이 README 에 적는다.
+
+backend 는 아직 `create_all` 을 쓴다. 충돌하지 않는다 — backend 의 `create_all` 은
+자기 Base 만 보고, 여기 alembic 은 `env.py` 의 `include_object` 로 남의 표를
+건드리지 않는다.
 
 ## 실행
 
@@ -40,7 +72,9 @@ uv sync
 # Postgres 는 backend/docker-compose.yml 것을 같이 쓴다
 cd ../backend && docker compose up -d db && cd ../ai
 
-# 최근 7일 리포트 수집 (표가 없으면 처음 한 번 만든다)
+uv run alembic upgrade head   # 표 준비
+
+# 최근 7일 리포트 수집
 uv run python -m app.collectors.analyst_report --days 7
 
 uv run pytest

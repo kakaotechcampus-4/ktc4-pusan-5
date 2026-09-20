@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "BASIS 리포트 수집 파이프라인"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.16.0",
     "asyncpg>=0.31.0",
     "pydantic-settings>=2.15.0",
     "sqlalchemy[asyncio]>=2.0.52",

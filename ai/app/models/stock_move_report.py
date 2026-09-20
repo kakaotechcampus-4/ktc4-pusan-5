@@ -87,12 +87,14 @@ class StockMoveReport(Base):
 
     # explained | partially_explained | no_clear_cause
     #
-    # 이하 LLM 이 채우는 값들은 Postgres ENUM 이나 CHECK 를 걸지 않는다. 두 가지 이유다.
-    #   1. 스키마를 어긴 값(size_fit="medium" 같은)이 들어오면 INSERT 가 거절된다.
-    #      원인 분석 자료를 남기려고 적재하는 건데 정작 깨진 행만 못 들어온다.
-    #   2. alembic 이 없고 create_all 은 이미 있는 타입을 갱신하지 않는다.
-    #      값 하나 늘리려면 운영 DB 에 ALTER TYPE 을 손으로 쳐야 한다.
-    # analyst_reports 의 category/source/body_status 도 같은 이유로 String 이다.
+    # 이하 LLM 이 채우는 값들은 Postgres ENUM 이나 CHECK 를 걸지 않는다.
+    # **스키마를 어긴 값(size_fit="medium" 같은)이 들어오면 INSERT 가 거절되기 때문이다.**
+    # 원인 분석 자료를 남기려고 깨진 건까지 적재하는 건데, 정작 그 행만 못 들어온다.
+    #
+    # alembic 을 쓰기로 하면서 "값 목록을 나중에 못 고친다" 는 쪽 이유는 없어졌다
+    # (ALTER TYPE ... ADD VALUE 를 리비전으로 관리할 수 있다). 그래도 위 이유 하나만으로
+    # String 을 유지한다 — 값을 거절하지 않는 것이 이 표의 존재 이유와 직결된다.
+    # analyst_reports 의 category/source/body_status 도 String 이라 관례도 맞다.
     verdict: Mapped[str | None] = mapped_column(String(24), nullable=True)
 
     # --- summary 네 칸 ------------------------------------------------

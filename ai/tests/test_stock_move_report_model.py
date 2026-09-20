@@ -13,9 +13,10 @@ from app.models import (
 
 
 def test_table_names_do_not_collide_with_backend_report() -> None:
-    """같은 Postgres 를 쓰는데 이름이 겹치면 create_all 이 조용히 건너뛰어
-    어긋난 표를 그대로 쓰게 된다. backend 의 report / report_block / report_citation
-    과 이름이 겹치지 않아야 하고, analyst_reports(증권사 원문)와도 구분돼야 한다."""
+    """backend 와 같은 Postgres 를 쓴다. 이름이 겹치면 backend 의 create_all 이 만든
+    표를 여기 alembic 이 자기 것으로 알고 고치려 들거나, 그 반대가 된다. backend 의
+    report / report_block / report_citation 과 겹치지 않아야 하고,
+    analyst_reports(증권사 원문)와도 이름만 보고 구분돼야 한다."""
     assert StockMoveReport.__tablename__ == "stock_move_reports"
     assert StockMoveReportFactor.__tablename__ == "stock_move_report_factors"
     assert StockMoveReportFactorSource.__tablename__ == "stock_move_report_factor_sources"
