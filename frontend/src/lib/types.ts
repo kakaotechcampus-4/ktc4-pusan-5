@@ -4,6 +4,68 @@ export type User = {
   email: string;
 };
 
+export type ResourceStatus = 'pending' | 'ready' | 'stale' | 'unavailable' | 'empty';
+
+export type Resource<T> = {
+  status: ResourceStatus;
+  refreshing: boolean;
+  data: T | null;
+  sourceAsOf: string | null;
+  collectedAt: string | null;
+  retryAfterSeconds: number | null;
+};
+
+export type StockIdentity = {
+  code: string;
+  name: string;
+  market: 'KOSPI' | 'KOSDAQ';
+  listingStatus: 'listed' | 'inactive';
+  listedAt: string | null;
+};
+
+export type StockQuoteData = {
+  price: number;
+  change: number;
+  changeAmount: number;
+  volume: number;
+  tradingValue: number;
+  marketCap: number | null;
+};
+
+export type StockMetricsData = {
+  per: number | null;
+  pbr: number | null;
+  eps: number | null;
+  bps: number | null;
+  foreignOwnership: number | null;
+  week52High: number | null;
+  week52Low: number | null;
+};
+
+export type Candle = {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
+export type PricePeriod = '1M' | '3M' | '1Y' | '5Y' | 'ALL';
+
+export type StockPriceResource = Resource<Candle[]> & {
+  code: string;
+  period: PricePeriod;
+  adjustment: 'raw';
+  coverage: { fromDate: string; toDate: string; complete: boolean };
+};
+
+export type StockOverview = {
+  stock: StockIdentity;
+  quote: Resource<StockQuoteData>;
+  metrics: Resource<StockMetricsData>;
+};
+
 export type ApiErrorBody = {
   error: {
     code: string;

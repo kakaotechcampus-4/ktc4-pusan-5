@@ -81,6 +81,10 @@ export function formatAsOf(d: Date, note = '장 마감 기준'): string {
   return `${formatDate(d)} · ${note}`;
 }
 
+export function formatCollectedAt(value: string): string {
+  return `${formatDate(new Date(value))} 수집 시각`;
+}
+
 /** 원천 기준일은 시간대 변환 없이 표시한다. */
 export function formatMarketDate(value: string): string {
   return value.replaceAll('-', '. ');

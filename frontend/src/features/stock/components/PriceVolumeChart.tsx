@@ -8,7 +8,7 @@ import {
   type ISeriesApi,
 } from 'lightweight-charts';
 import { cssVar } from '../chartColors';
-import type { Candle } from '../mock';
+import type { Candle } from '@/lib/types';
 
 export function PriceVolumeChart({ candles }: { candles: Candle[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -89,7 +89,7 @@ export function PriceVolumeChart({ candles }: { candles: Candle[] }) {
 
     priceSeries.setData(
       candles.map((c) => ({
-        time: c.time,
+        time: c.date,
         open: c.open,
         high: c.high,
         low: c.low,
@@ -98,7 +98,7 @@ export function PriceVolumeChart({ candles }: { candles: Candle[] }) {
     );
     volumeSeries.setData(
       candles.map((c) => ({
-        time: c.time,
+        time: c.date,
         value: c.volume,
         color: c.close >= c.open ? upFill : downFill,
       })),
