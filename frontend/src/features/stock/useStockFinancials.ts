@@ -66,7 +66,7 @@ export function useStockFinancials(code: string | undefined) {
           if (cancelled || requestId !== generation) return;
           activeRequest = undefined;
           setState({ key, data, error: null });
-          const resources = [data.income, data.eps];
+          const resources = [data.income, data.eps, data.health];
           const pending = resources.filter(needsRefresh);
           if (pending.length) {
             attempts += 1;

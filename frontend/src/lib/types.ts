@@ -84,6 +84,15 @@ export type StockFinancials = {
   basis: 'provider';
   income: Resource<FinancialIncomePoint[]>;
   eps: Resource<FinancialEpsPoint[]>;
+  health: Resource<FinancialHealthData>;
+};
+
+export type FinancialHealthData = {
+  fiscalPeriod: string;
+  debtRatio: number | null;
+  roe: number | null;
+  operatingMargin: number | null;
+  currentRatio: number | null;
 };
 
 export type ApiErrorBody = {

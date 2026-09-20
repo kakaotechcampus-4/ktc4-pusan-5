@@ -1,6 +1,7 @@
 import { act, render, renderHook, screen } from '@testing-library/react';
 import type {
   FinancialEpsPoint,
+  FinancialHealthData,
   FinancialIncomePoint,
   Resource,
   StockFinancials,
@@ -9,6 +10,7 @@ import { getStockFinancials } from '@/lib/api';
 import { useStockFinancials } from './useStockFinancials';
 import { mergeAnnualRows } from './financialUtils';
 import { AnnualFinancialTrend } from './components/AnnualFinancialTrend';
+import { FinancialHealthSummary } from './components/FinancialHealthSummary';
 
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>();
@@ -37,8 +39,15 @@ function financials(
   code: string,
   income: Resource<FinancialIncomePoint[]>,
   eps: Resource<FinancialEpsPoint[]>,
+  health: Resource<FinancialHealthData> = resource('ready', {
+    fiscalPeriod: '2024-12',
+    debtRatio: 32.8,
+    roe: 10,
+    operatingMargin: 12,
+    currentRatio: 150,
+  }),
 ): StockFinancials {
-  return { code, source: 'KIS', basis: 'provider', income, eps };
+  return { code, source: 'KIS', basis: 'provider', income, eps, health };
 }
 
 async function settle() {
@@ -67,6 +76,26 @@ describe('useStockFinancials', () => {
     await act(async () => vi.advanceTimersByTimeAsync(3000));
     expect(financialsRequest).toHaveBeenCalledTimes(2);
     expect(result.current.data?.income.status).toBe('ready');
+  });
+
+  it('keeps polling while only health is pending and stops once complete', async () => {
+    const pending = financials('A', resource('ready', []), resource('ready', []));
+    pending.health = resource<FinancialHealthData>('pending', null, { refreshing: true, retryAfterSeconds: 3 });
+    const ready = financials('A', resource('ready', []), resource('ready', []));
+    ready.health = resource('ready', {
+      fiscalPeriod: '2026-06',
+      debtRatio: 0,
+      roe: -2,
+      operatingMargin: null,
+      currentRatio: 150,
+    });
+    financialsRequest.mockResolvedValueOnce(pending).mockResolvedValueOnce(ready);
+    const { result } = renderHook(() => useStockFinancials('A'));
+    await settle();
+    await act(async () => vi.advanceTimersByTimeAsync(3000));
+    expect(result.current.data?.health.data?.roe).toBe(-2);
+    await act(async () => vi.advanceTimersByTimeAsync(60000));
+    expect(financialsRequest).toHaveBeenCalledTimes(2);
   });
 
   it('merges exact periods while preserving null, zero, and negative values', () => {
@@ -116,6 +145,11 @@ describe('useStockFinancials', () => {
     expect(screen.getByRole('status', { name: '재무 데이터 불러오는 중' })).toBeTruthy();
     expect(screen.queryByText('재무 데이터를 수집하고 있습니다.')).toBeNull();
     expect(screen.queryByText('재무 추이 데이터가 없습니다')).toBeNull();
+  });
+
+  it('shows the health failure before a cold skeleton', () => {
+    render(<FinancialHealthSummary health={null} error={new Error('failed')} />);
+    expect(screen.getByText('재무 건전성을 불러오지 못했습니다')).toBeTruthy();
   });
 
   it('does not expose delayed A financials after navigating to B', async () => {
