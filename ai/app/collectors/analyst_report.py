@@ -22,7 +22,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-from app.core.database import SessionLocal, create_tables
+from app.core.database import SessionLocal
 from app.repositories.analyst_report import known_ids, upsert_analyst_reports
 from app.services.analyst.naver import CATEGORIES, NaverResearchClient, utcnow
 from app.services.analyst.schema import AnalystReportItem, PdfText
@@ -79,7 +79,6 @@ async def collect(
 ) -> dict[str, int]:
     """카테고리별 저장 건수. {'company': 118, 'industry': 46, ...}"""
     since = datetime.now(KST).date() - timedelta(days=days)
-    await create_tables()
 
     saved: dict[str, int] = {}
     async with NaverResearchClient() as naver, SessionLocal() as session:
