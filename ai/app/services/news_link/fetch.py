@@ -54,6 +54,12 @@ MAX_HTML_BYTES = 3_000_000
 # 그만큼 수집 전체가 늦어진다. PDF 를 받는 analyst 쪽(30초)과 값이 다른 이유다.
 DEFAULT_TIMEOUT_SEC = 12.0
 
+# <meta charset> 은 <head> 에 있다. 뒤까지 뒤지면 본문에 인용된 charset 문자열을
+# 인코딩으로 착각한다.
+META_CHARSET_SCAN_BYTES = 4096
+# 예외 메시지는 표에 한 칸으로 찍힌다. 전문이 필요하면 로그를 본다.
+ERROR_MSG_MAX_CHARS = 70
+
 HTML_TYPES = ("text/html", "application/xhtml+xml")
 _META_CHARSET_RE = re.compile(rb"""charset\s*=\s*["']?\s*([\w\-]+)""", re.IGNORECASE)
 
@@ -93,7 +99,7 @@ def decode_html(content: bytes, content_type: str) -> str:
     if "charset=" in content_type.lower():
         encoding = content_type.lower().split("charset=")[1].split(";")[0].strip(" \"'")
     if not encoding:
-        found = _META_CHARSET_RE.search(content[:4096])
+        found = _META_CHARSET_RE.search(content[:META_CHARSET_SCAN_BYTES])
         if found:
             encoding = found.group(1).decode("ascii", "ignore")
     try:
@@ -118,7 +124,7 @@ async def fetch_link(
         async with client.stream("GET", url, headers=HEADERS, follow_redirects=True) as response:
             body.final_url = str(response.url)
             body.domain = urlparse(str(response.url)).netloc
-            if response.status_code != 200:
+            if response.status_code != httpx.codes.OK:
                 body.status = "http_error"
                 body.http_status = response.status_code
                 return body
@@ -158,7 +164,7 @@ async def fetch_link(
         body.status = "ok" if excerpt else "no_body"
     except Exception as exc:  # noqa: BLE001 — 네트워크·인코딩·파싱 전부. 링크 하나에 수집이 멈추면 안 된다
         body.status = "error"
-        body.error = f"{type(exc).__name__}: {str(exc)[:70]}"
+        body.error = f"{type(exc).__name__}: {str(exc)[:ERROR_MSG_MAX_CHARS]}"
         # 본문을 못 읽어도 **어디로 가는 주소인지는 건질 수 있다.** 리다이렉트는
         # 성공하고 목적지에서 응답이 끊기는 경우가 있다(globenewswire 가 그랬다).
         if body.final_url is None:

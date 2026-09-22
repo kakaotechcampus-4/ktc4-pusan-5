@@ -84,6 +84,11 @@ TRIM_RE = [(n, why, re.compile(p)) for n, why, p in TRIM_RULES]
 # 종결부호가 없다는 것이 강한 신호다 — 기사 문장은 "다." 나 "." 로 끝난다.
 SUBHEAD_MAX = 120
 
+# 본문에 다시 실린 제목을 찾을 때, 제목이 이보다 짧으면 대조하지 않는다.
+# 짧은 제목("코스피 급등")은 멀쩡한 본문 문장 안에도 그대로 들어 있어서,
+# 기사 첫 문장을 제목으로 오인해 지우게 된다.
+TITLE_ECHO_MIN_CHARS = 10
+
 
 def looks_like_sentence(text: str) -> bool:
     return bool(SENT_TAIL_RE.search(text.strip()))
@@ -122,7 +127,7 @@ def clean_paragraphs(
             # 제목을 본문에 한 번 더 싣는 매체가 있다. 제목은 이미 title 에 있다.
             if (
                 normalized_title
-                and len(normalized_title) > 10
+                and len(normalized_title) > TITLE_ECHO_MIN_CHARS
                 and re.sub(r"\s+", "", text) in normalized_title
             ):
                 log.append(("title_echo", text))

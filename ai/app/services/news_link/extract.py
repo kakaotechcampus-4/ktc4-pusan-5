@@ -33,6 +33,27 @@ PARA_SELECTORS = "p, div.se-text-paragraph"
 # 갈라져, 어느 쪽을 고쳐야 하는지 모르게 된다.
 MIN_PARA_CHARS = 25
 
+# 본문으로 인정할 최소 문단 수. `article_paragraphs` 가 문단과 함께 이 값을 돌려주는
+# 것은, 문단을 어느 경로로 주웠는지 아는 쪽이 거기이기 때문이다.
+MIN_PARAS_KNOWN_AREA = 1  # 아는 기사 영역에서 주웠다. 문단 하나여도 본문이다.
+MIN_PARAS_WHOLE_PAGE = 2  # 페이지 전체에서 <p> 를 주웠다. 하나뿐이면 본문이 아닐 확률이 높다.
+
+# 제목은 로그·표에 한 줄로 찍힌다. 그보다 길면 읽는 데 도움이 안 된다.
+TITLE_MAX_CHARS = 120
+
+# 선택자가 맞았어도 이만큼은 돼야 기사 영역으로 인정한다. 본문을 JS 로 그리는
+# 페이지는 <article> 껍데기만 두고 오는데, 그걸 기사 영역으로 믿으면 빈 본문을
+# 확신을 갖고 내보내게 된다.
+MIN_KNOWN_AREA_CHARS = 150
+
+# 아래 둘은 되돌림 경로에서만 쓴다 (기사 영역을 못 찾아 <p> 를 부모별로 묶었을 때).
+# 가장 두꺼운 덩어리 대비 이만큼은 돼야 "같은 기사의 일부" 로 본다. 낮추면 사이드바가,
+# 올리면 리드 문단이 딸려 들어온다.
+MIN_GROUP_RATIO = 0.15
+# 공통 조상으로 다시 모은 결과가 이 배수를 넘으면 조상이 너무 넓은 것이다
+# (관련기사·추천글까지 들어왔다는 뜻). 그때는 가장 두꺼운 덩어리로 되돌린다.
+MAX_MERGED_RATIO = 3
+
 
 def _squash(text: str) -> str:
     return re.sub(r"[ \t\xa0]+", " ", text).strip()
@@ -56,7 +77,11 @@ def _common_ancestor(nodes: list) -> object | None:
 
 
 def article_paragraphs(html_text: str) -> tuple[str, list[str], int]:
-    """**정제 전** 문단 목록. (제목, 문단들, 최소문단수) 를 돌려준다."""
+    """**정제 전** 문단 목록.
+
+    (제목, 문단들, 최소문단수) 를 돌려준다. 최소문단수는 MIN_PARAS_KNOWN_AREA
+    아니면 MIN_PARAS_WHOLE_PAGE 이고, 그대로 `finish` 에 넘기면 된다.
+    """
     soup = BeautifulSoup(html_text, "html.parser")
     for tag in soup(
         ["script", "style", "nav", "header", "footer", "aside",
@@ -72,12 +97,12 @@ def article_paragraphs(html_text: str) -> tuple[str, list[str], int]:
         title = og_title["content"]
     elif soup.title and soup.title.string:
         title = soup.title.string
-    title = re.sub(r"\s+", " ", title or "").strip()[:120]
+    title = re.sub(r"\s+", " ", title or "").strip()[:TITLE_MAX_CHARS]
 
     node = None
     for selector in ARTICLE_SELECTORS:
         found = soup.select_one(selector)
-        if found and len(found.get_text(" ", strip=True)) > 150:
+        if found and len(found.get_text(" ", strip=True)) > MIN_KNOWN_AREA_CHARS:
             node = found
             break
 
@@ -94,7 +119,7 @@ def article_paragraphs(html_text: str) -> tuple[str, list[str], int]:
             paras = [
                 t for t in (_squash(x) for x in node.get_text("\n").split("\n")) if _keep_para(t)
             ]
-        return title, paras, 1
+        return title, paras, MIN_PARAS_KNOWN_AREA
 
     # 아는 기사 영역이 없다. <p> 를 **부모별로 묶어** 두꺼운 덩어리만 쓴다.
     # 페이지 전체에서 <p> 를 긁으면 푸터의 회사 소개가 첫 문장이 된다
@@ -109,7 +134,7 @@ def article_paragraphs(html_text: str) -> tuple[str, list[str], int]:
         group = groups.setdefault(id(p.parent), {"node": p.parent, "paras": []})
         group["paras"].append(text)
     if not groups:
-        return title, [], 1
+        return title, [], MIN_PARAS_WHOLE_PAGE
 
     def weight(group: dict) -> int:
         return sum(len(t) for t in group["paras"])
@@ -119,7 +144,7 @@ def article_paragraphs(html_text: str) -> tuple[str, list[str], int]:
     # 덩어리만 쓰면 리드 문단을 건너뛰고 기사 중간부터 자르게 되는데, "본문 앞 3문장"
     # 이라고 넘긴 것이 실은 중간이면 모델이 잘못 읽는다. 그래서 의미 있는 덩어리들의
     # 공통 조상을 잡아 문서 순서대로 다시 모은다.
-    significant = [g["node"] for g in groups.values() if weight(g) >= weight(best) * 0.15]
+    significant = [g["node"] for g in groups.values() if weight(g) >= weight(best) * MIN_GROUP_RATIO]
     ancestor = _common_ancestor(significant)
     if ancestor is not None and ancestor.name not in ("body", "html", "[document]"):
         merged = [
@@ -129,15 +154,15 @@ def article_paragraphs(html_text: str) -> tuple[str, list[str], int]:
         ]
         merged = [t for t in merged if _keep_para(t)]
         # 조상이 너무 넓으면(관련기사·추천글까지 들어오면) 되돌린다
-        if merged and sum(len(t) for t in merged) <= weight(best) * 3:
-            return title, merged, 2
-    return title, best["paras"], 2
+        if merged and sum(len(t) for t in merged) <= weight(best) * MAX_MERGED_RATIO:
+            return title, merged, MIN_PARAS_WHOLE_PAGE
+    return title, best["paras"], MIN_PARAS_WHOLE_PAGE
 
 
-def finish(title: str, paragraphs: list[str], min_paras: int = 1) -> str:
+def finish(title: str, paragraphs: list[str], min_paras: int = MIN_PARAS_KNOWN_AREA) -> str:
     """문단을 정제해 본문 문자열로 만든다. 모든 경로가 여기로 나간다.
 
-    min_paras=2 는 되돌림 경로에서만 쓴다. 기사 영역을 못 찾아 페이지 전체에서
+    MIN_PARAS_WHOLE_PAGE 는 되돌림 경로에서만 쓴다. 기사 영역을 못 찾아 페이지 전체에서
     <p> 를 주운 상황이라, 문단 하나는 본문이 아니라 회사 소개일 확률이 높다.
     없는 것이 틀린 것보다 낫다 — 모델은 발췌를 기사 서두로 읽는다.
     """
