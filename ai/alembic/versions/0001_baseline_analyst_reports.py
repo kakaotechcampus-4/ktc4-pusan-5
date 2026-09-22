@@ -1,22 +1,10 @@
-"""baseline: analyst_reports
-
-alembic 을 도입하기 전에 `create_all` 로 이미 만들어져 있던 표다. 그래서 이 리비전은
-**두 가지로 쓰인다.**
-
-  - 새 DB: `alembic upgrade head` 가 이 표를 만든다
-  - 쓰던 DB: 표가 이미 있으므로 `alembic stamp 0001` 로 "여기까지는 적용된 것으로
-    친다" 고 도장만 찍고 넘어간다. 그 다음 `upgrade head` 가 0002 만 적용한다
-
-둘을 한 리비전에 섞지 않으려고 새 표(0002)와 갈라 뒀다. 한 리비전에 몰아넣으면
-쓰던 DB 에서는 stamp 도 upgrade 도 맞지 않게 된다 — stamp 하면 새 표가 안 생기고
-upgrade 하면 analyst_reports 에서 "이미 있다" 로 터진다.
-
-내용은 `app/models/analyst_report.py` 의 metadata 를 그대로 옮긴 것이고, 손으로
-적지 않고 alembic 렌더러로 뽑았다.
+"""Create the original analyst_reports schema.
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-09-21
+
+#26의 초기 스키마를 재사용한다. source_category 추가 이전 구조이며,
+현재 모델을 참조하지 않는다. 기존 DB 전환 절차는 README를 참고한다.
 """
 
 from collections.abc import Sequence

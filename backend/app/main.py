@@ -6,9 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-import app.models
 from app.core.config import settings
-from app.core.database import Base, engine
+from app.core.database import engine
 from app.core.errors import (
     AppError,
     app_error_handler,
@@ -18,12 +17,13 @@ from app.core.errors import (
 )
 from app.routers import concepts
 from app.routers.auth import router as auth_router
+from app.routers.market import router as market_router
+from app.routers.stocks import router as stock_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # 스키마는 여기서 만들지 않는다. `uv run alembic upgrade head` 로 미리 맞춰둔다.
     yield
     await engine.dispose()
 
@@ -44,6 +44,8 @@ app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
 app.include_router(concepts.router)
+app.include_router(market_router)
+app.include_router(stock_router)
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
 

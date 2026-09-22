@@ -11,8 +11,8 @@
 
 내용은 손으로 적지 않고 alembic 렌더러로 metadata 에서 뽑았다.
 
-Revision ID: 0002
-Revises: 0001
+Revision ID: 0019_stock_move_analysis
+Revises: 0018_source_category
 Create Date: 2026-09-21
 """
 
@@ -23,8 +23,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision: str = "0002"
-down_revision: str | None = "0001"
+revision: str = "0019_stock_move_analysis"
+down_revision: str | None = "0018_source_category"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

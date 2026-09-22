@@ -1,26 +1,32 @@
 import { Card, Kicker } from '@/components/ui';
-import type { StockDetail } from '../mock';
-import { FinancialTrendTable } from './FinancialTrendTable';
+import type { StockFinancials } from '@/lib/types';
+import { AnnualFinancialTrend } from './AnnualFinancialTrend';
 import { FinancialHealthSummary } from './FinancialHealthSummary';
 import { QuarterlyMetricsTable } from './QuarterlyMetricsTable';
 
-/** "상세 정보" 탭. 재무 추이·재무 건전성·분기별 투자 지표 세 덩어리로 구성한다. */
-export function DetailInfoTab({ detail }: { detail: StockDetail }) {
+export function DetailInfoTab({
+  financials,
+  error,
+  onRetry,
+}: {
+  financials: StockFinancials | null;
+  error: Error | null;
+  onRetry: () => void;
+}) {
   return (
     <div className="flex flex-col gap-4">
-      <Card tone="plain">
-        <Kicker>재무 추이</Kicker>
-        <FinancialTrendTable trend={detail.financialTrend} />
-      </Card>
-
+      <AnnualFinancialTrend financials={financials} error={error} onRetry={onRetry} />
       <Card tone="plain">
         <Kicker>재무 건전성 간단 요약</Kicker>
-        <FinancialHealthSummary health={detail.financialHealth} financials={detail.financials} />
+        <FinancialHealthSummary
+          health={financials?.health ?? null}
+          error={error}
+          onRetry={onRetry}
+        />
       </Card>
-
       <Card tone="plain">
         <Kicker>투자 지표</Kicker>
-        <QuarterlyMetricsTable metrics={detail.quarterlyMetrics} />
+        <QuarterlyMetricsTable investment={financials?.investment ?? null} error={error} />
       </Card>
     </div>
   );
