@@ -1,55 +1,84 @@
-import { InfoTip, Stat, StatGrid } from '@/components/ui';
-import { formatRatio } from '@/lib/format';
-import type { FinancialHealth, FinancialSummary } from '../mock';
+import { ErrorBox, InfoTip, Skeleton, Stat, StatGrid, Tag } from '@/components/ui';
+import { formatFiscalPeriod, formatRatio } from '@/lib/format';
+import type { FinancialHealthData, Resource } from '@/lib/types';
 
-/** 부채비율·ROE·영업이익률·유동비율 4개를 요약 카드로 보여준다. */
-export function FinancialHealthSummary({
-  health,
-  financials,
-}: {
-  health: FinancialHealth;
-  financials: FinancialSummary;
-}) {
-  const operatingMargin = (financials.operatingProfit / financials.revenue) * 100;
+function display(value: number | null): string {
+  return value === null ? '—' : formatRatio(value);
+}
 
+function StatSkeleton() {
   return (
     <StatGrid>
-      <Stat
-        label={
-          <>
-            부채비율
-            <InfoTip description="자기자본 대비 부채가 얼마나 되는지 보여주는 비율입니다. 낮을수록 재무구조가 안정적입니다." />
-          </>
-        }
-        value={formatRatio(health.debtRatio)}
-      />
-      <Stat
-        label={
-          <>
-            ROE
-            <InfoTip description="자기자본으로 얼마나 이익을 냈는지 보여주는 자기자본이익률입니다." />
-          </>
-        }
-        value={formatRatio(health.roe)}
-      />
-      <Stat
-        label={
-          <>
-            영업이익률
-            <InfoTip description="매출액 대비 영업이익이 차지하는 비율입니다." />
-          </>
-        }
-        value={formatRatio(operatingMargin)}
-      />
-      <Stat
-        label={
-          <>
-            유동비율
-            <InfoTip description="1년 내 갚아야 할 부채를 유동자산으로 얼마나 감당할 수 있는지 보여주는 비율입니다. 100% 이상이면 안정적이라고 봅니다." />
-          </>
-        }
-        value={formatRatio(health.currentRatio)}
-      />
+      {[1, 2, 3, 4].map((key) => (
+        <Skeleton key={key} className="h-16" />
+      ))}
     </StatGrid>
+  );
+}
+
+export function FinancialHealthSummary({
+  health,
+  error,
+  onRetry,
+}: {
+  health: Resource<FinancialHealthData> | null;
+  error?: Error | null;
+  onRetry?: () => void;
+}) {
+  if (error && !health?.data)
+    return <ErrorBox title="재무 건전성을 불러오지 못했습니다" onRetry={onRetry} />;
+  if (!health) return <StatSkeleton />;
+  const data = health.data;
+  const collecting = !data && (health.status === 'pending' || health.refreshing);
+  const unavailable = !data && (health.status === 'empty' || health.status === 'unavailable');
+  if (collecting) return <StatSkeleton />;
+  const periodHelp = data
+    ? `기준 결산연월 ${formatFiscalPeriod(data.fiscalPeriod)}`
+    : '결산연월 기준';
+  const hasNotice = unavailable || health.status === 'stale' || Boolean(error && data);
+  return (
+    <div className="flex flex-col gap-2">
+      {hasNotice && (
+        <div className="flex items-center gap-2 text-sm text-neutral-600">
+          {unavailable && <Tag>미제공</Tag>}
+          {health.status === 'stale' && <Tag>이전 데이터</Tag>}
+          {error && data && <Tag>조회 실패</Tag>}
+        </div>
+      )}
+      <StatGrid>
+        <Stat
+          label={
+            <>
+              부채비율 <InfoTip description={`자기자본 대비 부채 비율입니다. ${periodHelp}`} />
+            </>
+          }
+          value={display(data?.debtRatio ?? null)}
+        />
+        <Stat
+          label={
+            <>
+              ROE <InfoTip description={`자기자본이익률입니다. ${periodHelp}`} />
+            </>
+          }
+          value={display(data?.roe ?? null)}
+        />
+        <Stat
+          label={
+            <>
+              영업이익률 <InfoTip description={`매출액 대비 영업이익 비율입니다. ${periodHelp}`} />
+            </>
+          }
+          value={display(data?.operatingMargin ?? null)}
+        />
+        <Stat
+          label={
+            <>
+              유동비율 <InfoTip description={`유동부채 대비 유동자산 비율입니다. ${periodHelp}`} />
+            </>
+          }
+          value={display(data?.currentRatio ?? null)}
+        />
+      </StatGrid>
+    </div>
   );
 }
