@@ -38,9 +38,21 @@ from app.core.database import Base
 class AnalystReport(Base):
     __tablename__ = "analyst_reports"
     __table_args__ = (
-        # researchId는 카테고리마다 별도 시퀀스다(company 96141, industry 46078).
-        # 그래서 (출처, 카테고리, 원본ID)가 자연키다. 재수집해도 중복이 안 생긴다.
-        UniqueConstraint("source", "category", "source_id", name="uq_analyst_report_source_id"),
+        # 자연키. 재수집해도 중복이 안 생긴다.
+        #
+        # **source_category 를 쓴다. category 가 아니다.**
+        # 원본ID는 출처가 자기 구분 안에서만 유일하게 매긴다. 네이버 researchId 는
+        # 카테고리마다 별도 시퀀스이고(company 96141, industry 46078), 텔레그램
+        # 메시지 번호는 채널 안에서만 유일하다. 그래서 그 구분까지 같이 키로 잡아야 한다.
+        #
+        # 여기에 category 를 쓰면 안 된다. category 는 우리가 정하는 값이라 바뀔 수 있는데,
+        # 실제로 invest 와 daily 를 market 으로 합치는 순간 서로 다른 리포트가 같은 키가 된다.
+        # 실측(2026-09-18): invest 2026-01-16 자 37550 과 daily 2026-09-17 자 37550 이
+        # 둘 다 살아 있고, 같은 번호대에서 42건이 겹쳤다. 합쳐서 넣었으면 한쪽이
+        # 다른 쪽을 조용히 덮어썼다 — 에러는 안 난다.
+        UniqueConstraint(
+            "source", "source_category", "source_id", name="uq_analyst_report_source_id"
+        ),
         Index("ix_analyst_report_code_date", "item_code", "write_date"),
         Index("ix_analyst_report_date", "write_date"),
         Index("ix_analyst_report_broker_date", "broker", "write_date"),
@@ -52,7 +64,14 @@ class AnalystReport(Base):
 
     # --- 출처 --------------------------------------------------------
     source: Mapped[str] = mapped_column(String(16), default="naver")  # naver | telegram
-    source_id: Mapped[str] = mapped_column(String(64))  # 네이버 researchId
+    source_id: Mapped[str] = mapped_column(String(64))  # 네이버 researchId, 텔레그램 메시지 번호
+
+    # 출처가 준 **원본 구분**. 우리가 손대지 않는다. source_id 가 유일한 범위이기도 하다.
+    #     naver      API 카테고리   company | industry | economy | invest | daily
+    #     telegram   채널명         sunstudy1234 | DOC_POOL | ...
+    # 아래 category 와 헷갈리면 안 된다. 이건 "저쪽이 뭐라고 불렀나" 이고,
+    # category 는 "우리가 뭐로 보나" 다. 네이버 company 처럼 둘이 같은 값일 때도 있다.
+    source_category: Mapped[str] = mapped_column(String(32))
 
     # 리포트 **종류**. 출처가 아니다 — 출처는 source 가 말한다.
     #     company    종목분석      특정 종목 하나
@@ -65,6 +84,9 @@ class AnalystReport(Base):
     # 네이버 라벨 자체가 흔들려서다 — 같은 'Weekly' 가 증권사에 따라 invest 이기도
     # daily 이기도 하다. 증권사가 자기 발간물을 어디에 올릴지 정하는 거라
     # 제목·본문으로는 복원이 안 된다. 구분이 안 되는 걸 나눠두면 그 칼럼을 못 믿는다.
+    #
+    # 합치는 게 가능한 이유는 자연키가 source_category 를 보기 때문이다.
+    # 원본 구분은 위에 그대로 남아 있어서 나중에 다시 나누고 싶어져도 복원된다.
     category: Mapped[str] = mapped_column(String(16))
 
     # --- 대상 --------------------------------------------------------
