@@ -29,6 +29,24 @@ class Settings(BaseSettings):
     telegram_api_hash: str | None = None
     telegram_session: str | None = None
 
+    # 텔레그램 리포트 요약 생성. 네이버는 API 가 요약을 줘서 필요 없다(5종 100/100 확인).
+    #
+    openrouter_api_key: str | None = None
+    summary_model: str = "deepseek/deepseek-v4-flash-0731"
+    # 추론 모델이라 내용을 쓰기 전에 reasoning 토큰을 1,000~1,500 쓴다. max_tokens 는
+    # reasoning + content 합계라 1,200 으로 잡았더니 40건 중 21건이 빈 응답이었다.
+    summary_max_tokens: int = 8000
+    # 기본 모델은 고강도 추론이 기본값이다. 짧은 요약에는 low로 시간을 제한한다.
+    summary_reasoning_effort: str | None = "low"
+    summary_timeout_sec: float = 180.0
+
+    def require_openrouter(self) -> str:
+        if not self.openrouter_api_key:
+            raise RuntimeError(
+                "요약 생성에 OPENROUTER_API_KEY 가 필요하다. ai/.env 에 넣는다."
+            )
+        return self.openrouter_api_key
+
     def require_telegram(self, *, require_session: bool = True) -> None:
         """텔레그램 설정이 없으면 여기서 멈춘다.
 
