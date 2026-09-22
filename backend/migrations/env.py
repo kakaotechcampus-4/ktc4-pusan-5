@@ -30,6 +30,16 @@ target_metadata = Base.metadata
 # ... etc.
 
 
+def include_object(obj, name, type_, reflected, compare_to) -> bool:
+    """이 프로젝트의 metadata 에 없는 표는 autogenerate 대상에서 뺀다.
+
+    backend 와 ai/ 는 같은 DB 를 쓰지만 서로의 Base 를 모른다. 이 필터가 없으면
+    ai/ 가 만든 표(analyst_reports, stock_move_report …)를 여기서 "모델에 없으니
+    지워라" 로 판단해 DROP 이 찍힌다. ai/ 쪽 env.py 에도 같은 필터가 있다.
+    """
+    return not (type_ == "table" and reflected and name not in target_metadata.tables)
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -48,6 +58,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -55,7 +66,9 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection, target_metadata=target_metadata, include_object=include_object
+    )
 
     with context.begin_transaction():
         context.run_migrations()
