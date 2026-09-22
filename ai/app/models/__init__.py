@@ -1,15 +1,15 @@
 from app.models.analyst_report import AnalystReport
-from app.models.stock_move_report import (
-    StockMoveReport,
-    StockMoveReportFactor,
-    StockMoveReportFactorSource,
-    StockMoveReportReview,
+from app.models.stock_move_analysis import (
+    StockMoveAnalysis,
+    StockMoveAnalysisFactor,
+    StockMoveAnalysisFactorSource,
+    StockMoveAnalysisReview,
 )
 
 __all__ = [
     "AnalystReport",
-    "StockMoveReport",
-    "StockMoveReportFactor",
-    "StockMoveReportFactorSource",
-    "StockMoveReportReview",
+    "StockMoveAnalysis",
+    "StockMoveAnalysisFactor",
+    "StockMoveAnalysisFactorSource",
+    "StockMoveAnalysisReview",
 ]

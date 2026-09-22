@@ -10,11 +10,11 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from app.repositories.stock_move_report import (
+from app.repositories.stock_move_analysis import (
     KST,
-    build_report,
+    build_analysis,
     normalize_background,
-    parse_report_file,
+    parse_analysis_file,
     parse_wrapper,
 )
 
@@ -28,9 +28,9 @@ NO_CAUSE = FIXTURES / "SK이노베이션-2026-09-18-with-indirect__B__r2.json"
 def test_wrapper_is_opened_then_final_text_reparsed() -> None:
     """입력 파일은 2단이다. 바깥은 실험 파이프라인의 실행 기록이고 보고서 JSON 은
     final_text 안에 **문자열로** 들어 있다. 한 번만 파싱하면 보고서가 안 나온다."""
-    parsed = parse_report_file(SAMSUNG)
+    parsed = parse_analysis_file(SAMSUNG)
     assert parsed.parse_status == "ok"
-    assert parsed.report["ticker"] == "005930"
+    assert parsed.analysis["ticker"] == "005930"
     assert parsed.run_id
 
 
@@ -47,7 +47,7 @@ def test_unknown_wrapper_fields_are_ignored() -> None:
         }
     )
     assert parsed.parse_status == "ok"
-    assert parsed.report["ticker"] == "005930"
+    assert parsed.analysis["ticker"] == "005930"
 
 
 def test_tool_metrics_and_pubdate_do_not_mark_failure() -> None:
@@ -67,9 +67,9 @@ def test_parse_failure_is_still_loaded_with_raw_json() -> None:
     assert parsed.parse_error
     assert parsed.raw_json["final_text"]  # 래퍼가 통째로 남는다
 
-    report = build_report(parsed)
-    assert report.ticker is None
-    assert report.raw_json is parsed.raw_json
+    analysis = build_analysis(parsed)
+    assert analysis.ticker is None
+    assert analysis.raw_json is parsed.raw_json
 
 
 def test_run_error_and_asked_question_become_schema_violation() -> None:
@@ -89,7 +89,7 @@ def test_run_error_and_asked_question_become_schema_violation() -> None:
     assert "asked_question" in parsed.parse_error
     assert "size_fit 누락" in parsed.parse_error
     # 그래도 보고서 본문은 정상적으로 펴진다 — 원인 분석이 목적이다.
-    assert build_report(parsed).ticker == "005930"
+    assert build_analysis(parsed).ticker == "005930"
 
 
 def test_background_accepts_both_string_and_object_items() -> None:
@@ -113,8 +113,8 @@ def test_background_accepts_both_string_and_object_items() -> None:
 
 def test_real_report_background_is_normalized() -> None:
     """합성 입력만으로는 부족하다. 실제 산출물에 watch 객체와 문자열이 같은 칸에 있다."""
-    report = build_report(parse_report_file(SAMSUNG))
-    neutral = report.background["neutral"]
+    analysis = build_analysis(parse_analysis_file(SAMSUNG))
+    neutral = analysis.background["neutral"]
     assert all(set(item) == {"text", "watch"} for item in neutral)
     assert any(item["watch"] for item in neutral)
 
@@ -122,36 +122,36 @@ def test_real_report_background_is_normalized() -> None:
 def test_null_counter_is_a_valid_value() -> None:
     """방향이 어긋나는 재료가 없는 날과 no_clear_cause 인 날은 counter 가 null 이다.
     빈 문자열로 바꾸면 화면이 '없음'과 '못 채움'을 구분하지 못한다."""
-    report = build_report(parse_report_file(NO_CAUSE))
-    assert report.verdict == "no_clear_cause"
-    assert report.summary_counter is None
-    assert report.summary_move  # 나머지 칸은 채워져 있다
-    assert report.factors == []  # no_clear_cause 면 factors 는 빈 배열이다
+    analysis = build_analysis(parse_analysis_file(NO_CAUSE))
+    assert analysis.verdict == "no_clear_cause"
+    assert analysis.summary_counter is None
+    assert analysis.summary_move  # 나머지 칸은 채워져 있다
+    assert analysis.factors == []  # no_clear_cause 면 factors 는 빈 배열이다
 
 
 def test_as_of_is_combined_with_date_into_kst_aware() -> None:
     """프롬프트 출력은 'HH:MM' 문자열뿐이다. 루트 CLAUDE.md 가 naive datetime 을
     금지하므로 date 와 합쳐 타임존을 붙인다. 원본 문자열은 raw_json 에 남는다."""
-    report = build_report(parse_report_file(SAMSUNG))
-    assert report.target_date == date(2026, 9, 18)
-    assert report.as_of == datetime(2026, 9, 18, 15, 30, tzinfo=KST)
-    assert report.raw_json["as_of"] == "15:30"
+    analysis = build_analysis(parse_analysis_file(SAMSUNG))
+    assert analysis.target_date == date(2026, 9, 18)
+    assert analysis.as_of == datetime(2026, 9, 18, 15, 30, tzinfo=KST)
+    assert analysis.raw_json["as_of"] == "15:30"
 
 
 def test_change_pct_keeps_its_exact_value() -> None:
     """Decimal(3.37) 은 3.370000000000000106... 이 된다. 루트 CLAUDE.md 가
     가공하지 않은 값을 요구하므로 적재가 값을 바꾸면 안 된다."""
-    report = build_report(parse_report_file(SAMSUNG))
-    assert report.change_pct == Decimal("3.37")
-    assert str(report.change_pct) == "3.37"
+    analysis = build_analysis(parse_analysis_file(SAMSUNG))
+    assert analysis.change_pct == Decimal("3.37")
+    assert str(analysis.change_pct) == "3.37"
 
 
 def test_factors_and_sources_keep_their_order() -> None:
     """factors 는 중요도 순이라 배열 순서 자체가 정보다. 순서가 섞이면 화면의
     '이유' 절이 덜 중요한 것부터 나온다."""
-    report = build_report(parse_report_file(HYNIX))
-    assert [f.order_index for f in report.factors] == [0, 1, 2, 3]
-    first = report.factors[0]
+    analysis = build_analysis(parse_analysis_file(HYNIX))
+    assert [f.order_index for f in analysis.factors] == [0, 1, 2, 3]
+    first = analysis.factors[0]
     assert first.claim and first.stance in {"bullish", "bearish", "neutral"}
     assert first.direction_match is True
     assert [s.order_index for s in first.sources] == list(range(len(first.sources)))
@@ -164,23 +164,23 @@ def test_limit_overflow_is_not_truncated(caplog) -> None:
     적재가 말없이 자르면 실행 점검 스크립트의 상한 위반 검사가 영원히 통과한다.
     그대로 넣고 로그로만 알린다."""
     raw = json.loads(HYNIX.read_text(encoding="utf-8"))
-    report_json = json.loads(raw["final_text"])
-    total = sum(len(report_json["background"][k]) for k in ("bullish", "bearish", "neutral"))
+    analysis_json = json.loads(raw["final_text"])
+    total = sum(len(analysis_json["background"][k]) for k in ("bullish", "bearish", "neutral"))
     assert total > 6, "픽스처가 상한을 안 넘어 이 테스트가 의미를 잃었다"
 
     with caplog.at_level("WARNING"):
-        report = build_report(parse_wrapper(raw))
+        analysis = build_analysis(parse_wrapper(raw))
 
-    assert sum(len(v) for v in report.background.values()) == total
+    assert sum(len(v) for v in analysis.background.values()) == total
     assert "background" in caplog.text
 
 
 def test_verify_status_is_passed_in_as_an_argument() -> None:
     """적재 모듈이 근거 검증을 수행하지 않는다. 판정과 적재를 분리해야 한쪽을
     고쳐도 다른 쪽이 안 흔들린다. 검증기 연결은 후속 PR 이다."""
-    parsed = parse_report_file(SAMSUNG)
-    assert build_report(parsed).verify_status == "not_verified"
+    parsed = parse_analysis_file(SAMSUNG)
+    assert build_analysis(parsed).verify_status == "not_verified"
 
-    failed = build_report(parsed, verify_status="failed", verify_error="quote 불일치 1건")
+    failed = build_analysis(parsed, verify_status="failed", verify_error="quote 불일치 1건")
     assert failed.verify_status == "failed"
     assert failed.verify_error == "quote 불일치 1건"

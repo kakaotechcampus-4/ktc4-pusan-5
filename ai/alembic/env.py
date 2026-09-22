@@ -1,6 +1,6 @@
 """Alembic 실행 환경.
 
-이 Base 는 `ai/` 의 표만 안다(analyst_reports, stock_move_report*). backend 의
+이 Base 는 `ai/` 의 표만 안다(analyst_reports, stock_move_analysis*). backend 의
 `news` 나 `report` 는 여기 metadata 에 없다. 그래서 **autogenerate 가 backend 표를
 "모델에 없는 표" 로 보고 drop 하려 든다.** `include_object` 가 그걸 막는다 —
 같은 Postgres 를 쓰는 두 프로젝트가 각자 마이그레이션을 돌려도 서로를 안 건드린다.

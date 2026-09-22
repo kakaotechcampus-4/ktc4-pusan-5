@@ -1,7 +1,7 @@
 """DB 엔진과 세션. 비동기 SQLAlchemy.
 
 backend/app/core/database.py 와 같은 모양이지만 **다른 `Base` 다.** 여기 Base 는
-`analyst_reports` 와 `stock_move_report*` 만 알고, backend Base 는 `news` 나
+`analyst_reports` 와 `stock_move_analysis*` 만 알고, backend Base 는 `news` 나
 `report` 만 안다. 같은 Postgres 를 쓰지만 서로의 표를 모른다.
 
 ## 표는 alembic 이 만든다. 여기서 create_all 을 부르지 않는다

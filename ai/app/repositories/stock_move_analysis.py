@@ -86,10 +86,10 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.stock_move_report import (
-    StockMoveReport,
-    StockMoveReportFactor,
-    StockMoveReportFactorSource,
+from app.models.stock_move_analysis import (
+    StockMoveAnalysis,
+    StockMoveAnalysisFactor,
+    StockMoveAnalysisFactorSource,
 )
 
 logger = logging.getLogger(__name__)
@@ -110,18 +110,18 @@ MAX_BACKGROUND_PER_SLOT = 3  # 참고 재료, 칸 하나당
 BACKGROUND_SLOTS = ("bullish", "bearish", "neutral")
 
 
-class ParsedReport:
+class ParsedAnalysis:
     """파일 하나를 편 결과. DB 에 넣기 직전 형태다.
 
     파싱이 깨진 건도 여기까지는 온다 — 버리지 않고 상태만 달아 적재하기 때문이다.
-    그때 `report` 는 비고 `raw_json` 에 래퍼가 통째로 들어 있다.
+    그때 `analysis` 는 비고 `raw_json` 에 래퍼가 통째로 들어 있다.
     """
 
     def __init__(
         self,
         *,
         run_id: str | None,
-        report: dict[str, Any],
+        analysis: dict[str, Any],
         raw_json: dict[str, Any],
         parse_status: str,
         parse_error: str | None,
@@ -129,20 +129,20 @@ class ParsedReport:
         # 러너가 붙인 실행 식별자. `<종목>-<날짜>-<조건>__<반복>` 꼴이라 이 값 하나로
         # runs/<타임스탬프>/parsed/<run_id>.json 을 다시 열 수 있다.
         self.run_id = run_id
-        self.report = report  # final_text 를 편 보고서 본문. 실패하면 빈 dict
+        self.analysis = analysis  # final_text 를 편 보고서 본문. 실패하면 빈 dict
         self.raw_json = raw_json  # 통째로 보존할 원본
         self.parse_status = parse_status  # ok | schema_violation | parse_failed
         self.parse_error = parse_error
 
 
-def _failed(run_id: str | None, raw_json: dict[str, Any], reason: str) -> ParsedReport:
+def _failed(run_id: str | None, raw_json: dict[str, Any], reason: str) -> ParsedAnalysis:
     """파싱이 깨진 건. **버리지 않는다** — 원인 분석 자료가 사라진다."""
-    return ParsedReport(
-        run_id=run_id, report={}, raw_json=raw_json, parse_status="parse_failed", parse_error=reason
+    return ParsedAnalysis(
+        run_id=run_id, analysis={}, raw_json=raw_json, parse_status="parse_failed", parse_error=reason
     )
 
 
-def parse_report_file(path: Path) -> ParsedReport:
+def parse_analysis_file(path: Path) -> ParsedAnalysis:
     """래퍼 파일 하나를 연다. 어떤 입력이 와도 예외를 던지지 않는다.
 
     적재가 멈추면 안 되는 자리다. 배치가 수십 건을 도는 중에 파일 하나가 깨졌다고
@@ -163,7 +163,7 @@ def parse_report_file(path: Path) -> ParsedReport:
     return parse_wrapper(wrapper, fallback_run_id=path.stem)
 
 
-def parse_wrapper(wrapper: dict[str, Any], *, fallback_run_id: str | None = None) -> ParsedReport:
+def parse_wrapper(wrapper: dict[str, Any], *, fallback_run_id: str | None = None) -> ParsedAnalysis:
     """실행 기록 래퍼에서 보고서 JSON 을 꺼낸다. 다섯 필드만 본다(모듈 docstring 참고)."""
     run_id = wrapper.get("run_id") or fallback_run_id
 
@@ -174,11 +174,11 @@ def parse_wrapper(wrapper: dict[str, Any], *, fallback_run_id: str | None = None
         return _failed(run_id, wrapper, "final_text 가 없거나 비어 있다")
 
     try:
-        report = json.loads(final_text)
+        analysis = json.loads(final_text)
     except json.JSONDecodeError as e:
         return _failed(run_id, wrapper, f"final_text JSON 파싱 실패: {e}")
-    if not isinstance(report, dict):
-        return _failed(run_id, wrapper, f"보고서가 객체가 아니다: {type(report).__name__}")
+    if not isinstance(analysis, dict):
+        return _failed(run_id, wrapper, f"보고서가 객체가 아니다: {type(analysis).__name__}")
 
     # 여기부터는 JSON 으로 열리기는 한 회차다. 다만 그대로 믿으면 안 되는 것들이 있다.
     # 넷은 원인이 다르지만 "이 산출물을 서비스에 내보내면 안 된다" 는 뜻은 같아서
@@ -206,11 +206,11 @@ def parse_wrapper(wrapper: dict[str, Any], *, fallback_run_id: str | None = None
     if wrapper.get("asked_question"):
         problems.append("asked_question=true (되묻기 금지 위반)")
 
-    return ParsedReport(
+    return ParsedAnalysis(
         run_id=run_id,
-        report=report,
+        analysis=analysis,
         # 파싱 성공이면 raw_json 은 보고서 쪽이다. 래퍼의 나머지는 운영 지표라 안 남긴다.
-        raw_json=report,
+        raw_json=analysis,
         parse_status="schema_violation" if problems else "ok",
         parse_error="\n".join(problems) if problems else None,
     )
@@ -372,7 +372,7 @@ def normalize_not_found(raw: Any) -> list[str] | None:
     return [n for n in raw if isinstance(n, str)]
 
 
-def _log_limit_violations(run_id: str | None, report: dict[str, Any]) -> None:
+def _log_limit_violations(run_id: str | None, analysis: dict[str, Any]) -> None:
     """상한 초과를 로그로만 남긴다. 상한 설정에 대한 유의미한 데이터는 실험을 통해
     확인할 수 없었기에, 추가적인 테스트를 통해 상한을 조정할 수 있도록 하기 위해서이다.
 
@@ -381,15 +381,15 @@ def _log_limit_violations(run_id: str | None, report: dict[str, Any]) -> None:
     상한이 적절한지 판단할 근거가 영영 안 쌓인다. 위반 탐지 자체는 점검 스크립트
     담당이고 여기서는 그대로 넣은 뒤 로그에만 남긴다.
     """
-    factors = report.get("factors")
+    factors = analysis.get("factors")
     if isinstance(factors, list) and len(factors) > MAX_FACTORS:
         logger.warning("%s: factors %d개 (상한 %d)", run_id, len(factors), MAX_FACTORS)
 
-    terms = report.get("terms")
+    terms = analysis.get("terms")
     if isinstance(terms, list) and len(terms) > MAX_TERMS:
         logger.warning("%s: terms %d개 (상한 %d)", run_id, len(terms), MAX_TERMS)
 
-    background = report.get("background")
+    background = analysis.get("background")
     if isinstance(background, dict):
         total = 0
         for slot in BACKGROUND_SLOTS:
@@ -411,16 +411,16 @@ def _log_limit_violations(run_id: str | None, report: dict[str, Any]) -> None:
             )
 
 
-def build_report(
-    parsed: ParsedReport,
+def build_analysis(
+    parsed: ParsedAnalysis,
     *,
     verify_status: str = "not_verified",
     verify_error: str | None = None,
     generated_at: datetime | None = None,
     prompt_version: str | None = None,
     source: str = "telegram",
-) -> StockMoveReport:
-    """ParsedReport → 아직 DB 에 넣지 않은 ORM 객체.
+) -> StockMoveAnalysis:
+    """ParsedAnalysis → 아직 DB 에 넣지 않은 ORM 객체.
 
     `verify_status` 는 **인자다.** 이 함수가 근거 검증을 수행하지 않는다 —
     판정과 적재를 분리해야 한쪽을 고쳐도 다른 쪽이 안 흔들린다.
@@ -428,13 +428,13 @@ def build_report(
     `source` 는 출처의 **종류**다. 지금 입력이 텔레그램 수집뿐이라 기본값이 telegram
     이지만, 뉴스·리포트가 붙으면 부르는 쪽이 갈아 끼운다.
     """
-    r = parsed.report
+    r = parsed.analysis
     _log_limit_violations(parsed.run_id, r)
 
     target_date = _as_date(r.get("date"))
     summary = r.get("summary") if isinstance(r.get("summary"), dict) else {}
 
-    report = StockMoveReport(
+    analysis = StockMoveAnalysis(
         run_id=parsed.run_id,
         ticker=_as_str(r.get("ticker")),
         name=_as_str(r.get("name")),
@@ -473,11 +473,11 @@ def build_report(
         for i, f in enumerate(factors):
             if not isinstance(f, dict):
                 continue
-            report.factors.append(_build_factor(i, f, source=source))
-    return report
+            analysis.factors.append(_build_factor(i, f, source=source))
+    return analysis
 
 
-def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveReportFactor:
+def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveAnalysisFactor:
     """원인 하나와 그 출처들을 편다.
 
     칸의 뜻은 이렇다. 앞의 셋은 "이 사건이 정말 오늘 이 등락의 원인인가" 를
@@ -494,7 +494,7 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveRep
         unconfirmed      "~설", 커뮤니티 전언처럼 출처가 스스로 확인되지 않았다고
                          밝힌 정보에 기댄 원인인가
     """
-    factor = StockMoveReportFactor(
+    factor = StockMoveAnalysisFactor(
         order_index=index,  # 배열 순서가 곧 중요도 순이다
         claim=_as_str(f.get("claim")),
         detail=_as_str(f.get("detail")),
@@ -512,7 +512,7 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveRep
             if not isinstance(s, dict):
                 continue
             factor.sources.append(
-                StockMoveReportFactorSource(
+                StockMoveAnalysisFactorSource(
                     order_index=j,
                     source=source,
                     channel=_as_str(s.get("channel")),
@@ -539,16 +539,16 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveRep
 # --- 적재 -----------------------------------------------------------------
 
 
-async def insert_report(
+async def insert_analysis(
     session: AsyncSession,
-    parsed: ParsedReport,
+    parsed: ParsedAnalysis,
     *,
     verify_status: str = "not_verified",
     verify_error: str | None = None,
     generated_at: datetime | None = None,
     prompt_version: str | None = None,
     source: str = "telegram",
-) -> StockMoveReport:
+) -> StockMoveAnalysis:
     """보고서 한 회차를 넣는다. **INSERT only — 기존 행을 찾지도, 고치지도 않는다.**
 
     같은 (ticker, target_date, as_of) 가 이미 있어도 새 행으로 쌓는다. 프롬프트가
@@ -558,7 +558,7 @@ async def insert_report(
     대신 멱등하지 않다 — 같은 파일을 두 번 넣으면 행이 두 개 생긴다. 재적재가
     필요하면 부르는 쪽이 기존 행을 정리하고 넣어야 한다.
     """
-    report = build_report(
+    analysis = build_analysis(
         parsed,
         verify_status=verify_status,
         verify_error=verify_error,
@@ -566,20 +566,20 @@ async def insert_report(
         prompt_version=prompt_version,
         source=source,
     )
-    session.add(report)
+    session.add(analysis)
     # flush 까지만 한다. id 가 필요한 호출자를 위해서이고, 커밋 경계는 아래 설명 참고.
     await session.flush()
-    return report
+    return analysis
 
 
-async def insert_report_files(
+async def insert_analysis_files(
     session: AsyncSession,
     paths: list[Path],
     *,
     verdicts: dict[str, tuple[str, str | None]] | None = None,
     generated_at: datetime | None = None,
     prompt_version: str | None = None,
-) -> list[StockMoveReport]:
+) -> list[StockMoveAnalysis]:
     """parsed/*.json 여러 개를 한 트랜잭션으로 넣는다. 배치의 진입점이다.
 
     `verdicts` 는 run_id → (verify_status, verify_error) 다. 근거 검증 결과를
@@ -591,16 +591,16 @@ async def insert_report_files(
     배치가 정할 일이지 리포지토리가 정할 일이 아니다.
     """
     verdicts = verdicts or {}
-    inserted: list[StockMoveReport] = []
+    inserted: list[StockMoveAnalysis] = []
     for path in paths:
-        parsed = parse_report_file(path)
+        parsed = parse_analysis_file(path)
         status, error = verdicts.get(parsed.run_id or "", ("not_verified", None))
         if parsed.parse_status != "ok":
             # 버리지 않는다. 원인 분석 자료가 사라진다. 로그는 나중에 어떤 파일이
             # 왜 깨졌는지 runs/ 를 다시 뒤지지 않고 찾기 위한 것이다.
             logger.warning("%s: %s — %s", path.name, parsed.parse_status, parsed.parse_error)
         inserted.append(
-            await insert_report(
+            await insert_analysis(
                 session,
                 parsed,
                 verify_status=status,
@@ -614,13 +614,13 @@ async def insert_report_files(
 
 __all__ = [
     "KST",
-    "ParsedReport",
-    "build_report",
-    "insert_report",
-    "insert_report_files",
+    "ParsedAnalysis",
+    "build_analysis",
+    "insert_analysis",
+    "insert_analysis_files",
     "normalize_background",
     "normalize_not_found",
     "normalize_terms",
-    "parse_report_file",
+    "parse_analysis_file",
     "parse_wrapper",
 ]

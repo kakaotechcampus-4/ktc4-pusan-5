@@ -3,7 +3,7 @@
 한 행 = 보고서 한 회차. `analyst_reports` 가 "증권사 애널리스트가 쓴 원문" 이라면
 이건 "그 종목이 왜 그렇게 움직였는지 우리가 LLM 으로 만든 설명" 이다.
 backend 의 `report` / `report_block` / `report_citation` 과도 다른 계통이라
-이름을 `stock_move_report` 접두사로 묶어 같은 Postgres 에서 겹치지 않게 했다.
+이름을 `stock_move_analysis` 접두사로 묶어 같은 Postgres 에서 겹치지 않게 했다.
 
 **INSERT only 다. UPDATE 하지 않는다.** 시스템 프롬프트가 "이전 회차를 언급하지
 않는다" 고 못박아서 각 회차는 독립 문서다. 같은 종목·같은 기준시각을 다시 만들어도
@@ -15,7 +15,7 @@ UNIQUE 를 걸 수 없다 — 인덱스로만 둔다.
 통째로 남는다. "왜 NULL 인가" 는 `parse_status` 가 말한다.
 
 **검수 판정은 여기 없다.** AI 서버(적재)와 검수자가 같은 행을 건드리면 단방향이
-깨지므로 `stock_move_report_reviews` 로 분리했다.
+깨지므로 `stock_move_analysis_reviews` 로 분리했다.
 """
 
 from datetime import date, datetime
@@ -42,17 +42,17 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
-class StockMoveReport(Base):
-    __tablename__ = "stock_move_reports"
+class StockMoveAnalysis(Base):
+    __tablename__ = "stock_move_analyses"
     __table_args__ = (
         # 그 종목의 최신 회차를 뽑는 인덱스. UNIQUE 가 아니다 — 같은 기준시각의
         # 재생성도 새 행이라 유일성을 걸면 적재가 막힌다.
-        Index("ix_stock_move_report_ticker_as_of", "ticker", "as_of"),
-        Index("ix_stock_move_report_target_date", "target_date"),
+        Index("ix_stock_move_analysis_ticker_as_of", "ticker", "as_of"),
+        Index("ix_stock_move_analysis_target_date", "target_date"),
         # backend 조회는 verify_status = passed 를 전제한다. 미검증·실패 행이
         # 대부분이 될 수 있어서 부분 인덱스로 둔다.
         Index(
-            "ix_stock_move_report_passed",
+            "ix_stock_move_analysis_passed",
             "ticker",
             "as_of",
             postgresql_where=text("verify_status = 'passed'"),
@@ -112,7 +112,7 @@ class StockMoveReport(Base):
     # {bullish: [...], bearish: [...], neutral: [...]}
     # 프롬프트는 항목을 문자열로도 {"text": ..., "watch": true} 객체로도 낸다.
     # 둘 다 정상이므로 파서가 흡수해 여기서는 객체 형태로 통일해 둔다
-    # (정규화 규칙은 repositories/stock_move_report.py 참고). 원본 혼용은 raw_json 에 남는다.
+    # (정규화 규칙은 repositories/stock_move_analysis.py 참고). 원본 혼용은 raw_json 에 남는다.
     background: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # 검수용. 화면에 나가지 않지만 사후 환각 추적 수단이 이것뿐이라 반드시 넣는다.
     # 노출 제어는 backend 응답 단계에서 한다.
@@ -152,29 +152,29 @@ class StockMoveReport(Base):
     # 다시 센 것이라 두 군데 있으면 어긋났을 때 무엇을 믿을지 문제가 된다.
     # 단일 출처는 final_text 다. duration_ms / cost_usd 도 운영 지표라 여기 두지 않는다.
 
-    factors: Mapped[list["StockMoveReportFactor"]] = relationship(
-        back_populates="report",
+    factors: Mapped[list["StockMoveAnalysisFactor"]] = relationship(
+        back_populates="analysis",
         cascade="all, delete-orphan",
-        order_by="StockMoveReportFactor.order_index",
+        order_by="StockMoveAnalysisFactor.order_index",
     )
 
 
-class StockMoveReportFactor(Base):
+class StockMoveAnalysisFactor(Base):
     """보고서가 든 원인 하나. 프롬프트 상한은 4개지만 **초과분을 잘라내지 않는다.**
 
     상한 위반 탐지는 실행 점검 스크립트 담당이고, 적재가 말없이 자르면 그 검사가
     영원히 통과한다. 여기서는 그대로 넣고 로그에만 남긴다.
     """
 
-    __tablename__ = "stock_move_report_factors"
+    __tablename__ = "stock_move_analysis_factors"
     __table_args__ = (
         # 순서가 곧 중요도라 (보고서, 순서) 가 자연키다. 같은 순서가 둘이면 적재 버그다.
-        UniqueConstraint("report_id", "order_index", name="uq_stock_move_report_factor_order"),
+        UniqueConstraint("analysis_id", "order_index", name="uq_stock_move_analysis_factor_order"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    report_id: Mapped[int] = mapped_column(
-        ForeignKey("stock_move_reports.id", ondelete="CASCADE"), index=True
+    analysis_id: Mapped[int] = mapped_column(
+        ForeignKey("stock_move_analyses.id", ondelete="CASCADE"), index=True
     )
 
     # 0-base. 프롬프트가 "최대 4개, 중요도 순" 이라고 정해서 배열 순서 자체가 정보다.
@@ -188,15 +188,15 @@ class StockMoveReportFactor(Base):
     size_fit: Mapped[str | None] = mapped_column(String(16), nullable=True)
     unconfirmed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
-    report: Mapped["StockMoveReport"] = relationship(back_populates="factors")
-    sources: Mapped[list["StockMoveReportFactorSource"]] = relationship(
+    analysis: Mapped["StockMoveAnalysis"] = relationship(back_populates="factors")
+    sources: Mapped[list["StockMoveAnalysisFactorSource"]] = relationship(
         back_populates="factor",
         cascade="all, delete-orphan",
-        order_by="StockMoveReportFactorSource.order_index",
+        order_by="StockMoveAnalysisFactorSource.order_index",
     )
 
 
-class StockMoveReportFactorSource(Base):
+class StockMoveAnalysisFactorSource(Base):
     """원인 하나가 기댄 출처 하나.
 
     quote / match / is_market_recap 은 화면에 나가지 않는다. 그래도 전부 넣는다 —
@@ -204,16 +204,16 @@ class StockMoveReportFactorSource(Base):
     노출 제어는 backend 응답 단계에서 한다. 적재 단계에서 빼면 되돌릴 방법이 없다.
     """
 
-    __tablename__ = "stock_move_report_factor_sources"
+    __tablename__ = "stock_move_analysis_factor_sources"
     __table_args__ = (
-        UniqueConstraint("factor_id", "order_index", name="uq_stock_move_report_source_order"),
+        UniqueConstraint("factor_id", "order_index", name="uq_stock_move_analysis_source_order"),
         # 같은 URL 이 여러 보고서에서 얼마나 인용됐는지 되짚을 때 쓴다.
-        Index("ix_stock_move_report_source_url", "url"),
+        Index("ix_stock_move_analysis_source_url", "url"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     factor_id: Mapped[int] = mapped_column(
-        ForeignKey("stock_move_report_factors.id", ondelete="CASCADE"), index=True
+        ForeignKey("stock_move_analysis_factors.id", ondelete="CASCADE"), index=True
     )
     order_index: Mapped[int] = mapped_column(Integer)
 
@@ -231,10 +231,10 @@ class StockMoveReportFactorSource(Base):
     match: Mapped[str | None] = mapped_column(String(16), nullable=True)  # direct | indirect
     is_market_recap: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
-    factor: Mapped["StockMoveReportFactor"] = relationship(back_populates="sources")
+    factor: Mapped["StockMoveAnalysisFactor"] = relationship(back_populates="sources")
 
 
-class StockMoveReportReview(Base):
+class StockMoveAnalysisReview(Base):
     """사람이 내린 검수 판정. **이번 PR 은 표만 만들고 쓰지 않는다.**
 
     보고서 행에 칼럼으로 붙이지 않은 이유: AI 서버(적재)와 검수 쪽이 같은 행을
@@ -242,11 +242,11 @@ class StockMoveReportReview(Base):
     한 보고서에 판정이 여러 번 달릴 수 있어 UNIQUE 를 걸지 않았다.
     """
 
-    __tablename__ = "stock_move_report_reviews"
-    __table_args__ = (Index("ix_stock_move_report_review_report", "report_id"),)
+    __tablename__ = "stock_move_analysis_reviews"
+    __table_args__ = (Index("ix_stock_move_analysis_review_analysis", "analysis_id"),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    report_id: Mapped[int] = mapped_column(ForeignKey("stock_move_reports.id", ondelete="CASCADE"))
+    analysis_id: Mapped[int] = mapped_column(ForeignKey("stock_move_analyses.id", ondelete="CASCADE"))
     decision: Mapped[str] = mapped_column(String(20))  # approved | rejected | hold
     reviewer: Mapped[str | None] = mapped_column(String(64), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
