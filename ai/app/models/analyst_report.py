@@ -147,7 +147,8 @@ class AnalystReport(Base):
 
     body_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     body_chars: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # pending: 아직 안 받음 / ok / empty: 텍스트 0자(스캔본 추정) / failed / skipped: 첨부 없음
+    # pending: 미수집 / ok / empty: 텍스트 없음 / unusable: 본문 부족·워터마크
+    # failed: 추출 오류 / skipped: 첨부 없음. ok도 요약 전 길이·내용 검증이 필요하다.
     body_status: Mapped[str] = mapped_column(String(16), default="pending")
     body_extractor: Mapped[str | None] = mapped_column(String(16), nullable=True)  # pdftotext|pypdf
     body_error: Mapped[str | None] = mapped_column(Text, nullable=True)

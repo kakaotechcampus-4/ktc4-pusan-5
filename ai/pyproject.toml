@@ -13,6 +13,10 @@ dependencies = [
     # poppler 26.07 은 Catalog 를 못 읽고도 종료코드 0 을 준다 — pypdf 는 같은 파일을 읽는다.
     "pypdf>=6.0.0",
     "sqlalchemy[asyncio]>=2.0.52",
+    # 텔레그램은 공개 API 가 없어서 MTProto 클라이언트로 붙는다.
+    # 1.45 가 최신인데 텔레그램이 최근 만든 객체 몇 개를 아직 모른다.
+    # 그래서 services/analyst/telegram.py 가 우회를 두 군데 갖고 있다.
+    "telethon>=1.45.0",
 ]
 
 [dependency-groups]

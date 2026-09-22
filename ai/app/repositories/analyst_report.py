@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import case, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,14 +20,25 @@ async def known_ids(
     거르면 invest·daily 가 둘 다 market 이라 목록 단위와 안 맞아서 이미 받아둔 걸
     못 찾는다. 텔레그램 PDF 는 건당 평균 3.7MB 라 한 번 놓치면 1.4GB 를 다시 받는다.
     """
-    rows = await session.execute(
-        select(AnalystReport.source_id).where(
-            AnalystReport.source == source,
-            AnalystReport.source_category == source_category,
-            AnalystReport.write_date >= since,
-        )
+    stmt = select(AnalystReport.source_id).where(
+        AnalystReport.source == source,
+        AnalystReport.source_category == source_category,
     )
+    # 텔레그램은 오래된 발행일의 PDF도 오늘 다시 게시할 수 있다.
+    # 조회 기간은 메시지 게시일에 적용하고, 받은 메시지 번호는 전 기간에서 찾는다.
+    if source != "telegram":
+        stmt = stmt.where(AnalystReport.write_date >= since)
+    rows = await session.execute(stmt)
     return set(rows.scalars().all())
+
+
+async def known_naver_pdf_hashes(session: AsyncSession) -> set[str]:
+    """파일명이 달라도 PDF 바이트가 같으면 네이버 수집본으로 판단한다."""
+    result = await session.execute(select(AnalystReport.pdf_sha256).where(
+        AnalystReport.source == "naver", AnalystReport.pdf_sha256.is_not(None),
+        AnalystReport.pdf_sha256 != "",
+    ).distinct())
+    return set(result.scalars().all())
 
 
 async def upsert_analyst_reports(session: AsyncSession, rows: list[dict]) -> int:
@@ -35,23 +46,55 @@ async def upsert_analyst_reports(session: AsyncSession, rows: list[dict]) -> int
 
     **category 가 아니라 source_category 다.** category 는 우리가 정하는 값이라 바뀔 수 있다.
 
-    뉴스(`upsert_news`)는 URL 이 같으면 통째로 건너뛰지만 리포트는 갱신한다 —
-    읽은 수와 요약이 나중에 바뀌는 일이 있다. 다만 **본문 추출에 성공한 행을
-    pending 으로 덮어쓰지는 않는다**(아래 where). PDF 를 못 받은 재실행이
-    이미 뽑아둔 본문을 지우면 안 되기 때문이다.
+    텔레그램의 기존 메시지는 보존하고, 네이버는 조회 수와 제공 요약을 갱신한다.
+    네이버 PDF 재수집에 실패해도 기존 정상 본문과 PDF 정보를 보존한다.
 
-    돌려주는 값은 '보낸 행 수'다. rowcount 가 아니다 — ON CONFLICT DO UPDATE 는
-    새로 넣은 것과 갱신한 것을 구분해주지 않는다.
+    네이버에 같은 PDF가 있으면 텔레그램 행은 저장하지 않는다.
+    반환값은 실제 삽입/갱신한 행 수이며 중복으로 건너뛴 행은 제외한다.
     """
     if not rows:
         return 0
-    stmt = insert(AnalystReport).values(rows)
-    updatable = [c for c in rows[0] if c not in ("source", "source_category", "source_id")]
-    await session.execute(
-        stmt.on_conflict_do_update(
+    # 같은 PDF의 네이버 저장이 먼저 시작됐다면 완료 후 중복 여부를 확인한다.
+    # 여러 PDF를 처리할 때는 동일한 잠금 순서로 교착을 피한다.
+    for sha in sorted({r["pdf_sha256"] for r in rows if r.get("pdf_sha256")}):
+        await session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:sha, 0))"),
+                              {"sha": sha})
+    # 텔레그램 수집은 신규 메시지만 추가한다. 본문 재추출/요약 교정은 별도 작업이다.
+    # 중복 조회와 INSERT 사이의 동시 수집도 기존 원문·요약·교정값을 건드리지 않는다.
+    telegram = [row for row in rows if row["source"] == "telegram"]
+    others = [row for row in rows if row["source"] != "telegram"]
+    saved = 0
+    if telegram:
+        naver_hashes = await known_naver_pdf_hashes(session)
+        naver_hashes.update(r["pdf_sha256"] for r in others
+                            if r["source"] == "naver" and r.get("pdf_sha256"))
+        telegram = [r for r in telegram
+                    if not r.get("pdf_sha256") or r["pdf_sha256"] not in naver_hashes]
+    if telegram:
+        result = await session.execute(insert(AnalystReport).values(telegram).on_conflict_do_nothing(
             constraint="uq_analyst_report_source_id",
-            set_={c: getattr(stmt.excluded, c) for c in updatable},
-            where=stmt.excluded.body_status != "pending",
+        ).returning(AnalystReport.id))
+        saved += len(result.scalars().all())
+    if others:
+        stmt = insert(AnalystReport).values(others)
+        updatable = [c for c in others[0] if c not in (
+            "source", "source_category", "source_id", "collected_at",
+        )]
+        pdf_fields = {
+            "attach_url", "pdf_sha256", "pdf_bytes", "pdf_pages", "body_text", "body_chars",
+            "body_status", "body_extractor", "body_error", "body_fetched_at",
+        }
+        preserve_pdf = (AnalystReport.body_status == "ok") & (
+            stmt.excluded.body_status.in_(("pending", "failed", "empty", "skipped", "unusable"))
         )
-    )
-    return len(rows)
+        updates = {
+            c: case((preserve_pdf, getattr(AnalystReport, c)),
+                    else_=getattr(stmt.excluded, c)) if c in pdf_fields
+            else getattr(stmt.excluded, c)
+            for c in updatable
+        }
+        result = await session.execute(stmt.on_conflict_do_update(
+            constraint="uq_analyst_report_source_id", set_=updates,
+        ).returning(AnalystReport.id))
+        saved += len(result.scalars().all())
+    return saved
