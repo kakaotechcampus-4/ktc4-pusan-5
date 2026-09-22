@@ -5,6 +5,11 @@ description = "BASIS 리포트 수집 파이프라인"
 requires-python = ">=3.12"
 dependencies = [
     "asyncpg>=0.31.0",
+    # 뉴스 링크 본문 추출. 기사 영역 선택자를 직접 쥐려고 bs4 를 쓴다
+    # (backend 는 같은 일을 trafilatura 로 한다 — services/news_link/extract.py 참고).
+    "beautifulsoup4>=4.12.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "sqlalchemy[asyncio]>=2.0.52",
 ]
