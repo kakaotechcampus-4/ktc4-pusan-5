@@ -27,6 +27,11 @@ package = false
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# network 는 실제 사이트를 연다. 기본 실행에서 빼는 이유는 남의 서버 사정에 따라
+# 결과가 흔들리기 때문이다. CI 가 빨갛다고 우리 코드가 틀린 게 아닌 테스트는
+# 기본 실행에 두면 안 된다. 돌리려면 `uv run pytest -m network -s`.
+markers = ["network: 실제 사이트를 연다 (기본 실행에서 제외)"]
+addopts = "-m 'not network'"
 
 [tool.ruff]
 target-version = "py312"

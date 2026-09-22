@@ -8,7 +8,7 @@
 from app.services.news_link.clean import clean_paragraphs
 
 
-def test_남는_문장은_원문_그대로다() -> None:
+def test_kept_sentences_are_verbatim_from_the_source() -> None:
     paras = [
         "(서울=연합뉴스) 이도흔 기자 = 삼성전자가 차세대 메모리를 공개했다.",
         "회사는 내년 양산을 목표로 한다고 밝혔다.",
@@ -21,21 +21,21 @@ def test_남는_문장은_원문_그대로다() -> None:
         assert any(sentence in original for original in paras), "문장을 다시 쓰면 안 된다"
 
 
-def test_바이라인은_앞머리만_뗀다() -> None:
+def test_byline_is_trimmed_not_the_whole_paragraph() -> None:
     """문단을 통째로 버리면 리드 문장이 같이 날아간다. 연합뉴스가 그 형태다."""
     kept, log = clean_paragraphs(["(서울=연합뉴스) 이도흔 기자 = 본문이 여기서 시작된다."])
     assert kept == ["본문이 여기서 시작된다."]
     assert log[0][0] == "byline_paren"
 
 
-def test_저작권_문단은_버린다() -> None:
+def test_copyright_paragraph_is_dropped() -> None:
     kept, _log = clean_paragraphs(
         ["기사 본문이 충분히 길게 이어지는 문장이다.", "ⓒ 무단 전재 및 재배포 금지"]
     )
     assert kept == ["기사 본문이 충분히 길게 이어지는 문장이다."]
 
 
-def test_머리_규칙은_본문_시작_전까지만_적용된다() -> None:
+def test_lead_rules_stop_at_the_first_body_sentence() -> None:
     """기사 중간의 날짜 줄까지 지우면 떨어져 있던 문장이 붙어 원문에 없던 흐름이 생긴다."""
     paras = [
         "2026-09-18 15:30",  # 머리 — 지운다
@@ -46,21 +46,21 @@ def test_머리_규칙은_본문_시작_전까지만_적용된다() -> None:
     assert kept == paras[1:]
 
 
-def test_종결부호_없는_짧은_머리줄은_부제로_본다() -> None:
+def test_short_lead_line_without_terminator_is_a_subhead() -> None:
     paras = ["HBM 공급 확대", "회사는 공급을 늘리겠다고 밝혔다."]
     kept, log = clean_paragraphs(paras)
     assert kept == ["회사는 공급을 늘리겠다고 밝혔다."]
     assert ("subhead", "HBM 공급 확대") in log
 
 
-def test_중국어_문단은_부제로_오해하지_않는다() -> None:
+def test_chinese_paragraph_is_not_mistaken_for_a_subhead() -> None:
     """마침표가 '。' 라서 종결부호 판정에서 빠지면 멀쩡한 본문이 부제로 버려진다."""
     paras = ["台積電表示本季產能已經全部售罄。", "다음 문장이 이어진다."]
     kept, _log = clean_paragraphs(paras)
     assert paras[0] in kept
 
 
-def test_제목을_본문에_한번_더_실은_것은_버린다() -> None:
+def test_title_echoed_in_the_body_is_dropped() -> None:
     title = "칩 위에 메모리 통째로 얹었다 삼성전자 zHBM 승부수"
     kept, log = clean_paragraphs([title, "삼성전자가 기술 비전을 공개했다."], title=title)
     assert kept == ["삼성전자가 기술 비전을 공개했다."]

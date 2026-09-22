@@ -24,7 +24,7 @@ def _client(handler) -> httpx.AsyncClient:
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
 
-async def test_기사를_열면_발췌가_본문의_앞부분이다() -> None:
+async def test_excerpt_is_the_head_of_the_article_body() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, html=ARTICLE_HTML)
 
@@ -40,7 +40,7 @@ async def test_기사를_열면_발췌가_본문의_앞부분이다() -> None:
     assert body.fetched_at.tzinfo is not None, "naive datetime 을 쓰지 않는다"
 
 
-async def test_단축_URL_은_최종_주소로_풀린다() -> None:
+async def test_shortened_url_resolves_to_its_final_address() -> None:
     """본문을 못 읽어도 이게 이 기능의 1번 값어치다. 모델이 출처를 알아본다."""
 
     async def handler(request: httpx.Request) -> httpx.Response:
@@ -55,7 +55,7 @@ async def test_단축_URL_은_최종_주소로_풀린다() -> None:
     assert body.domain == "www.ytn.co.kr"
 
 
-async def test_PDF_는_본문_없이_도메인만_남긴다() -> None:
+async def test_pdf_keeps_only_the_domain() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=b"%PDF-1.4", headers={"content-type": "application/pdf"})
 
@@ -67,7 +67,7 @@ async def test_PDF_는_본문_없이_도메인만_남긴다() -> None:
     assert body.excerpt is None
 
 
-async def test_봇을_막는_사이트는_http_error_로_남는다() -> None:
+async def test_bot_blocking_site_is_recorded_as_http_error() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(401)
 
@@ -78,7 +78,7 @@ async def test_봇을_막는_사이트는_http_error_로_남는다() -> None:
     assert body.http_status == 401
 
 
-async def test_네트워크가_끊겨도_예외를_올리지_않는다() -> None:
+async def test_network_failure_does_not_raise() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("boom", request=request)
 
@@ -89,7 +89,7 @@ async def test_네트워크가_끊겨도_예외를_올리지_않는다() -> None
     assert body.error is not None and body.error.startswith("ConnectError")
 
 
-async def test_EUC_KR_기사도_깨지지_않는다() -> None:
+async def test_euc_kr_article_is_not_mojibake() -> None:
     """httpx 는 charset 이 없으면 utf-8 로 읽는다. 국내 매체에는 아직 EUC-KR 이 있다."""
     html = ARTICLE_HTML.replace("<head>", '<head><meta charset="euc-kr">')
 
@@ -105,7 +105,7 @@ async def test_EUC_KR_기사도_깨지지_않는다() -> None:
     assert body.excerpt is not None and "삼성전자" in body.excerpt
 
 
-async def test_본문을_못_찾으면_no_body_다() -> None:
+async def test_missing_body_is_recorded_as_no_body() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, html="<html><body><div id='app'></div></body></html>")
 
@@ -124,11 +124,11 @@ async def test_본문을_못_찾으면_no_body_다() -> None:
         ("ftp://example.com/x", False),
     ],
 )
-def test_티커_문자열은_링크로_보지_않는다(url: str, expected: bool) -> None:
+def test_ticker_string_is_not_treated_as_a_link(url: str, expected: bool) -> None:
     assert is_fetchable(url) is expected
 
 
-async def test_같은_링크는_한_번만_연다() -> None:
+async def test_duplicate_url_is_fetched_only_once() -> None:
     """한 채널이 같은 기사를 여러 번 올린다. 중복이어도 결과는 준 순서대로 다시 깔린다."""
     calls: list[str] = []
 
@@ -144,7 +144,7 @@ async def test_같은_링크는_한_번만_연다() -> None:
     assert [b.url for b in bodies] == urls
 
 
-async def test_결과는_입력과_길이가_다를_수_있다() -> None:
+async def test_result_length_may_differ_from_input() -> None:
     """**호출 측이 인덱스로 짝지으면 안 된다는 뜻이다.** url 로 맞춰야 한다.
 
     열어볼 값어치가 없는 주소(텔레그램이 티커를 링크로 만든 것)는 아예 빠져서
