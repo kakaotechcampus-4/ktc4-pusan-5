@@ -1,11 +1,13 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardBody, CardTitle, Kicker, Skeleton } from '@/components/ui';
 import type { ConceptListItem } from '../types';
 
 /**
  * 개념 목록 카드
+ * 필터만 바뀔 때 부모(ConceptListPage) 리렌더에 딸려 다시 그리지 않도록 memo 처리
  */
-export function ConceptCard({ item }: { item: ConceptListItem }) {
+export const ConceptCard = memo(function ConceptCard({ item }: { item: ConceptListItem }) {
   const { slug, name, summary, category } = item;
 
   return (
@@ -19,7 +21,7 @@ export function ConceptCard({ item }: { item: ConceptListItem }) {
       </Card>
     </Link>
   );
-}
+});
 
 // ConceptCard 와 같은 자리&높이의 스켈레톤
 export function ConceptCardSkeleton() {
