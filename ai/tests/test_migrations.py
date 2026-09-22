@@ -139,7 +139,7 @@ def test_unrecoverable_rows_abort_without_changing_schema_or_data(
     insert_old(database, "1", category, end_url, source)
     before = query(database, "SELECT * FROM analyst_reports ORDER BY id")
     result = alembic(database, "upgrade", "head", success=False)
-    assert "Cannot recover source_category" in result
+    assert "Cannot recover source_category: 1 row(s). Sample report IDs: {2}" in result
     assert query(database, "SELECT * FROM analyst_reports ORDER BY id") == before
     assert query(database, "SELECT version_num FROM alembic_version_ai")[0][0] == "0001"
     assert not query(
@@ -198,3 +198,19 @@ def test_verified_current_schema_can_be_adopted_without_recreating_tables(databa
     alembic(database, "upgrade", "head")
     alembic(database, "check")
     assert query(database, "SELECT title FROM analyst_reports")[0][0] == "preserve"
+
+
+def test_failure_summary_and_full_diagnostic_query_after_rollback(database):
+    alembic(database, "upgrade", "0001")
+    insert_old(database, "valid", "company")
+    insert_old(database, "8", "market", "https://m.stock.naver.com/research/daily/8")
+    for i in range(7):
+        insert_old(database, str(i), "market")
+    before = query(database, "SELECT * FROM analyst_reports ORDER BY id")
+    result = alembic(database, "upgrade", "head", success=False)
+    assert "Cannot recover source_category: 7 row(s). Sample report IDs: {3,4,5,6,7}" in result
+    assert query(database, "SELECT * FROM analyst_reports ORDER BY id") == before
+    # README에 제공한 SQL 자체를 실행해 롤백 후 전체 실패 행을 찾는지 확인한다.
+    readme = (AI_DIR / "README.md").read_text()
+    diagnostic_sql = readme.split("```sql\n", 1)[1].split("```", 1)[0]
+    assert [row["id"] for row in query(database, diagnostic_sql)] == list(range(3, 10))

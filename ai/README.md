@@ -135,6 +135,31 @@ AI 표를 추가할 때 `alembic/env.py`의 `MANAGED_TABLES`에도 추가한다.
 새 자연키로 invest/daily의 동일 번호가 공존할 수 있다. 이 상태에서 구 자연키로
 downgrade하려 하면 데이터 보존을 위해 중단한다. 자동으로 행을 합치거나 지우지 않는다.
 
+### 원본 분류 복구 실패 시 전체 행 조회
+
+오류에는 실패 건수와 ID를 최대 5개 표시한다. 전체 실패 행은 아래 쿼리로 확인한다.
+마이그레이션 실패 시 `source_category` 추가도 롤백되므로 기존 칼럼만 사용한다.
+이 쿼리는 조회만 하며, 출력된 행의 원본 메타데이터를 확인한 뒤 수정한다.
+
+```sql
+WITH original AS (
+    SELECT id, source, source_id, category, end_url,
+           regexp_match(end_url,
+               '^https?://m[.]stock[.]naver[.]com/(?:api/)?research/(invest|daily)/([0-9]+)(?:[?#].*)?$'
+           ) AS parts
+    FROM analyst_reports
+)
+SELECT id, source, source_id, category, end_url
+FROM original
+WHERE NOT COALESCE(
+    source = 'naver' AND (
+        category IN ('company', 'industry', 'economy', 'invest', 'daily')
+        OR (category = 'market' AND parts[2] = source_id)
+    ), false
+)
+ORDER BY id;
+```
+
 ### 팀 PR 통합
 
 - #26의 고정 DDL `0001`을 재사용했다. #18의 head는 `0018_source_category`다.

@@ -39,11 +39,27 @@ def upgrade() -> None:
         WHERE report.id = original.id AND original.parts[2] = report.source_id
     """)
     op.execute("""
-        DO $$ BEGIN
-            IF EXISTS (SELECT 1 FROM analyst_reports WHERE source_category IS NULL) THEN
-                RAISE EXCEPTION 'Cannot recover source_category. No rows were deleted. '
-                    'Inspect legacy source/category/end_url and restore verified original metadata '
-                    'before retrying; do not stamp past this migration.';
+        DO $$
+        DECLARE
+            failed_count bigint;
+            sample_ids bigint[];
+        BEGIN
+            SELECT count(*) INTO failed_count
+            FROM analyst_reports
+            WHERE source_category IS NULL;
+
+            IF failed_count > 0 THEN
+                SELECT array_agg(id ORDER BY id) INTO sample_ids
+                FROM (
+                    SELECT id FROM analyst_reports
+                    WHERE source_category IS NULL
+                    ORDER BY id LIMIT 5
+                ) AS failed;
+
+                RAISE EXCEPTION
+                    'Cannot recover source_category: % row(s). Sample report IDs: %',
+                    failed_count, sample_ids
+                    USING HINT = 'See the legacy-data diagnostic query in ai/README.md.';
             END IF;
         END $$
     """)
