@@ -19,7 +19,15 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 # 모델에서 제거한 테이블도 삭제 대상으로 검출하도록 소유 목록을 별도로 둔다.
-MANAGED_TABLES = {"analyst_reports"}
+# 여기 없는 표는 autogenerate 와 `alembic check` 이 아예 보지 않는다. 새 표를 만들면
+# 반드시 추가해야 한다 — 빠뜨리면 마이그레이션이 없는데도 check 가 "변경 없음" 이라고 한다.
+MANAGED_TABLES = {
+    "analyst_reports",
+    "stock_move_analyses",
+    "stock_move_analysis_factors",
+    "stock_move_analysis_factor_sources",
+    "stock_move_analysis_reviews",
+}
 
 
 def include_name(name: str | None, type_: str, parent_names: dict[str, str | None]) -> bool:

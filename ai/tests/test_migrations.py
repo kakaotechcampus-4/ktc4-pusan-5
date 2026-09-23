@@ -17,7 +17,8 @@ import pytest
 from sqlalchemy.engine import make_url
 
 AI_DIR = Path(__file__).resolve().parents[1]
-HEAD = "0018_source_category"
+# 체인 끝이 바뀌면 여기도 바꾼다. stamp·버전 확인이 전부 이 값을 쓴다.
+HEAD = "0019_stock_move_analysis"
 
 
 def alembic(url, *args, success=True):

@@ -94,6 +94,32 @@ sudo apt install poppler-utils # Ubuntu
 애널리스트 리포트가 아니고, 실제로 네이버 API 원본의 제목이 종목과 어긋나 있다.
 
 
+## 종목 변동 요인 분석 적재
+
+LLM 이 생성한 "그 종목이 왜 그렇게 움직였는지" 를 DB 에 넣는다. 수집과 반대로
+**입력이 DB 가 아니라 파일**이다 — `runs/<타임스탬프>/parsed/*.json` 을 사람이
+가져다 두면 `app/repositories/stock_move_analysis.py` 가 읽는다. 생성 결과는 매
+실행마다 새로 만들어지는 일회성 산출물이라 원본을 쌓을 표를 따로 두지 않았다.
+
+```
+stock_move_analyses                본체. 한 행 = 분석 한 회차
+stock_move_analysis_factors        원인 (배열 순서 = 중요도)
+stock_move_analysis_factor_sources 원인별 출처
+stock_move_analysis_reviews        검수 판정. 표만 있고 아직 쓰지 않는다
+```
+
+`analyst_reports` 가 "증권사 애널리스트가 쓴 원문" 이고 이쪽은 "우리가 생성한
+분석" 이다. 이름이 겹치지 않아야 같은 DB 에서 구분된다.
+
+**INSERT only 다.** 같은 종목·같은 기준시각을 다시 생성해도 덮어쓰지 않고 새 행으로
+쌓는다. 시스템 프롬프트가 "이전 회차를 언급하지 않는다" 고 규정해 각 회차가 독립
+문서라서다. 그래서 자연키 `(ticker, target_date, as_of)` 에 UNIQUE 가 없다.
+
+**검증 실패·스키마 위반 건도 버리지 않고 상태만 달아 적재한다.** 정규화 칼럼이 거의
+전부 nullable 인 이유이고, 원본은 `raw_json` 에 통째로 남는다. 근거 검증 판정은 적재
+모듈이 직접 하지 않고 인자로 받는다(`verify_status`, 기본 `not_verified`).
+backend 조회는 `verify_status = 'passed'` 를 전제한다.
+
 ## DB 구조 변경
 
 수집기는 테이블을 만들지 않는다. 배포/개발 환경 준비 단계에서
@@ -162,26 +188,25 @@ ORDER BY id;
 
 ### 팀 PR 통합
 
-- #26의 고정 DDL `0001`을 재사용했다. #18의 head는 `0018_source_category`다.
-- #26의 `0002`도 `0001`에서 출발하므로 두 PR을 그대로 합치면 head가 둘이다.
-  두 리비전 파일이 모두 있는 통합 브랜치에서 아래 명령으로 **빈 merge revision**을
-  추가한다. 이미 적용된 `0001`/`0002` 파일의 부모를 바꾸지 않는다.
+**#26(종목 변동 요인 분석 적재)은 통합 완료.** 위 문단이 예고한 head 둘 문제는
+`alembic merge` 대신 **#26 리비전의 부모를 바꿔서** 풀었다.
 
-```bash
-uv run alembic merge -m "merge analyst and stock report migrations" 0018_source_category 0002
-uv run alembic upgrade head
-uv run alembic check
-```
-
-- env.py는 이 PR의 `version_table="alembic_version_ai"`를 유지하고, #26에서
-  추가하는 네 `stock_move_report*` 표도 `MANAGED_TABLES`에 명시한다.
-  모델 import는 양쪽을 합친다. dependency/lockfile도 양쪽 의존성을 유지한다.
-- #26을 이미 기본 `alembic_version`으로 실행했다면 새 이력 표로 자동 복사하지 않는다.
-  기존 이력이 AI 것인지 BE 것인지와 실제 스키마를 확인하고, 검증된 **AI revision만**
-  `alembic_version_ai`에 stamp한다. 기존 BE 이력을 삭제하거나 덮어쓰지 않는다.
-- #26의 오프라인 테스트는 CREATE TABLE만 비교하므로 이 PR의 ALTER COLUMN 이력을
-  반영하지 못한다. 통합 시 PostgreSQL에 전체 리비전을 실행한 뒤 `alembic check`로
-  최종 스키마를 비교하는 테스트를 유지한다.
+- #26의 리비전은 **어느 DB에도 적용된 적이 없다.** 그래서 부모를 바꿔도 안전하다.
+  `0002(down=0001)` → `0019_stock_move_analysis(down=0018_source_category)`.
+  빈 merge revision을 만들면 하는 일 없는 리비전이 하나 남고 `0001` 밑에 번호가
+  겹치는 갈래가 그대로 보존되는데, 적용 이력이 없으니 그 대가를 치를 이유가 없다.
+  **이미 적용된 리비전이었다면 반대로 `alembic merge`가 맞다.**
+- 표 이름은 PR 리뷰에서 `stock_move_report*` → `stock_move_analysis*`로 바뀌었다.
+  `analyst_report`(남이 쓴 원문)와 구분하기 위해서다. `MANAGED_TABLES`에 네 표를
+  모두 넣었다.
+- #26의 alembic 인프라(alembic.ini·env.py·baseline)는 이 PR 것으로 대체했다.
+  `version_table="alembic_version_ai"`, ConfigParser를 거치지 않는 URL 전달,
+  `include_name` 허용목록이 전부 이 PR 쪽이 맞다.
+- #26의 오프라인 테스트는 CREATE TABLE만 비교하므로 `ALTER`로 진화한
+  `analyst_reports`에는 쓸 수 없다. 그래서 그 테스트는 **`stock_move_analysis*` 네 표만**
+  보도록 좁혀 `tests/test_migration_schema_sync.py`로 남겼다. DB가 없는 환경에서
+  "모델만 고치고 마이그레이션을 안 만든" 실수를 잡는 용도다. 전체 스키마 검증은
+  `tests/test_migrations.py`의 PostgreSQL 테스트가 그대로 담당한다.
 - #23/#24의 backend 설정은 별도 통합이 필요하다. backend는 자기 표만 비교하도록
   필터를 두고 AI와 다른 버전 표를 사용해야 한다. #23의 baseline은 고정 DDL로 바꾸고,
   #24 주식 표와 중복 생성되지 않도록 BE 리비전의 범위·순서를 맞춰야 한다.
