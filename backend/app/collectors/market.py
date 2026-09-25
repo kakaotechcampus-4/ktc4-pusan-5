@@ -16,7 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 import app.models  # noqa: F401
 from app.collectors.stocks import StockWorker
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import SessionLocal, engine, ensure_schema_current
 from app.repositories.market import list_snapshots, save_result
 from app.repositories.ranking import list_rankings, save_ranking
 from app.schemas.market_flow import FLOW_KINDS, FlowItem
@@ -165,18 +165,8 @@ async def run(loop: bool) -> None:
                 logger.info("Another market worker is already running")
                 return
             try:
-                async with engine.begin() as connection:
-                    await connection.run_sync(
-                        lambda sync: Base.metadata.create_all(
-                            sync,
-                            tables=[
-                                t
-                                for t in Base.metadata.sorted_tables
-                                if not t.name.startswith("stock")
-                                and t.name != "krx_historical_cache"
-                            ],
-                        )
-                    )
+                # `uv run alembic upgrade head` 로 db 최신상태로 맞춰두기
+                await ensure_schema_current()
                 async with httpx.AsyncClient(timeout=15) as client:
                     kis = KisClient(client)
                     stocks = StockWorker(client, kis)
