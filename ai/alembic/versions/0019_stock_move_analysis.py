@@ -48,6 +48,7 @@ def upgrade() -> None:
         sa.Column("background", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("not_found", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("raw_json", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("source_file_sha256", sa.String(length=64), nullable=True),
         sa.Column("parse_status", sa.String(length=20), nullable=False),
         sa.Column("parse_error", sa.Text(), nullable=True),
         sa.Column("verify_status", sa.String(length=20), nullable=False),
@@ -58,6 +59,8 @@ def upgrade() -> None:
             "loaded_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
         ),
         sa.PrimaryKeyConstraint("id"),
+        # 같은 산출물 파일의 재적재 방지. 적재가 ON CONFLICT DO NOTHING 으로 이 제약을 쓴다.
+        sa.UniqueConstraint("source_file_sha256", name="uq_stock_move_analysis_source_file_sha256"),
     )
     # 자연키 (ticker, target_date, as_of) 에 UNIQUE 를 걸지 않는다. 같은 기준시각의
     # 재생성도 새 행으로 쌓아야 해서다. 조회용 인덱스로만 둔다.

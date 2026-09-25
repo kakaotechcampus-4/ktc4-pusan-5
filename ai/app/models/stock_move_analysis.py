@@ -8,7 +8,8 @@ backend 의 `report` / `report_block` / `report_citation` 과도 다른 계통�
 **INSERT only 다. UPDATE 하지 않는다.** 시스템 프롬프트가 "이전 회차를 언급하지
 않는다" 고 못박아서 각 회차는 독립 문서다. 같은 종목·같은 기준시각을 다시 만들어도
 덮어쓰지 않고 새 행으로 쌓는다. 그래서 자연키 (ticker, target_date, as_of) 에
-UNIQUE 를 걸 수 없다 — 인덱스로만 둔다.
+UNIQUE 를 걸 수 없다 — 인덱스로만 둔다. 유일한 것은 **산출물 파일**이다
+(`source_file_sha256`). 재생성은 새 행이지만 같은 파일을 두 번 넣는 건 막는다.
 
 **검증 실패 건도 버리지 않는다.** 스키마를 어긴 보고서가 왜 나왔는지는 그 보고서를
 봐야 알 수 있다. 그래서 정규화 칼럼은 거의 전부 nullable 이고, 원본은 `raw_json` 에
@@ -57,6 +58,10 @@ class StockMoveAnalysis(Base):
             "as_of",
             postgresql_where=text("verify_status = 'passed'"),
         ),
+        # 같은 산출물 파일의 재적재를 막는 키. 적재는 ON CONFLICT DO NOTHING 으로 이 제약에
+        # 걸린 건을 건너뛴다. 자연키와 달리 여기는 UNIQUE 가 맞다 — 재생성본은 파일
+        # 바이트가 달라 키도 다르므로 새 행을 막지 않는다.
+        UniqueConstraint("source_file_sha256", name="uq_stock_move_analysis_source_file_sha256"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -122,6 +127,11 @@ class StockMoveAnalysis(Base):
     # 어느 쪽인지는 parse_status 가 말한다. 정규화 칼럼과 별개로 두는 이유는
     # 스키마 위반 케이스가 반드시 나오고, 그때 칼럼에 안 담긴 값이 사라지면 안 되기 때문이다.
     raw_json: Mapped[dict] = mapped_column(JSONB)
+    # runs/.../parsed/*.json 파일 바이트의 sha256 hex. final_text 가 아니라 파일 전체를
+    # 해시한다 — 파싱이 깨져 final_text 가 없는 파일도 재적재를 막아야 해서다.
+    # nullable 인 이유: 파일 없이 래퍼 dict 로 넣는 경로가 있고, NULL 은 UNIQUE 에서
+    # 서로 충돌하지 않으므로 그 경로는 지금처럼 매번 들어간다.
+    source_file_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # --- 적재 계층이 본 것 --------------------------------------------
     # ok | schema_violation | parse_failed

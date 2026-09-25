@@ -5,6 +5,7 @@ counter 의 null, 상한 초과를 자르지 않는다는 약속, 래퍼가 2단
 픽스처는 실제 실행 산출물(`tests/fixtures/reports/`)을 그대로 쓴다.
 """
 
+import hashlib
 import json
 from datetime import date, datetime
 from decimal import Decimal
@@ -202,3 +203,33 @@ def test_verify_status_is_passed_in_as_an_argument() -> None:
     failed = build_analysis(parsed, verify_status="failed", verify_error="quote 불일치 1건")
     assert failed.verify_status == "failed"
     assert failed.verify_error == "quote 불일치 1건"
+
+
+def test_file_hash_is_taken_from_file_bytes(tmp_path: Path) -> None:
+    """재적재 방지 키는 파일 바이트의 sha256 이다. final_text 가 같아도 파일이 1바이트
+    다르면 다른 키여야 한다 — 재생성본은 새 행으로 남겨야 해서다."""
+    data = SAMSUNG.read_bytes()
+    copy = tmp_path / SAMSUNG.name
+    copy.write_bytes(data)
+    changed = tmp_path / "changed.json"
+    changed.write_bytes(data + b"\n")
+
+    key = parse_analysis_file(SAMSUNG).source_file_sha256
+    assert key == hashlib.sha256(data).hexdigest()
+    assert parse_analysis_file(copy).source_file_sha256 == key
+    assert parse_analysis_file(changed).source_file_sha256 != key
+    assert build_analysis(parse_analysis_file(SAMSUNG)).source_file_sha256 == key
+
+
+def test_broken_file_still_gets_a_hash(tmp_path: Path) -> None:
+    """JSON 이 아닌 파일도 적재된다. 그러니 재적재도 막혀야 한다."""
+    broken = tmp_path / "broken.json"
+    broken.write_bytes(b"not json")
+    parsed = parse_analysis_file(broken)
+    assert parsed.parse_status == "parse_failed"
+    assert parsed.source_file_sha256 == hashlib.sha256(b"not json").hexdigest()
+
+
+def test_wrapper_without_file_has_no_hash() -> None:
+    """파일 없이 래퍼 dict 로 넣는 경로는 키가 없다. NULL 은 UNIQUE 에서 충돌하지 않는다."""
+    assert parse_wrapper(json.loads(SAMSUNG.read_text(encoding="utf-8"))).source_file_sha256 is None

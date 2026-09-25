@@ -3,6 +3,8 @@
 이름과 적재 정책은 backend 가 읽게 될 계약이라, 바꾸면 테스트가 먼저 깨져야 한다.
 """
 
+from sqlalchemy import UniqueConstraint
+
 from app.core.database import Base
 from app.models import (
     StockMoveAnalysis,
@@ -42,6 +44,18 @@ def test_natural_key_has_no_unique_constraint() -> None:
     for uq in t.constraints:
         assert {c.name for c in uq.columns} != natural_key, "자연키에 UNIQUE 가 붙었다"
     assert "ix_stock_move_analysis_ticker_as_of" in {i.name for i in t.indexes}
+
+
+def test_source_file_hash_is_unique_and_nullable() -> None:
+    """자연키와 달리 산출물 파일은 유일하다. 적재가 이 제약에 ON CONFLICT DO NOTHING 을
+    건다. 파일 없이 넣는 경로가 있어 nullable 이다(NULL 끼리는 충돌하지 않는다)."""
+    t = Base.metadata.tables["stock_move_analyses"]
+    assert t.columns["source_file_sha256"].nullable
+    assert any(
+        isinstance(c, UniqueConstraint)
+        and [col.name for col in c.columns] == ["source_file_sha256"]
+        for c in t.constraints
+    ), "source_file_sha256 에 UNIQUE 가 없다"
 
 
 def test_raw_json_is_not_nullable() -> None:
