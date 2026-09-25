@@ -333,8 +333,11 @@ def normalize_background(raw: Any) -> dict[str, list[dict[str, Any]]] | None:
             if isinstance(item, str):
                 normalized.append({"text": item, "watch": False})
             elif isinstance(item, dict):
+                # bool() 로 받으면 "false" 문자열이 참이 되어 박스가 뜬다. 진짜 true 만
+                # 참이고 나머지(누락·문자열·숫자)는 전부 false 다 — 화면이 null 을 안 따지게
+                # 여기서는 _as_bool 의 None 을 그대로 두지 않는다.
                 normalized.append(
-                    {"text": _as_str(item.get("text")), "watch": bool(item.get("watch", False))}
+                    {"text": _as_str(item.get("text")), "watch": _as_bool(item.get("watch")) is True}
                 )
             # 문자열도 객체도 아니면 버린다. 원본은 raw_json 에 있다.
         out[slot] = normalized

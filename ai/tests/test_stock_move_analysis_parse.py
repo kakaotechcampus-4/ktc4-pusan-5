@@ -111,6 +111,24 @@ def test_background_accepts_both_string_and_object_items() -> None:
     ]
 
 
+def test_background_watch_string_false_is_not_true() -> None:
+    """bool("false") 는 True 다. 모델이 watch 를 문자열로 내면 "false" 항목에 박스가
+    떠 버린다. 진짜 true 만 참이고, 문자열·숫자·누락은 전부 false 로 편다 —
+    화면이 null 을 따지지 않도록 bool 로 고정한다."""
+    normalized = normalize_background(
+        {
+            "neutral": [
+                {"text": "문자열 false", "watch": "false"},
+                {"text": "문자열 true", "watch": "true"},
+                {"text": "숫자", "watch": 1},
+                {"text": "누락"},
+                {"text": "진짜 true", "watch": True},
+            ]
+        }
+    )
+    assert [item["watch"] for item in normalized["neutral"]] == [False, False, False, False, True]
+
+
 def test_real_report_background_is_normalized() -> None:
     """합성 입력만으로는 부족하다. 실제 산출물에 watch 객체와 문자열이 같은 칸에 있다."""
     analysis = build_analysis(parse_analysis_file(SAMSUNG))
