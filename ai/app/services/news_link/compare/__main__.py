@@ -29,13 +29,18 @@ from pathlib import Path
 from app.core.config import settings
 from app.llm.client import endpoint
 from app.services.news_link.compare.methods import (
+    SELECT_PROMPT,
+    SUMMARY_PROMPT,
     method_a,
     method_b,
     method_c,
     numbered,
+    prompt_sha,
+    says_none,
     selected_text,
 )
 from app.services.news_link.compare.score import parse_answer, parse_mark, render_report
+from app.services.news_link.compare.verify import verify_summary
 from app.services.news_link.fetch import fetch_link_bodies
 from app.services.news_link.sentence import split_sentences
 
@@ -234,14 +239,18 @@ async def run(work: Path, rerun: bool, concurrency: int = LLM_CONCURRENCY) -> No
 
     outputs = {} if rerun else load_json(work / "outputs.json")
 
+    current_sha = {"b": prompt_sha(SELECT_PROMPT), "c": prompt_sha(SUMMARY_PROMPT)}
+
     def needs(cid: str, method: str) -> bool:
-        """아직 안 돌렸거나 **호출이 실패한** 방식만 다시 돌린다.
+        """아직 안 돌렸거나, 호출이 실패했거나, **프롬프트가 바뀐** 방식만 다시 돌린다.
 
         성공한 쪽까지 다시 돌리면 그만큼 비용을 또 낸다. 실패한 호출은 토큰이 0 이라
-        다시 돌려도 이중 과금이 아니다.
+        다시 돌려도 이중 과금이 아니다. 프롬프트를 고쳤는데 옛 결과를 재사용하면
+        "고쳤는데 결과가 그대로" 라는 착시가 생긴다.
         """
         old = outputs.get(cid)
-        return old is None or bool(old[method].get("error"))
+        return (old is None or bool(old[method].get("error"))
+                or old[method].get("prompt_sha") != current_sha[method])
 
     todo = [a for a in articles.values()
             if a["sentences"] and (needs(a["id"], "b") or needs(a["id"], "c"))]
@@ -282,7 +291,11 @@ async def run(work: Path, rerun: bool, concurrency: int = LLM_CONCURRENCY) -> No
 
 
 def write_review(work: Path, articles: dict, outputs: dict) -> None:
-    """사람 채점표. 이미 적은 칸은 지킨다."""
+    """사람 채점표. 이미 적은 칸은 **결과가 그대로일 때만** 지킨다.
+
+    프롬프트를 고쳐 다시 돌리면 결과 글이 바뀐다. 옛 글에 매긴 Y/N 을 새 글에 붙여 두면
+    채점하지 않은 결과가 채점된 것처럼 셈해진다.
+    """
     existing = {(r["id"], r["방식"]): r for r in read_csv(work / "review.csv")}
     rows = []
     for cid, out in outputs.items():
@@ -291,6 +304,8 @@ def write_review(work: Path, articles: dict, outputs: dict) -> None:
         for method, text in (("B", b_text or "(빈 목록 — 원인 없음)"),
                              ("C", out["c"]["text"] or f"(오류: {out['c']['error']})")):
             old = existing.get((cid, method), {})
+            if old.get("결과") != text:
+                old = {}
             row = {"id": cid, "종목": a["stock"], "방식": method, "결과": text,
                    "메모": old.get("메모", "")}
             for field in REVIEW_MARKS:
@@ -329,7 +344,12 @@ def score(work: Path) -> None:
             "a_chars": len(selected_text(a["sentences"], out["a"])),
             "b_chars": len(selected_text(a["sentences"], out["b"]["selected"])),
             "c_chars": len(out["c"]["text"]),
-            "c_unsupported": out["c"]["unsupported_numbers"],
+            "c_none": says_none(out["c"]["text"]),
+            # 채점할 때 계산한다. LLM 을 다시 부르지 않고 규칙만 바꿔 다시 볼 수 있다.
+            "c_flags": verify_summary(out["c"]["text"], a["stock"], a["title"], a["body"]),
+            # 앞 문장을 코드가 몇 개 붙였나. 옛 outputs(v1)에는 model_selected 가 없다.
+            "b_context_added": len(out["b"]["selected"])
+            - len(out["b"].get("model_selected") or out["b"]["selected"]),
             "b_cost": out["b"]["cost"], "c_cost": out["c"]["cost"],
             "review": review.get(cid, {}),
         })

@@ -6,7 +6,9 @@ from app.services.news_link.compare.methods import (
     MAX_SELECT,
     method_a,
     parse_selection,
+    says_none,
     selected_text,
+    with_context,
 )
 from app.services.news_link.compare.score import compare, parse_answer, parse_mark, render_report
 from app.services.news_link.sentence import split_sentences
@@ -88,11 +90,40 @@ def test_report_shows_where_methods_split() -> None:
     rows = [
         {"id": "aaa111", "kind": "시황", "stock": "가나전자", "answer": {6, 7, 8},
          "a": [1, 2, 3], "b": [6, 7, 8], "b_fallback": False,
-         "a_chars": 120, "b_chars": 130, "c_chars": 140, "c_unsupported": ["4,210억"],
-         "b_cost": 0.001, "c_cost": 0.002,
+         "a_chars": 120, "b_chars": 130, "c_chars": 140, "c_flags": ["numbers: 원문에 없는 숫자 4,210억"],
+         "b_cost": 0.001, "c_cost": 0.002, "c_none": False, "b_context_added": 0,
          "review": {("C", "reason"): True, ("C", "invented"): True, ("B", "sense"): True}},
     ]
     report = render_report(rows, [])
     assert "| 정답 문장 **전부** 포함 | 0/1 (0%) | 1/1 (100%) |" in report
     assert "B 만 맞힘: aaa111(가나전자)" in report
     assert "4,210억" in report
+
+
+def test_sentence_pointing_back_brings_the_previous_one() -> None:
+    """파일럿에서 '다만' 으로 시작하는 문장을 혼자 골라 뜻이 안 통했다."""
+    sentences = [
+        "메타가 AI 에이전트를 공개했다.",
+        "시장에서는 여행 플랫폼이 약해질 수 있다는 우려가 나왔다.",
+        "다만 실제 예약 규모는 확인되지 않았다.",
+        "반면 경쟁사는 협력을 발표했다.",
+    ]
+    assert with_context(sentences, [3]) == [2, 3]
+    # 한 칸만 붙인다. 붙인 문장(3)이 또 '다만' 으로 시작해도 2 까지 거슬러 올라가지 않는다
+    assert with_context(sentences, [4]) == [3, 4]
+    assert with_context(sentences, [1, 2]) == [1, 2]
+
+
+def test_quoted_opener_still_counts() -> None:
+    sentences = ["삼성전자가 올랐다.", "\"다만 과열이다\"라는 말이 나왔다."]
+    assert with_context(sentences, [2]) == [1, 2]
+
+
+def test_first_sentence_has_nothing_to_attach() -> None:
+    assert with_context(["다만 첫 문장이다.", "둘째다."], [1]) == [1]
+
+
+def test_none_answer_is_read_from_the_fixed_phrase() -> None:
+    assert says_none("관련 내용 없음")
+    assert says_none(" 관련 내용 없음. ")
+    assert not says_none("한국전력은 관련 내용 없음과 달리 올랐다.")

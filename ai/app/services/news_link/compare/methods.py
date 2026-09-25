@@ -5,6 +5,7 @@ A·B 의 결과를 **문장 번호**로 맞춰 두는 이유는 채점을 자동
 번호로 바꿀 수 없어서 사람이 채점한다.
 """
 
+import hashlib
 import json
 import re
 
@@ -30,6 +31,37 @@ SELECT_MAX_TOKENS = 1000
 SUMMARY_MAX_TOKENS = 2000
 
 _JSON_OBJECT_RE = re.compile(r"\{.*?\}", re.DOTALL)
+
+# 이 말로 시작하는 문장은 앞 문장이 있어야 뜻이 선다. 모델에게 "가리키는 대상도 고르라" 고
+# 시켰지만 파일럿에서 '다만' 으로 시작하는 문장을 혼자 골랐다. 그래서 코드가 채운다 —
+# 규칙이면 매번 같은 결과가 나온다.
+# 못 잡는 것: 앞에서 정의한 낱말만 쓰는 문장("'Muse' 가 …"). 여는 말이 없어서 규칙으로는 안 보인다.
+CONTEXT_OPENERS = (
+    "다만", "반면", "하지만", "그러나", "따라서", "이에", "이처럼", "이는", "이를",
+    "이 회사", "이 같은", "이같은", "같은 ", "해당 ",
+)
+_LEADING_MARKS = "\"'“‘([ "
+
+
+def needs_previous(sentence: str) -> bool:
+    return sentence.lstrip(_LEADING_MARKS).startswith(CONTEXT_OPENERS)
+
+
+def with_context(sentences: list[str], indices: list[int]) -> list[int]:
+    """앞 문장을 가리키는 문장이면 바로 앞 문장을 붙인다. 한 칸만 붙이고 거슬러 올라가지 않는다.
+
+    거슬러 올라가면 '다만' 이 연달아 나오는 분석 기사에서 문단 전체가 딸려 온다.
+    """
+    out = set(indices)
+    for i in indices:
+        if i > 1 and needs_previous(sentences[i - 1]):
+            out.add(i - 1)
+    return sorted(out)
+
+
+def prompt_sha(name: str) -> str:
+    """프롬프트 내용의 지문. 프롬프트를 고치면 run 이 옛 결과를 재사용하지 않게 한다."""
+    return hashlib.sha1(load_prompt(name).encode()).hexdigest()[:8]
 
 
 def numbered(sentences: list[str]) -> str:
@@ -76,9 +108,15 @@ def _user_message(stock: str, title: str | None, sentences: list[str]) -> str:
 
 
 async def method_b(stock: str, title: str | None, sentences: list[str], body: str) -> dict:
-    """문장 번호 선택. 규칙 위반이면 A 로 대체하고, 호출 실패면 error 만 남긴다."""
-    result = {"selected": None, "fallback": False, "raw": "", "error": None, "cost": 0.0,
-              "prompt_tokens": 0, "completion_tokens": 0}
+    """문장 번호 선택. 규칙 위반이면 A 로 대체하고, 호출 실패면 error 만 남긴다.
+
+    model_selected 는 모델이 낸 번호, selected 는 앞 문장을 붙인 최종 번호다.
+    둘을 따로 두는 이유: 채점은 운영에서 넘어갈 selected 로 하지만, 모델이 얼마나
+    맥락을 놓치는지는 model_selected 를 봐야 안다.
+    """
+    result = {"selected": None, "model_selected": None, "fallback": False, "raw": "",
+              "error": None, "cost": 0.0, "prompt_tokens": 0, "completion_tokens": 0,
+              "prompt_sha": prompt_sha(SELECT_PROMPT)}
     try:
         text, usage = await complete(load_prompt(SELECT_PROMPT),
                                      _user_message(stock, title, sentences),
@@ -96,6 +134,9 @@ async def method_b(stock: str, title: str | None, sentences: list[str], body: st
     if result["selected"] is None:
         result["selected"] = method_a(body)
         result["fallback"] = True
+        return result
+    result["model_selected"] = result["selected"]
+    result["selected"] = with_context(sentences, result["selected"])
     return result
 
 
@@ -106,7 +147,8 @@ async def method_c(stock: str, title: str | None, sentences: list[str], body: st
     못 잡는다. 그건 review.csv 에서 사람이 본다.
     """
     result = {"text": "", "error": None, "cost": 0.0, "prompt_tokens": 0,
-              "completion_tokens": 0, "unsupported_numbers": []}
+              "completion_tokens": 0, "unsupported_numbers": [],
+              "prompt_sha": prompt_sha(SUMMARY_PROMPT)}
     try:
         text, usage = await complete(load_prompt(SUMMARY_PROMPT),
                                      _user_message(stock, title, sentences),
@@ -115,10 +157,20 @@ async def method_c(stock: str, title: str | None, sentences: list[str], body: st
         result["cost"] = cost_usd(usage)
         result["prompt_tokens"] = usage.get("prompt_tokens", 0)
         result["completion_tokens"] = usage.get("completion_tokens", 0)
-        result["unsupported_numbers"] = hallucinated_numbers(text, body)
+        # 제목도 근거에 넣는다. 모델에게 제목을 같이 줬으니 제목의 숫자는 지어낸 게 아니다.
+        # 파일럿에서 제목에만 있던 '7.56%' 가 본문에 없는 숫자로 잡혔다.
+        result["unsupported_numbers"] = hallucinated_numbers(text, f"{title or ''}\n{body}")
     except LLMError as exc:
         result["error"] = str(exc)
     return result
+
+
+NONE_ANSWER = "관련 내용 없음"
+
+
+def says_none(text: str) -> bool:
+    """C 가 '이 기사는 이 종목을 다루지 않는다' 고 답했나. 프롬프트가 정한 문구 그대로다."""
+    return text.strip().strip(".").strip() == NONE_ANSWER
 
 
 def selected_text(sentences: list[str], indices: list[int]) -> str:

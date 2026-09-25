@@ -109,16 +109,24 @@ def render_report(rows: list[dict], skipped: list[dict]) -> str:
 
     rows 한 줄 = (기사, 종목) 한 쌍. 필요한 키:
         id kind stock answer(set)  a b(list[int])  b_fallback
-        a_chars b_chars c_chars  c_unsupported(list)  b_cost c_cost
+        a_chars b_chars c_chars  c_flags(verify.py 결과)  b_cost c_cost
+        c_none(C 가 '관련 내용 없음' 이라고 답했나)  b_context_added(코드가 붙인 앞 문장 수)
         review {(method, field): bool}   field 는 reason / invented / sense
     """
     a = _selection_stats(rows, "a")
     b = _selection_stats(rows, "b")
+    # '원인 없음' 정답인 쌍에서 C 가 정해진 문구로 답했나. 문구가 고정이라 자동으로 센다.
+    none_rows = [r for r in rows if not r["answer"]]
+    c_none_correct = sum(r["c_none"] for r in none_rows)
+    # 반대로 원인이 있는 기사에 '관련 내용 없음' 이라고 하면 그것도 틀린 것이다.
+    c_false_none = sum(r["c_none"] for r in rows if r["answer"])
+    b_context = sum(r["b_context_added"] for r in rows)
     c_reason = _marks(rows, "C", "reason")
     c_invented = _marks(rows, "C", "invented")
     b_sense = _marks(rows, "B", "sense")
     c_sense = _marks(rows, "C", "sense")
-    c_numbers = sum(1 for r in rows if r["c_unsupported"])
+    # 규칙 검사(verify.py)에 걸린 요약. '참고' 로 붙은 것(외국어 숫자 번역)은 세지 않는다.
+    c_flagged = sum(1 for r in rows if any("참고" not in f.split(":")[0] for f in r["c_flags"]))
 
     def chars(key: str) -> str:
         return _avg([r[key] for r in rows], "{:.0f}자")
@@ -131,9 +139,11 @@ def render_report(rows: list[dict], skipped: list[dict]) -> str:
         ("평균 재현율", _avg(a["recall"]), _avg(b["recall"]), "-"),
         ("평균 정밀도 (군더더기 적음)", _avg(a["precision"]), _avg(b["precision"]), "-"),
         ("'원인 없음' 기사를 비워둠", "불가 (항상 3문장)",
-         _pct(b["none_correct"], b["none_n"]), "사람 채점"),
+         _pct(b["none_correct"], b["none_n"]), _pct(c_none_correct, len(none_rows))),
+        ("원인 있는 기사를 '없음'으로 답함", "-", "-", f"{c_false_none}건"),
+        ("코드가 붙인 앞 문장", "-", f"{b_context}개", "-"),
         ("원문에 없는 내용", "없음 (구조상)", "없음 (구조상)",
-         f"사람: {_pct(*c_invented)} · 숫자 자동검사 {c_numbers}건"),
+         f"사람: {_pct(*c_invented)} · 규칙 검사 {c_flagged}건"),
         ("혼자 읽어도 뜻이 통함", "- (연속 문장)", f"사람: {_pct(*b_sense)}",
          f"사람: {_pct(*c_sense)}"),
         ("규칙 위반 → A 로 대체", "-", f"{sum(r['b_fallback'] for r in rows)}건", "-"),
@@ -178,10 +188,12 @@ def render_report(rows: list[dict], skipped: list[dict]) -> str:
     lines.append("B 만 맞힘: " + (", ".join(f"{r['id']}({r['stock']})" for r in b_only) or "없음"))
     lines.append("")
     lines.append("A 만 맞힘: " + (", ".join(f"{r['id']}({r['stock']})" for r in a_only) or "없음"))
-    numbers = [r for r in rows if r["c_unsupported"]]
-    if numbers:
-        lines += ["", "C 에서 본문에 없는 숫자:", ""]
-        lines += [f"- {r['id']}({r['stock']}): {', '.join(r['c_unsupported'])}" for r in numbers]
+    flagged = [r for r in rows if r["c_flags"]]
+    if flagged:
+        lines += ["", "## C 규칙 검사에 걸린 요약", ""]
+        for r in flagged:
+            lines.append(f"- {r['id']}({r['stock']})")
+            lines += [f"  - {f}" for f in r["c_flags"]]
     if skipped:
         lines += ["", "## 본문을 못 읽어 뺀 것", ""]
         lines += [f"- {s['id']} {s['domain'] or s['url']} — {s['status']}" for s in skipped]
