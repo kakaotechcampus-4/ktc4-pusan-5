@@ -5,6 +5,7 @@ counter 의 null, 상한 초과를 자르지 않는다는 약속, 래퍼가 2단
 픽스처는 실제 실행 산출물(`tests/fixtures/reports/`)을 그대로 쓴다.
 """
 
+import hashlib
 import json
 from datetime import date, datetime
 from decimal import Decimal
@@ -111,6 +112,24 @@ def test_background_accepts_both_string_and_object_items() -> None:
     ]
 
 
+def test_background_watch_string_false_is_not_true() -> None:
+    """bool("false") 는 True 다. 모델이 watch 를 문자열로 내면 "false" 항목에 박스가
+    떠 버린다. 진짜 true 만 참이고, 문자열·숫자·누락은 전부 false 로 편다 —
+    화면이 null 을 따지지 않도록 bool 로 고정한다."""
+    normalized = normalize_background(
+        {
+            "neutral": [
+                {"text": "문자열 false", "watch": "false"},
+                {"text": "문자열 true", "watch": "true"},
+                {"text": "숫자", "watch": 1},
+                {"text": "누락"},
+                {"text": "진짜 true", "watch": True},
+            ]
+        }
+    )
+    assert [item["watch"] for item in normalized["neutral"]] == [False, False, False, False, True]
+
+
 def test_real_report_background_is_normalized() -> None:
     """합성 입력만으로는 부족하다. 실제 산출물에 watch 객체와 문자열이 같은 칸에 있다."""
     analysis = build_analysis(parse_analysis_file(SAMSUNG))
@@ -184,3 +203,33 @@ def test_verify_status_is_passed_in_as_an_argument() -> None:
     failed = build_analysis(parsed, verify_status="failed", verify_error="quote 불일치 1건")
     assert failed.verify_status == "failed"
     assert failed.verify_error == "quote 불일치 1건"
+
+
+def test_file_hash_is_taken_from_file_bytes(tmp_path: Path) -> None:
+    """재적재 방지 키는 파일 바이트의 sha256 이다. final_text 가 같아도 파일이 1바이트
+    다르면 다른 키여야 한다 — 재생성본은 새 행으로 남겨야 해서다."""
+    data = SAMSUNG.read_bytes()
+    copy = tmp_path / SAMSUNG.name
+    copy.write_bytes(data)
+    changed = tmp_path / "changed.json"
+    changed.write_bytes(data + b"\n")
+
+    key = parse_analysis_file(SAMSUNG).source_file_sha256
+    assert key == hashlib.sha256(data).hexdigest()
+    assert parse_analysis_file(copy).source_file_sha256 == key
+    assert parse_analysis_file(changed).source_file_sha256 != key
+    assert build_analysis(parse_analysis_file(SAMSUNG)).source_file_sha256 == key
+
+
+def test_broken_file_still_gets_a_hash(tmp_path: Path) -> None:
+    """JSON 이 아닌 파일도 적재된다. 그러니 재적재도 막혀야 한다."""
+    broken = tmp_path / "broken.json"
+    broken.write_bytes(b"not json")
+    parsed = parse_analysis_file(broken)
+    assert parsed.parse_status == "parse_failed"
+    assert parsed.source_file_sha256 == hashlib.sha256(b"not json").hexdigest()
+
+
+def test_wrapper_without_file_has_no_hash() -> None:
+    """파일 없이 래퍼 dict 로 넣는 경로는 키가 없다. NULL 은 UNIQUE 에서 충돌하지 않는다."""
+    assert parse_wrapper(json.loads(SAMSUNG.read_text(encoding="utf-8"))).source_file_sha256 is None

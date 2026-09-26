@@ -77,6 +77,7 @@ nullable 이고 값이 이상하면 NULL 로 빠진다. 원본은 raw_json 에 �
 스키마를 어겼지만 근거는 멀쩡한 보고서도 있다.
 """
 
+import hashlib
 import json
 import logging
 from datetime import date, datetime, time, timedelta, timezone
@@ -84,7 +85,10 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import inspect
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import make_transient_to_detached
 
 from app.models.stock_move_analysis import (
     StockMoveAnalysis,
@@ -125,6 +129,7 @@ class ParsedAnalysis:
         raw_json: dict[str, Any],
         parse_status: str,
         parse_error: str | None,
+        source_file_sha256: str | None = None,
     ) -> None:
         # 러너가 붙인 실행 식별자. `<종목>-<날짜>-<조건>__<반복>` 꼴이라 이 값 하나로
         # runs/<타임스탬프>/parsed/<run_id>.json 을 다시 열 수 있다.
@@ -133,6 +138,9 @@ class ParsedAnalysis:
         self.raw_json = raw_json  # 통째로 보존할 원본
         self.parse_status = parse_status  # ok | schema_violation | parse_failed
         self.parse_error = parse_error
+        # 산출물 파일 바이트의 sha256. 같은 파일의 재적재를 막는 키다(insert_analysis 참고).
+        # 파일 없이 parse_wrapper 를 직접 부르면 None 이고, 그때는 중복을 막지 않는다.
+        self.source_file_sha256 = source_file_sha256
 
 
 def _failed(run_id: str | None, raw_json: dict[str, Any], reason: str) -> ParsedAnalysis:
@@ -149,7 +157,17 @@ def parse_analysis_file(path: Path) -> ParsedAnalysis:
     예외가 올라가면 뒤의 멀쩡한 건까지 못 들어간다. 파일이 JSON 이 아니든 final_text 가
     없든 상태만 달아 넘기고, 원본은 raw_json 에 남긴다.
     """
-    text = path.read_text(encoding="utf-8")
+    # 해시는 디코딩 전 바이트로 뜬다. final_text 가 아니라 파일 전체가 키인 이유:
+    # 재생성본은 final_text 가 우연히 같아도 다른 회차라 새 행이어야 하고, 깨진 파일은
+    # final_text 가 아예 없어도 재적재를 막아야 한다.
+    data = path.read_bytes()
+    digest = hashlib.sha256(data).hexdigest()
+    parsed = _parse_file_text(path, data.decode("utf-8"))
+    parsed.source_file_sha256 = digest
+    return parsed
+
+
+def _parse_file_text(path: Path, text: str) -> ParsedAnalysis:
     try:
         wrapper = json.loads(text)
     except json.JSONDecodeError as e:
@@ -333,8 +351,11 @@ def normalize_background(raw: Any) -> dict[str, list[dict[str, Any]]] | None:
             if isinstance(item, str):
                 normalized.append({"text": item, "watch": False})
             elif isinstance(item, dict):
+                # bool() 로 받으면 "false" 문자열이 참이 되어 박스가 뜬다. 진짜 true 만
+                # 참이고 나머지(누락·문자열·숫자)는 전부 false 다 — 화면이 null 을 안 따지게
+                # 여기서는 _as_bool 의 None 을 그대로 두지 않는다.
                 normalized.append(
-                    {"text": _as_str(item.get("text")), "watch": bool(item.get("watch", False))}
+                    {"text": _as_str(item.get("text")), "watch": _as_bool(item.get("watch")) is True}
                 )
             # 문자열도 객체도 아니면 버린다. 원본은 raw_json 에 있다.
         out[slot] = normalized
@@ -458,6 +479,7 @@ def build_analysis(
         background=normalize_background(r.get("background")),
         not_found=normalize_not_found(r.get("not_found")),
         raw_json=parsed.raw_json,
+        source_file_sha256=parsed.source_file_sha256,
         parse_status=parsed.parse_status,
         parse_error=parsed.parse_error,
         verify_status=verify_status,
@@ -548,15 +570,18 @@ async def insert_analysis(
     generated_at: datetime | None = None,
     prompt_version: str | None = None,
     source: str = "telegram",
-) -> StockMoveAnalysis:
+) -> StockMoveAnalysis | None:
     """보고서 한 회차를 넣는다. **INSERT only — 기존 행을 찾지도, 고치지도 않는다.**
 
     같은 (ticker, target_date, as_of) 가 이미 있어도 새 행으로 쌓는다. 프롬프트가
     "이전 회차를 언급하지 않는다" 고 규정해 각 회차가 독립 문서라서다. 덮어쓰면
     "그때 무엇을 내보냈나" 를 되짚을 수 없다.
 
-    대신 멱등하지 않다 — 같은 파일을 두 번 넣으면 행이 두 개 생긴다. 재적재가
-    필요하면 부르는 쪽이 기존 행을 정리하고 넣어야 한다.
+    막는 것은 **같은 파일의 재적재** 하나뿐이다. 키는 산출물 파일 바이트의 sha256
+    (`source_file_sha256`, UNIQUE)이고, 이미 있으면 ON CONFLICT DO NOTHING 으로
+    아무것도 넣지 않고 None 을 돌려준다. 기존 행은 건드리지 않는다. 재생성본은 파일
+    바이트가 달라 키가 다르므로 지금처럼 새 행이 된다. 키가 None 인 건(파일 없이
+    parse_wrapper 를 직접 부른 경우)은 NULL 끼리 충돌하지 않아 매번 들어간다.
     """
     analysis = build_analysis(
         parsed,
@@ -566,6 +591,28 @@ async def insert_analysis(
         prompt_version=prompt_version,
         source=source,
     )
+
+    # 부모 행만 Core INSERT 로 먼저 넣는다. ORM flush 로는 ON CONFLICT 를 걸 수 없다.
+    # 값은 build_analysis 가 채운 칼럼만 넘긴다 — 안 채운 칼럼(id, loaded_at)까지
+    # None 으로 넘기면 DB 기본값을 덮는다.
+    state = inspect(analysis)
+    columns = {attr.key for attr in state.mapper.column_attrs}
+    values = {k: v for k, v in state.dict.items() if k in columns}
+    new_id = (
+        await session.execute(
+            pg_insert(StockMoveAnalysis)
+            .values(**values)
+            .on_conflict_do_nothing(index_elements=["source_file_sha256"])
+            .returning(StockMoveAnalysis.id)
+        )
+    ).scalar_one_or_none()
+    if new_id is None:
+        return None
+
+    # 넣은 행을 세션에 "이미 DB 에 있는 것" 으로 붙인다. 부모는 다시 INSERT 되지 않고,
+    # factors·sources 는 cascade 로 flush 되며 factor.analysis 관계가 analysis_id 를 채운다.
+    analysis.id = new_id
+    make_transient_to_detached(analysis)
     session.add(analysis)
     # flush 까지만 한다. id 가 필요한 호출자를 위해서이고, 커밋 경계는 아래 설명 참고.
     await session.flush()
@@ -589,6 +636,9 @@ async def insert_analysis_files(
 
     커밋은 부르는 쪽이 한다 — 실행 하나를 통째로 한 단위로 볼지 파일마다 끊을지는
     배치가 정할 일이지 리포지토리가 정할 일이 아니다.
+
+    돌려주는 것은 **이번에 새로 들어간 행**뿐이다. 이미 적재된 파일(같은 sha256)은
+    건너뛰고 로그만 남긴다. 그래서 같은 runs/ 를 다시 돌려도 안전하다.
     """
     verdicts = verdicts or {}
     inserted: list[StockMoveAnalysis] = []
@@ -599,16 +649,18 @@ async def insert_analysis_files(
             # 버리지 않는다. 원인 분석 자료가 사라진다. 로그는 나중에 어떤 파일이
             # 왜 깨졌는지 runs/ 를 다시 뒤지지 않고 찾기 위한 것이다.
             logger.warning("%s: %s — %s", path.name, parsed.parse_status, parsed.parse_error)
-        inserted.append(
-            await insert_analysis(
-                session,
-                parsed,
-                verify_status=status,
-                verify_error=error,
-                generated_at=generated_at,
-                prompt_version=prompt_version,
-            )
+        analysis = await insert_analysis(
+            session,
+            parsed,
+            verify_status=status,
+            verify_error=error,
+            generated_at=generated_at,
+            prompt_version=prompt_version,
         )
+        if analysis is None:
+            logger.info("%s: 이미 적재된 파일이라 건너뛴다 (sha256=%s)", path.name, parsed.source_file_sha256)
+            continue
+        inserted.append(analysis)
     return inserted
 
 
