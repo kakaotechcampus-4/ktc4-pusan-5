@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-      # 테스트용. develop에 merge 하기 전에 이 줄을 지운다.
-      - feature/deploy-docker-compose
     paths:
       - 'frontend/**'
 
