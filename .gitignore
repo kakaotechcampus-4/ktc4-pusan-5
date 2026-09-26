@@ -69,6 +69,9 @@ target/
 # 백엔드 API 리서치 원본 응답
 backend/docs/api-research/raw/
 
+# 뉴스 발췌 비교 실험 데이터. 기사 본문 전체가 들어 있어 공개 repo 에 올리면 재배포가 된다
+ai/eval_data/
+
 # ── 기타 ────────────────────────────────────────────
 *.sqlite3
 *.db
