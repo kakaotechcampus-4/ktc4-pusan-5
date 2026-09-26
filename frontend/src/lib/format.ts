@@ -29,6 +29,13 @@ export function formatPct(value: number): string {
   return `${abs}%`;
 }
 
+export function formatPercentPoint(value: number): string {
+  const abs = Math.abs(value).toFixed(2);
+  if (value > 0) return `+${abs}%p`;
+  if (value < 0) return `−${abs}%p`;
+  return `${abs}%p`;
+}
+
 /** 등락률. -1.084 → "▼ 1.08%" (화살표 방식) */
 export function formatPctArrow(value: number): string {
   const abs = Math.abs(value).toFixed(2);
@@ -79,4 +86,38 @@ export function formatDate(d: Date): string {
  */
 export function formatAsOf(d: Date, note = '장 마감 기준'): string {
   return `${formatDate(d)} · ${note}`;
+}
+
+export function formatCollectedAt(value: string): string {
+  return `${formatDate(new Date(value))} 수집 시각`;
+}
+
+/** 원천 기준일은 시간대 변환 없이 표시한다. */
+export function formatMarketDate(value: string): string {
+  return value.replaceAll('-', '. ');
+}
+
+export function formatFiscalPeriod(value: string): string {
+  return value.replace('-', '.');
+}
+
+export function formatMarketValue(value: number, unit: string | null): string {
+  const formatted = value.toLocaleString('ko-KR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return unit === 'KRW/USD' ? `${formatted}원` : formatted;
+}
+
+/** 시세 시각은 접속 기기의 시간대와 관계없이 한국 시간으로 표시한다. */
+export function formatQuoteTimestamp(value: string): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(value));
 }

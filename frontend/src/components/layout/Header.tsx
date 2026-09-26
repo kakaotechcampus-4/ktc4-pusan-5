@@ -7,6 +7,7 @@ import { LoginModal } from '@/features/auth/LoginModal';
 const NAV = [
   { to: '/', label: '홈' },
   { to: '/stock/005930', label: '종목 브리핑' },
+  { to: '/concepts', label: '개념' },
 ];
 
 export function Header() {
