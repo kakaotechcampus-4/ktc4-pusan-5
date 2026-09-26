@@ -1,7 +1,9 @@
 name: OIDC 연결 확인
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - feature/deploy-docker-compose
 
 permissions:
   id-token: write
