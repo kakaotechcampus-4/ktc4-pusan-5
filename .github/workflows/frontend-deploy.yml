@@ -1,0 +1,54 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+      # 테스트용. develop에 merge 하기 전에 이 줄을 지운다.
+      - feature/deploy-docker-compose
+    paths:
+      - 'frontend/**'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 의존성 설치
+        working-directory: frontend
+        run: npm ci
+
+      - name: 빌드
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: npm run build
+
+      - name: AWS 자격증명 설정
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/ktc-github-deploy
+          aws-region: ap-northeast-2
+
+      - name: S3 배포
+        run: |
+          aws s3 sync frontend/dist s3://${{ vars.S3_BUCKET_NAME }} --delete
+
+      - name: CloudFront 캐시 무효화
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
