@@ -56,7 +56,8 @@ async def enqueue(
     await session.execute(
         statement.on_conflict_do_update(
             constraint="uq_stock_job_range",
-            set_={"status": "queued", "next_run_at": now, "priority": priority},
+            # 재요청은 실패 구간과 무관하게 재시도 기회 부여함
+            set_={"status": "queued", "next_run_at": now, "priority": priority, "attempts": 0},
             where=and_(
                 StockCollectionJob.status.in_(["idle", "failed"]),
                 StockCollectionJob.next_run_at <= now,

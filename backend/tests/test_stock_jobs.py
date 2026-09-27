@@ -74,6 +74,50 @@ async def test_enqueue_deduplicates_and_requeues_terminal_job():
 
 
 @pytest.mark.asyncio
+async def test_enqueue_resets_attempts_and_reopens_budget_at_hard_limit():
+    code = _code()
+    connection, transaction, session = await _session_with_stock(code)
+    now = datetime.now(UTC)
+    try:
+        await session.execute(
+            StockCollectionJob.__table__.insert().values(
+                stock_code=code,
+                resource="snapshot",
+                range_start=date(1970, 1, 1),
+                range_end=date(1970, 1, 1),
+                status="failed",
+                priority=-1000,
+                attempts=5,
+                next_run_at=now,
+            )
+        )
+        await session.flush()
+
+        # attempts 가 5 에 도달한 failed job 은 claim() 대상에서 빠지도록 함
+        picked = await claim(session, now)
+        assert picked is None or picked.stock_code != code
+
+        # 재요청(enqueue)은 실패 이력과 무관하게 attempts를 0으로 reset(재시도 기회 부여)
+        await enqueue(session, code, "snapshot", now + timedelta(seconds=1), priority=-1000)
+        await session.flush()
+
+        job = await session.scalar(
+            select(StockCollectionJob).where(StockCollectionJob.stock_code == code)
+        )
+        assert job.status == "queued"
+        assert job.attempts == 0
+
+        claimed = await claim(session, now + timedelta(seconds=1))
+        assert claimed is not None
+        assert claimed.stock_code == code
+    finally:
+        await session.close()
+        await transaction.rollback()
+        await connection.close()
+        await _cleanup(code)
+
+
+@pytest.mark.asyncio
 async def test_claim_skips_job_locked_by_another_worker():
     code = _code()
     now = datetime.now(UTC)
