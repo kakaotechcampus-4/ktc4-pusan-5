@@ -1,57 +1,243 @@
-import { useEffect, useState } from 'react';
-import { mockStocks } from './mock';
-import type { AiReportStatus } from './components/AiReportSection';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ApiError, getStockOverview, getStockPrices } from '@/lib/api';
+import type { PricePeriod, Resource, StockOverview, StockPriceResource } from '@/lib/types';
 
-type StockStatus = 'loading' | 'error' | 'success';
+type LoadError = ApiError | Error;
+type KeyedState<T> = { key: string; data: T | null; error: LoadError | null };
+type OverviewData = StockOverview;
+const TIMEOUT_MS = 12_000;
 
-/**
- * 판단: 실제 fetch가 없어서 타이머로 상태 전이를 흉내낸다.
- * 실제 연동 시 이 useEffect 두 개를 lib/api.ts 호출로 바꾸면 StockBriefingPage의 렌더 분기는 그대로 쓸 수 있다.
- * 시세는 empty가 없다 — 종목을 못 찾는 경우는 STOCK_NOT_FOUND 에러로 처리하기로 했다(리포트와 다름).
- * mockStocks 에 없는 code 로 들어오면 "못 찾은 경우"로 인지하고 에러로 취급함.
- * error 분기를 눈으로 보려면 존재하지 않는 code(/stock/000000)로 들어가서 확인 가능
- */
-export function useMockStockStatus(code: string | undefined): StockStatus {
-  const [status, setStatus] = useState<StockStatus>('loading');
-
-  // code가 바뀌면(같은 페이지에서 다른 종목으로 이동) 렌더링 중에 곧바로 loading으로 되돌려짐
-  // effect 안에서 setState를 동기 호출하면 안 된다는 lint 규칙 때문에, React 공식 문서가
-  // 권장하는 "prop 변화에 맞춰 렌더링 중 state 조정하기" 패턴을 사용함
-  const [trackedCode, setTrackedCode] = useState(code);
-  if (code !== trackedCode) {
-    setTrackedCode(code);
-    setStatus('loading');
-  }
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setStatus(code && mockStocks[code] ? 'success' : 'error');
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [code]);
-  return status;
+function isAbort(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
 }
 
-export function useMockReportStatus(code: string | undefined): [AiReportStatus, () => void] {
-  const [status, setStatus] = useState<AiReportStatus>('loading');
-  const [attempt, setAttempt] = useState(0);
+function requestWithTimeout<T>(request: (signal: AbortSignal) => Promise<T>): {
+  promise: Promise<T>;
+  abort: () => void;
+} {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, TIMEOUT_MS);
+  const promise = request(controller.signal)
+    .catch((error: unknown) => {
+      if (timedOut) throw new Error('요청 시간이 초과되었습니다');
+      throw error;
+    })
+    .finally(() => clearTimeout(timeout));
+  return { promise, abort: () => controller.abort() };
+}
 
-  const [trackedCode, setTrackedCode] = useState(code);
-  if (code !== trackedCode) {
-    setTrackedCode(code);
-    setStatus('loading');
-  }
+function retryDelay(resource: Resource<unknown>, fastAttempts: number): number {
+  const backoff = fastAttempts <= 3 ? 3 : Math.min(60, 15 * 2 ** Math.min(fastAttempts - 4, 2));
+  return Math.max(backoff, resource.retryAfterSeconds ?? 0);
+}
+
+function shouldPoll(resource: Resource<unknown>): boolean {
+  return (
+    resource.status === 'pending' || resource.refreshing || resource.retryAfterSeconds !== null
+  );
+}
+
+export function useStockDetail(code: string | undefined, period: PricePeriod) {
+  const overviewKey = code ?? '';
+  const priceKey = code ? `${code}:${period}` : '';
+  const [overviewState, setOverviewState] = useState<KeyedState<OverviewData>>({
+    key: '',
+    data: null,
+    error: null,
+  });
+  const [priceState, setPriceState] = useState<KeyedState<StockPriceResource>>({
+    key: '',
+    data: null,
+    error: null,
+  });
+  const [historyStart, setHistoryStart] = useState<{ key: string; date?: string }>({
+    key: priceKey,
+  });
+  if (historyStart.key !== priceKey) setHistoryStart({ key: priceKey });
+  const fromDate = historyStart?.key === priceKey ? historyStart.date : undefined;
+  const [overviewRetry, setOverviewRetry] = useState(0);
+  const [priceRetry, setPriceRetry] = useState(0);
 
   useEffect(() => {
-    const timer = setTimeout(() => setStatus('success'), 900);
-    return () => clearTimeout(timer);
-  }, [code, attempt]);
+    if (!code) return;
+    let cancelled = false;
+    let hidden = document.visibilityState === 'hidden';
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let activeRequest: (() => void) | undefined;
+    let fastAttempts = 0;
+    let generation = 0;
 
-  // retry : 로딩으로 되돌리고 attempt 를 올려 위 effect 를 다시 태운다.
-  function retry() {
-    setStatus('loading');
-    setAttempt((n) => n + 1);
-  }
+    const schedule = (delay: number) => {
+      if (cancelled || hidden) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(load, delay * 1000);
+    };
+    const load = () => {
+      if (cancelled || hidden || activeRequest) return;
+      const requestId = ++generation;
+      const request = requestWithTimeout((signal) => getStockOverview(code, signal));
+      activeRequest = request.abort;
+      request.promise
+        .then((data) => {
+          if (cancelled || requestId !== generation) return;
+          activeRequest = undefined;
+          setOverviewState({ key: overviewKey, data, error: null });
+          if (shouldPoll(data.quote) || shouldPoll(data.metrics)) {
+            fastAttempts += 1;
+            schedule(
+              Math.max(
+                retryDelay(data.quote, fastAttempts),
+                retryDelay(data.metrics, fastAttempts),
+              ),
+            );
+          } else schedule(60);
+        })
+        .catch((error: unknown) => {
+          if (cancelled || requestId !== generation || isAbort(error)) return;
+          activeRequest = undefined;
+          setOverviewState((previous) => ({
+            key: overviewKey,
+            data: previous.key === overviewKey ? previous.data : null,
+            error: error instanceof Error ? error : new Error('overview failed'),
+          }));
+          if (!(error instanceof ApiError && [404, 422].includes(error.status)))
+            schedule(error instanceof ApiError && error.status === 503 ? 15 : 60);
+        });
+    };
+    const onVisibilityChange = () => {
+      hidden = document.visibilityState === 'hidden';
+      if (hidden) {
+        generation += 1;
+        if (timer) clearTimeout(timer);
+        activeRequest?.();
+        activeRequest = undefined;
+      } else load();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    load();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      activeRequest?.();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [code, overviewKey, overviewRetry]);
 
-  return [status, retry];
+  useEffect(() => {
+    if (!code) return;
+    let cancelled = false;
+    let hidden = document.visibilityState === 'hidden';
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let activeRequest: (() => void) | undefined;
+    let fastAttempts = 0;
+    let generation = 0;
+    const schedule = (delay: number) => {
+      if (cancelled || hidden) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(load, delay * 1000);
+    };
+    const load = () => {
+      if (cancelled || hidden || activeRequest) return;
+      const requestId = ++generation;
+      const request = requestWithTimeout((signal) =>
+        getStockPrices(code, period, signal, fromDate),
+      );
+      activeRequest = request.abort;
+      request.promise
+        .then((data) => {
+          if (cancelled || requestId !== generation) return;
+          activeRequest = undefined;
+          setPriceState({ key: priceKey, data, error: null });
+          if (shouldPoll(data)) {
+            fastAttempts += 1;
+            schedule(retryDelay(data, fastAttempts));
+          }
+        })
+        .catch((error: unknown) => {
+          if (cancelled || requestId !== generation || isAbort(error)) return;
+          activeRequest = undefined;
+          setPriceState((previous) => ({
+            key: priceKey,
+            data: previous.key === priceKey ? previous.data : null,
+            error: error instanceof Error ? error : new Error('prices failed'),
+          }));
+          if (!(error instanceof ApiError && [404, 422].includes(error.status))) schedule(30);
+        });
+    };
+    const onVisibilityChange = () => {
+      hidden = document.visibilityState === 'hidden';
+      if (hidden) {
+        generation += 1;
+        if (timer) clearTimeout(timer);
+        activeRequest?.();
+        activeRequest = undefined;
+      } else load();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    load();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      activeRequest?.();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [code, period, priceKey, priceRetry, fromDate]);
+
+  const retryOverview = useCallback(() => setOverviewRetry((value) => value + 1), []);
+  const retryPrices = useCallback(() => setPriceRetry((value) => value + 1), []);
+  const overview = overviewState.key === overviewKey ? overviewState.data : null;
+  const prices = priceState.key === priceKey ? priceState.data : null;
+  const earliestDate = overview?.stock.listedAt ?? '1990-01-01';
+  const canLoadEarlier = Boolean(
+    period !== 'ALL' &&
+    prices &&
+    overview?.stock.listingStatus === 'listed' &&
+    prices.coverage.fromDate > earliestDate,
+  );
+  const loadEarlier = useCallback(() => {
+    if (
+      !canLoadEarlier ||
+      !prices ||
+      !prices.coverage.complete ||
+      prices.refreshing ||
+      priceState.error
+    )
+      return;
+    // While a request is in flight, coverage still describes the previous response.
+    if (fromDate && fromDate < prices.coverage.fromDate) return;
+    const start = new Date(`${prices.coverage.fromDate}T00:00:00Z`);
+    start.setUTCDate(start.getUTCDate() - (period === '5Y' ? 366 : 93));
+    const date = start.toISOString().slice(0, 10);
+    setHistoryStart({ key: priceKey, date: date < earliestDate ? earliestDate : date });
+  }, [canLoadEarlier, prices, priceState.error, fromDate, period, priceKey, earliestDate]);
+  return useMemo(
+    () => ({
+      overview: overview ?? { stock: null, quote: null, metrics: null },
+      overviewError: overviewState.key === overviewKey ? overviewState.error : null,
+      prices,
+      priceError: priceState.key === priceKey ? priceState.error : null,
+      retryOverview,
+      retryPrices,
+      loadEarlier,
+      canLoadEarlier,
+    }),
+    [
+      overview,
+      overviewKey,
+      overviewState.error,
+      overviewState.key,
+      priceKey,
+      priceState.error,
+      priceState.key,
+      prices,
+      retryOverview,
+      retryPrices,
+      loadEarlier,
+      canLoadEarlier,
+    ],
+  );
 }

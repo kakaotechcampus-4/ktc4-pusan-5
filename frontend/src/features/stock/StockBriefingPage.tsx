@@ -1,48 +1,65 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ErrorBox } from '@/components/ui';
 import { SplitLayout } from '@/components/layout/PageShell';
-import { mockPriceHistory, mockStockDetails, mockStocks } from './mock';
-import { useMockStockStatus } from './useStockDetail';
+import type { PricePeriod } from '@/lib/types';
+import { useStockDetail } from './useStockDetail';
 import { StockHeader, StockHeaderSkeleton } from './components/StockHeader';
 import { PriceActionSection } from './components/PriceActionSection';
 import { AtAGlanceCard } from './components/AtAGlanceCard';
 import { StockInsightSection } from './components/StockInsightSection';
 
-/** 종목 상세 페이지. 화면 조립만 담당한다 — 로딩 상태 시뮬레이션은 useStockDetail이 맡는다. */
 export function StockBriefingPage() {
   const { code } = useParams();
-  const stockStatus = useMockStockStatus(code);
+  const [period, setPeriod] = useState<PricePeriod>('1Y');
+  const {
+    overview,
+    overviewError,
+    prices,
+    priceError,
+    retryOverview,
+    retryPrices,
+    loadEarlier,
+    canLoadEarlier,
+  } = useStockDetail(code, period);
 
-  if (stockStatus === 'loading') {
-    return <StockHeaderSkeleton />;
-  }
-
-  if (stockStatus === 'error') {
+  if (!code || (overviewError && !overview.stock))
     return (
       <ErrorBox
-        title="시세를 불러오지 못했습니다"
-        description="잠시 후 다시 시도해주세요"
-        onRetry={() => window.location.reload()}
+        title="종목을 불러오지 못했습니다"
+        description={overviewError?.message ?? '종목 코드를 확인해주세요'}
+        onRetry={retryOverview}
       />
     );
-  }
-
-  // stockStatus === 'success' 는 useMockStockStatus 가 code를 mockStocks에서 찾았을 때만 나옴
-  const stock = mockStocks[code!];
-  const detail = mockStockDetails[code!];
-  const history = mockPriceHistory[code!];
+  if (!overview.stock) return <StockHeaderSkeleton />;
 
   return (
     <>
-      <StockHeader stock={stock} />
-
+      {overviewError && (
+        <ErrorBox
+          title="시세 갱신에 실패했습니다"
+          description="마지막으로 받은 데이터를 표시합니다."
+          onRetry={retryOverview}
+        />
+      )}
+      <StockHeader stock={overview.stock} quote={overview.quote} />
       <SplitLayout
         align="stretch"
-        main={<PriceActionSection history={history} />}
-        side={<AtAGlanceCard stock={stock} detail={detail} />}
+        main={
+          <PriceActionSection
+            key={code}
+            period={period}
+            onLoadEarlier={loadEarlier}
+            canLoadEarlier={canLoadEarlier}
+            prices={prices}
+            error={priceError}
+            onRetry={retryPrices}
+            onPeriodChange={setPeriod}
+          />
+        }
+        side={<AtAGlanceCard quote={overview.quote} metrics={overview.metrics} />}
       />
-
-      <StockInsightSection detail={detail} code={code} />
+      <StockInsightSection code={code} />
     </>
   );
 }

@@ -40,10 +40,10 @@ export function ConceptDetail({ slug }: { slug: string | undefined }) {
     return (
       <Empty
         title="개념을 찾을 수 없습니다"
-        description="주소가 맞는지 확인하거나 홈에서 다시 찾아보세요"
+        description="주소가 맞는지 확인하거나 개념 목록에서 다시 찾아보세요"
         action={
-          <Button variant="primary" onClick={() => navigate('/')}>
-            홈으로
+          <Button variant="primary" onClick={() => navigate('/concepts')}>
+            개념 목록으로
           </Button>
         }
       />

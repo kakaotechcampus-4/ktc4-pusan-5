@@ -1,13 +1,6 @@
 import { SplitLayout } from '@/components/layout/PageShell';
-import {
-  mockIndexBoard,
-  mockInvestorFlow,
-  mockMarketInsights,
-  mockRankingPool,
-  mockSectorRanks,
-  mockSignalBoard,
-  mockWatchlist,
-} from './mock';
+import { mockMarketInsights, mockSignalBoard, mockWatchlist } from './mock';
+import { useMarketOverview } from './useMarketOverview';
 import { useHomeSections } from './useHomeSections';
 import { HomeHero } from './components/HomeHero';
 import { IndexSection } from './components/IndexTiles';
@@ -23,18 +16,17 @@ import { MarketInsightSection } from './components/MarketInsightSection';
  */
 export function HomePage() {
   const sections = useHomeSections();
+  const market = useMarketOverview();
 
   return (
     <>
-      <HomeHero
-        asOf={sections.index.status === 'success' ? mockIndexBoard.asOf : undefined}
-        loading={sections.index.status === 'loading'}
-      />
+      <HomeHero />
 
       <IndexSection
-        status={sections.index.status}
-        indices={mockIndexBoard.indices}
-        onRetry={sections.index.retry}
+        loading={market.loading}
+        failed={market.failed}
+        items={market.data?.items ?? []}
+        onRetry={market.retry}
       />
 
       <SignalSection
@@ -46,9 +38,10 @@ export function HomePage() {
       <SplitLayout
         main={
           <RankingSection
-            status={sections.ranking.status}
-            pool={mockRankingPool}
-            onRetry={sections.ranking.retry}
+            loading={market.loading}
+            failed={market.failed}
+            rankings={market.data?.rankings ?? []}
+            onRetry={market.retry}
           />
         }
         side={
@@ -61,10 +54,11 @@ export function HomePage() {
       />
 
       <MarketFlowSection
-        status={sections.flow.status}
-        flow={mockInvestorFlow}
-        sectors={mockSectorRanks}
-        onRetry={sections.flow.retry}
+        loading={market.loading}
+        failed={market.failed}
+        flows={market.data?.flows ?? []}
+        sectors={market.data?.sectors ?? []}
+        onRetry={market.retry}
       />
 
       <MarketInsightSection

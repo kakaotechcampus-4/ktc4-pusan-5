@@ -1,11 +1,17 @@
-import { direction, formatPct, formatPctArrow, formatPrice } from '@/lib/format';
+import {
+  direction,
+  formatPct,
+  formatPctArrow,
+  formatPercentPoint,
+  formatPrice,
+} from '@/lib/format';
 import { cn } from '@/lib/cn';
 
 type Props = {
   /** 등락률(%) 또는 등락액(원) */
   value: number;
-  /** 'pct' 등락률 | 'price' 등락액 */
-  unit?: 'pct' | 'price';
+  /** 'pct' 등락률 | 'price' 등락액 | 'percentp' 퍼센트포인트 */
+  unit?: 'pct' | 'price' | 'percentp';
   /** 'sign' 부호(+/−) — 표·리스트 | 'arrow' 화살표(▲/▼) — 카드·지수 */
   display?: 'sign' | 'arrow';
   /** 기본 text-sm. 큰 헤더 숫자에만 키운다. */
@@ -31,26 +37,18 @@ const SIZE = {
   h2: 'text-h2',
 } as const;
 
-export function Change({
-  value,
-  unit = 'pct',
-  display = 'sign',
-  size = 'sm',
-  className,
-}: Props) {
+export function Change({ value, unit = 'pct', display = 'sign', size = 'sm', className }: Props) {
   const dir = direction(value);
 
   let text: string;
   if (unit === 'price') {
     text = formatPrice(value);
     if (value > 0) text = `+${text}`;
+  } else if (unit === 'percentp') {
+    text = formatPercentPoint(value);
   } else {
     text = display === 'arrow' ? formatPctArrow(value) : formatPct(value);
   }
 
-  return (
-    <span className={cn('num font-semibold', TONE[dir], SIZE[size], className)}>
-      {text}
-    </span>
-  );
+  return <span className={cn('num font-semibold', TONE[dir], SIZE[size], className)}>{text}</span>;
 }

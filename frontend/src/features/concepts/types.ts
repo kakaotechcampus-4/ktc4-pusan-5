@@ -48,7 +48,7 @@ export type Concept = {
   sources: string[];
 };
 
-/** 목록 응답 원소, 아직 미구현 */
+/** 목록 응답 원소 */
 export type ConceptListItem = Pick<Concept, 'slug' | 'name' | 'aliases' | 'summary' | 'category'>;
 
 export type ConceptListResponse = {

@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     naver_client_secret: str = ""
     kis_app_key: str = ""
     kis_app_secret: str = ""
+    kis_env: str = "real"
+    kis_api_base_url: str = "https://openapi.koreainvestment.com:9443"
+    fred_api_key: str = ""
+    fred_api_base_url: str = "https://api.stlouisfed.org/fred"
+    krx_auth_key: str = ""
+    krx_api_base_url: str = "https://data-dbg.krx.co.kr/svc/apis"
     dart_api_key: str = ""
     ecos_api_key: str = ""
 

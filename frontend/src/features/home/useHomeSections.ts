@@ -42,11 +42,8 @@ function useMockLoad(delayMs: number, result: LoadState = 'success'): [LoadState
  * 시그널 빈 상태는 mockSignalBoard를 mockEmptySignalBoard로 바꿔서 확인한다.
  */
 export function useHomeSections() {
-  const [indexState, retryIndex] = useMockLoad(400, 'success');
   const [signalState, retrySignal] = useMockLoad(900, 'success');
   const [watchState, retryWatch] = useMockLoad(700, 'success');
-  const [rankingState, retryRanking] = useMockLoad(600, 'success');
-  const [flowState, retryFlow] = useMockLoad(1000, 'success');
   const [insightState, retryInsight] = useMockLoad(1100, 'success');
 
   const watchlistStatus: WatchlistStatus =
@@ -56,11 +53,8 @@ export function useHomeSections() {
     signalState === 'success' && mockSignalBoard.signals.length === 0 ? 'empty' : signalState;
 
   return {
-    index: { status: indexState, retry: retryIndex },
     signal: { status: signalStatus, retry: retrySignal },
     watchlist: { status: watchlistStatus, retry: retryWatch },
-    ranking: { status: rankingState, retry: retryRanking },
-    flow: { status: flowState, retry: retryFlow },
     insight: { status: insightState, retry: retryInsight },
   };
 }

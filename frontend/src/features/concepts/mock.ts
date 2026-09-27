@@ -9,7 +9,7 @@
  *   dividend       : 둘 다 채움, generatedAt null (AI 표시 없음 확인용)
  *   per            : quiz 없음 (null 분기 확인용)
  */
-import type { Concept } from './types';
+import type { Concept, ConceptListItem } from './types';
 
 export const mockConcepts: Record<string, Concept> = {
   'treasury-stock': {
@@ -118,3 +118,11 @@ export const mockConcepts: Record<string, Concept> = {
     sources: ['한국거래소'],
   },
 };
+
+/**
+ * 개념 목록 응답 목업. mockConcepts 에서 목록 필드만 뽑아 파생시킨다.
+ * 실제 API 처럼 slug 순으로 정렬해서 준다.
+ */
+export const mockConceptList: ConceptListItem[] = Object.values(mockConcepts)
+  .map(({ slug, name, aliases, summary, category }) => ({ slug, name, aliases, summary, category }))
+  .sort((a, b) => a.slug.localeCompare(b.slug));

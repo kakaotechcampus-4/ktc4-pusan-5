@@ -10,3 +10,4 @@ export { StockAvatar } from './StockAvatar';
 export { Modal } from './Modal';
 export { Tabs } from './Tabs';
 export { InfoTip } from './InfoTip';
+export { FilterChips } from './FilterChips';

@@ -1,73 +1,82 @@
-import { Change, ErrorBox, Skeleton } from '@/components/ui';
+import { Button, Change, Empty, ErrorBox, Skeleton } from '@/components/ui';
 import { SectionHead } from '@/components/layout/PageShell';
-import { formatPrice } from '@/lib/format';
-import type { MarketIndex } from '../mock';
+import { formatMarketValue } from '@/lib/format';
+import type { MarketItem } from '@/lib/types';
 
-export type IndexStatus = 'loading' | 'error' | 'success';
+const GRID = 'grid grid-cols-2 gap-2 sm:grid-cols-3';
 
-/**
- * 판단: <Stat /> 은 값 한 줄짜리라 지수·등락 두 줄인 타일에는 맞지 않는다.
- * 지금 스코프(홈·종목 브리핑)에서 지수 타일은 홈에만 쓰이므로 feature 안에 둔다.
- * 다른 화면에도 필요해지면 components/ui 로 올린다.
- *
- * 섹션 제목과 상태 분기를 이 파일이 함께 가진다. 시그널·관심 종목도 같은 모양이라
- * HomePage 는 어느 섹션이든 status 와 onRetry 만 넘기면 된다.
- */
 export function IndexSection({
-  status,
-  indices,
+  loading,
+  failed,
+  items,
   onRetry,
 }: {
-  status: IndexStatus;
-  indices: MarketIndex[];
+  loading: boolean;
+  failed: boolean;
+  items: MarketItem[];
   onRetry: () => void;
 }) {
   return (
     <section>
       <SectionHead title="주요 지수" />
-
-      {status === 'loading' && <IndexTilesSkeleton />}
-
-      {status === 'error' && (
+      {loading && (
+        <div className={GRID}>
+          {Array.from({ length: 6 }, (_, i) => (
+            <Skeleton key={i} className="h-25" />
+          ))}
+        </div>
+      )}
+      {failed && (
         <ErrorBox
-          title="지수를 불러오지 못했습니다"
-          description="잠시 후 다시 시도해주세요"
+          title="지수 정보를 갱신하지 못했습니다"
+          description={
+            items.length
+              ? '마지막으로 받은 정보입니다. 잠시 후 다시 시도해주세요.'
+              : '잠시 후 다시 시도해주세요.'
+          }
           onRetry={onRetry}
         />
       )}
-
-      {status === 'success' && <IndexTiles indices={indices} />}
+      {!loading && !failed && items.length === 0 && (
+        <Empty
+          title="아직 지수 정보가 없습니다"
+          description="잠시 후 다시 확인해주세요."
+          action={<Button onClick={onRetry}>다시 확인</Button>}
+        />
+      )}
+      {items.length > 0 && (
+        <div className={GRID}>
+          {items.map((item) => (
+            <IndexTile key={item.code} item={item} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
-/** 2행×3열 배치(요청 순서: 코스피·코스닥·금현물 / S&P 500·나스닥·달러 환율). */
-const GRID = 'grid grid-cols-2 gap-2 sm:grid-cols-3';
-
-function IndexTiles({ indices }: { indices: MarketIndex[] }) {
+function IndexTile({ item }: { item: MarketItem }) {
   return (
-    <div className={GRID}>
-      {indices.map((item) => (
-        <div key={item.name} className="bg-surface flex flex-col gap-1 rounded-md p-3">
-          <div className="text-kicker tracking-kicker font-semibold text-neutral-600">
-            {item.name}
-          </div>
-          <div className="num text-h2 font-bold">{formatPrice(item.value)}</div>
-          {/* 지수 타일은 화살표. 아래 종목 리스트는 부호. (DESIGN.md 2절) */}
-          <Change value={item.change} display="arrow" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** 실제 타일 높이 100px(여백 24 + 라벨 16 + 값 33 + 등락 20 + 간격 8)에 맞춘다. */
-function IndexTilesSkeleton() {
-  return (
-    <div className={GRID}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-25" />
-      ))}
+    <div className="bg-surface flex flex-col gap-1 rounded-md p-3">
+      <div className="text-kicker tracking-kicker font-semibold text-neutral-600">{item.name}</div>
+      <div className="num text-h2 font-bold">
+        {item.value !== null ? formatMarketValue(item.value, item.unit) : '—'}
+      </div>
+      {item.change !== null && <Change value={item.change} display="arrow" />}
+      {item.status === 'stale' && (
+        <p role="status" className="text-xs text-neutral-700">
+          갱신 지연 · 마지막 정상값
+        </p>
+      )}
+      {item.value === null && (
+        <p role="status" className="text-xs text-neutral-600">
+          {item.status === 'notConfigured'
+            ? '제공 준비 중'
+            : item.status === 'unavailable'
+              ? '수집 지연 · 잠시 후 자동 갱신됩니다'
+              : '첫 데이터 수집 중'}
+        </p>
+      )}
     </div>
   );
 }

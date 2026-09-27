@@ -1,5 +1,6 @@
 """개념 시드(seeds/concepts/*.json)를 DB 에 넣는다.
 
+    uv run alembic upgrade head                    # concepts 테이블이 먼저 있어야 한다
     uv run python -m app.seeds.concepts            # 비어 있을 때만 적재
     uv run python -m app.seeds.concepts --force    # 이미 있어도 전부 갱신
 
@@ -15,8 +16,9 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
+from sqlalchemy.exc import ProgrammingError
 
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import SessionLocal, engine
 from app.core.taxonomy import SEEDS_DIR, Taxonomy, get_taxonomy
 from app.repositories.concept import ConceptRepository
 from app.schemas.concept import OPTIONAL_SECTIONS, ConceptSeed
@@ -119,8 +121,6 @@ async def run(force: bool) -> int:
         return 1
 
     try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
         async with SessionLocal() as session:
             repository = ConceptRepository(session)
             existing = await repository.count()
@@ -132,6 +132,10 @@ async def run(force: bool) -> int:
     except OSError as exc:
         print(f"DB 에 연결할 수 없습니다 — {exc}", file=sys.stderr)
         print("docker compose up -d 로 DB 를 먼저 띄웁니다.", file=sys.stderr)
+        return 1
+    except ProgrammingError as exc:
+        print(f"concepts 테이블에 접근할 수 없습니다 — {exc}", file=sys.stderr)
+        print("uv run alembic upgrade head 로 스키마를 먼저 맞춥니다.", file=sys.stderr)
         return 1
     finally:
         await engine.dispose()

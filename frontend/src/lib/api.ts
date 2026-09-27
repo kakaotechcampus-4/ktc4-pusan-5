@@ -4,7 +4,15 @@
  * 에러 응답 형태
  *   { "error": { "code": "CONCEPT_NOT_FOUND", "message": "개념을 찾을 수 없습니다" } }
  */
-import type { ApiErrorBody, User } from './types';
+import type {
+  ApiErrorBody,
+  MarketOverview,
+  StockOverview,
+  StockPriceResource,
+  StockFinancials,
+  PricePeriod,
+  User,
+} from './types';
 import type { Concept, ConceptListResponse } from '@/features/concepts/types';
 
 /** 베이스 URL 은 .env 로만 읽는다. 코드에 URL 을 박지 않는다. */
@@ -73,7 +81,7 @@ export function getConcept(slug: string): Promise<Concept> {
   return request<Concept>(`/api/concepts/${encodeURIComponent(slug)}`);
 }
 
-/** 개념 목록, 현재 미구현 */
+/** 개념 목록, slug 순 정렬로 옴 */
 export function listConcepts(): Promise<ConceptListResponse> {
   return request<ConceptListResponse>('/api/concepts');
 }
@@ -91,4 +99,28 @@ export function loginWithKakao(code: string): Promise<User> {
 
 export function logout(): Promise<void> {
   return request<void>('/api/auth/logout', { method: 'POST' });
+}
+
+export function getMarketOverview(signal?: AbortSignal): Promise<MarketOverview> {
+  return request<MarketOverview>('/api/market/overview', { signal });
+}
+
+export function getStockOverview(code: string, signal?: AbortSignal): Promise<StockOverview> {
+  return request<StockOverview>(`/api/stocks/${encodeURIComponent(code)}/overview`, { signal });
+}
+
+export function getStockPrices(
+  code: string,
+  period: PricePeriod,
+  signal?: AbortSignal,
+  fromDate?: string,
+): Promise<StockPriceResource> {
+  return request<StockPriceResource>(
+    `/api/stocks/${encodeURIComponent(code)}/prices?period=${period}${fromDate ? `&fromDate=${encodeURIComponent(fromDate)}` : ''}`,
+    { signal },
+  );
+}
+
+export function getStockFinancials(code: string, signal?: AbortSignal): Promise<StockFinancials> {
+  return request<StockFinancials>(`/api/stocks/${encodeURIComponent(code)}/financials`, { signal });
 }

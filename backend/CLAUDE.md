@@ -16,10 +16,28 @@ FastAPI + Python. BASIS의 API 서버.
 
 ```bash
 uv sync                          # .venv 생성 + 의존성 설치
+docker compose up -d              # DB
+uv run alembic upgrade head       # 스키마를 최신으로 (서버 기동 전에 먼저)
 uv run uvicorn app.main:app --reload   # http://localhost:8000
 uv run pytest
 uv run ruff check .
 ```
+
+## DB 스키마 변경
+
+`app/models/` 를 고치면 그걸로 끝나지 않는다. 마이그레이션을 같이 만든다.
+
+```bash
+uv run alembic revision --autogenerate -m "설명"   # migrations/versions/ 에 파일 생성
+uv run alembic upgrade head                          # 로컬 DB에 반영
+```
+
+생성된 마이그레이션 파일은 꼭 열어서 확인한다. autogenerate가 의도한 대로 diff를 잡았는지,
+불필요한 항목(인덱스 이름 변경 등)이 끼어있지 않은지 본 뒤 커밋한다.
+
+이미 `create_all` 로 테이블이 만들어져 있는 로컬 DB라면(이번 alembic 도입 이전),
+`uv run alembic stamp head` 로 "이미 최신 상태"라고 표시만 하고 넘어간다.
+새로 DB를 띄우는 경우엔 `alembic upgrade head` 로 처음부터 만든다.
 
 ## 구조
 
