@@ -120,3 +120,45 @@ async def test_whole_request_timeout_stops_keepalive_wait(monkeypatch):
     monkeypatch.setattr(client.httpx, "AsyncClient", lambda **kwargs: manager)
     with pytest.raises(client.LLMError, match="TimeoutError"):
         await client.complete("test", "test")
+
+
+_OK = {"choices": [{"message": {"content": "안녕"}, "finish_reason": "stop"}], "usage": {}}
+
+
+@pytest.mark.parametrize("configured, passed, expected", [
+    (0.2, None, 0.2),  # 호출 쪽이 안 넘기면 설정값
+    (0.2, 0.7, 0.7),  # 넘기면 그 값이 우선
+    (None, 0.7, 0.7),
+])
+async def test_temperature_comes_from_settings_unless_passed(monkeypatch, configured, passed,
+                                                             expected):
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
+    monkeypatch.setattr(client.settings, "llm_temperature", configured)
+    http = _fake_http(monkeypatch, _OK)
+    await client.complete("test", "test", temperature=passed)
+    assert http.post.await_args.kwargs["json"]["temperature"] == expected
+
+
+@pytest.mark.parametrize("provider", ["openrouter", "elice"])
+async def test_no_temperature_omits_the_field(monkeypatch, provider):
+    """luna 처럼 기본값(1)만 받는 모델은 필드가 있으면 400 이다. null 도 보내지 않는다."""
+    monkeypatch.setattr(client.settings, "llm_provider", provider)
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
+    monkeypatch.setattr(client.settings, "llm_base_url", "https://mlapi.run/abc/v1")
+    monkeypatch.setattr(client.settings, "llm_api_key", "test-only")
+    monkeypatch.setattr(client.settings, "llm_temperature", None)
+    http = _fake_http(monkeypatch, _OK)
+    await client.complete("test", "test")
+    assert "temperature" not in http.post.await_args.kwargs["json"]
+
+
+@pytest.mark.parametrize("raw, expected", [("", None), ("  ", None), ("1", 1.0), ("0.2", 0.2)])
+def test_blank_llm_temperature_env_means_none(monkeypatch, raw, expected):
+    monkeypatch.setenv("LLM_TEMPERATURE", raw)
+    assert Settings(_env_file=None).llm_temperature == expected
+
+
+def test_llm_temperature_default_is_unchanged(monkeypatch):
+    """이 줄이 없는 팀원의 .env 는 지금처럼 0.2 로 보낸다."""
+    monkeypatch.delenv("LLM_TEMPERATURE", raising=False)
+    assert Settings(_env_file=None).llm_temperature == 0.2

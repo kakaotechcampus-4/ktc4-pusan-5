@@ -54,7 +54,7 @@ def endpoint() -> tuple[str, str]:
 
 
 def _payload(system: str, user: str, model: str | None, max_tokens: int | None,
-             temperature: float) -> dict:
+             temperature: float | None) -> dict:
     """프로바이더마다 받는 매개변수 이름이 다르다.
 
     Elice 는 **모르는 매개변수를 400 으로 거절한다.** 그래서 OpenRouter 형식에 필드를
@@ -62,6 +62,9 @@ def _payload(system: str, user: str, model: str | None, max_tokens: int | None,
 
         OpenRouter  max_tokens             reasoning: {"effort": ...} / {"enabled": False}
         Elice       max_completion_tokens  reasoning_effort: "minimal" | "low" | ...
+
+    temperature 가 None 이면 필드를 넣지 않는다. 기본값만 받는 모델에 null 을 보내도
+    거절될 수 있어서, "안 보냄" 은 키 자체를 빼는 것으로 표현한다.
     """
     payload = {
         "model": model or settings.summary_model,
@@ -69,8 +72,9 @@ def _payload(system: str, user: str, model: str | None, max_tokens: int | None,
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        "temperature": temperature,
     }
+    if temperature is not None:
+        payload["temperature"] = temperature
     limit = max_tokens or settings.summary_max_tokens
     effort = settings.summary_reasoning_effort
     if settings.llm_provider == "elice":
@@ -100,14 +104,20 @@ async def complete(
     *,
     model: str | None = None,
     max_tokens: int | None = None,
-    temperature: float = 0.2,
+    temperature: float | None = None,
 ) -> tuple[str, dict]:
     """(응답 텍스트, 사용량). 실패하면 LLMError.
 
-    `temperature` 기본값이 0.2 다. 0 이 아닌 이유는 이 모델이 0 에서 같은 문장을
-    두 번 쓰는 경우가 있어서다. 요약은 창작이 아니라 낮게 둔다.
+    `temperature` 기본값이 0.2 다(`settings.llm_temperature`). 0 이 아닌 이유는 이 모델이
+    0 에서 같은 문장을 두 번 쓰는 경우가 있어서다. 요약은 창작이 아니라 낮게 둔다.
+
+    다만 추론 모델은 temperature 를 받지 않을 수 있다. Elice 의 luna 는 기본값(1) 말고는
+    400 으로 거절한다. 그런 모델은 `.env` 에 `LLM_TEMPERATURE=` 로 비워 두면 요청에서
+    필드가 빠진다. 호출하는 쪽이 값을 넘기면 설정보다 그 값을 우선한다.
     """
     url, key = endpoint()
+    if temperature is None:
+        temperature = settings.llm_temperature
     payload = _payload(system, user, model, max_tokens, temperature)
     try:
         # OpenRouter가 대기용 바이트를 계속 보내면 HTTP read timeout은 매번

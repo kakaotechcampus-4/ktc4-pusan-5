@@ -7,6 +7,7 @@
 
 from typing import Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -57,6 +58,18 @@ class Settings(BaseSettings):
     # 기본값은 gemini-3.5-flash-lite(입력 $0.3 · 출력 $2.5). 모델을 바꾸면 같이 바꾼다.
     llm_input_usd_per_m: float = 0.3
     llm_output_usd_per_m: float = 2.5
+    # 호출 쪽이 값을 안 넘길 때 쓰는 temperature. 0.2 인 이유는 client.complete() 참고.
+    # 추론 모델 중에는 기본값(1) 말고는 400 으로 거절하는 것이 있다(Elice luna).
+    # 그런 모델은 .env 에 `LLM_TEMPERATURE=` 로 비워 두면 요청에서 필드를 아예 뺀다.
+    llm_temperature: float | None = 0.2
+
+    @field_validator("llm_temperature", mode="before")
+    @classmethod
+    def _blank_temperature_is_none(cls, value: object) -> object:
+        # 빈 문자열은 float 로 못 읽어 설정 로딩이 통째로 죽는다. "보내지 않는다" 는 뜻으로 받는다.
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     def require_elice(self) -> tuple[str, str]:
         """(주소, 키). 빠진 게 있으면 무엇을 채울지 알려주고 멈춘다."""
