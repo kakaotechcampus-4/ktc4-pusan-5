@@ -1,0 +1,46 @@
+{
+  "slug": "debt-ratio",
+  "name": "부채비율",
+  "aliases": [
+    "Debt-to-Equity Ratio",
+    "D/E"
+  ],
+  "category": "financial-statements/balance-sheet",
+  "extraCategories": null,
+  "summary": "부채를 자기자본으로 나눈 값. 회사가 갚아야 할 돈이 주주 몫의 자본에 비해 얼마나 되는지 보여줍니다.",
+  "body": "부채비율은 회사가 가진 자기자본 대비 부채가 얼마나 되는지를 보는 지표로, 부채 총액을 자기자본으로 나눠 구합니다. 대표적인 안정성 지표여서, 비율이 낮을수록 재무구조가 안정적이라고 봅니다.\n\n그렇다고 부채가 무조건 나쁜 것은 아닙니다. 빌린 돈으로 낸 수익이 이자 비용보다 크다면, 자기자본만으로 사업할 때보다 [ROE](roe)를 높이는 효과를 냅니다. 그래서 낮을수록 좋다고만 보기보다 그 부채를 감당하는지를 함께 살펴야 합니다.\n\n업종이 다르면 부채비율을 같은 잣대로 비교할 수 없습니다. 은행 같은 금융업은 사업 구조상 부채비율이 원래 높고, 설비투자가 많은 시기의 제조업도 일시적으로 올라가기도 합니다. 또한 [금리](interest-rate)가 오르면 부채비율이 그대로여도 갚아야 할 이자가 늘어나므로, 위험을 비율 하나로 판단하기는 어렵습니다.",
+  "related": [
+    {
+      "slug": "roe",
+      "reason": "레버리지로 서로 얽힘"
+    },
+    {
+      "slug": "interest-rate",
+      "reason": "이자부담을 바꾸는 변수"
+    },
+    {
+      "slug": "financial-statements",
+      "reason": "부채가 나오는 표"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "부채비율이 낮으면 재무구조가 건전하다고 본다.",
+      "answer": true,
+      "explanation": "대표적인 안정성 지표입니다."
+    },
+    {
+      "question": "업종에 관계없이 같은 부채비율 기준으로 비교하면 된다.",
+      "answer": false,
+      "explanation": "금융업은 원래 부채비율이 높습니다."
+    },
+    {
+      "question": "부채를 쓰는 것은 회사에 항상 손해다.",
+      "answer": false,
+      "explanation": "조달금리보다 수익률이 높으면 유리할 수 있습니다."
+    }
+  ],
+  "sources": [
+    "한국은행 「경제금융용어 800선」(2026) '부채비율' 항목 https://www.bok.or.kr/portal/bbs/B0000249/view.do?nttId=10096081&menuNo=200765"
+  ]
+}
