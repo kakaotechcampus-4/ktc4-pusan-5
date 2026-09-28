@@ -30,9 +30,11 @@ export function DetailInfoTab({
         />
       </Card>
       <Card tone="plain">
-        <Kicker>투자 지표</Kicker>
         <Kicker>시세 및 거래</Kicker>
         <MarketActivitySummary quote={quote} metrics={metrics} />
+      </Card>
+      <Card tone="plain">
+        <Kicker>투자 지표</Kicker>
         <QuarterlyMetricsTable investment={financials?.investment ?? null} error={error} />
       </Card>
     </div>
