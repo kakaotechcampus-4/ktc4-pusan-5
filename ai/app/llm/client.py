@@ -93,9 +93,9 @@ def _payload(system: str, user: str, model: str | None, max_tokens: int | None,
 
 
 def _elice_cost(usage: dict) -> float:
-    """Elice 는 응답에 비용을 안 준다. 설정한 단가로 계산한다."""
-    return (usage.get("prompt_tokens", 0) * settings.llm_input_usd_per_m
-            + usage.get("completion_tokens", 0) * settings.llm_output_usd_per_m) / 1_000_000
+    """Elice 는 응답에 비용을 안 준다. 설정한 원화 단가로 계산한다(원)."""
+    return (usage.get("prompt_tokens", 0) * (settings.llm_input_krw_per_m or 0)
+            + usage.get("completion_tokens", 0) * (settings.llm_output_krw_per_m or 0)) / 1_000_000
 
 
 async def complete(
@@ -149,9 +149,10 @@ async def complete(
     usage = dict(data.get("usage") or {})
     usage["finish_reason"] = choice.get("finish_reason")
     if settings.llm_provider == "elice" and "cost" not in usage:
-        # cost_usd 가 OpenRouter 의 usage.cost 를 먼저 보므로 같은 자리에 넣어 둔다.
-        # 안 넣으면 cost_usd 가 deepseek 단가로 추정해 1/5~1/20 로 낮게 잡는다.
+        # cost() 가 OpenRouter 의 usage.cost 를 먼저 보므로 같은 자리에 넣어 둔다.
         usage["cost"] = _elice_cost(usage)
+    # usage 는 래퍼 등에 통째로 남는다. 숫자만 있으면 원인지 달러인지 나중에 알 수 없다.
+    usage["cost_currency"] = cost_currency()
     # 추론 모델이라 예산을 사고에 다 쓰면 본문이 빈 채로 정상 응답이 온다.
     # 조용히 넘어가면 빈 요약이 DB 에 쌓이므로 여기서 사유를 남긴다.
     if not text:
@@ -162,12 +163,31 @@ async def complete(
     return text, usage
 
 
-def cost_usd(usage: dict) -> float:
-    """프로바이더가 반환한 비용을 우선 사용하고, 없으면 토큰으로 추정한다.
+def cost_currency() -> str:
+    """지금 설정의 비용 통화. OpenRouter 는 달러로 청구하고 usage.cost 도 달러다.
+    Elice 는 모델 페이지 단가가 원화라 원화로 계산한다(config.py 참고).
 
-    deepseek-v4-flash-0731 기준 입력 $0.06/M, 출력 $0.12/M 로 계산한다.
+    한 실행은 프로바이더 하나로만 돌기 때문에 실행 단위로 통화가 하나다.
+    """
+    return "KRW" if settings.llm_provider == "elice" else "USD"
+
+
+def cost(usage: dict) -> float:
+    """비용. 통화는 `cost_currency()` 다. 프로바이더가 준 값을 우선하고 없으면 토큰으로 계산한다.
+
+    OpenRouter 추정은 deepseek-v4-flash-0731 기준 입력 $0.06/M, 출력 $0.12/M 다.
     302건 돌렸을 때 $0.71 이 나왔고 실제 청구액과 자릿수가 맞았다.
+    Elice 는 설정한 원화 단가로 계산한다.
     """
     if isinstance(usage.get("cost"), (int, float)):
         return float(usage["cost"])
+    if settings.llm_provider == "elice":
+        return _elice_cost(usage)
     return usage.get("prompt_tokens", 0) * 6e-8 + usage.get("completion_tokens", 0) * 1.2e-7
+
+
+def format_cost(amount: float, currency: str | None = None) -> str:
+    """출력용. 원화는 한 건이 몇 원 단위라 소수 둘째 자리까지, 달러는 넷째 자리까지."""
+    if (currency or cost_currency()) == "KRW":
+        return f"₩{amount:,.2f}"
+    return f"${amount:.4f}"

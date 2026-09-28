@@ -20,7 +20,7 @@ from sqlalchemy import select, update
 
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.llm.client import cost_usd
+from app.llm.client import cost, cost_currency, format_cost
 from app.models import AnalystReport
 from app.services.analyst.summary import build_facts, generate, grade
 from app.services.analyst.telegram import has_usable_body
@@ -91,7 +91,8 @@ async def run(
         # API 응답을 기다리는 동안 읽기 트랜잭션을 열어 두지 않는다.
         await session.commit()
         result = {"targets": len(targets), "saved": 0, "saved_rows": 0,
-                  "reused": 0, "failed": 0, "conflicts": 0, "cost": 0.0, "failures": [],
+                  "reused": 0, "failed": 0, "conflicts": 0, "cost": 0.0,
+                  "currency": cost_currency(), "failures": [],
                   "model": settings.summary_model,
                   "started_at": datetime.now(UTC).isoformat()}
         print(f"생성/재사용 대상 {len(targets)}건 (PDF 중복 제거 후)", flush=True)
@@ -114,7 +115,7 @@ async def run(
             else:
                 async with gate:
                     text, usage, checked = await generate(body, row.title or "")
-            result["cost"] += cost_usd(usage)
+            result["cost"] += cost(usage)
             if not text or not checked["ok"]:
                 result["failed"] += 1
                 result["failures"].append({"ids": list(target.previous), "title": row.title,
@@ -147,7 +148,7 @@ async def run(
         await asyncio.gather(*(work(target) for target in targets))
     result["finished_at"] = datetime.now(UTC).isoformat()
     print(f"완료: 저장 {result['saved']} PDF / {result['saved_rows']}행 · "
-          f"실패 {result['failed']} · 동시 변경 {result['conflicts']} · 약 ${result['cost']:.4f}")
+          f"실패 {result['failed']} · 동시 변경 {result['conflicts']} · 약 {format_cost(result['cost'], result['currency'])}")
     return result
 
 
