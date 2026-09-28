@@ -1,5 +1,16 @@
 import type { ReactNode } from 'react';
-import { Card, Change, Empty, InfoTip, Kicker, Skeleton, SkeletonText, Tag } from '@/components/ui';
+import {
+  Card,
+  Change,
+  Empty,
+  InfoTip,
+  Kicker,
+  Skeleton,
+  SkeletonText,
+  StatList,
+  StatListItem,
+  Tag,
+} from '@/components/ui';
 import { formatMultiple, formatRatio } from '@/lib/format';
 import type { Resource, StockFinancials, StockMetricsData, StockQuoteData } from '@/lib/types';
 import { distanceFromWeek52High, growthLabel } from '../financialUtils';
@@ -53,7 +64,8 @@ export function AtAGlanceCard({
     },
     {
       label: '수급',
-      description: '외국인 보유 지분율과 최근 기관 순매수 동향입니다. 기관 순매수는 아직 연동되지 않았습니다.',
+      description:
+        '외국인 보유 지분율과 최근 기관 순매수 동향입니다. 기관 순매수는 아직 연동되지 않았습니다.',
       value: (
         <span className="num text-sm font-semibold">
           {`외인 ${renderValue(m?.foreignOwnership ?? null, formatRatio)} / 기관 `}
@@ -107,20 +119,20 @@ export function AtAGlanceCard({
       {unavailable && !q && !m ? (
         <Empty title="주요 지표를 준비하지 못했습니다" description="잠시 후 다시 확인해주세요" />
       ) : (
-        <dl className="flex flex-1 flex-col justify-center">
+        <StatList className="flex-1 justify-center">
           {rows.map((row) => (
-            <div
+            <StatListItem
               key={row.label}
-              className="border-divider flex items-center justify-between border-b py-2 last:border-b-0"
-            >
-              <dt className="flex items-center gap-1 text-sm text-neutral-600">
-                {row.label}
-                <InfoTip description={row.description} />
-              </dt>
-              <dd>{row.value}</dd>
-            </div>
+              label={
+                <>
+                  {row.label}
+                  <InfoTip description={row.description} />
+                </>
+              }
+              value={row.value}
+            />
           ))}
-        </dl>
+        </StatList>
       )}
     </Card>
   );

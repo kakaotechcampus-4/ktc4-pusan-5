@@ -80,7 +80,8 @@ BASIS 프론트엔드 디자인 규칙. `frontend/` 안에서만 적용된다. �
 | 등락 숫자 | `<Change />` |
 | 버튼 | `<Button variant="primary" \| "secondary" \| "ghost">` |
 | 카드 | `<Card>` (회색 면) / `<Card tone="plain">` (흰 면 + 테두리) |
-| 수치 나열 | `<StatGrid><Stat label="시가총액" value={...} /></StatGrid>` |
+| 수치 나열(박스) | `<StatGrid><Stat label="시가총액" value={...} /></StatGrid>` |
+| 수치 나열(리스트) | `<StatList><StatListItem label="시가총액" value={...} /></StatList>` |
 | 태그 | `<Tag tone="neutral" \| "brand" \| "ai">` |
 | 종목 로고 | `<StockAvatar initial="삼" />` (size="sm" 은 좁은 리스트용) |
 | 목록 필터 | `<FilterChips label chips value onChange />` |

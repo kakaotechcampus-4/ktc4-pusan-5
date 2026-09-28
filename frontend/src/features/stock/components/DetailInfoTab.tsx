@@ -22,16 +22,20 @@ export function DetailInfoTab({
     <div className="flex flex-col gap-4">
       <AnnualFinancialTrend financials={financials} error={error} onRetry={onRetry} />
       <Card tone="plain">
-        <Kicker>재무 건전성 간단 요약</Kicker>
-        <FinancialHealthSummary
-          health={financials?.health ?? null}
-          error={error}
-          onRetry={onRetry}
-        />
-      </Card>
-      <Card tone="plain">
-        <Kicker>시세 및 거래</Kicker>
-        <MarketActivitySummary quote={quote} metrics={metrics} />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="border-divider flex flex-col gap-2 md:border-r md:pr-6">
+            <Kicker>재무 건전성 간단 요약</Kicker>
+            <FinancialHealthSummary
+              health={financials?.health ?? null}
+              error={error}
+              onRetry={onRetry}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Kicker>시세 및 거래</Kicker>
+            <MarketActivitySummary quote={quote} metrics={metrics} />
+          </div>
+        </div>
       </Card>
       <Card tone="plain">
         <Kicker>투자 지표</Kicker>
