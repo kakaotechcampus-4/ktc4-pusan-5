@@ -6,6 +6,11 @@ export function distanceFromWeek52High(price: number, week52High: number): numbe
   return ((price - week52High) / week52High) * 100;
 }
 
+/** 52주 최저가 대비 현재 주가 위치(%). +45.2 → 최저가보다 45.2% 높은 위치 */
+export function distanceFromWeek52Low(price: number, week52Low: number): number {
+  return ((price - week52Low) / week52Low) * 100;
+}
+
 const GROWTH_STATUS_LABEL: Record<Exclude<Growth['status'], 'value'>, string> = {
   turned_profit: '흑자전환',
   turned_loss: '적자전환',
