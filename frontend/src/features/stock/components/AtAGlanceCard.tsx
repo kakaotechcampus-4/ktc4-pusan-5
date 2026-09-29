@@ -61,7 +61,7 @@ export function AtAGlanceCard({
         weekHighPosition === null || weekLowPosition === null ? (
           <span className="num text-sm font-semibold">—</span>
         ) : (
-          <span className="flex flex-wrap items-center justify-end gap-1 text-sm font-semibold">
+          <span className="flex flex-wrap items-center gap-1 text-sm font-semibold">
             <span className="text-neutral-600">최고 대비</span>
             <Change value={weekHighPosition} size="sm" />
             <span className="text-neutral-600">/ 최저 대비</span>
@@ -138,6 +138,7 @@ export function AtAGlanceCard({
           {rows.map((row) => (
             <StatListItem
               key={row.label}
+              layout="stack"
               label={
                 <>
                   {row.label}
