@@ -94,7 +94,7 @@ export function buildAtAGlanceRows({
       ),
     },
     {
-      label: '저가자본 대비 부채비율',
+      label: '부채비율',
       description: '매수시 유상증자나 악재 위험 같은 리스크를 확인할 수 있습니다.',
       value: financialsValue(
         <span className="num text-sm font-semibold">
