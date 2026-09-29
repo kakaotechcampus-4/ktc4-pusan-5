@@ -4,6 +4,7 @@ export { Change } from './Change';
 export { Input } from './Input';
 export { Markdown } from './Markdown';
 export { Stat, StatGrid } from './Stat';
+export { StatList, StatListItem } from './StatList';
 export { Tag } from './Tag';
 export { Empty, ErrorBox, Skeleton, SkeletonText } from './State';
 export { StockAvatar } from './StockAvatar';

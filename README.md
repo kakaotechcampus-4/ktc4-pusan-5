@@ -23,8 +23,24 @@ npm run check    # eslint + 디자인 규칙 검사
 
 ```bash
 cd backend
-# TODO
+cp .env.example .env   # env 값 채우기
+
+uv sync                              # .venv 생성 + 의존성 설치
+docker compose up -d                  # DB
+uv run alembic upgrade head           # 스키마 최신 버전으로 맞추기
+uv run uvicorn app.main:app --reload  # http://localhost:8000
 ```
+
+시세, 랭킹, 재무 등은 API 서버에서 수집하지 않기 때문에 별도 터미널에서 수집기를 켜야한다
+
+```bash
+cd backend
+uv run python -m app.collectors.market --loop   # 시세, 지수, 랭킹, 재무 관련 수집. --loop 없으면 한번만 수집함
+uv run python -m app.collectors.news             # 뉴스
+```
+
+- 수집기는 KIS·KRX·DART·FRED 관련
+- `.env`에 키가 비어 있는 항목은 `notConfigured`/에러로만 표시되고 나머지 수집은 정상 동작함
 
 ## 클론 후 한 번만
 
