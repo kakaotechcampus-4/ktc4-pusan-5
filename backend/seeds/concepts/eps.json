@@ -1,0 +1,46 @@
+{
+  "slug": "eps",
+  "name": "EPS",
+  "aliases": [
+    "주당순이익",
+    "Earnings Per Share"
+  ],
+  "category": "valuation/profitability",
+  "extraCategories": null,
+  "summary": "당기순이익을 발행주식수로 나눈 값으로, 주식 한 주가 일정 기간(보통 1년) 동안 얼마를 벌었는지 보여주며 PER 계산의 기초가 됩니다.",
+  "body": "회사 전체의 이익은 주식 수가 다른 회사끼리 바로 비교하기 어렵습니다. 그래서 한 주를 기준으로 환산한 것이 EPS이며, 식으로는 EPS = 당기순이익 ÷ 발행주식수입니다. 당기순이익은 일정 기간 번 돈에서 비용과 세금을 모두 빼고 남은 최종 이익입니다. 보통 1년 단위로 보지만 분기 기준으로 계산하기도 합니다.\n\nEPS는 [PER](per)을 계산할 때 나누는 기준(분모)으로 사용됩니다. 주가를 EPS로 나눈 값이 PER이므로, EPS가 흔들리면 주가가 그대로여도 PER은 크게 바뀝니다.\n\nEPS 상승이 곧 이익 증가를 뜻하지는 않습니다. [자사주](treasury-stock)를 사서 소각하면 순이익이 그대로여도 주식 수가 줄어 EPS가 오릅니다. 반대로 유상증자(새 주식을 발행해 자금을 모으는 것)나 전환사채(주식으로 바꿀 수 있는 회사채)의 주식 전환으로 주식 수가 늘면 같은 이익을 더 많은 주식이 나눠 갖게 되어 EPS는 낮아집니다.",
+  "related": [
+    {
+      "slug": "per",
+      "reason": "EPS로 계산하는 배수"
+    },
+    {
+      "slug": "treasury-stock",
+      "reason": "주식수를 줄이는 이벤트"
+    },
+    {
+      "slug": "operating-profit",
+      "reason": "순이익 이전 단계 이익"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "EPS는 당기순이익을 발행주식수로 나눈 값이다.",
+      "answer": true,
+      "explanation": "PER 계산의 분모로도 쓰입니다."
+    },
+    {
+      "question": "EPS가 오르면 항상 회사가 더 많은 이익을 냈다는 뜻이다.",
+      "answer": false,
+      "explanation": "주식수 감소만으로도 오릅니다."
+    },
+    {
+      "question": "유상증자로 발행주식수가 늘면 EPS는 낮아진다.",
+      "answer": true,
+      "explanation": "순이익이 그대로면 그렇습니다."
+    }
+  ],
+  "sources": [
+    "한국은행 「경제금융용어 800선」(2026) '주당순이익(EPS)' 항목 https://www.bok.or.kr/portal/bbs/B0000249/view.do?nttId=10096081&menuNo=200765"
+  ]
+}
