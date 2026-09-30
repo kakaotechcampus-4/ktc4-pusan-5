@@ -5,6 +5,9 @@
 리포트를 못 찾는데 원인은 안 보이는 상태가 된다.
 """
 
+from typing import Literal
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +42,52 @@ class Settings(BaseSettings):
     # 기본 모델은 고강도 추론이 기본값이다. 짧은 요약에는 low로 시간을 제한한다.
     summary_reasoning_effort: str | None = "low"
     summary_timeout_sec: float = 180.0
+
+    # LLM 을 어디로 보내나. **기본은 openrouter 다** — 이 줄이 없는 .env 는 동작이 안 바뀐다.
+    #   openrouter  OPENROUTER_API_KEY 로 보낸다. 비용은 응답의 usage.cost 를 쓴다
+    #   elice       카카오테크캠퍼스 Elice ML API(팀 예산). LLM_BASE_URL·LLM_API_KEY 로 보낸다
+    #
+    # Elice 는 목록에 없는 매개변수를 무시하지 않고 400 으로 거절한다. OpenRouter 전용인
+    # max_tokens·reasoning 을 그대로 보내면 안 되는 이유다(client.py 가 형식을 가른다).
+    llm_provider: Literal["openrouter", "elice"] = "openrouter"
+    # 모델마다 주소가 따로 있다. 모델 페이지 예시 코드의 https://mlapi.run/<ID> 에 /v1 을 붙인다.
+    # ID 없는 https://mlapi.run/v1 로 보내면 500 이 난다(2026-09-25 확인).
+    llm_base_url: str | None = None
+    llm_api_key: str | None = None
+    # Elice 는 응답에 비용을 주지 않는다. 모델 페이지의 1M 토큰당 단가로 계산하는데,
+    # **사이트가 원화로 표시한다**(gemini·luna 모두, 2026-09-28 확인). 달러로 환산하지 않고
+    # 원화 그대로 받아 비용도 원화로 남긴다 — 팀 예산이 원화로 청구돼서, 환율을 거치면
+    # 청구액과 맞춰 볼 수 없고 환율이 바뀔 때마다 어긋난다.
+    # 기본값을 두지 않는다. 모델마다 단가가 달라 틀린 기본값은 조용히 틀린 비용을 만든다.
+    # 비어 있으면 require_elice 가 호출 전에 멈춘다. 모델을 바꾸면 같이 바꾼다.
+    llm_input_krw_per_m: float | None = None
+    llm_output_krw_per_m: float | None = None
+    # 호출 쪽이 값을 안 넘길 때 쓰는 temperature. 0.2 인 이유는 client.complete() 참고.
+    # 추론 모델 중에는 기본값(1) 말고는 400 으로 거절하는 것이 있다(Elice luna).
+    # 그런 모델은 .env 에 `LLM_TEMPERATURE=` 로 비워 두면 요청에서 필드를 아예 뺀다.
+    llm_temperature: float | None = 0.2
+
+    @field_validator("llm_temperature", mode="before")
+    @classmethod
+    def _blank_temperature_is_none(cls, value: object) -> object:
+        # 빈 문자열은 float 로 못 읽어 설정 로딩이 통째로 죽는다. "보내지 않는다" 는 뜻으로 받는다.
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    def require_elice(self) -> tuple[str, str]:
+        """(주소, 키). 빠진 게 있으면 무엇을 채울지 알려주고 멈춘다."""
+        missing = [name.upper() for name in ("llm_base_url", "llm_api_key")
+                   if not (getattr(self, name) or "").strip()]
+        missing += [name.upper() for name in ("llm_input_krw_per_m", "llm_output_krw_per_m")
+                    if getattr(self, name) is None]
+        if missing:
+            raise RuntimeError(
+                "LLM_PROVIDER=elice 인데 설정이 없다: " + ", ".join(missing)
+                + "\n  ai/.env 에 넣는다. 주소는 모델 페이지 예시 코드의 https://mlapi.run/<ID>/v1 이다."
+                + "\n  단가는 모델 페이지의 1M 토큰당 원화 금액이다. 예전 LLM_*_USD_PER_M 은 더 읽지 않는다."
+            )
+        return self.llm_base_url.strip().rstrip("/"), self.llm_api_key.strip()
 
     def require_openrouter(self) -> str:
         if not self.openrouter_api_key:

@@ -1,6 +1,10 @@
 """리포트 요약 모델 호출.
 
 모델·엔드포인트·인증과 응답 처리를 한 곳에서 관리한다.
+
+프로바이더는 둘이다. 기본은 OpenRouter 이고, `.env` 에 `LLM_PROVIDER=elice` 를
+두면 카카오테크캠퍼스 Elice ML API(팀 예산)로 보낸다. 둘 다 OpenAI 호환이지만
+받는 매개변수 이름이 달라서 `_payload` 에서 가른다.
 """
 
 import asyncio
@@ -16,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 PROMPT_DIR = Path(__file__).parent / "prompts"
+# 오류 응답 본문은 로그 한 줄에 들어갈 만큼만 남긴다.
+ERROR_BODY_MAX_CHARS = 300
 
 
 class LLMError(Exception):
@@ -35,33 +41,84 @@ def load_prompt(name: str) -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
-async def complete(
-    system: str,
-    user: str,
-    *,
-    model: str | None = None,
-    max_tokens: int | None = None,
-    temperature: float = 0.2,
-) -> tuple[str, dict]:
-    """(응답 텍스트, 사용량). 실패하면 LLMError.
+def endpoint() -> tuple[str, str]:
+    """(요청 주소, 키). 설정이 빠졌으면 RuntimeError.
 
-    `temperature` 기본값이 0.2 다. 0 이 아닌 이유는 이 모델이 0 에서 같은 문장을
-    두 번 쓰는 경우가 있어서다. 요약은 창작이 아니라 낮게 둔다.
+    호출 전에 따로 불러 볼 수 있게 밖에 둔다. 수백 건을 돌리는 쪽이 첫 호출에서야
+    키가 없다는 걸 알면, 그 앞의 수집 시간이 헛돈다.
     """
-    key = settings.require_openrouter()
+    if settings.llm_provider == "elice":
+        base, key = settings.require_elice()
+        return f"{base}/chat/completions", key
+    return OPENROUTER_URL, settings.require_openrouter()
+
+
+def _payload(system: str, user: str, model: str | None, max_tokens: int | None,
+             temperature: float | None) -> dict:
+    """프로바이더마다 받는 매개변수 이름이 다르다.
+
+    Elice 는 **모르는 매개변수를 400 으로 거절한다.** 그래서 OpenRouter 형식에 필드를
+    덧붙이는 식으로 못 하고 아예 갈라서 만든다.
+
+        OpenRouter  max_tokens             reasoning: {"effort": ...} / {"enabled": False}
+        Elice       max_completion_tokens  reasoning_effort: "minimal" | "low" | ...
+
+    temperature 가 None 이면 필드를 넣지 않는다. 기본값만 받는 모델에 null 을 보내도
+    거절될 수 있어서, "안 보냄" 은 키 자체를 빼는 것으로 표현한다.
+    """
     payload = {
         "model": model or settings.summary_model,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        "temperature": temperature,
-        "max_tokens": max_tokens or settings.summary_max_tokens,
     }
-    if settings.summary_reasoning_effort == "none":
+    if temperature is not None:
+        payload["temperature"] = temperature
+    limit = max_tokens or settings.summary_max_tokens
+    effort = settings.summary_reasoning_effort
+    if settings.llm_provider == "elice":
+        payload["max_completion_tokens"] = limit
+        # 허용값은 모델마다 다르다(gemini-3.5-flash-lite 는 minimal·low·medium·high).
+        # 없는 값은 Elice 가 400 으로 알려주므로 여기서 바꿔 끼우지 않는다.
+        if effort is not None:
+            payload["reasoning_effort"] = effort
+        return payload
+    payload["max_tokens"] = limit
+    if effort == "none":
         payload["reasoning"] = {"enabled": False}
-    elif settings.summary_reasoning_effort is not None:
-        payload["reasoning"] = {"effort": settings.summary_reasoning_effort}
+    elif effort is not None:
+        payload["reasoning"] = {"effort": effort}
+    return payload
+
+
+def _elice_cost(usage: dict) -> float:
+    """Elice 는 응답에 비용을 안 준다. 설정한 원화 단가로 계산한다(원)."""
+    return (usage.get("prompt_tokens", 0) * (settings.llm_input_krw_per_m or 0)
+            + usage.get("completion_tokens", 0) * (settings.llm_output_krw_per_m or 0)) / 1_000_000
+
+
+async def complete(
+    system: str,
+    user: str,
+    *,
+    model: str | None = None,
+    max_tokens: int | None = None,
+    temperature: float | None = None,
+) -> tuple[str, dict]:
+    """(응답 텍스트, 사용량). 실패하면 LLMError.
+
+    `temperature` 기본값이 0.2 다(`settings.llm_temperature`). 0 이 아닌 이유는 이 모델이
+    0 에서 같은 문장을 두 번 쓰는 경우가 있어서다. 요약은 창작이 아니라 낮게 둔다.
+
+    다만 추론 모델은 temperature 를 받지 않을 수 있다. Elice 의 luna 는 기본값(1) 말고는
+    400 으로 거절한다. 그런 모델은 `.env` 에 `LLM_TEMPERATURE=` 로 비워 두면 요청에서
+    필드가 빠진다. 호출하는 쪽이 값을 넘기면 설정보다 그 값을 우선한다.
+    """
+    url, key = endpoint()
+    if temperature is None:
+        temperature = settings.llm_temperature
+    payload = _payload(system, user, model, max_tokens, temperature)
     try:
         # OpenRouter가 대기용 바이트를 계속 보내면 HTTP read timeout은 매번
         # 초기화된다. 연결부터 응답 완료까지의 전체 시간도 제한한다.
@@ -70,12 +127,20 @@ async def complete(
             httpx.AsyncClient(timeout=settings.summary_timeout_sec) as client,
         ):
             r = await client.post(
-                OPENROUTER_URL,
+                url,
                 json=payload,
                 headers={"Authorization": f"Bearer {key}"},
             )
             r.raise_for_status()
             data = r.json()
+    except httpx.HTTPStatusError as exc:
+        # 상태 코드와 응답 앞부분을 남긴다. 예외 이름만 남기면 429(속도 제한)인지
+        # 400(매개변수 거절)인지 몰라서 고칠 곳을 못 찾는다 — Elice 첫 실행에서 겪었다.
+        # 응답 본문은 프로바이더의 오류 메시지라 키가 들어 있지 않다.
+        raise LLMError(
+            f"LLM 호출 실패: HTTP {exc.response.status_code} "
+            f"{exc.response.text[:ERROR_BODY_MAX_CHARS]}"
+        ) from exc
     except (httpx.HTTPError, json.JSONDecodeError, TimeoutError) as exc:
         raise LLMError(f"LLM 호출 실패: {type(exc).__name__}") from exc
 
@@ -83,6 +148,11 @@ async def complete(
     text = ((choice.get("message") or {}).get("content") or "").strip()
     usage = dict(data.get("usage") or {})
     usage["finish_reason"] = choice.get("finish_reason")
+    if settings.llm_provider == "elice" and "cost" not in usage:
+        # cost() 가 OpenRouter 의 usage.cost 를 먼저 보므로 같은 자리에 넣어 둔다.
+        usage["cost"] = _elice_cost(usage)
+    # usage 는 래퍼 등에 통째로 남는다. 숫자만 있으면 원인지 달러인지 나중에 알 수 없다.
+    usage["cost_currency"] = cost_currency()
     # 추론 모델이라 예산을 사고에 다 쓰면 본문이 빈 채로 정상 응답이 온다.
     # 조용히 넘어가면 빈 요약이 DB 에 쌓이므로 여기서 사유를 남긴다.
     if not text:
@@ -93,12 +163,31 @@ async def complete(
     return text, usage
 
 
-def cost_usd(usage: dict) -> float:
-    """프로바이더가 반환한 비용을 우선 사용하고, 없으면 토큰으로 추정한다.
+def cost_currency() -> str:
+    """지금 설정의 비용 통화. OpenRouter 는 달러로 청구하고 usage.cost 도 달러다.
+    Elice 는 모델 페이지 단가가 원화라 원화로 계산한다(config.py 참고).
 
-    deepseek-v4-flash-0731 기준 입력 $0.06/M, 출력 $0.12/M 로 계산한다.
+    한 실행은 프로바이더 하나로만 돌기 때문에 실행 단위로 통화가 하나다.
+    """
+    return "KRW" if settings.llm_provider == "elice" else "USD"
+
+
+def cost(usage: dict) -> float:
+    """비용. 통화는 `cost_currency()` 다. 프로바이더가 준 값을 우선하고 없으면 토큰으로 계산한다.
+
+    OpenRouter 추정은 deepseek-v4-flash-0731 기준 입력 $0.06/M, 출력 $0.12/M 다.
     302건 돌렸을 때 $0.71 이 나왔고 실제 청구액과 자릿수가 맞았다.
+    Elice 는 설정한 원화 단가로 계산한다.
     """
     if isinstance(usage.get("cost"), (int, float)):
         return float(usage["cost"])
+    if settings.llm_provider == "elice":
+        return _elice_cost(usage)
     return usage.get("prompt_tokens", 0) * 6e-8 + usage.get("completion_tokens", 0) * 1.2e-7
+
+
+def format_cost(amount: float, currency: str | None = None) -> str:
+    """출력용. 원화는 한 건이 몇 원 단위라 소수 둘째 자리까지, 달러는 넷째 자리까지."""
+    if (currency or cost_currency()) == "KRW":
+        return f"₩{amount:,.2f}"
+    return f"${amount:.4f}"

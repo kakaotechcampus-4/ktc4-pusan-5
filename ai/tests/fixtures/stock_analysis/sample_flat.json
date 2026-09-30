@@ -1,0 +1,31 @@
+{
+  "stock": "하늬결화학",
+  "code": "999980",
+  "target_date": "2026-09-18",
+  "cutoff": "2026-09-18T11:00:00+09:00",
+  "change_pct": 0.45,
+  "market": {
+    "index": "코스피",
+    "change_pct": 0.3,
+    "as_of": "11:00",
+    "url": ""
+  },
+  "messages": [
+    {
+      "channel": "sample_channel_a",
+      "url": "https://t.me/sample_channel_a/303",
+      "datetime_kst": "2026-09-18T07:50:00+09:00",
+      "views": "600",
+      "text": "하늬결화학, 신규 공장 2027년 상반기 착공 예정… 연산 20만톤 규모",
+      "match": "direct"
+    },
+    {
+      "channel": "sample_channel_c",
+      "url": "https://t.me/sample_channel_c/404",
+      "datetime_kst": "2026-09-18T09:20:00+09:00",
+      "views": "450",
+      "text": "아시아 에틸렌 가격 한 주 새 5% 하락… 석유화학 업황 부담 지속",
+      "match": "indirect"
+    }
+  ]
+}
