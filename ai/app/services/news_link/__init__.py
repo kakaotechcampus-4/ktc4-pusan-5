@@ -8,9 +8,9 @@
 본문 수집은 LLM 을 부르지 않고 링크당 한 번만 연다. 문장 선택은 (링크, 종목)마다
 LLM 을 한 번 부른다(selection.py).
 
-텔레그램 채널 수집(t.me/s/ 또는 Telethon)은 여기 없다. 이 패키지는 **주소 목록을
-받아 본문을 돌려주고, 종목별로 원인 문장을 고르는 일**만 한다. 채널을 붙이는 쪽이
-정해지면 collectors/ 에서 이걸 불러 쓰면 된다.
+텔레그램 채널 수집은 여기 없다. 이 패키지는 **주소 목록을 받아 본문을 돌려주고,
+종목별로 원인 문장을 고르는 일**만 한다. 공개 채널은 services/telegram_web 이 읽고,
+둘을 잇는 것은 collectors/news_channels.py 다.
 """
 
 from app.services.news_link.fetch import fetch_link, fetch_link_bodies, is_fetchable
