@@ -21,11 +21,23 @@ tool 호출 8~11회에 2분·$0.72 였다. 수집할 때 코드로 미리 열어
 
 2026-09-18 프로토타입 실측(링크 56건): 본문 확보 15 / PDF 16 / 본문 못 찾음 16 / 401·403 8.
 절반이 안 열리지만 안 열려도 최종 도메인은 남는다.
+
+**공개 인터넷 주소만 연다 (SSRF 방어).** 주소는 남의 텔레그램 채널이 적은 것이라
+믿을 수 없다. 서버가 그 주소를 대신 열어주므로, 주소가 localhost·사내망·클라우드
+메타데이터(169.254.169.254)를 가리키면 밖에서는 닿지 않는 곳에 우리 서버가 요청을
+보내게 된다. 리다이렉트도 마찬가지라 자동으로 따라가지 않고 한 단계씩 검사한다
+(`open_public`). 막힌 링크는 `status="blocked"` 로 남는다.
+
+막지 못하는 것: 검사할 때와 httpx 가 접속할 때 DNS 를 따로 조회하므로, 그 사이에
+답을 바꾸는 DNS rebinding 은 통과한다. 막으려면 검사한 IP 로 직접 접속해야 한다.
 """
 
 import asyncio
+import ipaddress
 import logging
 import re
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from urllib.parse import urlparse
 
@@ -53,6 +65,8 @@ MAX_HTML_BYTES = 3_000_000
 # 링크는 건당 1회 호출이라 짧게 잡는다. 안 열리는 사이트를 오래 기다리면
 # 그만큼 수집 전체가 늦어진다. PDF 를 받는 analyst 쪽(30초)과 값이 다른 이유다.
 DEFAULT_TIMEOUT_SEC = 12.0
+# 단축 URL 은 한두 번이면 끝난다(buly.kr → 기사). 그보다 길게 도는 건 정상 경로가 아니다.
+MAX_REDIRECTS = 5
 
 # <meta charset> 은 <head> 에 있다. 뒤까지 뒤지면 본문에 인용된 charset 문자열을
 # 인코딩으로 착각한다.
@@ -88,6 +102,77 @@ def is_fetchable(url: str) -> bool:
     return not looks_like_ticker
 
 
+class BlockedAddressError(Exception):
+    """공개 인터넷이 아닌 주소로 가려 했다. 요청을 보내기 전에 멈춘 것이다."""
+
+    def __init__(self, url: str) -> None:
+        super().__init__(url)
+        self.url = url
+
+
+def is_public_ip(address: str) -> bool:
+    """공개 인터넷 주소인가.
+
+    "내부망이면 막는다" 가 아니라 "공개 주소만 통과" 로 묻는다. 내부용 범위는
+    사설망 말고도 많아서(100.64.0.0/10 은 is_private 도 False 다) 나열하다 빠뜨린
+    것이 그대로 통과한다. 멀티캐스트는 is_global 이 True 지만 웹 서버가 아니다.
+    """
+    ip = ipaddress.ip_address(address.split("%")[0])  # IPv6 의 "%eth0" 같은 꼬리를 뗀다
+    return ip.is_global and not ip.is_multicast
+
+
+async def resolve_host(host: str) -> list[str]:
+    """도메인 → IP 목록. 테스트는 이 함수를 바꿔 끼워 실제 DNS 를 타지 않는다."""
+    infos = await asyncio.get_running_loop().getaddrinfo(host, None)
+    return [info[4][0] for info in infos]
+
+
+async def ensure_public(url: str) -> None:
+    """요청을 보내기 전에 주소가 공개 인터넷을 가리키는지 본다. 아니면 BlockedAddressError.
+
+    도메인 이름만 보지 않고 IP 로 바꿔서 본다. evil.com 이 127.0.0.1 을 가리키게 둘 수
+    있어서다. IP 가 여럿이면 하나라도 내부망일 때 막는다.
+
+    DNS 조회가 안 되면 socket.gaierror 가 그대로 올라가 status "error" 가 된다.
+    없는 도메인은 막은 게 아니라 못 연 것이다. 어느 쪽이든 요청은 나가지 않는다.
+
+    호스트는 urlparse 가 아니라 httpx 로 읽는다. 검사하는 쪽과 접속하는 쪽이 주소를
+    다르게 읽으면 그 틈으로 빠져나간다. 접속할 httpx 가 읽은 그대로 검사한다.
+    """
+    host = httpx.URL(url).host
+    if not host:
+        raise BlockedAddressError(url)
+    addresses = await resolve_host(host)
+    if not addresses or not all(is_public_ip(address) for address in addresses):
+        raise BlockedAddressError(url)
+
+
+@asynccontextmanager
+async def open_public(client: httpx.AsyncClient, url: str) -> AsyncIterator[httpx.Response]:
+    """리다이렉트를 **한 단계씩 직접** 따라가며 연다. 매 단계 요청 전에 주소를 검사한다.
+
+    httpx 에 맡기면(follow_redirects=True) 중간 목적지를 우리에게 보여주지 않고 끝까지
+    간다. 처음 주소가 buly.kr 이어도 다음 302 가 사내망을 가리키면 그대로 요청이 나간다.
+    그래서 302 를 받으면 Location 을 꺼내 검사한 뒤에 다음 요청을 보낸다.
+
+    follow_redirects=False 를 요청마다 적는다. 호출 측이 넘긴 client 에 True 가
+    걸려 있어도 요청 쪽 값이 이긴다.
+    """
+    current = url
+    for _ in range(MAX_REDIRECTS + 1):
+        await ensure_public(current)
+        # UA 도 요청마다 준다. 호출 측 client 가 UA 를 안 달고 있어도 같은 조건으로 열린다.
+        async with client.stream(
+            "GET", current, headers=HEADERS, follow_redirects=False
+        ) as response:
+            if not response.has_redirect_location:
+                yield response
+                return
+            # Location 은 "/news/1" 처럼 상대 주소로 오기도 한다. 지금 주소를 기준으로 푼다.
+            current = str(response.url.join(response.headers["location"]))
+    raise httpx.TooManyRedirects(f"리다이렉트 {MAX_REDIRECTS}회 초과", request=response.request)
+
+
 def decode_html(content: bytes, content_type: str) -> str:
     """바이트를 글자로. **국내 매체에는 아직 EUC-KR 이 있다.**
 
@@ -119,9 +204,8 @@ async def fetch_link(
     body = LinkBody(url=url, fetched_at=utcnow())
     try:
         # 스트림으로 연다. 응답 헤더만 보고 PDF·거대 페이지를 끝까지 받지 않고 끊는다.
-        # UA 는 요청마다 준다 — 호출 측이 넘긴 client 가 UA 를 안 달고 있어도
-        # 같은 조건으로 열리게 하려는 것이다.
-        async with client.stream("GET", url, headers=HEADERS, follow_redirects=True) as response:
+        # 리다이렉트는 open_public 이 한 단계씩 검사하며 따라간다.
+        async with open_public(client, url) as response:
             body.final_url = str(response.url)
             body.domain = urlparse(str(response.url)).netloc
             if response.status_code != httpx.codes.OK:
@@ -162,6 +246,12 @@ async def fetch_link(
         body.excerpt = excerpt or None
         body.chars = len(excerpt)
         body.status = "ok" if excerpt else "no_body"
+    except BlockedAddressError as exc:
+        # 어디로 가려 했는지 남긴다. 누가 이런 주소를 흘리는지 나중에 봐야 한다.
+        body.status = "blocked"
+        body.final_url = exc.url
+        body.domain = urlparse(exc.url).netloc
+        logger.warning("공개 인터넷 주소가 아니라 열지 않음: %s → %s", url, exc.url)
     except Exception as exc:  # noqa: BLE001 — 네트워크·인코딩·파싱 전부. 링크 하나에 수집이 멈추면 안 된다
         body.status = "error"
         body.error = f"{type(exc).__name__}: {str(exc)[:ERROR_MSG_MAX_CHARS]}"

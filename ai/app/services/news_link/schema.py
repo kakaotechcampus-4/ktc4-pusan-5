@@ -21,8 +21,11 @@ from pydantic import BaseModel
 #   not_html    HTML 도 PDF 도 아니다 (이미지·동영상)
 #   too_large   본문 상한을 넘는다
 #   http_error  200 이 아니다. Reuters·Bloomberg 는 봇을 막아 401/403 을 준다
+#   blocked     공개 인터넷 주소가 아니라서 열지 않았다 (fetch.py 의 SSRF 방어)
 #   error       네트워크·인코딩·파싱 실패
-LinkStatus = Literal["ok", "no_body", "pdf", "not_html", "too_large", "http_error", "error"]
+LinkStatus = Literal[
+    "ok", "no_body", "pdf", "not_html", "too_large", "http_error", "blocked", "error"
+]
 
 
 class LinkBody(BaseModel):

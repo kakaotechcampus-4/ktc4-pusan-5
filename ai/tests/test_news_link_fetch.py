@@ -4,10 +4,19 @@
 죽었다고 예외를 올리면 그날치 수집이 통째로 멈춘다.
 """
 
+import socket
+
 import httpx
 import pytest
 
-from app.services.news_link.fetch import fetch_link, fetch_link_bodies, is_fetchable
+from app.services.news_link import fetch
+from app.services.news_link.fetch import (
+    MAX_REDIRECTS,
+    fetch_link,
+    fetch_link_bodies,
+    is_fetchable,
+    is_public_ip,
+)
 
 ARTICLE_HTML = """
 <html><head><meta property="og:title" content="삼성전자 zHBM 공개"></head>
@@ -160,3 +169,172 @@ async def test_result_length_may_differ_from_input() -> None:
         bodies = await fetch_link_bodies(urls, client=client)
 
     assert [b.url for b in bodies] == ["https://example.com/a", "https://example.com/b"]
+
+
+# ── 공개 인터넷 주소만 연다 (SSRF) ─────────────────────────────────
+# 주소는 남의 채널이 적은 것이다. 서버가 대신 열어주므로 내부망을 가리키면
+# 밖에서 닿지 않는 곳에 우리 서버가 요청을 보내게 된다.
+
+
+async def test_redirect_to_internal_address_is_not_followed() -> None:
+    """처음 주소는 평범한 단축 URL 이어도 302 가 클라우드 메타데이터를 가리킬 수 있다."""
+    calls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(302, headers={"location": "http://169.254.169.254/latest/meta-data/"})
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "https://buly.kr/abc")
+
+    assert body.status == "blocked"
+    assert body.final_url == "http://169.254.169.254/latest/meta-data/"
+    assert calls == ["https://buly.kr/abc"], "내부 주소로는 요청이 나가지 않는다"
+
+
+async def test_internal_address_written_in_the_message_is_not_opened() -> None:
+    calls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(200, html=ARTICLE_HTML)
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "http://127.0.0.1:8000/admin")
+
+    assert body.status == "blocked"
+    assert calls == []
+
+
+async def test_domain_pointing_to_internal_ip_is_blocked(fake_dns: dict[str, list[str]]) -> None:
+    """이름만 보면 모른다. evil.example 이 127.0.0.1 을 가리키게 둘 수 있다."""
+    fake_dns["evil.example"] = ["127.0.0.1"]
+    calls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(200, html=ARTICLE_HTML)
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "https://evil.example/news")
+
+    assert body.status == "blocked"
+    assert calls == []
+
+
+async def test_domain_is_blocked_if_any_of_its_ips_is_internal(
+    fake_dns: dict[str, list[str]],
+) -> None:
+    fake_dns["mixed.example"] = ["93.184.216.34", "10.0.0.5"]
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, html=ARTICLE_HTML)
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "https://mixed.example/news")
+
+    assert body.status == "blocked"
+
+
+async def test_domain_with_no_ip_is_blocked(fake_dns: dict[str, list[str]]) -> None:
+    """IP 를 하나도 못 받으면 검사할 것이 없다. "전부 공개" 로 치고 통과시키지 않는다."""
+    fake_dns["empty.example"] = []
+    calls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(200, html=ARTICLE_HTML)
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "https://empty.example/news")
+
+    assert body.status == "blocked"
+    assert calls == []
+
+
+async def test_dns_failure_is_an_error_and_sends_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """없는 도메인은 막은 게 아니라 못 연 것이다. 어느 쪽이든 요청은 나가지 않는다."""
+
+    async def resolve(host: str) -> list[str]:
+        raise socket.gaierror(11001, "getaddrinfo failed")
+
+    monkeypatch.setattr(fetch, "resolve_host", resolve)
+    calls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(200, html=ARTICLE_HTML)
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "https://no-such-host.example/x")
+
+    assert body.status == "error"
+    assert body.error is not None and body.error.startswith("gaierror")
+    assert calls == []
+
+
+async def test_relative_redirect_is_resolved_against_the_current_address() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/short":
+            return httpx.Response(301, headers={"location": "/news/1"})
+        return httpx.Response(200, html=ARTICLE_HTML)
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "https://example.com/short")
+
+    assert body.status == "ok"
+    assert body.final_url == "https://example.com/news/1"
+
+
+async def test_redirect_loop_stops() -> None:
+    calls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(302, headers={"location": f"https://example.com/{len(calls)}"})
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "https://example.com/0")
+
+    assert body.status == "error"
+    assert body.error is not None and body.error.startswith("TooManyRedirects")
+    assert len(calls) == MAX_REDIRECTS + 1
+
+
+async def test_client_that_follows_redirects_itself_is_still_checked() -> None:
+    """수집기가 follow_redirects=True 로 만든 client 를 넘겨도 검사를 건너뛰지 않는다."""
+    calls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        if request.url.host == "buly.kr":
+            return httpx.Response(302, headers={"location": "http://10.0.0.5/"})
+        return httpx.Response(200, html=ARTICLE_HTML)
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, follow_redirects=True) as client:
+        body = await fetch_link(client, "https://buly.kr/abc")
+
+    assert body.status == "blocked"
+    assert calls == ["https://buly.kr/abc"]
+
+
+@pytest.mark.parametrize(
+    ("address", "expected"),
+    [
+        ("8.8.8.8", True),
+        ("2001:4860:4860::8888", True),
+        ("127.0.0.1", False),  # 자기 자신
+        ("10.0.0.5", False),  # 사설망
+        ("192.168.0.1", False),
+        ("169.254.169.254", False),  # 클라우드 메타데이터
+        ("100.64.0.1", False),  # 통신사·클라우드 내부망. is_private 로는 안 걸린다
+        ("0.0.0.0", False),
+        ("224.0.0.1", False),  # 멀티캐스트. is_global 은 True 다
+        ("::1", False),
+        ("::ffff:127.0.0.1", False),  # IPv6 에 실은 IPv4 루프백
+        ("fe80::1%eth0", False),  # 링크 로컬. 꼬리(%eth0)가 붙어 온다
+    ],
+)
+def test_only_public_internet_addresses_pass(address: str, expected: bool) -> None:
+    assert is_public_ip(address) is expected
