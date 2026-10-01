@@ -225,15 +225,31 @@ async def fetch_link(
                 body.content_type = content_type or None
                 return body
 
+            # 서버가 크기를 정직하게 알려주면 본문을 한 바이트도 받지 않고 끊는다.
             length = response.headers.get("content-length")
             if length and length.isdigit() and int(length) > MAX_HTML_BYTES:
                 body.status = "too_large"
                 return body
 
-            content = await response.aread()
-            if len(content) > MAX_HTML_BYTES:  # content-length 를 안 주는 서버가 있다
-                body.status = "too_large"
-                return body
+            # 헤더만 믿지 않는다. content-length 를 안 주는 서버가 있고, 압축된 응답은
+            # 압축된 크기를 적어서 풀면 몇십 배가 된다. 그래서 받으면서 세다가 넘는 순간
+            # 끊는다. 다 받고 나서 재면 그 전에 이미 메모리에 다 올라가 있다.
+            # aiter_bytes 는 압축을 푼 조각을 준다(aiter_raw 는 압축된 크기라 폭탄을 놓친다).
+            #
+            # 막지 못하는 것: 압축된 조각 하나는 httpx 가 한 번에 풀어서 넘긴다. 그래서
+            # 압축 응답은 상한(3MB)이 아니라 "조각 하나가 풀린 크기" 만큼 순간적으로 올라갈
+            # 수 있다. 다음 조각부터는 받지 않으므로 끝없이 늘지는 않는다(2026-10-01 실측:
+            # 풀면 80GB 인 끝없는 gzip 스트림이 21.5MB 에서 멈춤). 정확히 3MB 로 묶으려면
+            # aiter_raw 로 받아 zlib 로 직접 조금씩 풀어야 한다.
+            chunks: list[bytes] = []
+            size = 0
+            async for chunk in response.aiter_bytes():
+                size += len(chunk)
+                if size > MAX_HTML_BYTES:
+                    body.status = "too_large"
+                    return body
+                chunks.append(chunk)
+            content = b"".join(chunks)
 
         html_text = decode_html(content, raw_content_type)
         # bs4 파싱은 CPU 를 오래 쥔다. 다른 링크의 응답을 기다리게 하지 않는다.

@@ -4,13 +4,16 @@
 죽었다고 예외를 올리면 그날치 수집이 통째로 멈춘다.
 """
 
+import gzip
 import socket
+from collections.abc import AsyncIterator
 
 import httpx
 import pytest
 
 from app.services.news_link import fetch
 from app.services.news_link.fetch import (
+    MAX_HTML_BYTES,
     MAX_REDIRECTS,
     fetch_link,
     fetch_link_bodies,
@@ -338,3 +341,100 @@ async def test_client_that_follows_redirects_itself_is_still_checked() -> None:
 )
 def test_only_public_internet_addresses_pass(address: str, expected: bool) -> None:
     assert is_public_ip(address) is expected
+
+
+# ── 본문 크기 상한 ──────────────────────────────────────────────
+# 상한은 메모리를 지키려는 것이다. 판정 결과(too_large)만 맞아서는 안 되고,
+# 넘는 순간 받기를 멈춰야 한다. 끝없이 보내는 서버 하나에 수집기가 통째로 죽으면 안 된다.
+
+CHUNK_BYTES = 64 * 1024
+
+
+def _counted_chunks(count: int, sent: list[int], chunk: bytes = b"a" * CHUNK_BYTES):
+    """조각을 하나 내보낼 때마다 sent 에 적는다. 몇 개나 받아 갔는지로 멈춘 시점을 본다."""
+
+    async def stream() -> AsyncIterator[bytes]:
+        for _ in range(count):
+            sent.append(len(chunk))
+            yield chunk
+
+    return stream()
+
+
+async def test_body_without_content_length_stops_as_soon_as_it_exceeds_the_limit() -> None:
+    """content-length 가 없으면 헤더로는 못 거른다. 다 받고 나서 재면 이미 늦다."""
+    sent: list[int] = []
+    total_chunks = 200  # 12.8MB. 상한(3MB)의 네 배쯤
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html"},
+            content=_counted_chunks(total_chunks, sent),
+        )
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "https://example.com/endless")
+
+    assert body.status == "too_large"
+    # 상한을 넘긴 조각(46번째)까지만 받는다. 끝까지 받았다면 200개다.
+    # httpx 가 한두 조각 미리 당겨 올 수 있어서 한 칸 여유를 둔다.
+    assert len(sent) <= MAX_HTML_BYTES // CHUNK_BYTES + 2
+
+
+async def test_compressed_body_is_measured_after_decompression() -> None:
+    """content-length 는 압축된 크기라 작게 보인다. 메모리에는 푼 크기가 올라간다."""
+    raw = b"<html><body>" + b"a" * (MAX_HTML_BYTES * 3) + b"</body></html>"
+    compressed = gzip.compress(raw)
+    assert len(compressed) < MAX_HTML_BYTES, "헤더 검사를 통과하는 크기여야 의미가 있다"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html", "content-encoding": "gzip"},
+            content=compressed,  # content-length 는 압축된 크기로 붙는다
+        )
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "https://example.com/bomb")
+
+    assert body.status == "too_large"
+
+
+async def test_honest_content_length_over_the_limit_reads_no_body() -> None:
+    """크기를 정직하게 알려주면 본문을 한 조각도 받지 않고 끊는다."""
+    sent: list[int] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html", "content-length": str(MAX_HTML_BYTES * 10)},
+            content=_counted_chunks(10, sent),
+        )
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "https://example.com/huge")
+
+    assert body.status == "too_large"
+    assert sent == []
+
+
+async def test_article_split_into_small_chunks_is_reassembled_intact() -> None:
+    """조각을 이어 붙이다 깨지면 안 된다. 한글이 조각 경계에서 잘려도 마찬가지다."""
+    data = ARTICLE_HTML.encode("utf-8")
+
+    async def stream() -> AsyncIterator[bytes]:
+        for i in range(0, len(data), 7):  # 7바이트씩. 한글(3바이트)이 경계에서 잘린다
+            yield data[i : i + 7]
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, headers={"content-type": "text/html; charset=utf-8"}, content=stream()
+        )
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "https://example.com/news/chunked")
+
+    assert body.status == "ok"
+    assert body.excerpt is not None
+    assert body.excerpt.startswith("삼성전자가 차세대 메모리 기술을 공개했다고 밝혔다.")
