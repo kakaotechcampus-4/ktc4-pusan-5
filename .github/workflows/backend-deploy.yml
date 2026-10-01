@@ -15,6 +15,11 @@ permissions:
   id-token: write
   contents: read
 
+# 배포가 서버에서 동시에 겹쳐 돌지 않도록 줄 세운다. 진행 중인 배포는 끊지 않는다.
+concurrency:
+  group: backend-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
