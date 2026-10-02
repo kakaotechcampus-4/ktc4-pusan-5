@@ -3,12 +3,17 @@ import { Change, Skeleton } from '@/components/ui';
 import { formatMultiple, formatRatio } from '@/lib/format';
 import type { StockFinancials, StockMetricsData, StockQuoteData } from '@/lib/types';
 import { FinancialsErrorTag } from './components/FinancialsErrorTag';
-import { distanceFromWeek52High, distanceFromWeek52Low, growthLabel } from './financialUtils';
+import {
+  NO_VALUE,
+  distanceFromWeek52High,
+  distanceFromWeek52Low,
+  growthLabel,
+} from './financialUtils';
 
 export type AtAGlanceRow = { label: string; description: string; value: ReactNode };
 
 function renderValue(value: number | null, render: (value: number) => string) {
-  return value === null ? '—' : render(value);
+  return value === null ? NO_VALUE : render(value);
 }
 
 function latestInvestmentPoint(financials: StockFinancials | null) {
@@ -53,7 +58,7 @@ export function buildAtAGlanceRows({
       description: '52주 최고가/최저가 대비 현재 주가의 위치',
       value:
         weekHighPosition === null || weekLowPosition === null ? (
-          <span className="num text-sm font-semibold">—</span>
+          <span className="num text-sm font-semibold">{NO_VALUE}</span>
         ) : (
           <span className="flex flex-wrap items-center gap-1 text-sm font-semibold">
             <span className="text-neutral-600">최고 대비</span>
@@ -84,7 +89,7 @@ export function buildAtAGlanceRows({
         latestPoint ? (
           growthLabel(latestPoint.operatingProfitGrowth)
         ) : (
-          <span className="num text-sm font-semibold">—</span>
+          <span className="num text-sm font-semibold">{NO_VALUE}</span>
         ),
       ),
     },

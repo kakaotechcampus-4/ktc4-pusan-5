@@ -1,12 +1,14 @@
+import type { ReactNode } from 'react';
 import { InfoTip, SkeletonText, StatList, StatListItem } from '@/components/ui';
 import { formatCompactKRW, formatPrice, formatRatio } from '@/lib/format';
 import type { Resource, StockMetricsData, StockQuoteData } from '@/lib/types';
+import { NO_VALUE } from '../financialUtils';
 
 function renderValue(value: number | null | undefined, render: (value: number) => string) {
-  return value === null || value === undefined ? '—' : render(value);
+  return value === null || value === undefined ? NO_VALUE : render(value);
 }
 
-function num(value: string) {
+function num(value: ReactNode) {
   return <span className="num text-sm font-semibold">{value}</span>;
 }
 
@@ -29,9 +31,9 @@ export function MarketActivitySummary({
             거래량 <InfoTip description="전일 대비 거래량 변화율은 아직 연동되지 않았습니다." />
           </>
         }
-        value={num(q ? `${formatPrice(q.volume)}주` : '—')}
+        value={num(q ? `${formatPrice(q.volume)}주` : NO_VALUE)}
       />
-      <StatListItem label="거래대금" value={num(q ? formatCompactKRW(q.tradingValue) : '—')} />
+      <StatListItem label="거래대금" value={num(q ? formatCompactKRW(q.tradingValue) : NO_VALUE)} />
       <StatListItem
         label="외국인 보유"
         value={num(renderValue(m?.foreignOwnership ?? null, formatRatio))}
