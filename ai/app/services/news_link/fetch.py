@@ -225,7 +225,7 @@ async def fetch_link(
                 body.content_type = content_type or None
                 return body
 
-            # 서버가 크기를 정직하게 알려주면 본문을 한 바이트도 받지 않고 끊는다.
+            # 서버가 알려준 크기(Content-Length)가 기준치보다 크면 본문을 받지 않고 바로 끊는다.
             length = response.headers.get("content-length")
             if length and length.isdigit() and int(length) > MAX_HTML_BYTES:
                 body.status = "too_large"
