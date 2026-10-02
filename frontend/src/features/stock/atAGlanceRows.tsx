@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Change, Skeleton } from '@/components/ui';
 import { formatMultiple, formatRatio } from '@/lib/format';
 import type { StockFinancials, StockMetricsData, StockQuoteData } from '@/lib/types';
+import { FinancialsErrorTag } from './components/FinancialsErrorTag';
 import { distanceFromWeek52High, distanceFromWeek52Low, growthLabel } from './financialUtils';
 
 export type AtAGlanceRow = { label: string; description: string; value: ReactNode };
@@ -22,10 +23,14 @@ export function buildAtAGlanceRows({
   quote,
   metrics,
   financials,
+  financialsError,
+  onRetryFinancials,
 }: {
   quote: StockQuoteData | null | undefined;
   metrics: StockMetricsData | null | undefined;
   financials: StockFinancials | null;
+  financialsError: Error | null;
+  onRetryFinancials: () => void;
 }): AtAGlanceRow[] {
   const financialsLoading = financials === null;
   const latestPoint = latestInvestmentPoint(financials);
@@ -35,8 +40,12 @@ export function buildAtAGlanceRows({
   const weekLowPosition =
     quote && metrics?.week52Low ? distanceFromWeek52Low(quote.price, metrics.week52Low) : null;
 
-  const financialsValue = (node: ReactNode) =>
-    financialsLoading ? <Skeleton className="h-4 w-16" /> : node;
+  const financialsValue = (node: ReactNode) => {
+    if (financialsError) {
+      return <FinancialsErrorTag error={financialsError} onRetry={onRetryFinancials} />;
+    }
+    return financialsLoading ? <Skeleton className="h-4 w-16" /> : node;
+  };
 
   return [
     {

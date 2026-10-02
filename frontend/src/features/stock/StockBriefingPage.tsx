@@ -68,6 +68,8 @@ export function StockBriefingPage() {
             quote={overview.quote}
             metrics={overview.metrics}
             financials={financials}
+            financialsError={financialsError}
+            onRetryFinancials={retryFinancials}
           />
         }
       />
