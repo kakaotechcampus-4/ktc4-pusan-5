@@ -35,14 +35,13 @@ async def test_exchange_code_for_token_missing_access_token_raises():
 
 
 @respx.mock
-async def test_fetch_user_info_parses_profile_and_email():
+async def test_fetch_user_info_parses_profile():
     respx.get(KAKAO_USER_URL).mock(
         return_value=httpx.Response(
             200,
             json={
                 "id": 123456789,
                 "kakao_account": {
-                    "email": "user@example.com",
                     "profile": {"nickname": "테스트유저"},
                 },
             },
@@ -51,7 +50,6 @@ async def test_fetch_user_info_parses_profile_and_email():
     info = await fetch_user_info("dummy-token")
     assert info.kakao_id == "123456789"
     assert info.nickname == "테스트유저"
-    assert info.email == "user@example.com"
 
 
 @respx.mock
