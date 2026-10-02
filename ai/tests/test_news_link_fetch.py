@@ -191,8 +191,11 @@ async def test_redirect_to_internal_address_is_not_followed() -> None:
         body = await fetch_link(client, "https://buly.kr/abc")
 
     assert body.status == "blocked"
-    assert body.final_url == "http://169.254.169.254/latest/meta-data/"
     assert calls == ["https://buly.kr/abc"], "내부 주소로는 요청이 나가지 않는다"
+    # 막힌 목적지는 조사용으로 error 에만 남는다. final_url·domain 은 "실제로 도착한 곳" 이다
+    assert body.error is not None and "169.254.169.254" in body.error
+    assert body.final_url is None
+    assert body.domain is None
 
 
 async def test_internal_address_written_in_the_message_is_not_opened() -> None:

@@ -263,10 +263,12 @@ async def fetch_link(
         body.chars = len(excerpt)
         body.status = "ok" if excerpt else "no_body"
     except BlockedAddressError as exc:
-        # 어디로 가려 했는지 남긴다. 누가 이런 주소를 흘리는지 나중에 봐야 한다.
+        # 어디로 가려 했는지 남긴다. 정상 뉴스 링크는 내부 주소로 가지 않으므로, 막혔다면
+        # 출처(채널·단축 URL)를 확인하거나 정상 기사를 잘못 막은 건 아닌지 봐야 한다.
+        # 기록은 error 에만 둔다. final_url·domain 은 "실제로 도착한 곳" 이라 가지 않은
+        # 주소를 넣으면 뜻이 어긋나고, 수집 통계에서 도메인을 확인한 링크로 잘못 세어진다.
         body.status = "blocked"
-        body.final_url = exc.url
-        body.domain = urlparse(exc.url).netloc
+        body.error = f"내부 주소로 향함: {exc.url}"[:ERROR_MSG_MAX_CHARS]
         logger.warning("공개 인터넷 주소가 아니라 열지 않음: %s → %s", url, exc.url)
     except Exception as exc:  # noqa: BLE001 — 네트워크·인코딩·파싱 전부. 링크 하나에 수집이 멈추면 안 된다
         body.status = "error"
