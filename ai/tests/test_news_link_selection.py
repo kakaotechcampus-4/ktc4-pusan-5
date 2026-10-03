@@ -99,6 +99,7 @@ def test_first_sentence_has_nothing_to_attach() -> None:
 
 
 def _link(sentences: list[str], excerpt: str | None = None) -> LinkBody:
+    """fetch_link 를 거치지 않고 문장 목록을 직접 넣은 LinkBody."""
     return LinkBody(
         url="https://example.com/news/1", status="ok", title="가나전자 신제품 공개",
         excerpt=excerpt, sentences=sentences, fetched_at=datetime.now(UTC),
@@ -106,7 +107,11 @@ def _link(sentences: list[str], excerpt: str | None = None) -> LinkBody:
 
 
 def _reply(monkeypatch, answer: str | Exception) -> list[str]:
-    """모델 대신 answer 를 돌려준다. 모델에 보낸 user 메시지를 모아 돌려준다."""
+    """selection 이 부르는 complete() 를 가짜로 바꾼다.
+
+    가짜는 answer 를 돌려준다(answer 가 예외면 그 예외를 던진다). 모델에 보낸 user 메시지는
+    이 함수가 돌려주는 리스트에 쌓이므로, 테스트가 무엇을 보냈는지 확인할 수 있다.
+    """
     sent: list[str] = []
 
     async def fake_complete(system: str, user: str, **kwargs) -> tuple[str, dict]:

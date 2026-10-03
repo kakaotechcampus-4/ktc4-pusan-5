@@ -1,7 +1,7 @@
 """채널 수집기. 어떤 링크를 열고 어떤 링크를 열지 않는지가 핵심이다.
 
-24시간이 지난 글의 링크를 열면 그때의 기사를 읽게 되어, 보고서가 컷오프로 막아둔
-사후 정보가 들어온다. 가짜 서버로 돌아서 실제 사이트에 접속하지 않는다.
+24시간이 지난 글의 링크를 열면 그사이 고쳐진 기사를 읽게 되어, 보고서가 쓰면 안 되는
+기준 시각(컷오프) 이후의 정보가 들어온다. 가짜 서버로 돌아서 실제 사이트에 접속하지 않는다.
 """
 
 from datetime import UTC, datetime, timedelta, timezone
@@ -27,6 +27,7 @@ ARTICLE_HTML = """
 
 
 def _message(links: list[str], posted_at: datetime | None = NOW - timedelta(hours=1)):
+    """링크만 바꿔 가며 쓰는 메시지. 게시 시각은 따로 주지 않으면 NOW 한 시간 전이다."""
     return ChannelMessage(channel="ch", msg_id=1, posted_at=posted_at, text="글", links=links)
 
 

@@ -2,7 +2,7 @@
 나중에 네이버)와 무관한 공통 모델.
 
 Pydantic 을 쓰는 이유는 여기가 **외부 경계**라서다. 남의 사이트가 주는 것을 담는
-그릇이고, 응답은 예고 없이 모양이 바뀐다. 모델이 고른 번호도 마찬가지다.
+그릇이고, 응답은 예고 없이 모양이 바뀐다. LLM 이 돌려준 답(고른 번호)도 마찬가지다.
 (`services/analyst/schema.py`, `backend/app/services/news/schema.py` 와 같은 자리다.)
 
 **url 은 HttpUrl 이 아니라 str 이다.** 텔레그램 본문에 적힌 주소를 그대로 키로 써야
@@ -45,8 +45,9 @@ class LinkBody(BaseModel):
     # 이 값이 있어야 나중에 "대상일 컷오프보다 늦게 연 것" 을 걸러낼 수 있다.
     fetched_at: datetime
     # 정제한 본문 **전체**를 문장으로 나눈 것. 종목별 문장 선택(selection.py)이 여기서 고른다.
-    # 직렬화하지 않는다. 본문 전량이 보고서 프롬프트로 새면 토큰이 몇 배가 되고
-    # (sentence.py 참고), 기사 전문을 어디에 얼마나 둘지는 아직 정하지 않았다.
+    # JSON 으로 내보낼 때 뺀다(exclude). 본문 전량이 보고서 프롬프트로 새면 토큰이 몇 배가 되고
+    # (sentence.py 참고), 기사 전문을 어디에 얼마나 둘지는 아직 정하지 않았다. 그래서 파일에서
+    # 다시 읽은 LinkBody 는 이 값이 비어 있다.
     # repr 에서도 뺀다. 로그에 기사 전문이 찍히지 않게 하려는 것이다.
     sentences: list[str] = Field(default_factory=list, exclude=True, repr=False)
 
@@ -56,7 +57,7 @@ class LinkBody(BaseModel):
 #   none      이 기사는 이 종목을 다루지 않는다. 발췌가 없다
 #   fallback  모델 응답이 규칙을 어겼다. 앞 3문장으로 대체했다
 #   error     호출이 실패했다. 앞 3문장으로 대체했다
-#   no_body   고를 본문이 없다(PDF·본문 못 찾음·차단). 호출하지 않았다
+#   no_body   고를 본문이 없다(PDF·본문 못 찾음·열기 실패). 호출하지 않았다
 SelectionStatus = Literal["selected", "none", "fallback", "error", "no_body"]
 
 
@@ -71,9 +72,10 @@ class LinkSelection(BaseModel):
     excerpt: str | None = None
     # excerpt 에 들어간 문장 번호(1부터). 코드가 앞 문장을 붙인 뒤의 값이다.
     indices: list[int] = Field(default_factory=list)
-    # 모델이 고른 번호. indices 와 따로 두는 것은 모델이 맥락을 얼마나 놓치는지 보려는 것이다.
+    # 모델이 고른 번호(코드가 앞 문장을 붙이기 전). indices 와 비교하면 모델이 앞 문장을
+    # 얼마나 빠뜨리는지 알 수 있다.
     model_indices: list[int] = Field(default_factory=list)
     raw: str = ""  # 모델 응답 원문. fallback 이 왜 났는지 볼 때 쓴다
     error: str | None = None  # status 가 error 일 때만
-    usage: dict[str, Any] = Field(default_factory=dict)  # 토큰·비용. 프로바이더가 준 그대로
-    prompt_sha256: str | None = None  # 어느 판의 프롬프트로 골랐나
+    usage: dict[str, Any] = Field(default_factory=dict)  # 토큰 수·비용. complete() 가 돌려준 그대로
+    prompt_sha256: str | None = None  # 어느 버전의 프롬프트로 골랐나 (news_select.md 의 sha256)

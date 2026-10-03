@@ -22,18 +22,22 @@ from app.services.telegram_web.schema import ChannelMessage
 
 KST = timezone(timedelta(hours=9))
 
-# 링크로 치지 않는 호스트. 채널 홍보("SK증권 리서치 IT팀 채널: https://t.me/skitteam")다.
+# 링크 목록에 넣지 않는 텔레그램 주소. 대개 채널 홍보 링크라 열어도 기사가 없다.
+#   예) "SK증권 리서치 IT팀 채널: https://t.me/skitteam"
 TELEGRAM_HOSTS = ("t.me", "telegram.me", "www.t.me", "telegram.org")
-# 링크 글자가 주소 그 자체인가. 말줄임(…)이 있으면 잘려서 보이는 것이라 주소로 치지 않는다.
+# 화면에 보이는 링크 글자가 주소 자체인지 본다("https://buly.kr/abc" 처럼 보이는 경우).
+# 말줄임(…)이 들어 있으면 잘려서 보이는 것이라 주소로 치지 않는다.
 SHOWN_URL_RE = re.compile(r"https?://[^\s…]+")
 
 
 def _text(node) -> str:
-    """본문 글자. <br> 만 줄바꿈으로 바꾸고, 나머지 태그는 글자만 남긴다.
+    """본문 글자. <br> 만 줄바꿈으로 바꾸고, 나머지 태그는 떼고 글자만 남긴다.
 
     프로토타입은 태그 경계마다 줄바꿈을 넣었다(get_text("\\n")). 그러면 굵은 글씨·이모지·
     링크 앞뒤에서 문장이 끊기고("<b>HBM</b>을" → "HBM\\n을") 빈 줄이 늘어난다. skitteam
     한 페이지로 두 방식을 비교하니 19건 중 18건이 달랐다(대부분 늘어난 빈 줄).
+
+    node 안의 <br> 을 실제로 "\\n" 글자로 바꿔 놓는다. 넘겨받은 HTML 트리가 바뀐다.
     """
     for br in node.find_all("br"):
         br.replace_with("\n")
@@ -41,12 +45,13 @@ def _text(node) -> str:
 
 
 def _is_external(url: str) -> bool:
+    """http(s) 주소이면서 텔레그램 주소가 아닌가."""
     return (url.startswith(("http://", "https://"))
             and urlparse(url).netloc.lower() not in TELEGRAM_HOSTS)
 
 
 def _links(node) -> tuple[list[str], list[str]]:
-    """(링크, 숨은 링크).
+    """(열 링크 목록, 숨은 링크 목록). 둘 다 나온 순서를 지키고 중복을 뺀다.
 
     **링크 글자가 주소인데 실제 링크(href)와 다르면 보이는 주소를 쓴다.** 작성자가 이전 글의
     링크 서식을 복사해 글자만 바꾸면, 화면에는 새 주소가 보이는데 링크는 옛 기사로 간다.
@@ -74,24 +79,30 @@ def _links(node) -> tuple[list[str], list[str]]:
 
 
 def _posted_at(box) -> datetime | None:
-    """게시 시각을 KST 로. 시간대가 없는 값은 믿지 않는다 — 컷오프가 9시간 틀어진다."""
+    """게시 시각을 KST 로 바꿔 돌려준다. 못 읽으면 None.
+
+    시간대 정보가 없는 값은 UTC 인지 KST 인지 알 수 없어서 None 으로 둔다. 잘못 짐작하면
+    대상일 기준 시각(컷오프)이 9시간 어긋난다.
+    """
     node = box.select_one("time[datetime]")
     raw = node.get("datetime") if node else None
     if not raw:
         return None
     try:
-        parsed = datetime.fromisoformat(raw)  # 3.11 부터 끝의 "Z" 도 읽는다
+        parsed = datetime.fromisoformat(raw)  # 파이썬 3.11 부터 끝의 "Z"(UTC 표시)도 읽는다
     except ValueError:
         return None
     return parsed.astimezone(KST) if parsed.tzinfo else None
 
 
 def _msg_id(post: str) -> int | None:
+    """data-post 값("채널/번호")에서 번호만 꺼낸다. 번호가 없으면 None."""
     _channel, _, number = post.rpartition("/")
     return int(number) if number.isdigit() else None
 
 
 def _plain(box, selector: str) -> str | None:
+    """selector 에 맞는 첫 요소의 글자. 요소가 없거나 글자가 비었으면 None."""
     node = box.select_one(selector)
     if node is None:
         return None
@@ -101,8 +112,8 @@ def _plain(box, selector: str) -> str | None:
 def parse_page(html: str, channel: str) -> list[ChannelMessage]:
     """페이지에 있는 메시지 전부. **사진만 올린 글처럼 글자가 없는 것도 돌려준다.**
 
-    걸러내는 건 부르는 쪽 몫이다. 여기서 빼면 페이지를 넘길 때 쓰는 가장 작은 번호가
-    틀어진다 — 최근 글이 전부 사진이면 다음 페이지로 못 넘어간다.
+    걸러내는 건 부르는 쪽(fetch.py) 몫이다. 여기서 빼 버리면 다음 페이지 주소(?before=번호)에
+    쓰는 가장 작은 글 번호가 틀어진다. 최근 글이 전부 사진이면 다음 페이지로 아예 못 넘어간다.
     """
     soup = BeautifulSoup(html, "html.parser")
     out: list[ChannelMessage] = []

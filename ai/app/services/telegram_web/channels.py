@@ -11,8 +11,8 @@ SK하이닉스 근거는 0건 늘고 수집량만 15,000자 늘었다. 새 채�
     B    실명 운영자·기관성 채널. 출처를 밝혀 인용한다
     C·D  인용하지 않는다
 
-지금 셋은 A 등급 중 PR #34 발췌 실험의 기사 20건이 나온 채널이다. 링크 열기·정제·
-문장 선택을 이미 한 번 돌려본 곳들이다.
+지금 넣은 셋은 모두 A 등급이고, PR #34 발췌 실험에 쓴 텔레그램 기사 20건이 나온 채널이다.
+링크 열기·정제·문장 선택을 이미 한 번 돌려 봤다.
 """
 
 from dataclasses import dataclass
@@ -25,8 +25,8 @@ Tier = Literal["A", "B", "C", "D"]
 class Channel:
     id: str  # t.me/s/<id> 의 그 값
     name: str  # 채널에 표시되는 이름
-    affiliation: str
-    tier: Tier
+    affiliation: str  # 운영 주체(증권사·팀). 수집 요약에 찍힌다
+    tier: Tier  # 인용 등급 (맨 위 표)
 
 
 CHANNELS: tuple[Channel, ...] = (
@@ -37,8 +37,11 @@ CHANNELS: tuple[Channel, ...] = (
 
 
 def select_channels(ids: list[str] | None) -> tuple[Channel, ...]:
-    """아이디로 고른다. 없으면 전부. 목록에 없는 아이디는 멈춘다 — 오타로 0건이 되면
-    "채널이 조용했다" 와 구분이 안 된다."""
+    """아이디로 채널을 고른다. ids 가 비었으면 목록 전부를 돌려준다.
+
+    목록에 없는 아이디가 있으면 ValueError 를 낸다. 오타 난 채널을 조용히 0건으로 넘기면
+    "그 채널에 글이 없었다" 와 구분이 안 된다.
+    """
     if not ids:
         return CHANNELS
     known = {channel.id: channel for channel in CHANNELS}

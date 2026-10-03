@@ -1,7 +1,8 @@
 """t.me/s/ 웹 미리보기 읽기. 실제 텔레그램에 접속하지 않고 같은 구조의 HTML 로 돈다.
 
-여기서 지키려는 것은 둘이다. 본문 글자가 채널에 보이는 그대로 남는다(인용 대조),
-게시 시각을 정확히 읽는다(당일 컷오프).
+여기서 지키려는 것은 둘이다.
+    - 본문 글자가 채널에 보이는 그대로 남는다. 보고서 인용을 원문과 대조하려면 필요하다.
+    - 게시 시각을 정확히 읽는다. 대상일 기준으로 글을 자르는(컷오프) 근거다.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -16,7 +17,7 @@ KST = timezone(timedelta(hours=9))
 
 def box(post: str, *, time: str | None = None, text: str | None = None,
         author: str | None = None, views: str | None = None, doc: str | None = None) -> str:
-    """텔레그램 웹 미리보기의 메시지 한 칸과 같은 구조."""
+    """가짜 메시지 HTML 한 칸. 텔레그램 웹 미리보기의 실제 구조와 같다(parse.py 맨 위 참고)."""
     parts = [f'<div class="tgme_widget_message js-widget_message" data-post="{post}">']
     if author:
         parts.append(f'<span class="tgme_widget_message_from_author">{author}</span>')
@@ -33,6 +34,7 @@ def box(post: str, *, time: str | None = None, text: str | None = None,
 
 
 def page(*boxes: str) -> str:
+    """메시지 칸들을 이어 붙여 채널 페이지 HTML 하나를 만든다."""
     return "<html><body>" + "".join(boxes) + "</body></html>"
 
 
@@ -130,6 +132,7 @@ UNTIL = datetime(2026, 9, 30, 12, 0, tzinfo=KST)
 
 
 def _client(handler) -> httpx.AsyncClient:
+    """요청이 가짜 서버(handler)로만 가는 client. 실제 네트워크를 타지 않는다."""
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
 

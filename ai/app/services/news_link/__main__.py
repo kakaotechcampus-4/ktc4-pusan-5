@@ -6,7 +6,8 @@
     uv run python -m app.services.news_link --rules               # 규칙 목록 (네트워크 없음)
 
 정제 규칙을 손볼 때 이게 있어야 한다. 무엇이 지워졌는지 안 보이면 규칙을 고칠 수가 없다.
-문장 선택도 같다. 모델이 고른 것과 코드가 붙인 앞 문장이 갈라져 보여야 어느 쪽을 고칠지 안다.
+문장 선택도 같다. 모델이 고른 문장과 코드가 붙인 앞 문장이 구분돼 보여야, 프롬프트를 고칠지
+앞 문장 규칙(selection.py)을 고칠지 안다.
 (backend `services/news/__main__.py` 와 같은 자리다.)
 """
 
@@ -125,7 +126,10 @@ async def show_link(url: str, sentences: int, max_chars: int, stocks: list[str])
 
 
 async def show_selection(stock: str, body: LinkBody) -> None:
-    """종목 하나로 문장 선택을 돌려 본다. 모델이 고른 문장과 코드가 붙인 앞 문장을 가른다."""
+    """종목 하나로 문장 선택을 돌려 결과를 찍는다.
+
+    코드가 붙인 앞 문장에는 "(앞 문장)" 을 달아 모델이 고른 문장과 구분한다.
+    """
     picked = await select_sentences(stock, body)
     usage = picked.usage
     tokens = (f" · 입력 {usage.get('prompt_tokens', 0)} / 출력 {usage.get('completion_tokens', 0)} 토큰"

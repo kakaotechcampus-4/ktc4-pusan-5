@@ -19,7 +19,9 @@ from app.services.telegram_web.parse import parse_page
 from app.services.telegram_web.schema import ChannelMessage
 
 BASE_URL = "https://t.me/s/"
+# 채널당 최대 페이지 수. 한 페이지에 글이 20개 안팎이라 5페이지면 최근 글 100개쯤이다.
 DEFAULT_MAX_PAGES = 5
+# 페이지 사이에 쉬는 시간(초). 남의 서버라 연달아 두드리지 않는다.
 DEFAULT_PAGE_DELAY_SEC = 1.5
 # 오류 메시지는 출력 한 줄에 들어갈 만큼만 남긴다.
 ERROR_MSG_MAX_CHARS = 70
@@ -27,11 +29,14 @@ ERROR_MSG_MAX_CHARS = 70
 
 @dataclass
 class ChannelFetch:
+    """채널 하나를 읽은 결과. 중간에 실패해도 그때까지 모은 메시지는 들어 있다."""
+
     channel: str
-    messages: list[ChannelMessage] = field(default_factory=list)  # 구간 안, 글자가 있는 것
+    # 구간 안 메시지. 본문 글자나 첨부 파일 이름이 있는 것만 담는다(사진만 올린 글은 뺀다)
+    messages: list[ChannelMessage] = field(default_factory=list)
     undated: list[ChannelMessage] = field(default_factory=list)  # 게시 시각을 못 읽은 것
-    pages: int = 0
-    error: str | None = None
+    pages: int = 0  # 실제로 요청한 페이지 수
+    error: str | None = None  # 실패 사유. 성공했으면 None
 
 
 async def fetch_channel(
@@ -43,7 +48,10 @@ async def fetch_channel(
     max_pages: int = DEFAULT_MAX_PAGES,
     page_delay: float = DEFAULT_PAGE_DELAY_SEC,
 ) -> ChannelFetch:
-    """since ~ until 의 메시지. 예외를 밖으로 던지지 않는다."""
+    """since ~ until 사이에 올라온 메시지를 모은다. 실패해도 예외를 던지지 않고 error 에 남긴다.
+
+    since·until 은 시간대가 있는 datetime 이어야 한다. 게시 시각(KST)과 크기를 비교한다.
+    """
     result = ChannelFetch(channel=channel)
     url = f"{BASE_URL}{channel}"
     seen: set[int] = set()
@@ -69,6 +77,7 @@ async def fetch_channel(
             break
 
         for message in page:
+            # 페이지가 겹쳐 같은 글이 다시 나오면 건너뛴다.
             if message.msg_id is not None and message.msg_id in seen:
                 continue
             if message.msg_id is not None:
@@ -76,14 +85,17 @@ async def fetch_channel(
             if message.text or message.attachment:  # 사진·영상만 올린 글은 읽을 게 없다
                 collected.append(message)
 
+        # 구간 시작보다 오래된 글이 이 페이지에 보이면 더 과거로 갈 필요가 없다.
         dated = [m.posted_at for m in page if m.posted_at]
         if dated and min(dated) < since:
             break
+        # 다음 페이지는 이 페이지의 가장 작은 글 번호보다 앞선 글들이다.
         ids = [m.msg_id for m in page if m.msg_id is not None]
         if not ids:
             break
         url = f"{BASE_URL}{channel}?before={min(ids)}"
 
+    # 구간 밖의 글은 버리고, 게시 시각을 모르는 글은 따로 담는다.
     for message in collected:
         if message.posted_at is None:
             result.undated.append(message)
