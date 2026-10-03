@@ -21,15 +21,18 @@ from pydantic import BaseModel
 #   not_html    HTML 도 PDF 도 아니다 (이미지·동영상)
 #   too_large   본문 상한을 넘는다
 #   http_error  200 이 아니다. Reuters·Bloomberg 는 봇을 막아 401/403 을 준다
+#   blocked     공개 인터넷 주소가 아니라서 열지 않았다 (fetch.py 의 SSRF 방어)
 #   error       네트워크·인코딩·파싱 실패
-LinkStatus = Literal["ok", "no_body", "pdf", "not_html", "too_large", "http_error", "error"]
+LinkStatus = Literal[
+    "ok", "no_body", "pdf", "not_html", "too_large", "http_error", "blocked", "error"
+]
 
 
 class LinkBody(BaseModel):
     """링크 하나의 수집 결과. 실패해도 버리지 않는다 — 최종 도메인만 남아도 값이 있다."""
 
     url: str  # 메시지에 적혀 있던 주소. 대부분 단축 URL 이다
-    final_url: str | None = None  # 리다이렉트를 따라간 최종 주소
+    final_url: str | None = None  # 리다이렉트를 따라간 최종 주소. blocked 면 비어 있다
     domain: str | None = None
     status: LinkStatus = "error"
     title: str | None = None
@@ -39,7 +42,8 @@ class LinkBody(BaseModel):
     chars: int = 0
     http_status: int | None = None  # status 가 http_error 일 때만
     content_type: str | None = None  # status 가 pdf·not_html 일 때 무엇이었는지
-    error: str | None = None  # status 가 error 일 때 예외 이름과 앞부분
+    # status 가 error 면 예외 이름과 앞부분, blocked 면 막힌 목적지 주소
+    error: str | None = None
     # 이 링크를 연 시각. tz-aware UTC 다. **기사는 발행 뒤에도 고쳐지므로**,
     # 이 값이 있어야 나중에 "대상일 컷오프보다 늦게 연 것" 을 걸러낼 수 있다.
     fetched_at: datetime
