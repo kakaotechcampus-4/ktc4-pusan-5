@@ -4,6 +4,7 @@ import { ErrorBox } from '@/components/ui';
 import { SplitLayout } from '@/components/layout/PageShell';
 import type { PricePeriod } from '@/lib/types';
 import { useStockDetail } from './useStockDetail';
+import { useStockFinancials } from './useStockFinancials';
 import { StockHeader, StockHeaderSkeleton } from './components/StockHeader';
 import { PriceActionSection } from './components/PriceActionSection';
 import { AtAGlanceCard } from './components/AtAGlanceCard';
@@ -22,6 +23,11 @@ export function StockBriefingPage() {
     loadEarlier,
     canLoadEarlier,
   } = useStockDetail(code, period);
+  const {
+    data: financials,
+    error: financialsError,
+    retry: retryFinancials,
+  } = useStockFinancials(code);
 
   if (!code || (overviewError && !overview.stock))
     return (
@@ -57,9 +63,23 @@ export function StockBriefingPage() {
             onPeriodChange={setPeriod}
           />
         }
-        side={<AtAGlanceCard quote={overview.quote} metrics={overview.metrics} />}
+        side={
+          <AtAGlanceCard
+            quote={overview.quote}
+            metrics={overview.metrics}
+            financials={financials}
+            financialsError={financialsError}
+            onRetryFinancials={retryFinancials}
+          />
+        }
       />
-      <StockInsightSection code={code} />
+      <StockInsightSection
+        quote={overview.quote}
+        metrics={overview.metrics}
+        financials={financials}
+        financialsError={financialsError}
+        onRetryFinancials={retryFinancials}
+      />
     </>
   );
 }

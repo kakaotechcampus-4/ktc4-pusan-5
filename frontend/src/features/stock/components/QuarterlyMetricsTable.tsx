@@ -7,7 +7,8 @@ import {
   formatPrice,
   formatRatio,
 } from '@/lib/format';
-import type { Growth, InvestmentPoint, Resource } from '@/lib/types';
+import type { InvestmentPoint, Resource } from '@/lib/types';
+import { NO_VALUE, growthLabel } from '../financialUtils';
 
 type Row = {
   label: ReactNode | ((point: InvestmentPoint) => ReactNode);
@@ -36,22 +37,6 @@ function datedDescription(
   return dates.length ? `${description} · ${dates.join(' · ')}` : description;
 }
 
-function growthLabel(growth: Growth): ReactNode {
-  if (growth.status === 'value' && growth.value !== null)
-    return <Change value={growth.value} size="sm" />;
-  const labels: Record<Growth['status'], string> = {
-    value: '—',
-    turned_profit: '흑자전환',
-    turned_loss: '적자전환',
-    loss_narrowed: '적자축소',
-    loss_widened: '적자확대',
-    loss_unchanged: '적자지속',
-    zero_base: '—',
-    unavailable: '—',
-  };
-  return <span>{labels[growth.status]}</span>;
-}
-
 const GROUPS: Group[] = [
   {
     title: '추세',
@@ -68,7 +53,7 @@ const GROUPS: Group[] = [
           ),
         render: (point) =>
           point.rs === null ? (
-            <span className="num">—</span>
+            <span className="num">{NO_VALUE}</span>
           ) : (
             <Change value={point.rs} unit="percentp" size="sm" />
           ),
@@ -108,7 +93,7 @@ const GROUPS: Group[] = [
           ),
         render: (point) =>
           point.marketCap === null ? (
-            <span className="num">—</span>
+            <span className="num">{NO_VALUE}</span>
           ) : (
             <span className="num">{formatCompactKRW(point.marketCap)}</span>
           ),
@@ -120,16 +105,41 @@ const GROUPS: Group[] = [
     rows: [
       {
         label: unavailable('PER', '과거 분기말 데이터가 연결되지 않아 표시하지 않습니다.'),
-        render: () => <span className="num">—</span>,
+        render: () => <span className="num">{NO_VALUE}</span>,
       },
       {
         label: unavailable('PBR', '과거 분기말 데이터가 연결되지 않아 표시하지 않습니다.'),
-        render: () => <span className="num">—</span>,
+        render: () => <span className="num">{NO_VALUE}</span>,
+      },
+      {
+        label: (
+          <>
+            누적 EPS{' '}
+            <InfoTip description="해당 결산연월까지 누적된 EPS이며, 분기 EPS의 단순 차분값이 아닙니다." />
+          </>
+        ),
+        render: (point) =>
+          point.epsCumulative === null ? (
+            NO_VALUE
+          ) : (
+            <span className="num">{formatPrice(point.epsCumulative)}원</span>
+          ),
+      },
+      {
+        label: unavailable('BPS', '분기별 BPS 데이터가 아직 연동되지 않아 표시하지 않습니다.'),
+        render: () => <span className="num">{NO_VALUE}</span>,
+      },
+      {
+        label: unavailable(
+          '배당수익률',
+          '분기별 배당수익률 데이터가 아직 연동되지 않아 표시하지 않습니다.',
+        ),
+        render: () => <span className="num">{NO_VALUE}</span>,
       },
       {
         label: 'ROE',
         render: (point) => (
-          <span className="num">{point.roe === null ? '—' : formatRatio(point.roe)}</span>
+          <span className="num">{point.roe === null ? NO_VALUE : formatRatio(point.roe)}</span>
         ),
       },
     ],
@@ -141,7 +151,7 @@ const GROUPS: Group[] = [
         label: '부채비율',
         render: (point) => (
           <span className="num">
-            {point.debtRatio === null ? '—' : formatRatio(point.debtRatio)}
+            {point.debtRatio === null ? NO_VALUE : formatRatio(point.debtRatio)}
           </span>
         ),
       },
@@ -149,7 +159,7 @@ const GROUPS: Group[] = [
         label: '영업이익',
         render: (point) =>
           point.operatingProfit === null ? (
-            '—'
+            NO_VALUE
           ) : (
             <span className="num">{formatCompactKRW(point.operatingProfit)}</span>
           ),
@@ -158,23 +168,9 @@ const GROUPS: Group[] = [
         label: '당기순이익',
         render: (point) =>
           point.netIncome === null ? (
-            '—'
+            NO_VALUE
           ) : (
             <span className="num">{formatCompactKRW(point.netIncome)}</span>
-          ),
-      },
-      {
-        label: (
-          <>
-            누적 EPS{' '}
-            <InfoTip description="해당 결산연월까지 누적된 EPS이며, 분기 EPS의 단순 차분값이 아닙니다." />
-          </>
-        ),
-        render: (point) =>
-          point.epsCumulative === null ? (
-            '—'
-          ) : (
-            <span className="num">{formatPrice(point.epsCumulative)}원</span>
           ),
       },
     ],
