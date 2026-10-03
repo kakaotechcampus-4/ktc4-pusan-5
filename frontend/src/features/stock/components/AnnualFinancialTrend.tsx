@@ -1,7 +1,7 @@
 import { Card, Empty, ErrorBox, InfoTip, Kicker, Skeleton, Tag } from '@/components/ui';
 import { formatCompactKRW, formatFiscalPeriod, formatPrice } from '@/lib/format';
 import type { StockFinancials } from '@/lib/types';
-import { mergeAnnualRows } from '../financialUtils';
+import { NO_VALUE, mergeAnnualRows } from '../financialUtils';
 
 const METRICS = [
   { key: 'revenue', label: '매출액', format: formatCompactKRW },
@@ -11,7 +11,7 @@ const METRICS = [
 ] as const;
 
 function formatValue(value: number | null, format: (value: number) => string) {
-  return value === null ? '—' : format(value);
+  return value === null ? NO_VALUE : format(value);
 }
 
 export function AnnualFinancialTrend({

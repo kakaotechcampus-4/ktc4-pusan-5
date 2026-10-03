@@ -15,10 +15,14 @@ export function AtAGlanceCard({
   quote,
   metrics,
   financials,
+  financialsError,
+  onRetryFinancials,
 }: {
   quote: Resource<StockQuoteData> | null;
   metrics: Resource<StockMetricsData> | null;
   financials: StockFinancials | null;
+  financialsError: Error | null;
+  onRetryFinancials: () => void;
 }) {
   if (!quote && !metrics)
     return (
@@ -29,7 +33,13 @@ export function AtAGlanceCard({
     );
   const q = quote?.data;
   const m = metrics?.data;
-  const rows = buildAtAGlanceRows({ quote: q, metrics: m, financials });
+  const rows = buildAtAGlanceRows({
+    quote: q,
+    metrics: m,
+    financials,
+    financialsError,
+    onRetryFinancials,
+  });
   const unavailable = [quote?.status, metrics?.status].some(
     (status) => status === 'unavailable' || status === 'empty',
   );

@@ -6,7 +6,7 @@ export { Markdown } from './Markdown';
 export { Stat, StatGrid } from './Stat';
 export { StatList, StatListItem } from './StatList';
 export { Tag } from './Tag';
-export { Empty, ErrorBox, Skeleton, SkeletonText } from './State';
+export { Empty, ErrorBox, RetryIconButton, Skeleton, SkeletonText } from './State';
 export { StockAvatar } from './StockAvatar';
 export { Modal } from './Modal';
 export { Tabs } from './Tabs';

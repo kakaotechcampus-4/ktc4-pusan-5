@@ -88,6 +88,7 @@ BASIS 프론트엔드 디자인 규칙. `frontend/` 안에서만 적용된다. �
 | 로딩 | `<SkeletonText lines={3} />` / `<Skeleton className="h-40" />` |
 | 빈 상태 | `<Empty title description action />` |
 | 에러 | `<ErrorBox onRetry />` |
+| 좁은 영역의 인라인 재시도 | `<RetryIconButton onClick pending />` (회색 아이콘, 큰 ErrorBox 대신 행 단위) |
 | 페이지 | `<PageShell>` / `<SplitLayout />` / `<SectionHead />` |
 | AI 영역 | `<GuardrailNote />` |
 | 숫자·날짜 | `lib/format.ts` |

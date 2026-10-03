@@ -1,12 +1,14 @@
+import type { ReactNode } from 'react';
 import { ErrorBox, InfoTip, SkeletonText, StatList, StatListItem, Tag } from '@/components/ui';
 import { formatFiscalPeriod, formatRatio } from '@/lib/format';
 import type { FinancialHealthData, Resource } from '@/lib/types';
+import { NO_VALUE } from '../financialUtils';
 
-function display(value: number | null): string {
-  return value === null ? '—' : formatRatio(value);
+function display(value: number | null): ReactNode {
+  return value === null ? NO_VALUE : formatRatio(value);
 }
 
-function num(value: string) {
+function num(value: ReactNode) {
   return <span className="num text-sm font-semibold">{value}</span>;
 }
 
