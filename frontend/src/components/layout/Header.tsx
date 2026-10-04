@@ -6,7 +6,7 @@ import { LoginModal } from '@/features/auth/LoginModal';
 
 const NAV = [
   { to: '/', label: '홈' },
-  { to: '/stock/005930', label: '종목 브리핑' },
+  { to: '/stocks', label: '개별 종목' },
   { to: '/concepts', label: '개념' },
 ];
 
