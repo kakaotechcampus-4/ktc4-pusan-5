@@ -6,11 +6,19 @@ on:
       - main
     paths:
       - 'backend/**'
+      - 'docker-compose.yml'
+      - 'Caddyfile'
+      - '.github/workflows/backend-deploy.yml'
   workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
+
+# 배포가 서버에서 동시에 겹쳐 돌지 않도록 줄 세운다. 진행 중인 배포는 끊지 않는다.
+concurrency:
+  group: backend-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -25,9 +33,46 @@ jobs:
           aws-region: ap-northeast-2
 
       - name: 배포 (SSM Run Command)
+        env:
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          DEPLOY_SHA: ${{ github.sha }}
         run: |
-          aws ssm send-command \
-            --instance-ids "${{ vars.EC2_INSTANCE_ID }}" \
+          # 트리거된 커밋(SHA)을 그대로 서버에 올린다. git pull은 그 사이 들어온 최신 커밋을 끌어올 수 있다.
+          COMMAND="cd /home/ubuntu/marketlit && git fetch origin ${DEPLOY_SHA} && git reset --hard ${DEPLOY_SHA} && docker compose up -d --build"
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["cd /home/ubuntu/marketlit && git pull origin ${{ github.ref_name }} && docker compose up -d --build"]' \
-            --region ap-northeast-2
+            --parameters "commands=[\"${COMMAND}\"]" \
+            --region ap-northeast-2 \
+            --query "Command.CommandId" \
+            --output text)
+          echo "CommandId: $COMMAND_ID"
+
+          # send-command는 '요청 접수'만 의미한다. 서버에서 실제 실행이 끝날 때까지 기다린다.
+          # 명령이 실패하면 wait가 비정상 종료하므로, 로그를 먼저 출력할 수 있게 코드를 받아둔다.
+          WAIT_RC=0
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --region ap-northeast-2 || WAIT_RC=$?
+
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --region ap-northeast-2 \
+            --query "Status" \
+            --output text)
+          echo "status: $STATUS (wait exit code: $WAIT_RC)"
+
+          echo "----- stdout -----"
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --region ap-northeast-2 --query "StandardOutputContent" --output text
+          echo "----- stderr -----"
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --region ap-northeast-2 --query "StandardErrorContent" --output text
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "::error::배포 실패 (status: $STATUS)"
+            exit 1
+          fi
