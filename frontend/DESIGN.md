@@ -80,13 +80,15 @@ BASIS 프론트엔드 디자인 규칙. `frontend/` 안에서만 적용된다. �
 | 등락 숫자 | `<Change />` |
 | 버튼 | `<Button variant="primary" \| "secondary" \| "ghost">` |
 | 카드 | `<Card>` (회색 면) / `<Card tone="plain">` (흰 면 + 테두리) |
-| 수치 나열 | `<StatGrid><Stat label="시가총액" value={...} /></StatGrid>` |
+| 수치 나열(박스) | `<StatGrid><Stat label="시가총액" value={...} /></StatGrid>` |
+| 수치 나열(리스트) | `<StatList><StatListItem label="시가총액" value={...} /></StatList>` |
 | 태그 | `<Tag tone="neutral" \| "brand" \| "ai">` |
 | 종목 로고 | `<StockAvatar initial="삼" />` (size="sm" 은 좁은 리스트용) |
 | 목록 필터 | `<FilterChips label chips value onChange />` |
 | 로딩 | `<SkeletonText lines={3} />` / `<Skeleton className="h-40" />` |
 | 빈 상태 | `<Empty title description action />` |
 | 에러 | `<ErrorBox onRetry />` |
+| 좁은 영역의 인라인 재시도 | `<RetryIconButton onClick pending />` (회색 아이콘, 큰 ErrorBox 대신 행 단위) |
 | 페이지 | `<PageShell>` / `<SplitLayout />` / `<SectionHead />` |
 | AI 영역 | `<GuardrailNote />` |
 | 숫자·날짜 | `lib/format.ts` |

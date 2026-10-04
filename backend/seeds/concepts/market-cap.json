@@ -1,0 +1,48 @@
+{
+  "slug": "market-cap",
+  "name": "시가총액",
+  "aliases": [
+    "Market Capitalization",
+    "시총"
+  ],
+  "category": "valuation/relative-value",
+  "extraCategories": null,
+  "summary": "상장 주식 전체를 지금 주가로 평가한 값. 주가에 상장주식수를 곱해 구하며, 회사 규모와 시장 비중을 가늠하는 기준입니다.",
+  "body": "시가총액은 주가에 상장주식수를 곱한 값으로, 주식시장이 매긴 회사의 평가 규모를 나타냅니다. [코스피·코스닥](kospi-kosdaq) 같은 지수도 개별 종목의 시가총액을 모두 더해 가중한 방식으로 산출되므로, 시가총액이 큰 종목일수록 지수 움직임에 미치는 영향도 커집니다.\n\n시가총액이 크다고 저평가되었다거나 안전하다는 뜻은 아닙니다. 이익이나 자산에 비해 시가총액이 적정한 수준인지는 [PER](per)이나 [PBR](pbr)처럼 이익·자산과 비교하는 지표를 함께 봐야 가려집니다.\n\n주의할 점은 시가총액에 들어가는 주식수가 시장에서 실제 거래되는 물량과 다르다는 것입니다. 시가총액은 잘 거래되지 않는 대주주 보유분까지 포함해 계산합니다. 거래소가 정한 시가총액 기준에 미달하면 관리종목으로 지정될 수 있어, 시가총액은 상장 유지 여부와도 연결됩니다.",
+  "related": [
+    {
+      "slug": "per",
+      "reason": "이익과 비교하는 짝"
+    },
+    {
+      "slug": "pbr",
+      "reason": "자산과 비교하는 짝"
+    },
+    {
+      "slug": "kospi-kosdaq",
+      "reason": "지수 산출의 기준값"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "시가총액은 주가에 상장주식수를 곱해 구한다.",
+      "answer": true,
+      "explanation": "상장된 주식 전체를 반영합니다."
+    },
+    {
+      "question": "시가총액이 크면 항상 저평가된 우량주라는 뜻이다.",
+      "answer": false,
+      "explanation": "이익·자산과 비교해야 알 수 있습니다."
+    },
+    {
+      "question": "거래소가 정한 시가총액 기준에 미달하면 관리종목으로 지정될 수 있다.",
+      "answer": true,
+      "explanation": "상장 유지 요건과도 연결됩니다."
+    }
+  ],
+  "sources": [
+    "기획재정부 「시사경제용어사전」 '시가총액' 항목 https://www.data.go.kr/data/15006052/fileData.do",
+    "한국은행 「경제금융용어 800선」(2026) '주가지수' 항목 https://www.bok.or.kr/portal/bbs/B0000249/view.do?nttId=10096081&menuNo=200765",
+    "법제처 찾기쉬운 생활법령정보 「주식투자자」 https://www.easylaw.go.kr/CSP/CnpClsMain.laf?csmSeq=1701&ccfNo=1&cciNo=2&cnpClsNo=2"
+  ]
+}
