@@ -11,6 +11,7 @@ import type {
   StockPriceResource,
   StockFinancials,
   PricePeriod,
+  SearchResponse,
   User,
 } from './types';
 import type { Concept, ConceptListResponse } from '@/features/concepts/types';
@@ -99,6 +100,17 @@ export function loginWithKakao(code: string): Promise<User> {
 
 export function logout(): Promise<void> {
   return request<void>('/api/auth/logout', { method: 'POST' });
+}
+
+/** 종목과 개념을 함께 검색한다. limit 은 종류별 최대 개수다. */
+export function searchAll(
+  query: string,
+  signal?: AbortSignal,
+  limit?: number,
+): Promise<SearchResponse> {
+  const params = new URLSearchParams({ q: query });
+  if (limit) params.set('limit', String(limit));
+  return request<SearchResponse>(`/api/search?${params}`, { signal });
 }
 
 export function getMarketOverview(signal?: AbortSignal): Promise<MarketOverview> {

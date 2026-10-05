@@ -173,6 +173,24 @@ export type MarketBoard<T, K extends string> = {
 };
 export type FlowBoard = MarketBoard<FlowItem, 'flowBuy' | 'flowSell'>;
 export type SectorBoard = MarketBoard<SectorItem, 'sectorKospi' | 'sectorKosdaq'>;
+export type SearchStockItem = {
+  code: string;
+  name: string;
+  market: 'KOSPI' | 'KOSDAQ';
+};
+
+export type SearchConceptItem = {
+  slug: string;
+  name: string;
+  summary: string;
+};
+
+export type SearchResponse = {
+  query: string;
+  stocks: SearchStockItem[];
+  concepts: SearchConceptItem[];
+};
+
 export type MarketOverview = {
   items: MarketItem[];
   rankings: RankingBoard[];
