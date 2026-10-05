@@ -6,6 +6,9 @@ import type { StockListItem } from '@/lib/types';
  */
 export type MockStockListItem = Omit<StockListItem, 'code'> & { code: string | null };
 
+/* 시가총액 순위 기준 시각 */
+export const mockStockListAsOf = '2026-10-04T12:00:00+09:00';
+
 const MOCK_STOCK_NAMES = [
   '삼성전자',
   'SK하이닉스',

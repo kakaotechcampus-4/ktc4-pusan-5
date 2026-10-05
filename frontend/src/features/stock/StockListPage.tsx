@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Empty, ErrorBox, Select, Skeleton } from '@/components/ui';
+import { SectionHead } from '@/components/layout/PageShell';
+import { formatAsOf } from '@/lib/format';
 import type { MockStockListItem } from './mockStockList';
 import { useStockList, type StockSortKey } from './useStockList';
 
@@ -15,10 +17,12 @@ const SORT_OPTIONS: { value: StockSortKey; label: string }[] = [
 
 const SKELETON_ROW_COUNT = 8;
 
-const ROW_CLASS = 'flex items-baseline gap-1 px-4 py-3 text-sm';
+const RANK_GROUP_SIZE = 10;
+
+const LIST_CLASS = 'list-disc space-y-2 pl-6 text-h3 marker:text-neutral-500';
 
 export function StockListPage() {
-  const { status, items, sortKey, setSortKey, retry } = useStockList();
+  const { status, asOf, items, sortKey, setSortKey, retry } = useStockList();
 
   if (status === 'error') {
     return (
@@ -46,6 +50,11 @@ export function StockListPage() {
         />
       </div>
 
+      {status === 'success' && asOf && sortKey === 'marketCap' && (
+        <p className="num text-sm text-neutral-600">
+          {formatAsOf(new Date(asOf), '시가총액 기준')}
+        </p>
+      )}
       {status === 'loading' && <StockListSkeleton />}
       {status === 'success' && items.length === 0 && (
         <Empty
@@ -53,29 +62,60 @@ export function StockListPage() {
           description="종목이 추가되면 여기에서 확인할 수 있습니다"
         />
       )}
-      {status === 'success' && items.length > 0 && (
-        <ul className="border-divider divide-divider flex list-none flex-col divide-y rounded-lg border">
-          {items.map((item) => (
-            <li key={item.name}>
-              <StockListRow item={item} />
-            </li>
+      {status === 'success' && items.length > 0 && sortKey === 'marketCap' && (
+        <div className="flex flex-col gap-8">
+          {groupByRankRange(items).map((group) => (
+            <section key={group.title}>
+              <SectionHead title={group.title} tone="muted" />
+              <StockListItems items={group.items} />
+            </section>
           ))}
-        </ul>
+        </div>
+      )}
+      {status === 'success' && items.length > 0 && sortKey === 'name' && (
+        <StockListItems items={items} />
       )}
     </div>
+  );
+}
+
+type RankGroup = { title: string; items: MockStockListItem[] };
+
+/** 시가총액 순위로 정렬된 목록을 10위 단위 구간(1~10위, 11~20위 …)으로 끊는다 */
+function groupByRankRange(items: MockStockListItem[]): RankGroup[] {
+  const groups = new Map<number, RankGroup>();
+  for (const item of items) {
+    const groupIndex = Math.floor((item.marketCapRank - 1) / RANK_GROUP_SIZE);
+    const start = groupIndex * RANK_GROUP_SIZE + 1;
+    const group = groups.get(groupIndex) ?? {
+      title: `${start}~${start + RANK_GROUP_SIZE - 1}위`,
+      items: [],
+    };
+    group.items.push(item);
+    groups.set(groupIndex, group);
+  }
+  return [...groups.values()];
+}
+
+function StockListItems({ items }: { items: MockStockListItem[] }) {
+  return (
+    <ul className={LIST_CLASS}>
+      {items.map((item) => (
+        <li key={item.name}>
+          <StockListRow item={item} />
+        </li>
+      ))}
+    </ul>
   );
 }
 
 /** 코드가 있는 종목만 상세로 연결한다. 코드는 GET /api/stocks 연동 후 채워진다. */
 function StockListRow({ item }: { item: MockStockListItem }) {
   if (!item.code) {
-    return <div className={`${ROW_CLASS} text-neutral-500`}>{item.name}</div>;
+    return <span className="text-neutral-500">{item.name}</span>;
   }
   return (
-    <Link
-      to={`/stock/${item.code}`}
-      className={`${ROW_CLASS} text-ink no-underline hover:bg-neutral-100`}
-    >
+    <Link to={`/stock/${item.code}`} className="text-ink hover:text-brand no-underline">
       <span className="font-semibold">{item.name}</span>
       <span className="num text-neutral-600">({item.code})</span>
     </Link>
@@ -84,9 +124,9 @@ function StockListRow({ item }: { item: MockStockListItem }) {
 
 function StockListSkeleton() {
   return (
-    <ul className="border-divider divide-divider flex list-none flex-col divide-y rounded-lg border">
+    <ul className={LIST_CLASS}>
       {Array.from({ length: SKELETON_ROW_COUNT }).map((_, index) => (
-        <li key={index} className="px-4 py-3">
+        <li key={index}>
           <Skeleton className="h-5 w-40" />
         </li>
       ))}

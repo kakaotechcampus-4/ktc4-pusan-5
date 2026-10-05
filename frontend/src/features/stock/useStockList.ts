@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { mockStockList, type MockStockListItem } from './mockStockList';
+import { mockStockList, mockStockListAsOf, type MockStockListItem } from './mockStockList';
 
 /**
  * 종목 목록을 불러오고 정렬한다.
@@ -10,9 +10,11 @@ export type StockSortKey = 'name' | 'marketCap';
 
 const MOCK_DELAY_MS = 500;
 
-function loadStockList(): Promise<MockStockListItem[]> {
+type StockListResponse = { asOf: string; items: MockStockListItem[] };
+
+function loadStockList(): Promise<StockListResponse> {
   return new Promise((resolve) => {
-    setTimeout(() => resolve(mockStockList), MOCK_DELAY_MS);
+    setTimeout(() => resolve({ asOf: mockStockListAsOf, items: mockStockList }), MOCK_DELAY_MS);
   });
 }
 
@@ -25,9 +27,13 @@ function sortStockList(items: MockStockListItem[], sortKey: StockSortKey): MockS
   return sorted.sort((a, b) => a.marketCapRank - b.marketCapRank);
 }
 
-type StockListState = { status: StockListStatus; items: MockStockListItem[] };
+type StockListState = {
+  status: StockListStatus;
+  asOf: string | null;
+  items: MockStockListItem[];
+};
 
-const LOADING_STATE: StockListState = { status: 'loading', items: [] };
+const LOADING_STATE: StockListState = { status: 'loading', asOf: null, items: [] };
 
 export function useStockList() {
   const [state, setState] = useState<StockListState>(LOADING_STATE);
@@ -39,11 +45,11 @@ export function useStockList() {
     let cancelled = false;
 
     loadStockList()
-      .then((items) => {
-        if (!cancelled) setState({ status: 'success', items });
+      .then(({ asOf, items }) => {
+        if (!cancelled) setState({ status: 'success', asOf, items });
       })
       .catch(() => {
-        if (!cancelled) setState({ status: 'error', items: [] });
+        if (!cancelled) setState({ status: 'error', asOf: null, items: [] });
       });
 
     return () => {
@@ -58,5 +64,5 @@ export function useStockList() {
 
   const sortedItems = useMemo(() => sortStockList(state.items, sortKey), [state.items, sortKey]);
 
-  return { status: state.status, items: sortedItems, sortKey, setSortKey, retry };
+  return { status: state.status, asOf: state.asOf, items: sortedItems, sortKey, setSortKey, retry };
 }
