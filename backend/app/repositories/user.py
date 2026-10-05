@@ -10,18 +10,16 @@ async def get_or_create_user(
     *,
     kakao_id: str,
     nickname: str,
-    email: str,
 ) -> User:
     # kakao_id 로 atomic upsert.
     # INSERT ... ON CONFLICT (kakao_id) DO UPDATE ... RETURNING
     stmt = (
         pg_insert(User)
-        .values(kakao_id=kakao_id, nickname=nickname, email=email)
+        .values(kakao_id=kakao_id, nickname=nickname)
         .on_conflict_do_update(
             index_elements=[User.kakao_id],
             set_={
                 "nickname": nickname,
-                "email": email,
                 "last_login_at": func.now(),
             },
         )

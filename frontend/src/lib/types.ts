@@ -1,7 +1,6 @@
 export type User = {
   id: number;
   nickname: string;
-  email: string;
 };
 
 export type ResourceStatus = 'pending' | 'ready' | 'stale' | 'unavailable' | 'empty';
