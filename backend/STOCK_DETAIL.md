@@ -48,13 +48,16 @@ collectedAt은 수집 시각이며 실제 체결 시각이라고 표시하지 �
 
 ## API 계약
 
-- `GET /api/stocks`: MVP 고정 목록 100개. `items[]`는 rank, code, name, market만 포함하며 순위 순이다.
+- `GET /api/stocks`: MVP 고정 목록 100개. `items[]`는 rank, code, name, market, sector만 포함하며 시총 순위 순이다.
 - `GET /api/stocks/{code}/financials`: 독립된 income/eps Resource, source=KIS, basis=provider
 - `GET /api/stocks/{code}/overview`: stock, quote, metrics
 - `GET /api/stocks/{code}/prices?period=1Y`: 1M/3M/1Y/5Y/ALL
 
 MVP 범위에서는 `app/core/mvp_stocks.py`의 고정 목록(시총 순위 100개) 종목만 노출한다.
 목록 API는 시세를 포함하지 않으며 수집 작업도 등록하지 않는다. 
+sector는 KRX 업종지수 표기(`services/krx.py`의 `SECTOR_NAMES`, 예: 전기전자)이며 홈 업종 순위의 이름과 같다.
+값은 KIS 주식현재가 시세의 `bstp_kor_isnm`을 종목별로 조회해 `mvp_stocks.py`에 고정했고, 거래소 분류를 그대로 쓰므로 지주회사(SK, LG, GS 등)는 금융으로 나온다.
+업종 묶기와 업종 정렬(종목 수 순)은 프론트가 하며, 응답은 시총 순위 순을 유지한다.
 상세 API 3개는 목록 밖 코드를 DB 조회와 수집 작업 등록 전에 404 STOCK_NOT_FOUND로 거절한다. 종목 마스터(stock테이블)에는 전체 종목이 계속 동기화되므로, 범위를 넓힐 때는 고정 목록만 고치면 된다.
 
 각 영역은 status, refreshing, data, sourceAsOf, collectedAt, retryAfterSeconds를 가진다.
