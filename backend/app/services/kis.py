@@ -187,3 +187,35 @@ class KisClient:
             (current - previous) / previous * 100,
             date.fromisoformat(rows[0]["stck_bsop_date"]),
         )
+
+    async def fetch_gold_quote(self, symbol: str) -> Quote:
+        """KRX 금시장(금 99.99) 일별 시세. 가격은 원/g 이다."""
+        body = await self.get(
+            "/uapi/domestic-stock/v1/quotations/inquire-daily-price",
+            "FHKST01010400",
+            {
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_INPUT_ISCD": symbol,
+                "FID_PERIOD_DIV_CODE": "D",
+                "FID_ORG_ADJ_PRC": "0",
+            },
+        )
+        output = body.get("output")
+        if not isinstance(output, list) or any(not isinstance(row, dict) for row in output):
+            raise MarketDataError("INVALID_RESPONSE")
+        rows = sorted(
+            (row for row in output if row.get("stck_bsop_date")),
+            key=lambda row: row["stck_bsop_date"],
+            reverse=True,
+        )
+        if len(rows) < 2:
+            raise MarketDataError("NO_DATA")
+        # 환율과 같이 날짜가 붙은 시계열 값만 쓰고, 직전 거래일 종가 대비 등락률을 직접 계산한다.
+        current, previous = number(rows[0]["stck_clpr"]), number(rows[1]["stck_clpr"])
+        if previous <= 0:
+            raise MarketDataError("INVALID_RESPONSE")
+        return Quote(
+            current,
+            (current - previous) / previous * 100,
+            date.fromisoformat(rows[0]["stck_bsop_date"]),
+        )

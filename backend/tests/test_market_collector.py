@@ -35,6 +35,9 @@ async def test_one_source_failure_does_not_stop_other_sources(monkeypatch):
         async def fetch_quote(self):
             return quote
 
+        async def fetch_gold_quote(self, symbol):
+            return quote
+
     monkeypatch.setattr(market, "list_snapshots", empty_snapshots)
     monkeypatch.setattr(market, "list_rankings", empty_snapshots)
     monkeypatch.setattr(market.krx, "fetch_market", fetch_krx)
@@ -53,10 +56,9 @@ async def test_one_source_failure_does_not_stop_other_sources(monkeypatch):
                     row.code: row for row in (await session.scalars(select(MarketSnapshot))).all()
                 }
                 assert rows["sp500"].error_code == "NO_DATA"
-                for code in ("kospi", "kosdaq", "nasdaq", "usdkrw"):
+                for code in ("kospi", "kosdaq", "nasdaq", "usdkrw", "gold"):
                     assert rows[code].error_code is None
                     assert rows[code].collected_at is not None
-                assert "gold" not in rows
         finally:
             await transaction.rollback()
 
@@ -113,6 +115,9 @@ async def test_slow_source_does_not_block_saving_other_results(monkeypatch):
             return []
 
         async def fetch_quote(self):
+            return quote
+
+        async def fetch_gold_quote(self, symbol):
             return quote
 
         async def fetch_ranking(self, kind):

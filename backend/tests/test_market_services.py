@@ -148,3 +148,47 @@ async def test_malformed_kis_response_is_contained_and_next_fetch_succeeds(paylo
         _, value, error = await fetch_result("usdkrw", kis.fetch_quote)
         assert value.value == 1100
         assert error is None
+
+
+@respx.mock
+async def test_kis_gold_uses_dated_close_and_computes_change():
+    respx.post(settings.kis_api_base_url + "/oauth2/tokenP").respond(
+        200, json={"access_token": "test-token", "expires_in": 86400}
+    )
+    route = respx.get(
+        settings.kis_api_base_url + "/uapi/domestic-stock/v1/quotations/inquire-daily-price"
+    ).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "rt_cd": "0",
+                "output": [
+                    {"stck_bsop_date": "20261002", "stck_clpr": "182,770"},
+                    {"stck_bsop_date": "20261001", "stck_clpr": "183480"},
+                ],
+            },
+        )
+    )
+    async with httpx.AsyncClient() as client:
+        quote = await KisClient(client).fetch_gold_quote("M04020000")
+    assert route.calls.last.request.url.params["FID_INPUT_ISCD"] == "M04020000"
+    assert quote.value == 182770
+    assert quote.observation_date.isoformat() == "2026-10-02"
+    assert round(float(quote.change), 2) == -0.39
+
+
+@pytest.mark.parametrize(
+    "output",
+    [None, "bad", [None], [{"stck_bsop_date": "20261002", "stck_clpr": "182770"}]],
+)
+@respx.mock
+async def test_kis_gold_rejects_malformed_or_insufficient_rows(output):
+    respx.post(settings.kis_api_base_url + "/oauth2/tokenP").respond(
+        200, json={"access_token": "test-token", "expires_in": 86400}
+    )
+    respx.get(
+        settings.kis_api_base_url + "/uapi/domestic-stock/v1/quotations/inquire-daily-price"
+    ).mock(return_value=httpx.Response(200, json={"rt_cd": "0", "output": output}))
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(MarketDataError):
+            await KisClient(client).fetch_gold_quote("M04020000")
