@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Empty, ErrorBox, Select, Skeleton } from '@/components/ui';
 import { SectionHead } from '@/components/layout/PageShell';
+import { cn } from '@/lib/cn';
 import { formatAsOf } from '@/lib/format';
 import type { MockStockListItem } from './mockStockList';
 import { useStockList, type StockSortKey } from './useStockList';
@@ -15,11 +16,17 @@ const SORT_OPTIONS: { value: StockSortKey; label: string }[] = [
   { value: 'name', label: '가나다순' },
 ];
 
-const SKELETON_ROW_COUNT = 8;
+const SKELETON_ITEM_COUNT = 6;
 
 const RANK_GROUP_SIZE = 10;
 
-const LIST_CLASS = 'list-disc space-y-2 pl-6 text-h3 marker:text-neutral-500';
+const GRID_CLASS = 'grid list-none gap-3 md:grid-cols-2 lg:grid-cols-3';
+
+const ITEM_CLASS = cn(
+  'flex min-h-16 items-center justify-between gap-3 rounded-md px-4 py-3',
+  'border-divider text-ink border no-underline',
+  'hover:border-brand hover:bg-brand-100',
+);
 
 export function StockListPage() {
   const { status, asOf, items, sortKey, setSortKey, retry } = useStockList();
@@ -99,35 +106,48 @@ function groupByRankRange(items: MockStockListItem[]): RankGroup[] {
 
 function StockListItems({ items }: { items: MockStockListItem[] }) {
   return (
-    <ul className={LIST_CLASS}>
+    <ul className={GRID_CLASS}>
       {items.map((item) => (
         <li key={item.name}>
-          <StockListRow item={item} />
+          <StockListItem item={item} />
         </li>
       ))}
     </ul>
   );
 }
 
-/** 코드가 있는 종목만 상세로 연결한다. 코드는 GET /api/stocks 연동 후 채워진다. */
-function StockListRow({ item }: { item: MockStockListItem }) {
+/**
+ * 클릭 가능한 카드형 항목. 이름 위, 코드 아래 두 줄이고 오른쪽 끝의 › 로 이동할 수 있음을 알린다.
+ * 코드는 GET /api/stocks 연동 후 채워지므로, 그 전까지 코드가 없는 종목은 이동 없이 같은 모양으로 보여준다.
+ */
+function StockListItem({ item }: { item: MockStockListItem }) {
+  const content = (
+    <>
+      <span className="flex flex-col">
+        <span className="text-base font-semibold">{item.name}</span>
+        <span className="num min-h-6 text-sm text-neutral-600">{item.code}</span>
+      </span>
+      <span aria-hidden className="text-h3 text-neutral-500">
+        ›
+      </span>
+    </>
+  );
   if (!item.code) {
-    return <span className="text-neutral-500">{item.name}</span>;
+    return <div className={ITEM_CLASS}>{content}</div>;
   }
   return (
-    <Link to={`/stock/${item.code}`} className="text-ink hover:text-brand no-underline">
-      <span className="font-semibold">{item.name}</span>
-      <span className="num text-neutral-600">({item.code})</span>
+    <Link to={`/stock/${item.code}`} className={ITEM_CLASS}>
+      {content}
     </Link>
   );
 }
 
 function StockListSkeleton() {
   return (
-    <ul className={LIST_CLASS}>
-      {Array.from({ length: SKELETON_ROW_COUNT }).map((_, index) => (
+    <ul className={GRID_CLASS}>
+      {Array.from({ length: SKELETON_ITEM_COUNT }).map((_, index) => (
         <li key={index}>
-          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-16" />
         </li>
       ))}
     </ul>
