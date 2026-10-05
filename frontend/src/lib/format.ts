@@ -102,6 +102,8 @@ export function formatFiscalPeriod(value: string): string {
 }
 
 export function formatMarketValue(value: number, unit: string | null): string {
+  // 금현물은 원/g 단위의 정수 가격이다. 소수점 둘째 자리를 붙이면 정밀해 보이는 착시가 생긴다.
+  if (unit === 'KRW/g') return `${formatPrice(value)}원/g`;
   const formatted = value.toLocaleString('ko-KR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
