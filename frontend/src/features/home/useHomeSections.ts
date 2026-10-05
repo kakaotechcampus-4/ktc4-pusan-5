@@ -1,10 +1,26 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/features/auth/useAuth';
-import { mockSignalBoard, mockWatchlist } from './mock';
+import type { AuthStatus } from '@/features/auth/useAuth';
+import { mockSignalBoard } from './mock';
+import { useWatchlist } from './useWatchlist';
+import type { WatchlistFetchStatus } from './useWatchlist';
 import type { SignalStatus } from './components/SignalList';
 import type { WatchlistStatus } from './components/WatchlistCard';
 
 type LoadState = 'loading' | 'error' | 'success';
+
+/** 관심 종목은 로그인한 사용자 것이라 인증 상태가 먼저 정해진다. */
+function resolveWatchlistStatus(
+  authStatus: AuthStatus,
+  fetchStatus: WatchlistFetchStatus,
+  itemCount: number,
+): WatchlistStatus {
+  if (authStatus === 'loading') return 'loading';
+  if (authStatus === 'unauthenticated') return 'unauthenticated';
+  if (authStatus === 'error') return 'error';
+  if (fetchStatus === 'success' && itemCount === 0) return 'empty';
+  return fetchStatus;
+}
 
 /**
  * 판단: 실제 fetch 가 없어서 타이머로 상태 전이를 흉내낸다.
@@ -39,34 +55,27 @@ function useMockLoad(delayMs: number, result: LoadState = 'success'): [LoadState
  * HomePage는 여기서 돌려주는 status/retry만 받아 조립하면 되고,
  * "섹션마다 상태를 따로 두는" 정책이 바뀌어도 이 파일만 고치면 된다.
  *
- * 관심 종목 빈 상태는 mock.ts의 mockWatchlist를 mockEmptyWatchlist로 바꿔서 확인한다.
+ * 관심 종목은 실제 API(useWatchlist)를 쓴다. 시그널·인사이트는 아직 목업이다.
  * 시그널 빈 상태는 mockSignalBoard를 mockEmptySignalBoard로 바꿔서 확인한다.
  */
 export function useHomeSections() {
   const [signalState, retrySignal] = useMockLoad(900, 'success');
-  const [watchState, retryWatch] = useMockLoad(700, 'success');
   const [insightState, retryInsight] = useMockLoad(1100, 'success');
 
-  // 관심 종목은 로그인한 사용자 것이라 인증 상태가 먼저 정해진다.
-  // 인증 확인 전에는 로딩, 비로그인이면 목록 대신 로그인 유도를 보여준다.
   const { status: authStatus } = useAuth();
-  const mockWatchlistStatus: WatchlistStatus =
-    watchState === 'success' && mockWatchlist.items.length === 0 ? 'empty' : watchState;
-  const watchlistStatus: WatchlistStatus =
-    authStatus === 'loading'
-      ? 'loading'
-      : authStatus === 'unauthenticated'
-        ? 'unauthenticated'
-        : authStatus === 'error'
-          ? 'error'
-          : mockWatchlistStatus;
+  const watchlist = useWatchlist(authStatus === 'authenticated');
+  const watchlistStatus = resolveWatchlistStatus(
+    authStatus,
+    watchlist.status,
+    watchlist.items.length,
+  );
 
   const signalStatus: SignalStatus =
     signalState === 'success' && mockSignalBoard.signals.length === 0 ? 'empty' : signalState;
 
   return {
     signal: { status: signalStatus, retry: retrySignal },
-    watchlist: { status: watchlistStatus, retry: retryWatch },
+    watchlist: { status: watchlistStatus, items: watchlist.items, retry: watchlist.retry },
     insight: { status: insightState, retry: retryInsight },
   };
 }

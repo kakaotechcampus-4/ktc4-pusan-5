@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Change, Kicker, Tag, SkeletonText, Skeleton } from '@/components/ui';
 import { formatPrice, formatQuoteTimestamp } from '@/lib/format';
 import type { Resource, StockIdentity, StockQuoteData } from '@/lib/types';
@@ -15,9 +16,12 @@ export function StockHeaderSkeleton() {
 export function StockHeader({
   stock,
   quote,
+  watchlistAction,
 }: {
   stock: StockIdentity;
   quote: Resource<StockQuoteData> | null;
+  /** 제목 옆에 붙는 관심 종목 담기/빼기 버튼 */
+  watchlistAction?: ReactNode;
 }) {
   const data = quote?.data;
   const timestamp = quote?.sourceAsOf ?? quote?.collectedAt;
@@ -28,6 +32,7 @@ export function StockHeader({
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-h1">{stock.name}</h1>
         <Tag>{stock.code}</Tag>
+        {watchlistAction && <div className="ml-auto">{watchlistAction}</div>}
       </div>
       <div className="mt-2 flex items-baseline gap-3">
         {data ? (

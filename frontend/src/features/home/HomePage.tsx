@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { SplitLayout } from '@/components/layout/PageShell';
 import { LoginModal } from '@/features/auth/LoginModal';
-import { mockMarketInsights, mockSignalBoard, mockWatchlist } from './mock';
+import { mockMarketInsights, mockSignalBoard } from './mock';
+import { focusHomeSearch } from './focusHomeSearch';
 import { useMarketOverview } from './useMarketOverview';
 import { useHomeSections } from './useHomeSections';
 import { HomeHero } from './components/HomeHero';
@@ -50,9 +51,10 @@ export function HomePage() {
         side={
           <WatchlistCard
             status={sections.watchlist.status}
-            watchlist={mockWatchlist}
+            items={sections.watchlist.items}
             onRetry={sections.watchlist.retry}
             onLoginClick={() => setLoginOpen(true)}
+            onAddClick={focusHomeSearch}
           />
         }
       />

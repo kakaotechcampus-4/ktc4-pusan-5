@@ -179,3 +179,24 @@ export type MarketOverview = {
   flows: FlowBoard[];
   sectors: SectorBoard[];
 };
+
+export type WatchlistQuote = {
+  price: number;
+  /** 등락률(%) */
+  change: number;
+  /** 등락액(원) */
+  changeAmount: number;
+};
+
+export type WatchlistEntry = {
+  code: string;
+  name: string;
+  market: 'KOSPI' | 'KOSDAQ';
+  /** 시세가 아직 수집되지 않은 종목은 null */
+  quote: WatchlistQuote | null;
+  asOf: string | null;
+};
+
+export type WatchlistResponse = {
+  items: WatchlistEntry[];
+};
