@@ -48,9 +48,14 @@ collectedAt은 수집 시각이며 실제 체결 시각이라고 표시하지 �
 
 ## API 계약
 
+- `GET /api/stocks`: MVP 고정 목록 100개. `items[]`는 rank, code, name, market만 포함하며 순위 순이다.
 - `GET /api/stocks/{code}/financials`: 독립된 income/eps Resource, source=KIS, basis=provider
 - `GET /api/stocks/{code}/overview`: stock, quote, metrics
 - `GET /api/stocks/{code}/prices?period=1Y`: 1M/3M/1Y/5Y/ALL
+
+MVP 범위에서는 `app/core/mvp_stocks.py`의 고정 목록(시총 순위 100개) 종목만 노출한다.
+목록 API는 시세를 포함하지 않으며 수집 작업도 등록하지 않는다. 
+상세 API 3개는 목록 밖 코드를 DB 조회와 수집 작업 등록 전에 404 STOCK_NOT_FOUND로 거절한다. 종목 마스터(stock테이블)에는 전체 종목이 계속 동기화되므로, 범위를 넓힐 때는 고정 목록만 고치면 된다.
 
 각 영역은 status, refreshing, data, sourceAsOf, collectedAt, retryAfterSeconds를 가진다.
 ready는 저장 데이터가 캐시 정책상 유효하다는 뜻이며 거래소의 실시간성을 보증하지 않는다.
@@ -58,7 +63,7 @@ pending은 첫 수집 대기, stale은 정상값을 가진 갱신 지연, unavai
 empty는 정상 확인한 구간에 데이터가 없다는 뜻이다.
 
 HTTP 요청에서는 외부 API를 부르지 않는다. 저장 값을 반환하면서 필요한 작업만 등록한다.
-종목 마스터가 아직 없으면 503 CATALOG_PENDING, 목록에 없는 코드는 404 STOCK_NOT_FOUND,
+종목 마스터가 아직 없으면 503 CATALOG_PENDING, 고정 목록 밖이거나 마스터에 없는 코드는 404 STOCK_NOT_FOUND,
 잘못된 코드/기간은 422이다. 같은 종목 동시 요청은 DB 고유 제약으로 수집을 합친다.
 
 현재가는 장중(한국시간 평일 09:00~15:40) 60초, 장외 1시간 캐시다.
