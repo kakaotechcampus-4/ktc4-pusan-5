@@ -13,16 +13,18 @@ import { formatAsOf, formatPrice } from '@/lib/format';
 import type { Watchlist } from '../mock';
 
 /** 관심 종목은 사용자가 직접 담는 목록이라 빈 상태가 실제로 존재한다. */
-export type WatchlistStatus = 'loading' | 'error' | 'empty' | 'success';
+export type WatchlistStatus = 'loading' | 'error' | 'empty' | 'success' | 'unauthenticated';
 
 export function WatchlistCard({
   status,
   watchlist,
   onRetry,
+  onLoginClick,
 }: {
   status: WatchlistStatus;
   watchlist: Watchlist;
   onRetry: () => void;
+  onLoginClick: () => void;
 }) {
   return (
     <Card>
@@ -40,6 +42,18 @@ export function WatchlistCard({
           title="관심 종목을 불러오지 못했습니다"
           description="잠시 후 다시 시도해주세요"
           onRetry={onRetry}
+        />
+      )}
+
+      {status === 'unauthenticated' && (
+        <Empty
+          title="로그인하면 관심 종목을 볼 수 있습니다"
+          description="관심 종목을 담아두고 시세를 한눈에 확인하세요"
+          action={
+            <Button variant="secondary" onClick={onLoginClick}>
+              로그인
+            </Button>
+          }
         />
       )}
 
