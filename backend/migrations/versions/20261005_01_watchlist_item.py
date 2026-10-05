@@ -1,7 +1,7 @@
 """Add watchlist_item table.
 
 Revision ID: 20261005_01
-Revises: 20260922_01
+Revises: 20260925_01
 
 """
 from collections.abc import Sequence
@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '20261005_01'
-down_revision: str | Sequence[str] | None = '20260922_01'
+down_revision: str | Sequence[str] | None = '20260925_01'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
