@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
+from app.core.mvp_stocks import MVP_CODES
 from app.models.stock import (
     Stock,
     StockCollectionJob,
@@ -45,6 +46,9 @@ def snapshot_ttl(now: datetime) -> int:
 
 
 async def require_stock(session: AsyncSession, code: str) -> Stock:
+    # 고정 목록 밖 종목은 DB 조회, 수집 작업 등록 전에 개별 종목 페이지 안보이게 처리
+    if code not in MVP_CODES:
+        raise AppError("STOCK_NOT_FOUND", "등록되지 않은 종목입니다.", 404)
     stock = await session.get(Stock, code)
     if stock:
         return stock
