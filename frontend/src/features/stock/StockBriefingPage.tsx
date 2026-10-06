@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { ErrorBox } from '@/components/ui';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Button, ErrorBox } from '@/components/ui';
+import { ApiError } from '@/lib/api';
 import { SplitLayout } from '@/components/layout/PageShell';
 import type { PricePeriod } from '@/lib/types';
 import { useStockDetail } from './useStockDetail';
@@ -12,6 +13,7 @@ import { StockInsightSection } from './components/StockInsightSection';
 
 export function StockBriefingPage() {
   const { code } = useParams();
+  const navigate = useNavigate();
   const [period, setPeriod] = useState<PricePeriod>('1Y');
   const {
     overview,
@@ -29,6 +31,18 @@ export function StockBriefingPage() {
     retry: retryFinancials,
   } = useStockFinancials(code);
 
+  if (overviewError instanceof ApiError && overviewError.code === 'STOCK_NOT_FOUND')
+    return (
+      <ErrorBox
+        title="지금은 해당 종목을 서비스하지 않습니다"
+        description="개별 종목 목록에서 제공 중인 종목을 확인해주세요"
+        action={
+          <Button variant="secondary" onClick={() => navigate('/stocks')}>
+            종목 목록으로
+          </Button>
+        }
+      />
+    );
   if (!code || (overviewError && !overview.stock))
     return (
       <ErrorBox
