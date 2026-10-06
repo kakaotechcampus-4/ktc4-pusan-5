@@ -3,7 +3,8 @@ import { Empty, ErrorBox, Select, Skeleton } from '@/components/ui';
 import { SectionHead } from '@/components/layout/PageShell';
 import { cn } from '@/lib/cn';
 import { formatAsOf } from '@/lib/format';
-import type { MockStockListItem } from './mockStockList';
+import type { StockListItem } from '@/lib/types';
+import { mockStockListAsOf } from './mockStockList';
 import { useStockList, type StockSortKey } from './useStockList';
 
 /**
@@ -29,7 +30,7 @@ const ITEM_CLASS = cn(
 );
 
 export function StockListPage() {
-  const { status, asOf, items, sortKey, setSortKey, retry } = useStockList();
+  const { status, items, sortKey, setSortKey, retry } = useStockList();
 
   if (status === 'error') {
     return (
@@ -57,9 +58,9 @@ export function StockListPage() {
         />
       </div>
 
-      {status === 'success' && asOf && sortKey === 'marketCap' && (
+      {status === 'success' && sortKey === 'marketCap' && (
         <p className="num text-sm text-neutral-600">
-          {formatAsOf(new Date(asOf), '시가총액 기준')}
+          {formatAsOf(new Date(mockStockListAsOf), '시가총액 기준')}
         </p>
       )}
       {status === 'loading' && <StockListSkeleton />}
@@ -86,13 +87,13 @@ export function StockListPage() {
   );
 }
 
-type RankGroup = { title: string; items: MockStockListItem[] };
+type RankGroup = { title: string; items: StockListItem[] };
 
 /** 시가총액 순위로 정렬된 목록을 10위 단위 구간(1~10위, 11~20위 …)으로 끊는다 */
-function groupByRankRange(items: MockStockListItem[]): RankGroup[] {
+function groupByRankRange(items: StockListItem[]): RankGroup[] {
   const groups = new Map<number, RankGroup>();
   for (const item of items) {
-    const groupIndex = Math.floor((item.marketCapRank - 1) / RANK_GROUP_SIZE);
+    const groupIndex = Math.floor((item.rank - 1) / RANK_GROUP_SIZE);
     const start = groupIndex * RANK_GROUP_SIZE + 1;
     const group = groups.get(groupIndex) ?? {
       title: `${start}~${start + RANK_GROUP_SIZE - 1}위`,
@@ -104,40 +105,29 @@ function groupByRankRange(items: MockStockListItem[]): RankGroup[] {
   return [...groups.values()];
 }
 
-function StockListItems({ items }: { items: MockStockListItem[] }) {
+function StockListItems({ items }: { items: StockListItem[] }) {
   return (
     <ul className={GRID_CLASS}>
       {items.map((item) => (
-        <li key={item.name}>
-          <StockListItem item={item} />
+        <li key={item.code}>
+          <StockListCard item={item} />
         </li>
       ))}
     </ul>
   );
 }
 
-/**
- * 클릭 가능한 카드형 항목. 이름 위, 코드 아래 두 줄이고 오른쪽 끝의 › 로 이동할 수 있음을 알린다.
- * 코드는 GET /api/stocks 연동 후 채워지므로, 그 전까지 코드가 없는 종목은 이동 없이 같은 모양으로 보여준다.
- */
-function StockListItem({ item }: { item: MockStockListItem }) {
-  const content = (
-    <>
+/** 클릭 가능한 카드형 항목. */
+function StockListCard({ item }: { item: StockListItem }) {
+  return (
+    <Link to={`/stock/${item.code}`} className={ITEM_CLASS}>
       <span className="flex flex-col">
         <span className="text-base font-semibold">{item.name}</span>
-        <span className="num min-h-6 text-sm text-neutral-600">{item.code}</span>
+        <span className="num text-sm text-neutral-600">{item.code}</span>
       </span>
       <span aria-hidden className="text-h3 text-neutral-500">
         ›
       </span>
-    </>
-  );
-  if (!item.code) {
-    return <div className={ITEM_CLASS}>{content}</div>;
-  }
-  return (
-    <Link to={`/stock/${item.code}`} className={ITEM_CLASS}>
-      {content}
     </Link>
   );
 }
