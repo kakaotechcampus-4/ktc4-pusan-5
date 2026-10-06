@@ -56,6 +56,7 @@ collectedAt은 수집 시각이며 실제 체결 시각이라고 표시하지 �
 MVP 범위에서는 `app/core/mvp_stocks.py`의 고정 목록(시총 순위 100개) 종목만 노출한다.
 목록 API는 시세를 포함하지 않으며 수집 작업도 등록하지 않는다. 
 상세 API 3개는 목록 밖 코드를 DB 조회와 수집 작업 등록 전에 404 STOCK_NOT_FOUND로 거절한다. 종목 마스터(stock테이블)에는 전체 종목이 계속 동기화되므로, 범위를 넓힐 때는 고정 목록만 고치면 된다.
+종목 코드를 받는 새 상세 API는 서비스 함수 첫 줄에서 `require_stock`을 호출해야 한다. 이 호출이 목록 밖 코드를 막는 유일한 지점이라 빠뜨리면 차단이 적용되지 않는다.
 
 각 영역은 status, refreshing, data, sourceAsOf, collectedAt, retryAfterSeconds를 가진다.
 ready는 저장 데이터가 캐시 정책상 유효하다는 뜻이며 거래소의 실시간성을 보증하지 않는다.
