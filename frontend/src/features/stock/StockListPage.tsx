@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Empty, ErrorBox, Select, Skeleton } from '@/components/ui';
+import { Empty, ErrorBox, FilterChips, Select, Skeleton } from '@/components/ui';
 import { SectionHead } from '@/components/layout/PageShell';
 import { cn } from '@/lib/cn';
 import { formatAsOf } from '@/lib/format';
@@ -19,6 +19,8 @@ const SORT_OPTIONS: { value: StockSortKey; label: string }[] = [
 
 const SKELETON_ITEM_COUNT = 6;
 
+const SKELETON_CHIP_COUNT = 6;
+
 const RANK_GROUP_SIZE = 10;
 
 const GRID_CLASS = 'grid list-none gap-3 md:grid-cols-2 lg:grid-cols-3';
@@ -30,7 +32,8 @@ const ITEM_CLASS = cn(
 );
 
 export function StockListPage() {
-  const { status, items, sortKey, setSortKey, retry } = useStockList();
+  const { status, items, sortKey, setSortKey, sectorChips, sector, setSector, retry } =
+    useStockList();
 
   if (status === 'error') {
     return (
@@ -58,6 +61,16 @@ export function StockListPage() {
         />
       </div>
 
+      {status === 'loading' && <SectorChipsSkeleton />}
+      {status === 'success' && (
+        <FilterChips
+          label="업종"
+          chips={sectorChips}
+          value={sector}
+          onChange={setSector}
+          tone="muted"
+        />
+      )}
       {status === 'success' && sortKey === 'marketCap' && (
         <p className="num text-sm text-neutral-600">
           {formatAsOf(new Date(mockStockListAsOf), '시가총액 기준')}
@@ -129,6 +142,16 @@ function StockListCard({ item }: { item: StockListItem }) {
         ›
       </span>
     </Link>
+  );
+}
+
+function SectorChipsSkeleton() {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {Array.from({ length: SKELETON_CHIP_COUNT }).map((_, index) => (
+        <Skeleton key={index} className="h-9 w-24 rounded-full" />
+      ))}
+    </div>
   );
 }
 

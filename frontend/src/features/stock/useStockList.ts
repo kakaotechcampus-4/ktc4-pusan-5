@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { listStocks } from '@/lib/api';
 import type { StockListItem } from '@/lib/types';
 import { mockStockList } from './mockStockList';
+import { ALL_SECTOR, buildSectorChips, filterBySector } from './stockSectorFilter';
 
 /**
- * 종목 목록을 불러오고 정렬한다.
+ * 종목 목록을 불러오고 sector 값으로 카테고리화
  */
 export type StockListStatus = 'loading' | 'error' | 'success';
 export type StockSortKey = 'name' | 'marketCap';
@@ -40,6 +41,7 @@ const LOADING_STATE: StockListState = { status: 'loading', items: [] };
 export function useStockList() {
   const [state, setState] = useState<StockListState>(LOADING_STATE);
   const [sortKey, setSortKey] = useState<StockSortKey>('marketCap');
+  const [selectedSector, setSelectedSector] = useState(ALL_SECTOR);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -64,7 +66,27 @@ export function useStockList() {
     setAttempt((count) => count + 1);
   }, []);
 
-  const sortedItems = useMemo(() => sortStockList(state.items, sortKey), [state.items, sortKey]);
+  const sectorChips = useMemo(() => buildSectorChips(state.items), [state.items]);
 
-  return { status: state.status, items: sortedItems, sortKey, setSortKey, retry };
+  // 다시 받은 목록에 선택한 업종이 없으면 전체로 보여준다
+  const sector = sectorChips.some((chip) => chip.value === selectedSector)
+    ? selectedSector
+    : ALL_SECTOR;
+
+  // 필터 → 정렬 순서. 정렬을 바꿔도 선택한 업종은 유지된다
+  const visibleItems = useMemo(
+    () => sortStockList(filterBySector(state.items, sector), sortKey),
+    [state.items, sector, sortKey],
+  );
+
+  return {
+    status: state.status,
+    items: visibleItems,
+    sortKey,
+    setSortKey,
+    sectorChips,
+    sector,
+    setSector: setSelectedSector,
+    retry,
+  };
 }
