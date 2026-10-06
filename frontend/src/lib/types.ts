@@ -179,3 +179,10 @@ export type MarketOverview = {
   flows: FlowBoard[];
   sectors: SectorBoard[];
 };
+
+/** GET /api/stocks 항목. 시가총액 순위(marketCapRank)는 1이 가장 큼 */
+export type StockListItem = {
+  code: string;
+  name: string;
+  marketCapRank: number;
+};
