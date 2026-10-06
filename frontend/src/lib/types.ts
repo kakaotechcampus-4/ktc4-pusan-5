@@ -180,9 +180,15 @@ export type MarketOverview = {
   sectors: SectorBoard[];
 };
 
-/** GET /api/stocks 항목. 시가총액 순위(marketCapRank)는 1이 가장 큼 */
+/** GET /api/stocks 항목. rank 는 시가총액 순위(1이 가장 큼) */
 export type StockListItem = {
+  rank: number;
   code: string;
   name: string;
-  marketCapRank: number;
+  market: 'KOSPI' | 'KOSDAQ';
+  sector: string;
+};
+
+export type StockListResponse = {
+  items: StockListItem[];
 };

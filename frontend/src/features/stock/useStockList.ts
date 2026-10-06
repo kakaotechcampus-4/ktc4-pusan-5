@@ -1,39 +1,41 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { mockStockList, mockStockListAsOf, type MockStockListItem } from './mockStockList';
+import { listStocks } from '@/lib/api';
+import type { StockListItem } from '@/lib/types';
+import { mockStockList } from './mockStockList';
 
 /**
  * 종목 목록을 불러오고 정렬한다.
- * 판단: GET /api/stocks 가 준비되기 전까지는 mock 만 쓴다. 연동 시 loadStockList 만 바꾸면 된다.
  */
 export type StockListStatus = 'loading' | 'error' | 'success';
 export type StockSortKey = 'name' | 'marketCap';
 
+/** 목업 모드에서만 mock.ts read, 기본은 실제 API */
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+
 const MOCK_DELAY_MS = 500;
 
-type StockListResponse = { asOf: string; items: MockStockListItem[] };
-
-function loadStockList(): Promise<StockListResponse> {
+function loadMockStockList(): Promise<StockListItem[]> {
   return new Promise((resolve) => {
-    setTimeout(() => resolve({ asOf: mockStockListAsOf, items: mockStockList }), MOCK_DELAY_MS);
+    setTimeout(() => resolve(mockStockList), MOCK_DELAY_MS);
   });
 }
 
+function loadStockList(): Promise<StockListItem[]> {
+  return USE_MOCK ? loadMockStockList() : listStocks().then((response) => response.items);
+}
+
 /** 가나다순은 한글 로케일 비교, 시가총액순은 백엔드가 준 순위(1이 가장 큼) 오름차순 */
-function sortStockList(items: MockStockListItem[], sortKey: StockSortKey): MockStockListItem[] {
+function sortStockList(items: StockListItem[], sortKey: StockSortKey): StockListItem[] {
   const sorted = [...items];
   if (sortKey === 'name') {
     return sorted.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   }
-  return sorted.sort((a, b) => a.marketCapRank - b.marketCapRank);
+  return sorted.sort((a, b) => a.rank - b.rank);
 }
 
-type StockListState = {
-  status: StockListStatus;
-  asOf: string | null;
-  items: MockStockListItem[];
-};
+type StockListState = { status: StockListStatus; items: StockListItem[] };
 
-const LOADING_STATE: StockListState = { status: 'loading', asOf: null, items: [] };
+const LOADING_STATE: StockListState = { status: 'loading', items: [] };
 
 export function useStockList() {
   const [state, setState] = useState<StockListState>(LOADING_STATE);
@@ -45,11 +47,11 @@ export function useStockList() {
     let cancelled = false;
 
     loadStockList()
-      .then(({ asOf, items }) => {
-        if (!cancelled) setState({ status: 'success', asOf, items });
+      .then((items) => {
+        if (!cancelled) setState({ status: 'success', items });
       })
       .catch(() => {
-        if (!cancelled) setState({ status: 'error', asOf: null, items: [] });
+        if (!cancelled) setState({ status: 'error', items: [] });
       });
 
     return () => {
@@ -64,5 +66,5 @@ export function useStockList() {
 
   const sortedItems = useMemo(() => sortStockList(state.items, sortKey), [state.items, sortKey]);
 
-  return { status: state.status, asOf: state.asOf, items: sortedItems, sortKey, setSortKey, retry };
+  return { status: state.status, items: sortedItems, sortKey, setSortKey, retry };
 }
