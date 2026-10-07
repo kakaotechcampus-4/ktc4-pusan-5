@@ -22,6 +22,8 @@ class WatchlistEntry(CamelModel):
     market: Literal["KOSPI", "KOSDAQ"]
     # 시세 수집 전이면 None
     quote: WatchlistQuote | None = None
+    # ready: 최신, stale: 갱신 지연(마지막 정상값), pending: 아직 수집 전
+    quote_status: Literal["ready", "stale", "pending"]
     as_of: datetime | None = None
 
 

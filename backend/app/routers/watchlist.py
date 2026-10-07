@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Response, status
@@ -14,6 +15,7 @@ from app.schemas.watchlist import (
     WatchlistQuote,
     WatchlistResponse,
 )
+from app.services.quote_freshness import quote_status
 
 router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
 Code = Annotated[str, Path(pattern=r"^[0-9A-Z]{6}$")]
@@ -25,6 +27,7 @@ async def list_watchlist(
     session: AsyncSession = Depends(get_session),
 ) -> WatchlistResponse:
     rows = await repo.list_with_quotes(session, user.id)
+    now = datetime.now(UTC)
     return WatchlistResponse(
         items=[
             WatchlistEntry(
@@ -32,6 +35,7 @@ async def list_watchlist(
                 name=stock.name,
                 market=stock.market,
                 quote=WatchlistQuote.model_validate(quote) if quote else None,
+                quote_status=quote_status(quote.collected_at if quote else None, now),
                 as_of=(quote.source_as_of or quote.collected_at) if quote else None,
             )
             for stock, quote in rows
