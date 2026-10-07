@@ -52,23 +52,6 @@ async def test_excerpt_is_the_head_of_the_article_body() -> None:
     assert body.fetched_at.tzinfo is not None, "naive datetime 을 쓰지 않는다"
 
 
-async def test_whole_body_sentences_are_kept_beyond_the_excerpt() -> None:
-    """원인 문장은 기사 뒤쪽에 있기도 하다. 문장 선택은 발췌가 아니라 본문 전체에서 고른다."""
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, html=ARTICLE_HTML)
-
-    async with _client(handler) as client:
-        body = await fetch_link(client, "https://example.com/news/1", sentences=1)
-
-    assert body.excerpt == "삼성전자가 차세대 메모리 기술을 공개했다고 밝혔다."
-    assert body.sentences == [
-        "삼성전자가 차세대 메모리 기술을 공개했다고 밝혔다.",
-        "회사는 내년 하반기 양산을 목표로 하고 있다고 이날 설명했다.",
-        "업계는 공급 확대가 가격에 영향을 줄 것으로 보고 있다고 전했다.",
-    ], "바이라인·저작권 안내는 정제된 뒤다"
-
-
 async def test_whole_body_text_is_kept_for_storage_but_not_serialized() -> None:
     """news 에 저장하는 것은 발췌가 아니라 정제한 본문 전체다. 파일·로그로는 나가지 않는다."""
 
@@ -78,7 +61,12 @@ async def test_whole_body_text_is_kept_for_storage_but_not_serialized() -> None:
     async with _client(handler) as client:
         body = await fetch_link(client, "https://example.com/news/1", sentences=1)
 
-    assert body.text == "\n".join(body.sentences)
+    assert body.excerpt == "삼성전자가 차세대 메모리 기술을 공개했다고 밝혔다."
+    assert body.text == (
+        "삼성전자가 차세대 메모리 기술을 공개했다고 밝혔다.\n"
+        "회사는 내년 하반기 양산을 목표로 하고 있다고 이날 설명했다.\n"
+        "업계는 공급 확대가 가격에 영향을 줄 것으로 보고 있다고 전했다."
+    ), "바이라인·저작권 안내는 정제된 뒤다"
     assert body.excerpt and body.text.startswith(body.excerpt) and body.text != body.excerpt
     assert "text" not in body.model_dump()
     assert "회사는" not in repr(body)

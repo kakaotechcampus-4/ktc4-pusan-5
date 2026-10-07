@@ -20,7 +20,7 @@ telegram_message_links 에 남는다.
 **본문을 무기한 두지는 않는다.** 보관 정책으로 지운 기사는 body_status = purged 이고 본문이
 비어 있다. 행과 id 는 남아 공통 자료 ID·인용이 깨지지 않고, 다시 수집해도 되살리지 않는다.
 
-cleaned_text 는 기사 본문 **전체**다. 앞 3문장 발췌(LinkBody.excerpt)나 종목별로 고른 문장을
+cleaned_text 는 기사 본문 **전체**다. 앞 3문장 발췌(LinkBody.excerpt)를
 여기 넣지 않는다 — 발췌는 본문에서 언제든 다시 뽑을 수 있지만 그 반대는 안 된다.
 네이버 경로는 backend 때처럼 3,000자에서 자른 값이다(clean.MAX_CHARS).
 """

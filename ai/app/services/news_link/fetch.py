@@ -10,9 +10,7 @@
     (1) 단축 URL 을 따라가 **최종 주소와 도메인**을 알아낸다. 본문을 못 읽는 PDF 라도
         "buly.kr" 이 "file.hanaw.com" 이 되면 모델이 출처는 알아본다.
     (2) 본문 앞 몇 문장을 **잘라낸다.** 요약하지 않는다 (clean.py 참고).
-        본문 전체 문장도 `sentences` 에 들고 있는다. 종목별로 원인 문장을 고르는
-        selection.py 가 쓴다. 나누기 전 본문 전체는 `text` 에 두고 news 표에 저장한다.
-        둘 다 직렬화되지 않는다(schema.py 참고).
+        정제한 본문 전체는 `text` 에 두고 news 표에 저장한다. 직렬화되지 않는다(schema.py 참고).
 
 **LLM 이 부르는 tool 이 아니다.** 에이전트가 링크를 만날 때마다 tool 을 부르면
 호출마다 컨텍스트가 통째로 다시 올라간다. 프로토타입에서 그렇게 돌렸더니 런당
@@ -48,7 +46,7 @@ import httpx
 
 from app.services.news_link.extract import extract_body
 from app.services.news_link.schema import LinkBody
-from app.services.news_link.sentence import first_sentences, split_sentences
+from app.services.news_link.sentence import first_sentences
 
 logger = logging.getLogger(__name__)
 
@@ -264,8 +262,6 @@ async def fetch_link(
         excerpt = first_sentences(article, sentences, max_chars)
         body.excerpt = excerpt or None
         body.chars = len(excerpt)
-        # 원인 문장은 기사 뒤쪽에 있기도 하다. 앞부분만 넘기면 문장 선택이 그걸 못 본다.
-        body.sentences = split_sentences(article)
         body.text = article
         body.status = "ok" if excerpt else "no_body"
     except BlockedAddressError as exc:

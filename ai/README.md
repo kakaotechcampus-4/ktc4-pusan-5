@@ -164,7 +164,7 @@ uv run python -m app.collectors.news_channels --jsonl          # JSONL 파일 �
 
 **본문은 한 번 확보하면 바꾸지 않는다.** 실패했던 본문만 다음 수집에서 채운다. 재수집에서
 실패해도, 고쳐진 기사를 다시 받아도 성공한 본문은 그대로다. 기사 본문(`cleaned_text`)은
-전체이고, 앞 3문장 발췌나 종목별로 고른 문장을 넣지 않는다. 본문을 받은 시각(`body_fetched_at`),
+전체이고, 앞 3문장 발췌를 넣지 않는다. 본문을 받은 시각(`body_fetched_at`),
 상태(`body_status` ok·failed), 실패 사유(`body_error`)를 같이 남긴다.
 
 **발행 시각을 모르면 NULL 이다.** 링크를 연 시각·메시지 게시 시각으로 채우지 않는다. 같은
