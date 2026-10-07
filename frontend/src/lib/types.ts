@@ -137,7 +137,7 @@ export type MarketItem = {
   code: string;
   name: string;
   source: string | null;
-  unit: 'points' | 'KRW/USD' | null;
+  unit: 'points' | 'KRW/USD' | 'KRW/g' | null;
   status: 'ready' | 'stale' | 'unavailable' | 'pending' | 'notConfigured';
   value: number | null;
   change: number | null;
