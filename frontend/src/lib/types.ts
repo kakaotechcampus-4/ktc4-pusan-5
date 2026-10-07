@@ -1,7 +1,6 @@
 export type User = {
   id: number;
   nickname: string;
-  email: string;
 };
 
 export type ResourceStatus = 'pending' | 'ready' | 'stale' | 'unavailable' | 'empty';
@@ -199,4 +198,17 @@ export type WatchlistEntry = {
 
 export type WatchlistResponse = {
   items: WatchlistEntry[];
+};
+
+/** GET /api/stocks 항목. rank 는 시가총액 순위(1이 가장 큼) */
+export type StockListItem = {
+  rank: number;
+  code: string;
+  name: string;
+  market: 'KOSPI' | 'KOSDAQ';
+  sector: string;
+};
+
+export type StockListResponse = {
+  items: StockListItem[];
 };

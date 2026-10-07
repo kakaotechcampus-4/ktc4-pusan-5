@@ -7,6 +7,7 @@
 import type {
   ApiErrorBody,
   MarketOverview,
+  StockListResponse,
   StockOverview,
   StockPriceResource,
   StockFinancials,
@@ -80,6 +81,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 /** 개념 상세, 없으면 CONCEPT_NOT_FOUND ApiError */
 export function getConcept(slug: string): Promise<Concept> {
   return request<Concept>(`/api/concepts/${encodeURIComponent(slug)}`);
+}
+
+/** MVP 서비스 종목 목록, 시가총액 순위 순으로 옴 */
+export function listStocks(): Promise<StockListResponse> {
+  return request<StockListResponse>('/api/stocks');
 }
 
 /** 개념 목록, slug 순 정렬로 옴 */

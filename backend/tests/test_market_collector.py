@@ -142,13 +142,15 @@ async def test_slow_source_does_not_block_saving_other_results(monkeypatch):
 async def test_sector_parse_failure_preserves_sector_but_updates_quote(monkeypatch):
     from datetime import UTC, datetime
     from types import SimpleNamespace
+    from zoneinfo import ZoneInfo
 
     from app.models.ranking import RankingSnapshot
     from app.repositories.ranking import save_ranking
     from app.schemas.market_flow import SectorItem
 
-    quote = Quote(Decimal(7000), Decimal(2), date(2026, 9, 21))
     now = datetime.now(UTC)
+    today = now.astimezone(ZoneInfo("Asia/Seoul")).date()
+    quote = Quote(Decimal(7000), Decimal(2), today)
 
     async def snapshots(session):
         return {
@@ -180,7 +182,7 @@ async def test_sector_parse_failure_preserves_sector_but_updates_quote(monkeypat
                 await save_ranking(
                     session,
                     "sectorKospi",
-                    [SectorItem(name="건설", change=1, as_of=date(2026, 9, 21))],
+                    [SectorItem(name="건설", change=1, as_of=today)],
                     None,
                     now,
                 )

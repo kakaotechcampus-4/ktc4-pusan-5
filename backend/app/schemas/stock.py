@@ -28,6 +28,17 @@ class StockIdentity(CamelModel):
     listed_at: date | None = None
 
 
+class StockListItem(CamelModel):
+    rank: int
+    code: str
+    name: str
+    market: Literal["KOSPI", "KOSDAQ"]
+
+
+class StockList(CamelModel):
+    items: list[StockListItem]
+
+
 class QuoteData(CamelModel):
     price: FiniteFloat = Field(gt=0)
     change: FiniteFloat

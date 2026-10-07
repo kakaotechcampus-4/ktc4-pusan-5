@@ -13,7 +13,6 @@ async def test_get_or_create_user_creates_then_updates_profile():
             session,
             kakao_id="test-kakao-id-1",
             nickname="닉네임1",
-            email="a@example.com",
         )
         assert created.id is not None
         assert created.nickname == "닉네임1"
@@ -22,7 +21,6 @@ async def test_get_or_create_user_creates_then_updates_profile():
             session,
             kakao_id="test-kakao-id-1",
             nickname="닉네임2",
-            email="a@example.com",
         )
         assert updated.id == created.id
         assert updated.nickname == "닉네임2"
@@ -52,7 +50,6 @@ async def test_get_or_create_user_handles_concurrent_calls_for_same_kakao_id():
                 session,
                 kakao_id=_CONCURRENT_KAKAO_ID,
                 nickname=nickname,
-                email="concurrent@example.com",
             )
             await session.commit()
             return user
