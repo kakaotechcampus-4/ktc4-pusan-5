@@ -16,9 +16,10 @@
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from sqlalchemy import and_, exists, func, literal, null, select, text
+from sqlalchemy import and_, exists, func, literal, null, select, tuple_
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from app.models import (
     AnalystReport,
@@ -28,6 +29,7 @@ from app.models import (
     TelegramMessage,
     TelegramMessageLink,
 )
+from app.repositories.news import lock_news_keys
 from app.services.news.url import canonical_url
 
 CARD_COLUMNS = ["card_type", "source_name", "channel_id", "collected_at", "tags", "payload",
@@ -69,8 +71,15 @@ async def _register(session: AsyncSession, fk_name: str, query) -> int:
     return len((await session.execute(stmt)).scalars().all())
 
 
-async def register_missing_sources(session: AsyncSession) -> dict[str, int]:
-    """카드가 없는 원문에 카드를 만든다. 종류별로 새로 만든 수. 커밋은 부르는 쪽이 한다."""
+async def register_missing_sources(
+    session: AsyncSession, *, news_ids: list[int] | None = None,
+    report_ids: list[int] | None = None, message_ids: list[int] | None = None,
+    report_keys: list[tuple[str, str, str]] | None = None,
+) -> dict[str, int]:
+    """카드가 없는 원문을 등록한다. None은 전체 복구, 빈 목록은 해당 종류 제외.
+
+    일반 수집은 이번 묶음의 ID만 전달한다. 커밋은 부르는 쪽이 한다.
+    """
     # 원문 id 순서로 만든다. 카드 번호가 원문이 들어온 순서를 따라가 읽기 쉽다.
     news = select(
         *_card_values("news", News.publisher, None, News.collected_at), News.id
@@ -102,11 +111,20 @@ async def register_missing_sources(session: AsyncSession) -> dict[str, int]:
         .where(~exists().where(SourceCard.telegram_message_id == TelegramMessage.id))
         .order_by(TelegramMessage.id)
     )
-    return {
-        "news": await _register(session, "news_id", news),
-        "pdf": await _register(session, "analyst_report_id", pdf),
-        "message": await _register(session, "telegram_message_id", message),
-    }
+    if report_keys is not None:
+        pdf = pdf.where(tuple_(
+            AnalystReport.source, AnalystReport.source_category, AnalystReport.source_id,
+        ).in_(report_keys))
+    counts = {}
+    for kind, fk, query, column, ids in (
+        ("news", "news_id", news, News.id, news_ids),
+        ("pdf", "analyst_report_id", pdf, AnalystReport.id, report_ids),
+        ("message", "telegram_message_id", message, TelegramMessage.id, message_ids),
+    ):
+        counts[kind] = 0 if ids == [] else await _register(
+            session, fk, query if ids is None else query.where(column.in_(ids)),
+        )
+    return counts
 
 
 @dataclass
@@ -125,15 +143,15 @@ async def backfill_canonical_urls(session: AsyncSession) -> CanonicalBackfill:
             select(News.id, News.url).where(News.canonical_url.is_(None)).order_by(News.id)
         )
     ).all()
-    for news_id, url in rows:
-        key = canonical_url(url)
-        # save_news 와 같은 잠금. 그사이 수집기가 같은 기사를 넣는 것과 겹치지 않게 한다.
-        await session.execute(
-            text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"), {"key": f"news:{key}"}
-        )
+    keyed = [(news_id, canonical_url(url)) for news_id, url in rows]
+    # 행 ID 순서와 URL 순서는 다를 수 있다. 수집기와 같은 순서로 잠금을 모두 잡는다.
+    await lock_news_keys(session, [key for _, key in keyed])
+    for news_id, key in keyed:
         taken = (
             await session.execute(select(News.id).where(News.canonical_url == key))
         ).scalar_one_or_none()
+        if taken == news_id:
+            continue  # 잠금을 기다리는 사이 다른 등록 실행이 이 행을 채웠다.
         if taken is not None:
             result.collisions.append((news_id, key))
             continue
@@ -186,7 +204,7 @@ class SourceRecord:
     body_error: str | None
     body_fetched_at: datetime | None  # 본문을 받은 시각
     summary: str | None  # 네이버가 준 요약. 본문 아님
-    body: str | None = None  # 기사 본문 전체·PDF 본문·메시지 본문. include_body=True 일 때만
+    body: str | None = None  # 저장된 정제 본문. 네이버 기사는 최대 3000자. include_body=True만
     edited: bool | None = None  # 메시지만: 수정 표시가 있었다
     edit_detected_at: datetime | None = None  # 메시지만: 다시 수집했을 때 본문이 달랐던 첫 시각
     forwarded_from_url: str | None = None  # 메시지만: 전달된 글이면 원글 주소
@@ -198,8 +216,7 @@ def _purged(purged_at: datetime | None, reason: str | None) -> str:
     return f"purged: 보관 정책으로 삭제 ({when}) {reason or ''}".rstrip()
 
 
-def _news_record(card: SourceCard, news: News, include_body: bool) -> SourceRecord:
-    has_body = bool(news.cleaned_text)
+def _news_record(card: SourceCard, news: News, has_body: bool, include_body: bool) -> SourceRecord:
     missing = None if has_body else (
         _purged(news.purged_at, news.purge_reason) if news.body_status == "purged"
         else f"failed: {news.body_error or '사유 미기록'}")
@@ -215,9 +232,10 @@ def _news_record(card: SourceCard, news: News, include_body: bool) -> SourceReco
     )
 
 
-def _pdf_record(card: SourceCard, report: AnalystReport, include_body: bool) -> SourceRecord:
+def _pdf_record(
+    card: SourceCard, report: AnalystReport, has_body: bool, include_body: bool,
+) -> SourceRecord:
     telegram = report.source == "telegram"
-    has_body = bool(report.body_text)
     missing = None if has_body else (
         _purged(report.purged_at, report.purge_reason) if report.body_status == "purged"
         else report.body_status + (f": {report.body_error}" if report.body_error else ""))
@@ -234,9 +252,8 @@ def _pdf_record(card: SourceCard, report: AnalystReport, include_body: bool) -> 
 
 
 def _message_record(
-    card: SourceCard, message: TelegramMessage, channel: Channel, include_body: bool
+    card: SourceCard, message: TelegramMessage, channel: Channel, has_body: bool, include_body: bool
 ) -> SourceRecord:
-    has_body = bool(message.text)
     if message.purged_at is not None:
         status, missing = "purged", _purged(message.purged_at, message.purge_reason)
     else:
@@ -267,6 +284,7 @@ async def _discoveries(session: AsyncSession, condition) -> list[tuple]:
     ).limit(1).scalar_subquery()
     rows = await session.execute(
         select(TelegramMessageLink, TelegramMessage, Channel, message_card, target_card)
+        .options(defer(TelegramMessage.text, raiseload=True))
         .join(TelegramMessage, TelegramMessage.id == TelegramMessageLink.message_id)
         .join(Channel, Channel.id == TelegramMessage.channel_id)
         .where(condition)
@@ -296,7 +314,10 @@ async def get_sources(
     cards = {
         card.id: card
         for card in (
-            await session.execute(select(SourceCard).where(SourceCard.id.in_(card_ids)))
+            await session.execute(select(SourceCard).where(SourceCard.id.in_(card_ids)).options(
+                defer(SourceCard.raw_text, raiseload=True),
+                defer(SourceCard.cleaned_text, raiseload=True),
+            ))
         ).scalars()
     }
     news_ids = [c.news_id for c in cards.values() if c.news_id is not None]
@@ -305,15 +326,25 @@ async def get_sources(
         c.telegram_message_id for c in cards.values() if c.telegram_message_id is not None
     ]
 
-    news = {n.id: n for n in (
-        await session.execute(select(News).where(News.id.in_(news_ids)))
-    ).scalars()}
-    reports = {r.id: r for r in (
-        await session.execute(select(AnalystReport).where(AnalystReport.id.in_(report_ids)))
-    ).scalars()}
-    messages = {m.id: (m, ch) for m, ch in (
+    # 유무만 DB에서 계산한다. 본문 미요청 시 큰 문자열을 Python으로 전송하지 않는다.
+    news_query = select(News, func.coalesce(News.cleaned_text != "", False))
+    report_query = select(AnalystReport, func.coalesce(AnalystReport.body_text != "", False))
+    message_query = select(
+        TelegramMessage, Channel, func.coalesce(TelegramMessage.text != "", False),
+    )
+    if not include_body:
+        news_query = news_query.options(defer(News.cleaned_text, raiseload=True))
+        report_query = report_query.options(defer(AnalystReport.body_text, raiseload=True))
+        message_query = message_query.options(defer(TelegramMessage.text, raiseload=True))
+    news = {n.id: (n, present) for n, present in (
+        await session.execute(news_query.where(News.id.in_(news_ids)))
+    ).all()}
+    reports = {r.id: (r, present) for r, present in (
+        await session.execute(report_query.where(AnalystReport.id.in_(report_ids)))
+    ).all()}
+    messages = {m.id: (m, ch, present) for m, ch, present in (
         await session.execute(
-            select(TelegramMessage, Channel)
+            message_query
             .join(Channel, Channel.id == TelegramMessage.channel_id)
             .where(TelegramMessage.id.in_(message_ids))
         )
@@ -338,9 +369,9 @@ async def get_sources(
         if card is None:
             continue
         if card.news_id in news:
-            record = _news_record(card, news[card.news_id], include_body)
+            record = _news_record(card, *news[card.news_id], include_body)
         elif card.analyst_report_id in reports:
-            record = _pdf_record(card, reports[card.analyst_report_id], include_body)
+            record = _pdf_record(card, *reports[card.analyst_report_id], include_body)
         elif card.telegram_message_id in messages:
             record = _message_record(card, *messages[card.telegram_message_id], include_body)
         else:

@@ -21,6 +21,7 @@ from app.repositories.retention import PurgeTargets, purge
 from app.repositories.telegram_message import (
     ensure_channels,
     known_message_keys,
+    recorded_attachment_ids,
     save_message_links,
     save_messages,
 )
@@ -249,6 +250,7 @@ def test_pdf_messages_keep_their_discovery_even_when_naver_has_the_same_pdf(data
     ]
     assert query(database, "SELECT card_type, count(*) FROM source_card GROUP BY 1 ORDER BY 1") \
         == [("message", 3), ("pdf", 2)]
+    assert in_session(database, lambda s: recorded_attachment_ids(s, "sunstudy1234")) == {"10", "11"}
 
 
 def test_failing_discovery_record_does_not_lose_the_pdf_rows(database):

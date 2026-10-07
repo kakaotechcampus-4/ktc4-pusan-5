@@ -1,5 +1,6 @@
 """Account-specific preparation without real Telegram calls."""
 
+import os
 from datetime import UTC, date
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -27,6 +28,7 @@ SCOPE = parse_scope({
 def scoped(monkeypatch):
     """수집기가 테스트용 범위를 읽고, 지금까지 쌓인 수를 collected 로 보게 한다."""
     state = {"collected": 0}
+    monkeypatch.setattr(collector, "recorded_attachment_ids", AsyncMock(return_value=set()))
     monkeypatch.setattr(collector, "load_scope", lambda: SCOPE)
     monkeypatch.setattr(collector, "count_collected",
                         AsyncMock(side_effect=lambda session, source: state["collected"]))
@@ -46,13 +48,19 @@ def test_blank_session_is_rejected():
                  telegram_api_hash="dummy", telegram_session=" ").require_telegram()
 
 
-def test_session_file_is_private_and_never_overwritten(tmp_path):
+def test_session_file_is_never_overwritten(tmp_path):
     path = tmp_path / ".env.telegram"
     telegram_setup.save_session(path, "dummy-session")
-    assert path.stat().st_mode & 0o777 == 0o600
     with pytest.raises(FileExistsError):
         telegram_setup.save_session(path, "replacement")
     assert path.read_text() == "TELEGRAM_SESSION=dummy-session\n"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX mode bits do not verify Windows ACLs")
+def test_session_file_has_private_posix_permissions(tmp_path):
+    path = tmp_path / ".env.telegram"
+    telegram_setup.save_session(path, "dummy-session")
+    assert path.stat().st_mode & 0o777 == 0o600
 
 
 async def test_revoked_session_does_not_start_interactive_login():
@@ -292,3 +300,20 @@ async def test_messages_after_the_period_are_not_downloaded(monkeypatch, scoped)
 
     assert await collector.collect(delay=0, channels=("ch",), scope=ended) == {"ch": 1}
     assert downloaded == [2], "기간이 끝난 뒤의 글은 받지 않는다"
+
+
+async def test_failed_discovery_is_recovered_without_redownloading_at_quota(monkeypatch, scoped):
+    from datetime import datetime
+
+    mock_downloaded = _pdf_run(monkeypatch, [datetime.now(UTC)])
+    mock_record = AsyncMock(side_effect=["mock discovery failure", None])
+    monkeypatch.setattr(collector, "record_pdf_messages", mock_record)
+    with pytest.raises(RuntimeError, match="mock discovery failure"):
+        await collector.collect(delay=0, channels=("ch",))
+    # PDF 커밋은 성공했고 발견 경로만 실패한 상태로 재실행한다.
+    monkeypatch.setattr(collector, "known_ids", AsyncMock(return_value={"1"}))
+    scoped["collected"] = 1000
+    assert await collector.collect(delay=0, channels=("ch",)) == {"ch": 0}
+    assert mock_downloaded == [1]
+    assert mock_record.await_count == 2
+    assert mock_record.await_args.kwargs["found"][0].msg_id == 1

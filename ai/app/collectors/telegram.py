@@ -33,11 +33,12 @@ from app.repositories.analyst_report import (
     known_naver_pdf_hashes,
     upsert_analyst_reports,
 )
-from app.repositories.scope import count_collected
+from app.repositories.scope import collection_locks, count_collected
 from app.repositories.source_card import register_missing_sources
 from app.repositories.telegram_message import (
     ensure_channels,
     find_attachment_report,
+    recorded_attachment_ids,
     save_message_links,
     save_messages,
 )
@@ -147,6 +148,7 @@ async def record_pdf_messages(
                 for item in found
             ])
             links = []
+            report_ids = []
             for item, message in zip(found, saved, strict=True):
                 report_id, status = (None, "excluded") if item.excluded else (
                     await find_attachment_report(session, channel=channel, msg_id=item.msg_id,
@@ -157,8 +159,12 @@ async def record_pdf_messages(
                     "status": status or "not_saved", "error": None, "http_status": None,
                     "fetched_at": None, "news_id": None, "analyst_report_id": report_id,
                 })
+                if report_id is not None:
+                    report_ids.append(report_id)
             await save_message_links(session, links)
-            await register_missing_sources(session)
+            await register_missing_sources(
+                session, news_ids=[], report_ids=report_ids, message_ids=[m.id for m in saved],
+            )
     except Exception as exc:  # noqa: BLE001 — PDF 행은 지킨다. 실패는 집계해 종료 코드로 알린다
         logger.error("%s: 메시지·발견 경로 저장 실패 (%s)", channel, type(exc).__name__)
         return f"{channel}: 메시지·발견 경로 저장 실패 ({type(exc).__name__})"
@@ -245,11 +251,13 @@ async def collect(
     try:
         await connect_authorized(client)
         checked_channels = await check_channels(client, channels)
-        async with SessionLocal() as session:
+        async with collection_locks(SessionLocal, "telegram_client"), SessionLocal() as session:
             for channel, peer in checked_channels:
                 # 채널이 곧 원본 구분이다. 메시지 번호가 채널 안에서만 유일해서
                 # 채널로 범위를 좁혀야 비교가 맞는다.
                 seen = await known_ids(session, SOURCE, since, channel)
+                recorded = await recorded_attachment_ids(session, channel)
+                pending_discoveries = seen - recorded
                 rows: list[dict] = []
                 found: list[FoundPdf] = []  # 이번 묶음에서 PDF 가 붙어 있던 메시지
                 n = skipped = stored = 0
@@ -258,15 +266,30 @@ async def collect(
                 # 채널 하나가 죽어도 다음 채널은 돌린다. 여기까지 모은 건 아래에서 저장한다.
                 try:
                     async for message, filename in iter_pdf_messages(client, peer, since):
-                        if str(message.id) in seen:
-                            continue
-                        if limit and n >= limit:
-                            break
                         if not scope.contains(message.date.astimezone(KST).date()):
                             continue  # 기간이 끝난 뒤의 글. 최신부터 훑으므로 기간 안까지 넘긴다
+                        if str(message.id) in seen:
+                            if str(message.id) not in recorded:
+                                # PDF는 이미 있다. 재다운로드 없이 캡션·발견 경로만 복구한다.
+                                error = await record_pdf_messages(
+                                    session, channel, is_public=public.get(channel, False),
+                                    found=[found_pdf(message, filename, PdfText(status="pending"))],
+                                )
+                                if error:
+                                    failures.append(error)
+                                else:
+                                    recorded.add(str(message.id))
+                                    pending_discoveries.discard(str(message.id))
+                                await session.commit()
+                            continue
+                        if limit and n >= limit:
+                            if not pending_discoveries:
+                                break
+                            continue  # 뒤에 있는 기존 PDF의 발견 경로 복구는 계속한다.
                         if n >= budget:
-                            logger.info("%s: 수집량 상한에 닿아 더 받지 않는다", channel)
-                            break
+                            if not pending_discoveries:
+                                break
+                            continue  # 새 PDF만 제한한다. 이미 저장한 PDF의 복구는 상한과 무관하다.
 
                         pdf = await _extract(client, message, filename)
                         if pdf.status == "failed":

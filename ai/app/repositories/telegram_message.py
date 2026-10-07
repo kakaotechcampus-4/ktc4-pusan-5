@@ -159,6 +159,9 @@ async def save_message_links(session: AsyncSession, rows: list[dict]) -> tuple[i
                 .with_for_update()
             )
         ).scalar_one()
+        if link.discovered_url != row.get("discovered_url"):
+            # 표시 글자가 같아도 href만 수정될 수 있다. 다른 주소의 결과를 합치지 않는다.
+            continue
         if not _should_replace(link.status, row["status"]):
             continue
         for name in LINK_RESULT_FIELDS:
@@ -166,6 +169,18 @@ async def save_message_links(session: AsyncSession, rows: list[dict]) -> tuple[i
         replaced += 1
     await session.flush()
     return inserted, replaced
+
+
+async def recorded_attachment_ids(session: AsyncSession, channel: str) -> set[str]:
+    """발견 경로까지 저장된 PDF 메시지 번호. PDF만 저장된 메시지는 다시 기록해야 한다."""
+    rows = await session.execute(
+        select(TelegramMessage.msg_id)
+        .join(Channel, Channel.id == TelegramMessage.channel_id)
+        .join(TelegramMessageLink, TelegramMessageLink.message_id == TelegramMessage.id)
+        .where(Channel.telegram_handle == channel, TelegramMessageLink.kind == "attachment",
+               TelegramMessageLink.status.in_(SETTLED))
+    )
+    return {str(msg_id) for msg_id in rows.scalars()}
 
 
 async def find_attachment_report(

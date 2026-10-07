@@ -47,8 +47,8 @@ import httpx
 
 from app.core.database import SessionLocal
 from app.core.scope import CollectionScope, ScopeError, load_scope
-from app.repositories.news import save_news
-from app.repositories.scope import count_collected
+from app.repositories.news import KnownArticle, known_articles, save_news
+from app.repositories.scope import collection_locks, count_collected
 from app.repositories.source_card import register_missing_sources
 from app.repositories.telegram_message import (
     ensure_channels,
@@ -56,6 +56,7 @@ from app.repositories.telegram_message import (
     save_message_links,
     save_messages,
 )
+from app.services.news.url import canonical_url
 from app.services.news_link import LinkBody, fetch_link_bodies, is_fetchable
 from app.services.news_link.fetch import DEFAULT_TIMEOUT_SEC as LINK_TIMEOUT_SEC
 from app.services.telegram_web import Channel, ChannelMessage, fetch_channel, select_channels
@@ -152,39 +153,64 @@ async def attach_link_bodies(
     now: datetime,
     per_message: int,
     max_links: int | None = None,
+    existing: dict[str, KnownArticle] | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> int:
     """메시지마다 열 링크를 고르고, 모은 주소를 한꺼번에 열어 각 메시지의 link_bodies 에 붙인다.
 
     messages 와 stats 를 직접 고친다. 채널별 집계(stale·opened·skipped·junk)도 여기서 채운다.
-    max_links 를 주면 주소를 그 수까지만 연다(수집 범위의 수집량 상한). 고르고도 상한 때문에
+    max_links 는 신규 주소만 제한한다. 기존 실패 기사는 재시도하고 성공·삭제한 기사는 열지 않는다.
+    재시도 주소가 다른 기사로 바뀌면 신규 수량 제한을 우회하지 않도록 결과를 저장하지 않는다.
+    고르고도 상한 때문에
     열지 않은 주소 수를 돌려준다. 그 링크는 link_bodies 에 없고 DB 에는 out_of_scope 로 남는다.
     """
     by_channel = {stat.channel.id: stat for stat in stats}
     chosen: list[tuple[ChannelMessage, LinkChoice]] = []
     for message in messages:
+        message.link_bodies = []  # 같은 객체를 다시 검사해도 이전 실행 결과가 남지 않게 한다.
         if not message.links:
             continue
         choice = choose_links(message, now=now, per_message=per_message)
         stat = by_channel[message.channel]
         stat.stale += int(choice.stale)
-        stat.opened += len(choice.urls)
         stat.skipped += choice.skipped
         stat.junk += choice.junk
         chosen.append((message, choice))
 
     # 같은 기사를 여러 채널이 올리는 일이 흔하다. 한 번만 열고 나눠 쓴다.
     urls = list(dict.fromkeys(url for _message, choice in chosen for url in choice.urls))
+    existing = existing or {}
     held = 0
-    if max_links is not None and len(urls) > max_links:
-        held = len(urls) - max_links
-        urls = urls[:max(max_links, 0)]
+    targets = []
+    remaining = max_links
+    for url in urls:
+        article = existing.get(url)
+        if article:
+            if article.status == "failed":
+                targets.append(url)
+        elif remaining is None or remaining > 0:
+            targets.append(url)
+            if remaining is not None:
+                remaining -= 1
+        else:
+            held += 1
+    urls = targets
+    target_set = set(targets)
+    for message, choice in chosen:
+        by_channel[message.channel].opened += sum(url in target_set for url in choice.urls)
     if not urls:
         return held
     logger.info("링크 %d개를 연다", len(urls))
     async with httpx.AsyncClient(timeout=LINK_TIMEOUT_SEC, transport=transport) as client:
         bodies = await fetch_link_bodies(urls, client=client)
-    by_url = dict(zip(urls, bodies, strict=True))
+    by_url = {}
+    for url, body in zip(urls, bodies, strict=True):
+        article = existing.get(url)
+        if article and body.final_url and canonical_url(body.final_url) != article.canonical_url:
+            held += 1
+            logger.warning("기존 기사와 도착 주소가 달라 재시도 결과를 저장하지 않음: %s", url)
+            continue
+        by_url[url] = body
     for message, choice in chosen:
         message.link_bodies = [by_url[url] for url in choice.urls if url in by_url]
     return held
@@ -377,6 +403,7 @@ async def save_to_db(
     now: datetime,
     per_message: int,
     unopened: str = "out_of_scope",
+    existing: dict[str, KnownArticle] | None = None,
     session_factory=SessionLocal,
 ) -> DbStats:
     """collect() 결과를 DB 에 넣는다. 원문(메시지·기사·링크)은 한 트랜잭션이다.
@@ -385,6 +412,7 @@ async def save_to_db(
     `python -m app.collectors.sources register` 로 다시 돌리면 된다.
     """
     stats = DbStats()
+    existing = existing or {}
     keyed = [m for m in messages if m.msg_id is not None]
     stats.no_msg_id = len(messages) - len(keyed)
     async with session_factory() as session:
@@ -412,17 +440,21 @@ async def save_to_db(
                 continue  # 처음 저장한 본문의 링크를 그대로 둔다
             plan = link_plan(message, now=now, per_message=per_message, unopened=unopened)
             for position, (url, status, body) in enumerate(plan, start=1):
+                article = existing.get(url)
+                if body is None and article and article.status == "ok":
+                    status = "ok"  # 이미 확보한 원문을 가리킨다. 다시 다운로드하지 않는다.
                 link_rows.append({
                     "message_id": result.id,
                     "kind": "url",
                     "position": position,
                     "discovered_url": url,
-                    "final_url": body.final_url if body else None,
+                    "final_url": body.final_url if body else (article.url if article else None),
                     "status": status,
                     "error": body.error if body else None,
                     "http_status": body.http_status if body else None,
-                    "fetched_at": body.fetched_at if body else None,
-                    "news_id": news_ids.get(url),
+                    "fetched_at": body.fetched_at if body else (
+                        article.fetched_at if article else None),
+                    "news_id": news_ids.get(url, article.id if article else None),
                     "analyst_report_id": None,
                 })
         stats.links_new, stats.links_updated = await save_message_links(session, link_rows)
@@ -430,7 +462,10 @@ async def save_to_db(
 
     try:
         async with session_factory() as session:
-            stats.cards = await register_missing_sources(session)
+            stats.cards = await register_missing_sources(
+                session, news_ids=list({*news.ids, *(a.id for a in existing.values())}),
+                report_ids=[], message_ids=[m.id for m in saved],
+            )
             await session.commit()
     except Exception as exc:  # noqa: BLE001 — 원문은 이미 커밋됐다. 실패만 알리고 다시 돌리게 한다
         stats.register_error = f"{type(exc).__name__}: {str(exc)[:200]}"
@@ -491,7 +526,8 @@ async def run(
         기간      [since, until] 을 범위 기간으로 자른다. 게시 시각 불명 메시지는 기간 안인지
                   모르므로 오늘이 기간 안일 때만 받는다
         수집량    이미 저장된 메시지는 갱신만 하고, 새 메시지는 telegram_web.max_items 까지만 받는다
-        링크      telegram_link 가 꺼져 있으면 열지 않고, 켜져 있으면 남은 수집량만큼만 연다.
+        링크      신규 기사는 남은 수집량만큼 연다. 기존 실패 기사는 상한에서도 재시도한다.
+                  telegram_link 가 꺼져 있으면 기존 기사도 열지 않는다.
                   못 연 링크는 발견 기록에 out_of_scope 로 남는다
     """
     web = scope.require("telegram_web")
@@ -510,34 +546,45 @@ async def run(
         messages = [m for m in messages if m.posted_at is not None]
 
     links = scope.source("telegram_link")
-    async with session_factory() as session:
-        known = await known_message_keys(
-            session, [(m.channel, m.msg_id) for m in messages if m.msg_id is not None]
-        )
-        budget = web.remaining(await count_collected(session, "telegram_web"))
-        link_budget = (links.remaining(await count_collected(session, "telegram_link"))
-                       if links.enabled else 0)
-    for message in messages:
-        is_new = message.msg_id is not None and (message.channel, message.msg_id) not in known
-        if is_new and budget <= 0:
-            result.held_messages += 1
-            continue
-        budget -= int(is_new)
-        result.messages.append(message)
+    async with collection_locks(session_factory, "telegram_web", "telegram_link"):
+        async with session_factory() as session:
+            known = await known_message_keys(
+                session, [(m.channel, m.msg_id) for m in messages if m.msg_id is not None]
+            )
+            budget = web.remaining(await count_collected(session, "telegram_web"))
+            link_budget = (links.remaining(await count_collected(session, "telegram_link"))
+                           if links.enabled else 0)
+        for message in messages:
+            key = (message.channel, message.msg_id)
+            is_new = message.msg_id is not None and key not in known
+            if is_new and budget <= 0:
+                result.held_messages += 1
+                continue
+            budget -= int(is_new)
+            if message.msg_id is not None:
+                known.add(key)
+            result.messages.append(message)
 
-    if not no_links:
-        result.held_links = await attach_link_bodies(
-            result.messages, stats, now=now, per_message=per_message, max_links=link_budget,
-            transport=transport,
-        )
-    if jsonl_dir is not None:
-        result.jsonl = write_jsonl(result.messages, jsonl_dir, now)
-    if not dry_run:
-        result.db = await save_to_db(
-            result.messages, channels, now=now, per_message=per_message,
-            unopened="not_opened" if no_links else "out_of_scope",
-            session_factory=session_factory,
-        )
+        existing = {}
+        if not no_links:
+            if links.enabled:
+                async with session_factory() as session:
+                    existing = await known_articles(session, [
+                        url for m in result.messages
+                        for url in choose_links(m, now=now, per_message=per_message).urls
+                    ])
+            result.held_links = await attach_link_bodies(
+                result.messages, stats, now=now, per_message=per_message, max_links=link_budget,
+                existing=existing, transport=transport,
+            )
+        if jsonl_dir is not None:
+            result.jsonl = write_jsonl(result.messages, jsonl_dir, now)
+        if not dry_run:
+            result.db = await save_to_db(
+                result.messages, channels, now=now, per_message=per_message,
+                unopened="not_opened" if no_links else "out_of_scope", existing=existing,
+                session_factory=session_factory,
+            )
     return result
 
 

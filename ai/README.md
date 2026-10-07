@@ -163,9 +163,15 @@ uv run python -m app.collectors.news_channels --jsonl          # JSONL 파일 �
 처럼 다른 문서일 수 있는 차이는 남긴다. 처음 들어온 주소는 `news.url` 에 그대로 둔다.
 
 **본문은 한 번 확보하면 바꾸지 않는다.** 실패했던 본문만 다음 수집에서 채운다. 재수집에서
-실패해도, 고쳐진 기사를 다시 받아도 성공한 본문은 그대로다. 기사 본문(`cleaned_text`)은
-전체이고, 앞 3문장 발췌를 넣지 않는다. 본문을 받은 시각(`body_fetched_at`),
-상태(`body_status` ok·failed), 실패 사유(`body_error`)를 같이 남긴다.
+실패해도, 고쳐진 기사를 다시 받아도 성공한 본문은 그대로다. `cleaned_text`에는 텔레그램
+링크 경로는 정제한 전문, 네이버 검색 경로는 `clean_text`가 최대 3000자로 자른 본문을 넣는다.
+앞 3문장 발췌는 별도 필드다. 본문을 받은 시각(`body_fetched_at`),
+상태(`body_status` ok·failed·purged), 실패 사유(`body_error`)를 같이 남긴다.
+삭제와 재수집이 겹쳐도 `purged` 본문은 복원하지 않는다.
+
+두 뉴스 경로 모두 요청·리다이렉트마다 공개 IP 여부를 검사하고 HTML 수신량을 3MB로
+제한한다. 네이버 본문 수신은 DNS와 리다이렉트를 합쳐 15초까지 기다린다.
+검사와 실제 접속의 DNS 조회가 분리되어 있어 DNS 재바인딩까지 차단하지는 못한다.
 
 **발행 시각을 모르면 NULL 이다.** 링크를 연 시각·메시지 게시 시각으로 채우지 않는다. 같은
 기사를 네이버가 나중에 찾으면 그때 채운다. 기준 시각으로 자료를 거를 때는 발행 시각이
@@ -178,6 +184,11 @@ uv run python -m app.collectors.news_channels --jsonl          # JSONL 파일 �
 범위 밖)와 함께 남는다. 링크로 기사를 여는 것은 별도 출처(`telegram_link`)라, 범위에서 꺼 두면
 메시지만 저장하고 기사는 열지 않는다.
 
+동일 출처 수집은 PostgreSQL 잠금으로 직렬화하여 누적 상한을 지킨다. 잠금은 배치 커밋과
+분리된 연결 하나를 실행 동안 사용한다. 텔레그램 링크는 상한에서도 기존 실패 기사를
+재시도하고 성공한 기사는 재사용한다. 재시도 중 최종 주소가 다른 기사로 바뀌면 저장하지
+않는다. 이 경우 로그와 보류 건수에 남으며 기존 기사 결과는 유지한다.
+
 **운영자가 쓴 글과 남의 자료를 나눠 둔다.** 다른 채널 글을 전달한 메시지는 `forwarded_from`·
 `forwarded_from_url` 에 원래 채널과 원글을 남기고, 그 메시지의 원 발행처를 원래 채널로 적는다.
 메시지에 걸린 외부 기사·PDF 는 메시지 글이 아니라 `news`·`analyst_reports` 의 별도 행이고
@@ -188,10 +199,14 @@ uv run python -m app.collectors.news_channels --jsonl          # JSONL 파일 �
 `edit_detected_at` 에 처음 감지한 시각만 남기고, 고친 내용은 저장하지 않는다. 채널에
 "edited" 표시가 있으면 `edited` 가 참이다(처음 수집하기 전에 고친 글도 포함). 게시 시각을
 못 읽은 메시지는 `posted_at` 이 NULL, 글자 없이 첨부만 올린 메시지는 `text` 가 빈 문자열이다.
+표시 글자는 같고 링크 주소만 바뀐 경우에도 기존 발견 주소와 새 기사 결과를 섞지 않는다.
+이 경우 이전 링크를 보존하며, 글자 변경 감지 시각을 새로 기록하지는 않는다.
 
 로그인 계정으로 PDF 를 받는 `collectors/telegram.py` 도 PDF 가 붙어 있던 메시지와 발견 경로를
 같은 표에 남긴다. 네이버에 같은 PDF 가 있어 텔레그램 행을 만들지 않은 경우에도 그 네이버
 행에 연결한다(상태 `duplicate`). 이 기록이 실패해도 같은 묶음의 PDF 행은 저장된다.
+자체 PDF 저장 행이 있는 메시지는 다음 실행에서 파일을 다시 받지 않고 발견 경로를
+복구한다. 수집량 상한에서도 복구하며, 지정한 기간과 조회 가능한 메시지 범위 안에서 동작한다.
 
 ## 공통 자료 ID
 
@@ -458,6 +473,10 @@ MIGRATION_TEST_ADMIN_URL=postgresql://USER:PASSWORD@HOST:PORT/postgres uv run py
 (`tests/backend_schema.py`, `database` 픽스처). 아무 표도 없는 DB 는 `empty_database` 다.
 뉴스·메시지·공통 자료 ID 저장 규칙도 같은 방식으로 실제 DB 에서 본다
 (`tests/test_*_db.py`).
+
+`.github/workflows/ai-check.yml`은 PR에서 PostgreSQL과 Poppler를 준비하고 Ruff 및 전체
+비네트워크 테스트를 실행한다. 로컬에서 DB 주소를 생략하면 DB 검증은 수행되지 않는다.
+회귀 항목과 실제 실행 결과는 [REVIEW_FIXES.md](REVIEW_FIXES.md)에 기록한다.
 
 ### 텔레그램 PDF 요약
 

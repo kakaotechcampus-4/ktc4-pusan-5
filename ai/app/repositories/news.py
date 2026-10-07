@@ -20,7 +20,7 @@ from datetime import datetime
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import News
+from app.models import News, TelegramMessageLink
 from app.services.news.url import canonical_url
 
 # 본문 칼럼. 성공한 본문을 채울 때 함께 바뀐다.
@@ -39,7 +39,7 @@ class NewsSaveResult:
     existing: int = 0  # 이미 있던 기사 (본문 보완 포함)
 
 
-async def _lock(session: AsyncSession, keys: list[str]) -> None:
+async def lock_news_keys(session: AsyncSession, keys: list[str]) -> None:
     """같은 기사를 동시에 저장하는 다른 수집기와 차례를 맞춘다.
 
     조회와 INSERT 사이에 다른 수집기가 같은 기사를 넣으면 고유키 오류로 그 실행 전체가
@@ -57,6 +57,9 @@ async def _find(session: AsyncSession, key: str, url: str) -> News | None:
         # 정규화 주소로 찾은 행을 먼저 쓴다. 원래 주소만 같은 행은 이관 전 행이다.
         .order_by((News.canonical_url == key).desc().nulls_last(), News.id)
         .limit(1)
+        # purge는 advisory lock을 쓰지 않는다. 진행 중인 삭제를 기다리고 최신 상태를 읽는다.
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
     return found.scalar_one_or_none()
 
@@ -98,11 +101,12 @@ async def save_news(session: AsyncSession, rows: list[dict]) -> NewsSaveResult:
     """기사 행을 넣거나 합친다. 커밋은 부르는 쪽이 한다.
 
     행의 키는 News 칼럼 이름이다(canonical_url 은 url 에서 여기서 만든다). body_status 가
-    ok 면 cleaned_text 에 본문 **전체**가 있어야 한다. 발췌를 넣지 않는다.
+    ok 면 cleaned_text 에 비어 있지 않은 정제 본문이 있어야 한다. 링크 경로는 전문,
+    네이버 검색 경로는 clean_text의 길이 제한(3000자)을 적용한다. 3문장 발췌는 별도다.
     """
     result = NewsSaveResult()
     keys = [canonical_url(row["url"]) for row in rows]
-    await _lock(session, keys)
+    await lock_news_keys(session, keys)
     for row, key in zip(rows, keys, strict=True):
         if row["body_status"] == "ok" and not row.get("cleaned_text"):
             raise ValueError(f"본문 없이 ok 로 저장할 수 없다: {row['url']}")
@@ -131,6 +135,41 @@ async def known_news_keys(session: AsyncSession, urls: list[str]) -> set[str]:
         )
     )
     return {stored or canonical_url(url) for stored, url in rows.all()} & keys
+
+
+@dataclass(frozen=True)
+class KnownArticle:
+    id: int
+    url: str
+    canonical_url: str
+    status: str
+    fetched_at: datetime | None
+
+
+async def known_articles(session: AsyncSession, urls: list[str]) -> dict[str, KnownArticle]:
+    """원문 주소 또는 과거 발견 주소로 기존 기사를 찾는다. 본문은 읽지 않는다."""
+    if not urls:
+        return {}
+    columns = (News.id, News.url, News.canonical_url, News.body_status, News.body_fetched_at)
+    result: dict[str, KnownArticle] = {}
+    rows = await session.execute(
+        select(TelegramMessageLink.discovered_url, *columns)
+        .join(News, News.id == TelegramMessageLink.news_id)
+        .where(TelegramMessageLink.discovered_url.in_(urls)).order_by(News.id)
+    )
+    for discovered, news_id, url, key, status, fetched in rows:
+        result.setdefault(discovered, KnownArticle(news_id, url, key or canonical_url(url),
+                                                  status, fetched))
+    keys = {canonical_url(url) for url in urls}
+    rows = await session.execute(select(*columns).where(
+        or_(News.canonical_url.in_(keys), News.url.in_(urls))))
+    by_key = {key or canonical_url(url): KnownArticle(
+        news_id, url, key or canonical_url(url), status, fetched
+    ) for news_id, url, key, status, fetched in rows}
+    for url in urls:
+        if canonical_url(url) in by_key:
+            result.setdefault(url, by_key[canonical_url(url)])
+    return result
 
 
 async def failed_news(

@@ -4,8 +4,8 @@
 JS 로 본문을 그리는 사이트(biz.sbs.co.kr 등)는 실패한다 (SOURCES.md 실측 약 10%).
 실패해도 예외를 올리지 않고 (None, 사유) 를 돌려준다. 호출 측이 항목을 보존한다.
 
-backend 에서 옮겨 오면서 **추출 동작은 바꾸지 않았다**(trafilatura). 텔레그램 링크를 여는
-news_link(bs4)와 합치거나 추출기를 바꾸는 일은 이관과 따로 한다.
+본문 추출은 trafilatura를 유지한다. 외부 요청의 주소 검사·리다이렉트·크기 제한은
+텔레그램 경로와 공유한다. DNS 재바인딩 한계는 news_link/fetch.py에 설명돼 있다.
 """
 
 import asyncio
@@ -16,9 +16,16 @@ import trafilatura
 
 from app.services.news.clean import clean_text
 from app.services.news.schema import NewsItem
+from app.services.news_link.fetch import (
+    BlockedAddressError,
+    HtmlTooLargeError,
+    decode_html,
+    open_public,
+    read_limited_html,
+)
 
-_UA = "Mozilla/5.0 (compatible; BASIS-news-collector/0.1)"
 _MIN_CHARS = 100  # 이보다 짧으면 본문이 아니라 상용구만 잡힌 것으로 본다
+BODY_TIMEOUT_SEC = 15.0  # DNS·리다이렉트·본문 수신을 합친 전체 제한
 
 
 def _extract(html_text: str, url: str) -> str | None:
@@ -34,12 +41,28 @@ def _extract(html_text: str, url: str) -> str | None:
 async def fetch_body(client: httpx.AsyncClient, url: str) -> tuple[str | None, str | None]:
     """(본문, 실패사유). 성공하면 사유는 None."""
     try:
-        resp = await client.get(url, headers={"User-Agent": _UA}, follow_redirects=True)
-    except httpx.HTTPError as e:
+        async with asyncio.timeout(BODY_TIMEOUT_SEC), open_public(client, url) as resp:
+            if resp.status_code != 200:
+                return None, f"http_{resp.status_code}"
+            content_type = resp.headers.get("content-type", "")
+            if content_type and content_type.split(";", 1)[0].strip().lower() not in (
+                "text/html", "application/xhtml+xml",
+            ):
+                return None, "not_html"
+            content = await read_limited_html(resp)
+            final_url = str(resp.url)
+    except BlockedAddressError:
+        return None, "blocked_address"
+    except HtmlTooLargeError:
+        return None, "too_large"
+    except (httpx.HTTPError, TimeoutError) as e:
         return None, f"request_failed: {type(e).__name__}"
-    if resp.status_code != 200:
-        return None, f"http_{resp.status_code}"
-    text = await asyncio.to_thread(_extract, resp.text, url)
+    except (OSError, ValueError):
+        return None, "request_failed: invalid_address"
+    try:
+        text = await asyncio.to_thread(_extract, decode_html(content, content_type), final_url)
+    except Exception as exc:  # noqa: BLE001 — 한 기사의 실패가 수집 묶음을 중단하지 않게 한다.
+        return None, f"extract_failed: {type(exc).__name__}"
     if not text or len(text) < _MIN_CHARS:
         return None, "extract_empty"
     return text, None

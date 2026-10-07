@@ -28,7 +28,7 @@ from datetime import UTC, datetime, timedelta
 from app.core.database import SessionLocal
 from app.core.scope import KST, CollectionScope, ScopeError, SourceScope, load_scope
 from app.repositories.news import failed_news, known_news_keys, save_news
-from app.repositories.scope import count_collected
+from app.repositories.scope import collection_locks, count_collected
 from app.repositories.source_card import register_missing_sources
 from app.services.news import naver
 from app.services.news.content import attach_bodies
@@ -111,7 +111,9 @@ async def _save(items: list[NewsItem], result: CollectResult) -> CollectResult:
     # 등록은 기사를 커밋한 뒤 따로 한다. 실패해도 기사는 남고 다시 등록하면 된다.
     try:
         async with SessionLocal() as session:
-            result.cards = await register_missing_sources(session)
+            result.cards = await register_missing_sources(
+                session, news_ids=saved.ids, report_ids=[], message_ids=[],
+            )
             await session.commit()
     except Exception as exc:  # noqa: BLE001
         result.register_error = f"{type(exc).__name__}: {str(exc)[:200]}"
@@ -125,14 +127,15 @@ async def collect(
     scope = scope or load_scope()
     source = scope.require("naver_news")
     source.check([query])
-    items = await naver.search(query, display=display)
-    result = CollectResult(fetched=len(items))
-    known, collected = await _known_and_collected(items)
-    items = select_items(items, scope=scope, source=source, known=known, collected=collected,
-                         result=result)
-    items = await attach_bodies(items)
-    # 여기가 나중에 분류(feature/data-classification)가 들어갈 자리. 원문 저장과는 따로 돈다.
-    return await _save(items, result)
+    async with collection_locks(SessionLocal, "naver_news"):
+        items = await naver.search(query, display=display)
+        result = CollectResult(fetched=len(items))
+        known, collected = await _known_and_collected(items)
+        items = select_items(items, scope=scope, source=source, known=known, collected=collected,
+                             result=result)
+        items = await attach_bodies(items)
+        # 분류는 원문 저장과 별도로 실행한다.
+        return await _save(items, result)
 
 
 async def retry_failed(

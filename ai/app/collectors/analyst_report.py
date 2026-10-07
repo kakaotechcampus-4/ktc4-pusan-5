@@ -29,7 +29,7 @@ from datetime import datetime, timedelta, timezone
 from app.core.database import SessionLocal
 from app.core.scope import CollectionScope, ScopeError, load_scope
 from app.repositories.analyst_report import known_ids, upsert_analyst_reports
-from app.repositories.scope import count_collected
+from app.repositories.scope import collection_locks, count_collected
 from app.repositories.source_card import register_missing_sources
 from app.services.analyst.naver import CATEGORIES, NaverResearchClient, utcnow
 from app.services.analyst.schema import AnalystReportItem, PdfText
@@ -102,7 +102,12 @@ async def collect(
         raise ScopeError(f"수집 기간({scope.start}~{scope.end}) 밖이다. 받을 리포트가 없다.")
 
     saved: dict[str, int] = {}
-    async with NaverResearchClient() as naver, SessionLocal() as session:
+    report_keys: list[tuple[str, str, str]] = []
+    async with (
+        collection_locks(SessionLocal, "naver_research"),
+        NaverResearchClient() as naver,
+        SessionLocal() as session,
+    ):
         for category in categories:
             seen = await known_ids(session, SOURCE, since, category)
             items = await naver.collect_since(category, since, known_ids=seen)
@@ -126,10 +131,13 @@ async def collect(
                 session, [_to_row(i, p) for i, p in enriched]
             )
             await session.commit()  # 카테고리 단위 커밋. 중간에 끊겨도 앞은 남는다
+            report_keys.extend((SOURCE, i.source_category, i.source_id) for i, _ in enriched)
 
         # 공통 자료 ID 는 리포트를 다 커밋한 뒤 따로 등록한다. 실패해도 리포트는 남는다.
         try:
-            cards = await register_missing_sources(session)
+            cards = await register_missing_sources(
+                session, news_ids=[], message_ids=[], report_keys=report_keys,
+            )
             await session.commit()
         except Exception as exc:
             raise RuntimeError(

@@ -1,7 +1,10 @@
 """PDF 텍스트 추출. 임시 PDF 를 직접 만들어 실제로 pdftotext 를 태운다."""
 
 import hashlib
+import shutil
 from pathlib import Path
+
+import pytest
 
 from app.services.analyst.pdf import PDF_MAX_BYTES, extract_pdf_text, pdf_text_from_bytes
 
@@ -33,6 +36,7 @@ def _three_page_pdf(path: Path) -> Path:
     return path
 
 
+@pytest.mark.skipif(shutil.which("pdftotext") is None, reason="Poppler pdftotext is not installed")
 def test_page_count_comes_from_form_feeds(tmp_path: Path) -> None:
     r"""pdftotext 는 페이지 수를 따로 안 준다. 페이지 사이 폼피드(\f)를 세서 얻는다."""
     text, how, pages = extract_pdf_text(_three_page_pdf(tmp_path / "t.pdf"))
