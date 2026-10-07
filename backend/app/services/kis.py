@@ -208,14 +208,13 @@ class KisClient:
             key=lambda row: row["stck_bsop_date"],
             reverse=True,
         )
-        if len(rows) < 2:
+        if not rows:
             raise MarketDataError("NO_DATA")
-        # 환율과 같이 날짜가 붙은 시계열 값만 쓰고, 직전 거래일 종가 대비 등락률을 직접 계산한다.
-        current, previous = number(rows[0]["stck_clpr"]), number(rows[1]["stck_clpr"])
-        if previous <= 0:
-            raise MarketDataError("INVALID_RESPONSE")
+        latest = rows[0]
+        # 날짜가 붙은 최신 행의 종가와, KIS 가 주는 전일 대비율(prdy_ctrt)을 그대로 쓴다.
+        # 필드가 없을 때도 값이 이상할 때와 같이 INVALID_RESPONSE 가 되도록 .get() 으로 읽는다.
         return Quote(
-            current,
-            (current - previous) / previous * 100,
-            date.fromisoformat(rows[0]["stck_bsop_date"]),
+            number(latest.get("stck_clpr")),
+            number(latest.get("prdy_ctrt")),
+            date.fromisoformat(latest["stck_bsop_date"]),
         )
