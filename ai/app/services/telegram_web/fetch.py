@@ -36,6 +36,8 @@ class ChannelFetch:
     messages: list[ChannelMessage] = field(default_factory=list)
     undated: list[ChannelMessage] = field(default_factory=list)  # 게시 시각을 못 읽은 것
     pages: int = 0  # 실제로 요청한 페이지 수
+    # 페이지 상한(max_pages)에 닿아 since 까지 내려가지 못했다. 구간 앞부분 글이 빠졌을 수 있다
+    truncated: bool = False
     error: str | None = None  # 실패 사유. 성공했으면 None
 
 
@@ -94,6 +96,10 @@ async def fetch_channel(
         if not ids:
             break
         url = f"{BASE_URL}{channel}?before={min(ids)}"
+    else:
+        # break 없이 끝났다 = 상한까지 읽고도 구간 시작보다 오래된 글을 못 만났다.
+        # 다 읽은 것과 구분하지 않으면 덜 모은 걸 모른 채 넘어간다.
+        result.truncated = True
 
     # 구간 밖의 글은 버리고, 게시 시각을 모르는 글은 따로 담는다.
     for message in collected:

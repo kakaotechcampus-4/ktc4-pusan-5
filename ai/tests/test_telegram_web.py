@@ -161,7 +161,44 @@ async def test_pages_back_until_the_window_starts() -> None:
     assert requested == ["https://t.me/s/ch", "https://t.me/s/ch?before=11"]
     assert [m.msg_id for m in got.messages] == [12, 11, 10]
     assert got.pages == 2
+    assert got.truncated is False
     assert got.error is None
+
+
+async def test_page_limit_is_recorded_when_the_window_is_not_reached() -> None:
+    """상한에 닿아 멈춘 것과 구간을 다 읽은 것을 구분한다."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        before = int(request.url.params.get("before", "100"))
+        return httpx.Response(200, html=page(
+            box(f"ch/{before - 1}", time="2026-09-30T00:00:00+00:00", text="구간 안 글"),
+        ))
+
+    async with _client(handler) as client:
+        got = await fetch_channel(client, "ch", since=SINCE, until=UNTIL, max_pages=2, page_delay=0)
+
+    assert got.pages == 2
+    assert got.truncated is True
+    assert [m.msg_id for m in got.messages] == [99, 98]
+
+
+async def test_last_page_reaching_the_window_start_is_not_truncated() -> None:
+    """상한 페이지에서 마침 구간 시작을 넘었으면 다 읽은 것이다."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("before") is None:
+            return httpx.Response(200, html=page(
+                box("ch/5", time="2026-09-30T00:00:00+00:00", text="오늘 글"),
+            ))
+        return httpx.Response(200, html=page(
+            box("ch/4", time="2026-09-28T10:00:00+00:00", text="구간 밖"),
+        ))
+
+    async with _client(handler) as client:
+        got = await fetch_channel(client, "ch", since=SINCE, until=UNTIL, max_pages=2, page_delay=0)
+
+    assert got.pages == 2
+    assert got.truncated is False
 
 
 async def test_textless_messages_are_dropped_but_paging_goes_on() -> None:

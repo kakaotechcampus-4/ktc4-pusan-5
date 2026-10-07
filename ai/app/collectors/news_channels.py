@@ -74,6 +74,7 @@ class ChannelStats:
 
     channel: Channel
     pages: int = 0  # 요청한 채널 페이지 수
+    truncated: bool = False  # 페이지 상한에 닿아 구간을 다 못 읽었다 (fetch_channel 의 truncated)
     messages: int = 0  # 구간 안 메시지 수 (게시 시각을 모르는 것은 undated 로 따로 센다)
     undated: int = 0  # 게시 시각을 못 읽은 메시지
     with_links: int = 0  # 외부 링크가 하나라도 걸린 메시지
@@ -185,8 +186,10 @@ async def collect(
                 channel=channel, pages=got.pages, messages=len(got.messages),
                 undated=len(got.undated), with_links=sum(bool(m.links) for m in found),
                 hidden=sum(len(m.hidden_links) for m in found), error=got.error,
+                truncated=got.truncated,
             ))
-            logger.info("%s: 페이지 %d, 메시지 %d건%s", channel.id, got.pages, len(got.messages),
+            logger.info("%s: 페이지 %d, 메시지 %d건%s%s", channel.id, got.pages, len(got.messages),
+                        " (페이지 상한에 닿음)" if got.truncated else "",
                         f" (실패: {got.error})" if got.error else "")
             messages += found
 
@@ -219,6 +222,8 @@ def summary_lines(messages: list[ChannelMessage], stats: list[ChannelStats]) -> 
         head = f"[{s.channel.id}] {s.channel.affiliation} · 페이지 {s.pages} · 메시지 {s.messages}건"
         if s.undated:
             head += f" (게시 시각 못 읽음 {s.undated}건)"
+        if s.truncated:
+            head += " · 페이지 상한에 닿아 구간 앞부분을 못 읽었을 수 있음 (--max-pages 로 늘린다)"
         if s.error:
             head += f" · 실패: {s.error}"
         lines.append(head)

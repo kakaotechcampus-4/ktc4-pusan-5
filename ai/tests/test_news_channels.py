@@ -8,7 +8,13 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import httpx
 
-from app.collectors.news_channels import choose_links, collect, write_jsonl
+from app.collectors.news_channels import (
+    ChannelStats,
+    choose_links,
+    collect,
+    summary_lines,
+    write_jsonl,
+)
 from app.services.news_link.schema import LinkBody
 from app.services.telegram_web import Channel, ChannelMessage
 from tests.test_telegram_web import box, page
@@ -128,3 +134,12 @@ def test_jsonl_keeps_korean(tmp_path) -> None:
     raw = path.read_text(encoding="utf-8")
     assert path.name == "messages-20260930-120000.jsonl"
     assert "삼성전자" in raw, "\\uXXXX 로 바뀌면 파일을 눈으로 볼 수 없다"
+
+
+def test_summary_says_when_the_page_limit_cut_the_window_short() -> None:
+    channel = Channel("skitteam", "[ IT는 SK ]", "SK증권 리서치 IT팀", "A")
+    cut = summary_lines([], [ChannelStats(channel=channel, pages=5, truncated=True)])
+    full = summary_lines([], [ChannelStats(channel=channel, pages=2)])
+
+    assert "페이지 상한에 닿아" in cut[0]
+    assert "페이지 상한에 닿아" not in full[0]
