@@ -193,6 +193,8 @@ export type WatchlistEntry = {
   market: 'KOSPI' | 'KOSDAQ';
   /** 시세가 아직 수집되지 않은 종목은 null */
   quote: WatchlistQuote | null;
+  /** ready: 최신 / stale: 갱신 지연(마지막 정상값) / pending: 아직 수집 전 */
+  quoteStatus: 'ready' | 'stale' | 'pending';
   asOf: string | null;
 };
 

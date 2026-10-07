@@ -97,6 +97,10 @@ export function WatchlistCard({
                         {formatPrice(item.quote.price)}
                       </span>
                       <Change value={item.quote.change} size="sm" />
+                      {/* 관심 종목은 상세 화면을 열어야 시세가 갱신돼서, 오래 안 본 종목은 값이 낡을 수 있다. */}
+                      {item.quoteStatus === 'stale' && (
+                        <span className="text-xs text-neutral-700">갱신 지연</span>
+                      )}
                     </span>
                   ) : (
                     <span className="flex-none text-sm text-neutral-600">미제공</span>
