@@ -108,6 +108,7 @@ class ChannelStats:
 
     channel: Channel
     pages: int = 0  # 요청한 채널 페이지 수
+    truncated: bool = False  # 페이지 상한에 닿아 구간을 다 못 읽었다 (fetch_channel 의 truncated)
     messages: int = 0  # 구간 안 메시지 수 (게시 시각을 모르는 것은 undated 로 따로 센다)
     undated: int = 0  # 게시 시각을 못 읽은 메시지
     with_links: int = 0  # 외부 링크가 하나라도 걸린 메시지
@@ -218,8 +219,10 @@ async def read_channels(
                 channel=channel, pages=got.pages, messages=len(got.messages),
                 undated=len(got.undated), with_links=sum(bool(m.links) for m in found),
                 hidden=sum(len(m.hidden_links) for m in found), error=got.error,
+                truncated=got.truncated,
             ))
-            logger.info("%s: 페이지 %d, 메시지 %d건%s", channel.id, got.pages, len(got.messages),
+            logger.info("%s: 페이지 %d, 메시지 %d건%s%s", channel.id, got.pages, len(got.messages),
+                        " (페이지 상한에 닿음)" if got.truncated else "",
                         f" (실패: {got.error})" if got.error else "")
             messages += found
     messages.sort(key=lambda m: (m.posted_at is None, m.posted_at or _NO_TIME, m.channel))
@@ -257,8 +260,8 @@ async def collect(
 def write_jsonl(messages: list[ChannelMessage], out_dir: Path, collected_at: datetime) -> Path:
     """메시지를 한 줄에 하나씩 JSON 으로 쓰고(JSON Lines) 파일 경로를 돌려준다.
 
-    파일 이름에 수집 시각이 들어가서 실행할 때마다 새 파일이 생긴다. 본문 전체 문장
-    (LinkBody.sentences)은 직렬화에서 빠지므로 파일에 들어가지 않는다.
+    파일 이름에 수집 시각이 들어가서 실행할 때마다 새 파일이 생긴다. 기사는 앞부분
+    발췌(LinkBody.excerpt)만 들어간다.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"messages-{collected_at:%Y%m%d-%H%M%S}.jsonl"
@@ -555,6 +558,8 @@ def summary_lines(messages: list[ChannelMessage], stats: list[ChannelStats]) -> 
         head = f"[{s.channel.id}] {s.channel.affiliation} · 페이지 {s.pages} · 메시지 {s.messages}건"
         if s.undated:
             head += f" (게시 시각 못 읽음 {s.undated}건)"
+        if s.truncated:
+            head += " · 페이지 상한에 닿아 구간 앞부분을 못 읽었을 수 있음 (--max-pages 로 늘린다)"
         if s.error:
             head += f" · 실패: {s.error}"
         lines.append(head)

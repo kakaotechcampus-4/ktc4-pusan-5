@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/features/auth/useAuth';
 import { mockSignalBoard, mockWatchlist } from './mock';
 import type { SignalStatus } from './components/SignalList';
 import type { WatchlistStatus } from './components/WatchlistCard';
@@ -46,8 +47,19 @@ export function useHomeSections() {
   const [watchState, retryWatch] = useMockLoad(700, 'success');
   const [insightState, retryInsight] = useMockLoad(1100, 'success');
 
-  const watchlistStatus: WatchlistStatus =
+  // 관심 종목은 로그인한 사용자 것이라 인증 상태가 먼저 정해진다.
+  // 인증 확인 전에는 로딩, 비로그인이면 목록 대신 로그인 유도를 보여준다.
+  const { status: authStatus } = useAuth();
+  const mockWatchlistStatus: WatchlistStatus =
     watchState === 'success' && mockWatchlist.items.length === 0 ? 'empty' : watchState;
+  const watchlistStatus: WatchlistStatus =
+    authStatus === 'loading'
+      ? 'loading'
+      : authStatus === 'unauthenticated'
+        ? 'unauthenticated'
+        : authStatus === 'error'
+          ? 'error'
+          : mockWatchlistStatus;
 
   const signalStatus: SignalStatus =
     signalState === 'success' && mockSignalBoard.signals.length === 0 ? 'empty' : signalState;

@@ -16,6 +16,7 @@ from app.collectors.news_channels import (
     link_plan,
     message_row,
     news_row,
+    summary_lines,
     write_jsonl,
 )
 from app.services.news_link.schema import LinkBody
@@ -129,7 +130,7 @@ async def test_no_links_option_leaves_links_unopened() -> None:
 
 def test_jsonl_keeps_korean_and_leaves_the_whole_article_out(tmp_path) -> None:
     body = LinkBody(url="https://buly.kr/a", status="ok", excerpt="발췌",
-                    sentences=["기사 전문의 첫 문장이다."], fetched_at=datetime.now(UTC))
+                    text="기사 전문의 첫 문장이다.", fetched_at=datetime.now(UTC))
     message = ChannelMessage(channel="skitteam", msg_id=1, text="삼성전자", link_bodies=[body])
 
     path = write_jsonl([message], tmp_path / "telegram", NOW)
@@ -228,3 +229,12 @@ def test_message_row_keeps_text_as_shown_and_unknown_time_as_none() -> None:
                                            "forwarded_from_url": "https://t.me/other/9"})
     row = message_row(forwarded, channel_id=3)
     assert (row["forwarded_from"], row["forwarded_from_url"]) == ("다른 채널", "https://t.me/other/9")
+
+
+def test_summary_says_when_the_page_limit_cut_the_window_short() -> None:
+    channel = Channel("skitteam", "[ IT는 SK ]", "SK증권 리서치 IT팀", "A")
+    cut = summary_lines([], [ChannelStats(channel=channel, pages=5, truncated=True)])
+    full = summary_lines([], [ChannelStats(channel=channel, pages=2)])
+
+    assert "페이지 상한에 닿아" in cut[0]
+    assert "페이지 상한에 닿아" not in full[0]
