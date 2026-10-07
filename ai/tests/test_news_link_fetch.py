@@ -69,6 +69,21 @@ async def test_whole_body_sentences_are_kept_beyond_the_excerpt() -> None:
     ], "바이라인·저작권 안내는 정제된 뒤다"
 
 
+async def test_whole_body_text_is_kept_for_storage_but_not_serialized() -> None:
+    """news 에 저장하는 것은 발췌가 아니라 정제한 본문 전체다. 파일·로그로는 나가지 않는다."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, html=ARTICLE_HTML)
+
+    async with _client(handler) as client:
+        body = await fetch_link(client, "https://example.com/news/1", sentences=1)
+
+    assert body.text == "\n".join(body.sentences)
+    assert body.excerpt and body.text.startswith(body.excerpt) and body.text != body.excerpt
+    assert "text" not in body.model_dump()
+    assert "회사는" not in repr(body)
+
+
 async def test_shortened_url_resolves_to_its_final_address() -> None:
     """본문을 못 읽어도 이게 이 기능의 1번 값어치다. 모델이 출처를 알아본다."""
 

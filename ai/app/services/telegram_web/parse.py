@@ -8,6 +8,11 @@
       span.tgme_widget_message_from_author     채널 안 서명
       span.tgme_widget_message_views           조회수
       div.tgme_widget_message_document_title   첨부 파일 이름
+      span.tgme_widget_message_meta            서명·게시 시각 줄. 고친 글이면 "edited" 가 붙는다
+                                               (2026-10-05 확인: "<서명>, edited 23:43")
+      div.tgme_widget_message_forwarded_from   다른 채널 글을 전달했으면 "Forwarded from <채널>".
+        a.tgme_widget_message_forwarded_from_name   원래 채널 이름, href 는 원글 주소
+                                                    (2026-10-05 KISGregKim 페이지에서 확인)
 
 구조가 바뀌면 메시지가 0건이 된다. 그때는 fetch.py 가 "메시지를 찾지 못함" 을 남긴다.
 """
@@ -109,6 +114,36 @@ def _plain(box, selector: str) -> str | None:
     return node.get_text(strip=True) or None
 
 
+def _edited(box) -> bool:
+    """메타 줄에 "edited" 가 보이는가. 언제·무엇을 고쳤는지는 페이지에 없다.
+
+    메타 줄 **바로 아래 글자만** 본다. 서명 요소의 글자까지 보면 서명에 edited 가 들어간
+    채널에서 고치지 않은 글도 고친 글이 된다.
+    """
+    meta = box.select_one("span.tgme_widget_message_meta")
+    if meta is None:
+        return False
+    return any("edited" in piece for piece in meta.find_all(string=True, recursive=False))
+
+
+def _forwarded(box) -> tuple[str | None, str | None]:
+    """(원래 채널 이름, 원글 주소). 전달된 글이 아니면 (None, None).
+
+    운영자가 쓴 글과 다른 채널 글을 옮긴 것을 나눠 기록하려는 것이다. 이름 요소가 없으면
+    "Forwarded from" 을 뗀 나머지 글자를 이름으로 쓴다.
+    """
+    node = box.select_one("div.tgme_widget_message_forwarded_from")
+    if node is None:
+        return None, None
+    name_node = node.select_one(".tgme_widget_message_forwarded_from_name")
+    if name_node is not None:
+        name = name_node.get_text(strip=True)
+        url = name_node.get("href") if name_node.name == "a" else None
+    else:
+        name, url = node.get_text(" ", strip=True).removeprefix("Forwarded from").strip(), None
+    return name or "알 수 없음", url
+
+
 def parse_page(html: str, channel: str) -> list[ChannelMessage]:
     """페이지에 있는 메시지 전부. **사진만 올린 글처럼 글자가 없는 것도 돌려준다.**
 
@@ -121,6 +156,7 @@ def parse_page(html: str, channel: str) -> list[ChannelMessage]:
         msg_id = _msg_id(box.get("data-post", ""))
         text_node = box.select_one("div.tgme_widget_message_text")
         links, hidden = _links(text_node) if text_node else ([], [])
+        forwarded_from, forwarded_from_url = _forwarded(box)
         out.append(
             ChannelMessage(
                 channel=channel,
@@ -133,6 +169,9 @@ def parse_page(html: str, channel: str) -> list[ChannelMessage]:
                 hidden_links=hidden,
                 text=_text(text_node) if text_node else "",
                 attachment=_plain(box, "div.tgme_widget_message_document_title"),
+                edited=_edited(box),
+                forwarded_from=forwarded_from,
+                forwarded_from_url=forwarded_from_url,
             )
         )
     return out

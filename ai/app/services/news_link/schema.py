@@ -54,6 +54,10 @@ class LinkBody(BaseModel):
     # 다시 읽은 LinkBody 는 이 값이 비어 있다.
     # repr 에서도 뺀다. 로그에 기사 전문이 찍히지 않게 하려는 것이다.
     sentences: list[str] = Field(default_factory=list, exclude=True, repr=False)
+    # 정제한 본문 전체(문장으로 나누기 전 그대로). news 표의 본문(cleaned_text)으로 저장한다
+    # (collectors/news_channels.py). excerpt 나 종목별로 고른 문장을 본문 자리에 넣지 않으려고
+    # 따로 둔다. sentences 와 같은 이유로 직렬화·repr 에서 뺀다.
+    text: str | None = Field(default=None, exclude=True, repr=False)
 
 
 # 종목별 문장 선택의 결과.

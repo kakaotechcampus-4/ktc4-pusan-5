@@ -8,7 +8,16 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import httpx
 
-from app.collectors.news_channels import choose_links, collect, write_jsonl
+from app.collectors.news_channels import (
+    ChannelStats,
+    attach_link_bodies,
+    choose_links,
+    collect,
+    link_plan,
+    message_row,
+    news_row,
+    write_jsonl,
+)
 from app.services.news_link.schema import LinkBody
 from app.services.telegram_web import Channel, ChannelMessage
 from tests.test_telegram_web import box, page
@@ -129,3 +138,93 @@ def test_jsonl_keeps_korean_and_leaves_the_whole_article_out(tmp_path) -> None:
     assert path.name == "messages-20260930-120000.jsonl"
     assert "삼성전자" in raw, "\\uXXXX 로 바뀌면 파일을 눈으로 볼 수 없다"
     assert "기사 전문" not in raw
+
+
+# ── DB 에 넣을 행 ─────────────────────────────────────────────
+
+
+def _opened(url: str, **values) -> LinkBody:
+    return LinkBody(url=url, fetched_at=datetime(2026, 9, 30, 2, 0, tzinfo=UTC), **values)
+
+
+def test_every_link_is_kept_with_the_reason_it_was_not_opened() -> None:
+    """열지 않은 링크도 발견한 사실은 남긴다. 왜 안 열었는지가 상태다."""
+    links = ["https://buly.kr/a", "https://PLTR.US", "https://buly.kr/b", "https://buly.kr/c"]
+    recent = _message(links)
+    recent.link_bodies = [_opened("https://buly.kr/a", status="ok", text="본문"),
+                          _opened("https://buly.kr/b", status="http_error", http_status=403)]
+
+    plan = link_plan(recent, now=NOW, per_message=2)
+    assert [(url, status) for url, status, _body in plan] == [
+        ("https://buly.kr/a", "ok"),
+        ("https://PLTR.US", "not_fetchable"),
+        ("https://buly.kr/b", "http_error"),
+        ("https://buly.kr/c", "over_limit"),
+    ]
+
+    old = _message(links[:1], NOW - timedelta(hours=25))
+    assert link_plan(old, now=NOW, per_message=2)[0][1] == "stale"
+    # 열기로 골랐는데 결과가 없다: 수집 범위 때문이면 out_of_scope, --no-links 면 not_opened
+    assert link_plan(_message(links[:1]), now=NOW, per_message=2)[0][1] == "out_of_scope"
+    assert link_plan(_message(links[:1]), now=NOW, per_message=2,
+                     unopened="not_opened")[0][1] == "not_opened"
+
+
+async def test_link_budget_opens_only_that_many_addresses() -> None:
+    """수집 범위의 남은 수집량만큼만 연다. 못 연 주소 수를 돌려준다."""
+    opened: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        opened.append(str(request.url))
+        return httpx.Response(200, html=ARTICLE_HTML)
+
+    messages = [_message([f"https://news.example.com/{i}" for i in range(3)])]
+    stats = [ChannelStats(channel=Channel("ch", "채널", "소속", "A"))]
+    held = await attach_link_bodies(messages, stats, now=NOW, per_message=3, max_links=1,
+                                    transport=httpx.MockTransport(handler))
+
+    assert (held, opened) == (2, ["https://news.example.com/0"])
+    assert [body.url for body in messages[0].link_bodies] == ["https://news.example.com/0"]
+    statuses = [status for _url, status, _body in link_plan(messages[0], now=NOW, per_message=3)]
+    assert statuses == ["ok", "out_of_scope", "out_of_scope"]
+
+
+def test_news_row_stores_the_whole_body_not_the_excerpt() -> None:
+    body = _opened("https://buly.kr/a", final_url="https://www.News.example.com/a/1",
+                   domain="www.News.example.com", status="ok", title="제목",
+                   excerpt="첫 문장.", text="첫 문장. 둘째 문장.")
+    row = news_row(body)
+    assert row["cleaned_text"] == "첫 문장. 둘째 문장."
+    assert row["published_at"] is None, "링크를 연 시각을 발행 시각으로 쓰지 않는다"
+    assert row["body_fetched_at"] == body.fetched_at
+    assert (row["source"], row["publisher"], row["url"]) == (
+        "telegram", "news.example.com", "https://www.News.example.com/a/1")
+
+
+def test_failed_article_is_kept_for_retry_but_non_articles_are_not() -> None:
+    failed = news_row(_opened("https://buly.kr/a", final_url="https://reuters.com/a",
+                              domain="reuters.com", status="http_error", http_status=401))
+    assert (failed["body_status"], failed["body_error"], failed["cleaned_text"]) == (
+        "failed", "http_error: 401", None)
+    assert failed["title"] == ""
+
+    for status in ("pdf", "not_html"):
+        assert news_row(_opened("https://buly.kr/p", final_url="https://file.example.com/r.pdf",
+                                status=status)) is None
+    assert news_row(_opened("https://buly.kr/x", status="blocked", error="내부 주소")) is None
+    assert news_row(_opened("https://buly.kr/y", status="error", error="DNS")) is None, \
+        "도착한 주소를 모르면 어떤 기사인지 모른다"
+
+
+def test_message_row_keeps_text_as_shown_and_unknown_time_as_none() -> None:
+    message = ChannelMessage(channel="ch", msg_id=7, posted_at=None, text="  글  ",
+                             attachment="r.pdf", edited=True, views="1.2K")
+    row = message_row(message, channel_id=3)
+    assert (row["text"], row["posted_at"], row["url"]) == ("  글  ", None, "https://t.me/ch/7")
+    assert (row["attachment_name"], row["edited"], row["collected_via"]) == ("r.pdf", True, "web")
+    assert row["forwarded_from"] is None, "운영자가 쓴 글이다"
+
+    forwarded = message.model_copy(update={"forwarded_from": "다른 채널",
+                                           "forwarded_from_url": "https://t.me/other/9"})
+    row = message_row(forwarded, channel_id=3)
+    assert (row["forwarded_from"], row["forwarded_from_url"]) == ("다른 채널", "https://t.me/other/9")

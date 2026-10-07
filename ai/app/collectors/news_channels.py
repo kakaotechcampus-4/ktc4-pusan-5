@@ -1,15 +1,30 @@
 """증권사 텔레그램 채널의 메시지와, 메시지에 걸린 뉴스 링크 본문을 모은다. 로그인이 필요 없다.
 
-    uv run python -m app.collectors.news_channels                        # 어제 0시부터, 채널 전부
+    uv run python -m app.collectors.news_channels                        # 어제 0시부터, 범위의 채널 전부
     uv run python -m app.collectors.news_channels --channel skitteam --max-pages 1
     uv run python -m app.collectors.news_channels --show-links           # 연 링크를 하나씩 본다
+    uv run python -m app.collectors.news_channels --dry-run              # DB 에 쓰지 않고 요약만
+    uv run python -m app.collectors.news_channels --jsonl                # JSONL 파일 사본도 쓴다
 
-    ① 채널마다 t.me/s/ 페이지를 넘기며 구간 안 메시지를 모은다   services/telegram_web
-    ② 게시 24시간 이내 메시지의 링크를 연다 (LLM 호출 없음)       services/news_link
-    ③ data/telegram/messages-<수집시각>.jsonl 에 쓴다 (ai/ 에서 실행하면 ai/data/telegram/)
+    ① 수집 범위를 확인한다 (collection_scope.toml: 채널·기간·수집량)     core/scope.py
+    ② 채널마다 t.me/s/ 페이지를 넘기며 기간 안 메시지를 모은다        services/telegram_web
+    ③ 수집량 상한 안의 메시지만 남긴다. 이미 저장된 메시지는 갱신만 한다
+    ④ 게시 24시간 이내 메시지의 링크를 연다 (LLM 호출 없음)            services/news_link
+       telegram_link 가 켜져 있을 때만, 남은 수집량만큼만 연다
+    ⑤ DB 에 넣는다 (save_to_db)
+         메시지 → telegram_messages, 연 기사 → news, 메시지의 링크 하나하나 → telegram_message_links
+         그다음 공통 자료 ID(source_card)가 없는 원문에 카드를 만든다
 
-DB 에 넣지 않는다. 메시지·기사를 어느 테이블에 얼마 동안 둘지(원문 보관 기간)를 아직 팀에서
-정하지 않았다. 그때까지는 파일로 쌓고 눈으로 확인한다. data/ 는 git 에 올라가지 않는다.
+**범위 밖은 받지 않는다.** 모든 자료를 계속 쌓는 것을 기본으로 삼지 않는다.
+범위가 비어 있으면 아무것도 수집하지 않는다.
+
+JSONL 파일은 --jsonl 일 때만 쓴다(data/telegram/, git 에 올라가지 않는다). DB 밖의 사본이라
+보관 정책으로 본문을 지울 때 함께 지워지지 않는다. 기사 전문은 파일에 들어가지 않고
+DB(news.cleaned_text)에만 들어간다.
+
+다시 수집하면 같은 메시지·기사는 행이 늘지 않는다. 처음 저장한 메시지 본문과 성공한 기사
+본문은 바꾸지 않고, 실패했던 링크만 이번 결과로 채운다(repositories/telegram_message.py·news.py).
+24시간 규칙 안이면 다음 실행이 실패한 링크를 다시 여는 셈이다.
 
 **24시간이 지난 메시지의 링크는 열지 않는다.** 기사는 발행 뒤에도 고쳐진다. 보고서는 대상일
 이후에 나온 정보를 쓰지 않도록 기준 시각(컷오프)을 두는데, 며칠 지나 링크를 열면 그사이 고쳐진
@@ -26,10 +41,22 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 
-from app.services.news_link import fetch_link_bodies, is_fetchable
+from app.core.database import SessionLocal
+from app.core.scope import CollectionScope, ScopeError, load_scope
+from app.repositories.news import save_news
+from app.repositories.scope import count_collected
+from app.repositories.source_card import register_missing_sources
+from app.repositories.telegram_message import (
+    ensure_channels,
+    known_message_keys,
+    save_message_links,
+    save_messages,
+)
+from app.services.news_link import LinkBody, fetch_link_bodies, is_fetchable
 from app.services.news_link.fetch import DEFAULT_TIMEOUT_SEC as LINK_TIMEOUT_SEC
 from app.services.telegram_web import Channel, ChannelMessage, fetch_channel, select_channels
 from app.services.telegram_web.fetch import DEFAULT_MAX_PAGES, DEFAULT_PAGE_DELAY_SEC
@@ -56,6 +83,13 @@ PREVIEW_CHARS = 80
 # 정렬 키에서 None 대신 쓰는 값. datetime 과 None 은 크기를 비교할 수 없어서 넣는다.
 # 게시 시각을 모르는 메시지를 맨 뒤로 보내는 것은 정렬 키의 첫 항목(posted_at is None)이 한다.
 _NO_TIME = datetime.min.replace(tzinfo=KST)
+# news 로 저장하지 않는 링크 결과. PDF·이미지는 기사가 아니고, blocked 는 가지 않은 주소다.
+# 이런 링크는 telegram_message_links 에만 남는다.
+NOT_ARTICLE = frozenset({"pdf", "not_html", "blocked"})
+# 칼럼 길이(telegram_messages.author·views, news.publisher). 넘으면 저장이 통째로 실패하므로 자른다.
+AUTHOR_MAX_CHARS = 200
+VIEWS_MAX_CHARS = 32
+PUBLISHER_MAX_CHARS = 100
 
 
 @dataclass
@@ -110,17 +144,20 @@ def choose_links(
     return choice
 
 
-async def _attach_link_bodies(
+async def attach_link_bodies(
     messages: list[ChannelMessage],
     stats: list[ChannelStats],
     *,
     now: datetime,
     per_message: int,
-    client: httpx.AsyncClient,
-) -> None:
+    max_links: int | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> int:
     """메시지마다 열 링크를 고르고, 모은 주소를 한꺼번에 열어 각 메시지의 link_bodies 에 붙인다.
 
     messages 와 stats 를 직접 고친다. 채널별 집계(stale·opened·skipped·junk)도 여기서 채운다.
+    max_links 를 주면 주소를 그 수까지만 연다(수집 범위의 수집량 상한). 고르고도 상한 때문에
+    열지 않은 주소 수를 돌려준다. 그 링크는 link_bodies 에 없고 DB 에는 out_of_scope 로 남는다.
     """
     by_channel = {stat.channel.id: stat for stat in stats}
     chosen: list[tuple[ChannelMessage, LinkChoice]] = []
@@ -137,42 +174,38 @@ async def _attach_link_bodies(
 
     # 같은 기사를 여러 채널이 올리는 일이 흔하다. 한 번만 열고 나눠 쓴다.
     urls = list(dict.fromkeys(url for _message, choice in chosen for url in choice.urls))
+    held = 0
+    if max_links is not None and len(urls) > max_links:
+        held = len(urls) - max_links
+        urls = urls[:max(max_links, 0)]
     if not urls:
-        return
+        return held
     logger.info("링크 %d개를 연다", len(urls))
-    bodies = await fetch_link_bodies(urls, client=client)
+    async with httpx.AsyncClient(timeout=LINK_TIMEOUT_SEC, transport=transport) as client:
+        bodies = await fetch_link_bodies(urls, client=client)
     by_url = dict(zip(urls, bodies, strict=True))
     for message, choice in chosen:
-        message.link_bodies = [by_url[url] for url in choice.urls]
+        message.link_bodies = [by_url[url] for url in choice.urls if url in by_url]
+    return held
 
 
-async def collect(
+async def read_channels(
     channels: tuple[Channel, ...],
     *,
     since: datetime,
     until: datetime,
-    now: datetime,
     max_pages: int = DEFAULT_MAX_PAGES,
     page_delay: float = DEFAULT_PAGE_DELAY_SEC,
-    open_links: bool = True,
-    per_message: int = DEFAULT_LINKS_PER_MESSAGE,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> tuple[list[ChannelMessage], list[ChannelStats]]:
-    """채널을 차례로 읽고 링크를 열어 (메시지 목록, 채널별 집계) 를 돌려준다.
+    """채널을 차례로 읽어 (메시지 목록, 채널별 집계) 를 돌려준다. 링크는 열지 않는다.
 
-    메시지는 게시 시각순이고, 시각을 모르는 것은 맨 뒤에 둔다. 채널이나 링크 하나가 실패해도
-    예외를 던지지 않는다. 실패는 ChannelStats.error 와 LinkBody.status 에 남는다.
-
-    `now` 를 until 과 따로 받는 것은 24시간 규칙이 **링크를 여는 지금**을 기준으로 해서다.
-    `transport` 는 테스트가 가짜 서버를 끼우려고 받는다.
+    메시지는 게시 시각순이고, 시각을 모르는 것은 맨 뒤에 둔다. 채널 하나가 실패해도 예외를
+    던지지 않는다. 실패는 ChannelStats.error 에 남는다.
     """
     messages: list[ChannelMessage] = []
     stats: list[ChannelStats] = []
-    # 채널 페이지와 뉴스 링크는 타임아웃이 달라서 client 를 따로 둔다.
-    async with (
-        httpx.AsyncClient(timeout=PAGE_TIMEOUT_SEC, transport=transport) as page_client,
-        httpx.AsyncClient(timeout=LINK_TIMEOUT_SEC, transport=transport) as link_client,
-    ):
+    async with httpx.AsyncClient(timeout=PAGE_TIMEOUT_SEC, transport=transport) as page_client:
         for i, channel in enumerate(channels):
             if i:
                 await asyncio.sleep(page_delay)  # 채널이 달라도 같은 t.me 서버라 채널 사이에도 쉰다
@@ -189,12 +222,35 @@ async def collect(
             logger.info("%s: 페이지 %d, 메시지 %d건%s", channel.id, got.pages, len(got.messages),
                         f" (실패: {got.error})" if got.error else "")
             messages += found
-
-        if open_links:
-            await _attach_link_bodies(messages, stats, now=now, per_message=per_message,
-                                      client=link_client)
-
     messages.sort(key=lambda m: (m.posted_at is None, m.posted_at or _NO_TIME, m.channel))
+    return messages, stats
+
+
+async def collect(
+    channels: tuple[Channel, ...],
+    *,
+    since: datetime,
+    until: datetime,
+    now: datetime,
+    max_pages: int = DEFAULT_MAX_PAGES,
+    page_delay: float = DEFAULT_PAGE_DELAY_SEC,
+    open_links: bool = True,
+    per_message: int = DEFAULT_LINKS_PER_MESSAGE,
+    max_links: int | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> tuple[list[ChannelMessage], list[ChannelStats]]:
+    """채널을 읽고(read_channels) 링크를 연다(open_links). 수집 범위는 보지 않는다 — run() 이 본다.
+
+    `now` 를 until 과 따로 받는 것은 24시간 규칙이 **링크를 여는 지금**을 기준으로 해서다.
+    `transport` 는 테스트가 가짜 서버를 끼우려고 받는다.
+    """
+    messages, stats = await read_channels(
+        channels, since=since, until=until, max_pages=max_pages, page_delay=page_delay,
+        transport=transport,
+    )
+    if open_links:
+        await attach_link_bodies(messages, stats, now=now, per_message=per_message,
+                                 max_links=max_links, transport=transport)
     return messages, stats
 
 
@@ -210,6 +266,286 @@ def write_jsonl(messages: list[ChannelMessage], out_dir: Path, collected_at: dat
         for message in messages:
             f.write(message.model_dump_json() + "\n")
     return path
+
+
+def link_plan(
+    message: ChannelMessage, *, now: datetime, per_message: int, unopened: str = "out_of_scope"
+) -> list[tuple[str, str, LinkBody | None]]:
+    """메시지의 링크마다 (적힌 주소, 상태, 연 결과). 메시지 안 순서 그대로다.
+
+    연 링크는 LinkBody.status 를, 열지 않은 링크는 그 이유를 상태로 쓴다. 어떤 링크를 열지는
+    choose_links 가 정했으므로 collect() 와 같은 now·per_message 로 다시 불러 그 판단을 재현한다.
+    열기로 골랐는데 결과가 없는 링크는 unopened 다 — 수집 범위 때문에 열지 않았으면
+    out_of_scope, --no-links 로 돌렸으면 not_opened. 열지 않은 링크도 버리지 않는다 — 발견했다는
+    사실이 출처다.
+    """
+    choice = choose_links(message, now=now, per_message=per_message)
+    bodies = {body.url: body for body in message.link_bodies}
+    plan = []
+    for url in message.links:
+        body = bodies.get(url)
+        if body is not None:
+            status = body.status
+        elif not is_fetchable(url):
+            status = "not_fetchable"
+        elif choice.stale:
+            status = "stale"
+        elif url not in choice.urls:
+            status = "over_limit"
+        else:
+            status = unopened
+        plan.append((url, status, body))
+    return plan
+
+
+def _body_error(body: LinkBody) -> str:
+    """news.body_error 에 남길 사유. 링크 결과 종류를 앞에 붙인다."""
+    if body.status == "http_error":
+        return f"http_error: {body.http_status}"
+    if body.status == "ok":
+        return "ok: 본문 전체(text)가 넘어오지 않음"
+    return f"{body.status}: {body.error}" if body.error else body.status
+
+
+def news_row(body: LinkBody) -> dict | None:
+    """연 링크 → news 행. 기사가 아니거나(PDF 등) 도착한 주소를 모르면 None.
+
+    본문은 기사 전체(LinkBody.text)다. 앞 3문장 발췌(excerpt)를 넣지 않는다.
+    발행 시각은 모르므로 비워 둔다. 링크를 연 시각이나 메시지 게시 시각으로 채우지 않는다.
+    """
+    if body.final_url is None or body.status in NOT_ARTICLE:
+        return None
+    ok = body.status == "ok" and bool(body.text)
+    host = (body.domain or urlparse(body.final_url).netloc).lower().removeprefix("www.")
+    return {
+        "url": body.final_url,
+        "title": body.title or "",
+        "publisher": host[:PUBLISHER_MAX_CHARS],
+        "source": "telegram",
+        "published_at": None,
+        "summary": "",
+        "cleaned_text": body.text if ok else None,
+        "body_status": "ok" if ok else "failed",
+        "body_error": None if ok else _body_error(body),
+        "body_fetched_at": body.fetched_at,
+        "body_extractor": "news_link",
+    }
+
+
+def message_row(message: ChannelMessage, channel_id: int) -> dict:
+    """telegram_messages 행. 본문은 채널에 보이는 글자 그대로다."""
+    return {
+        "channel_id": channel_id,
+        "msg_id": message.msg_id,
+        "url": message.url or f"https://t.me/{message.channel}/{message.msg_id}",
+        "posted_at": message.posted_at,
+        "author": message.author[:AUTHOR_MAX_CHARS] if message.author else None,
+        "text": message.text,
+        "attachment_name": message.attachment,
+        "forwarded_from": message.forwarded_from,
+        "forwarded_from_url": message.forwarded_from_url,
+        "hidden_links": message.hidden_links,
+        "views": message.views[:VIEWS_MAX_CHARS] if message.views else None,
+        "edited": message.edited,
+        "collected_via": "web",
+    }
+
+
+@dataclass
+class DbStats:
+    """DB 저장 집계. db_summary_lines() 가 출력한다."""
+
+    messages_new: int = 0
+    messages_known: int = 0  # 이미 저장돼 있던 메시지
+    edits_detected: int = 0  # 처음 저장한 본문과 글자가 달랐던 메시지. 본문은 그대로 뒀다
+    no_msg_id: int = 0  # 메시지 번호를 못 읽어 저장하지 않은 메시지
+    news_new: int = 0
+    news_filled: int = 0  # 실패했던 본문을 이번에 채운 기사
+    links_new: int = 0
+    links_updated: int = 0  # 실패했던 링크를 이번 결과로 바꾼 것
+    cards: dict[str, int] = field(default_factory=dict)  # 새로 만든 공통 자료 ID
+    register_error: str | None = None  # 공통 자료 ID 등록 실패. 원문은 저장됐다
+
+
+async def save_to_db(
+    messages: list[ChannelMessage],
+    channels: tuple[Channel, ...],
+    *,
+    now: datetime,
+    per_message: int,
+    unopened: str = "out_of_scope",
+    session_factory=SessionLocal,
+) -> DbStats:
+    """collect() 결과를 DB 에 넣는다. 원문(메시지·기사·링크)은 한 트랜잭션이다.
+
+    공통 자료 ID 등록은 원문을 커밋한 뒤 따로 한다. 등록이 실패해도 원문은 남고,
+    `python -m app.collectors.sources register` 로 다시 돌리면 된다.
+    """
+    stats = DbStats()
+    keyed = [m for m in messages if m.msg_id is not None]
+    stats.no_msg_id = len(messages) - len(keyed)
+    async with session_factory() as session:
+        channel_ids = await ensure_channels(session, [
+            {"telegram_handle": c.id, "name": c.name, "is_public": True} for c in channels
+        ])
+        saved = await save_messages(
+            session, [message_row(m, channel_ids[m.channel]) for m in keyed]
+        )
+        stats.messages_new = sum(s.inserted for s in saved)
+        stats.messages_known = len(saved) - stats.messages_new
+        stats.edits_detected = sum(s.text_changed for s in saved)
+
+        # 같은 기사를 여러 메시지가 공유한다. 연 결과(주소당 하나)마다 한 번만 저장한다.
+        bodies = list({body.url: body for m in keyed for body in m.link_bodies}.values())
+        articles = [(body, row) for body in bodies if (row := news_row(body)) is not None]
+        news = await save_news(session, [row for _body, row in articles])
+        stats.news_new, stats.news_filled = news.inserted, news.filled
+        news_ids = {body.url: news_id for (body, _row), news_id in zip(articles, news.ids,
+                                                                       strict=True)}
+
+        link_rows = []
+        for message, result in zip(keyed, saved, strict=True):
+            if result.text_changed:
+                continue  # 처음 저장한 본문의 링크를 그대로 둔다
+            plan = link_plan(message, now=now, per_message=per_message, unopened=unopened)
+            for position, (url, status, body) in enumerate(plan, start=1):
+                link_rows.append({
+                    "message_id": result.id,
+                    "kind": "url",
+                    "position": position,
+                    "discovered_url": url,
+                    "final_url": body.final_url if body else None,
+                    "status": status,
+                    "error": body.error if body else None,
+                    "http_status": body.http_status if body else None,
+                    "fetched_at": body.fetched_at if body else None,
+                    "news_id": news_ids.get(url),
+                    "analyst_report_id": None,
+                })
+        stats.links_new, stats.links_updated = await save_message_links(session, link_rows)
+        await session.commit()
+
+    try:
+        async with session_factory() as session:
+            stats.cards = await register_missing_sources(session)
+            await session.commit()
+    except Exception as exc:  # noqa: BLE001 — 원문은 이미 커밋됐다. 실패만 알리고 다시 돌리게 한다
+        stats.register_error = f"{type(exc).__name__}: {str(exc)[:200]}"
+    return stats
+
+
+def db_summary_lines(stats: DbStats) -> list[str]:
+    lines = [
+        f"DB 저장: 메시지 새로 {stats.messages_new}건 · 이미 있던 것 {stats.messages_known}건"
+        + (f" (본문이 달라진 것 {stats.edits_detected}건 — 처음 본문 유지)"
+           if stats.edits_detected else ""),
+        (f"         기사 새로 {stats.news_new}건 · 본문 보완 {stats.news_filled}건 · "
+         f"링크 새로 {stats.links_new}개 · 결과 갱신 {stats.links_updated}개"),
+    ]
+    if stats.no_msg_id:
+        lines.append(f"         메시지 번호를 못 읽어 저장하지 않은 것 {stats.no_msg_id}건")
+    if stats.register_error:
+        lines.append(f"         공통 자료 ID 등록 실패: {stats.register_error} "
+                     "(원문은 저장됨. `python -m app.collectors.sources register` 로 다시 등록)")
+    else:
+        lines.append("         공통 자료 ID 새로 " + " · ".join(
+            f"{kind} {n}" for kind, n in stats.cards.items()))
+    return lines
+
+
+@dataclass
+class RunResult:
+    """run() 의 결과. 범위 때문에 받지 않은 것도 센다."""
+
+    messages: list[ChannelMessage]  # 범위 안이라 저장 대상이 된 메시지
+    stats: list[ChannelStats]
+    held_messages: int = 0  # 수집량 상한(telegram_web.max_items) 때문에 저장하지 않은 새 메시지
+    held_undated: int = 0  # 오늘이 기간 밖이라 받지 않은 게시 시각 불명 메시지
+    held_links: int = 0  # 범위 때문에 열지 않은 링크 주소 (telegram_link 꺼짐·상한)
+    jsonl: Path | None = None
+    db: DbStats | None = None
+
+
+async def run(
+    channels: tuple[Channel, ...],
+    *,
+    scope: CollectionScope,
+    since: datetime,
+    until: datetime,
+    now: datetime,
+    max_pages: int = DEFAULT_MAX_PAGES,
+    page_delay: float = DEFAULT_PAGE_DELAY_SEC,
+    per_message: int = DEFAULT_LINKS_PER_MESSAGE,
+    no_links: bool = False,
+    dry_run: bool = False,
+    jsonl_dir: Path | None = None,
+    session_factory=SessionLocal,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> RunResult:
+    """수집 범위 안에서 채널을 읽고, 링크를 열고, 저장한다. 범위 밖이면 ScopeError.
+
+        채널      telegram_web.channels 에 있어야 한다
+        기간      [since, until] 을 범위 기간으로 자른다. 게시 시각 불명 메시지는 기간 안인지
+                  모르므로 오늘이 기간 안일 때만 받는다
+        수집량    이미 저장된 메시지는 갱신만 하고, 새 메시지는 telegram_web.max_items 까지만 받는다
+        링크      telegram_link 가 꺼져 있으면 열지 않고, 켜져 있으면 남은 수집량만큼만 연다.
+                  못 연 링크는 발견 기록에 out_of_scope 로 남는다
+    """
+    web = scope.require("telegram_web")
+    web.check(channel.id for channel in channels)
+    window = scope.window(since, until)
+    if window is None:
+        raise ScopeError(f"수집 기간({scope.start}~{scope.end}) 밖이다. 받을 메시지가 없다.")
+
+    messages, stats = await read_channels(
+        channels, since=window[0], until=window[1], max_pages=max_pages, page_delay=page_delay,
+        transport=transport,
+    )
+    result = RunResult(messages=[], stats=stats)
+    if not scope.contains(now.astimezone(KST).date()):
+        result.held_undated = sum(m.posted_at is None for m in messages)
+        messages = [m for m in messages if m.posted_at is not None]
+
+    links = scope.source("telegram_link")
+    async with session_factory() as session:
+        known = await known_message_keys(
+            session, [(m.channel, m.msg_id) for m in messages if m.msg_id is not None]
+        )
+        budget = web.remaining(await count_collected(session, "telegram_web"))
+        link_budget = (links.remaining(await count_collected(session, "telegram_link"))
+                       if links.enabled else 0)
+    for message in messages:
+        is_new = message.msg_id is not None and (message.channel, message.msg_id) not in known
+        if is_new and budget <= 0:
+            result.held_messages += 1
+            continue
+        budget -= int(is_new)
+        result.messages.append(message)
+
+    if not no_links:
+        result.held_links = await attach_link_bodies(
+            result.messages, stats, now=now, per_message=per_message, max_links=link_budget,
+            transport=transport,
+        )
+    if jsonl_dir is not None:
+        result.jsonl = write_jsonl(result.messages, jsonl_dir, now)
+    if not dry_run:
+        result.db = await save_to_db(
+            result.messages, channels, now=now, per_message=per_message,
+            unopened="not_opened" if no_links else "out_of_scope",
+            session_factory=session_factory,
+        )
+    return result
+
+
+def scope_lines(result: RunResult) -> list[str]:
+    """범위 때문에 받지 않은 것. 없으면 빈 목록."""
+    held = [
+        (result.held_messages, "수집량 상한으로 저장하지 않은 새 메시지 {}건"),
+        (result.held_undated, "오늘이 수집 기간 밖이라 받지 않은 게시 시각 불명 메시지 {}건"),
+        (result.held_links, "수집 범위 때문에 열지 않은 링크 {}개"),
+    ]
+    return [f"범위: {text.format(n)}" for n, text in held if n]
 
 
 def summary_lines(messages: list[ChannelMessage], stats: list[ChannelStats]) -> list[str]:
@@ -278,23 +614,29 @@ def link_lines(messages: list[ChannelMessage]) -> list[str]:
 def main() -> None:
     p = argparse.ArgumentParser(description="증권사 텔레그램 채널의 메시지·뉴스 링크 수집 (로그인 불필요)")
     p.add_argument("--days", type=int, default=DEFAULT_DAYS,
-                   help=f"며칠 전 0시부터 모을지 (기본 {DEFAULT_DAYS})")
+                   help=f"며칠 전 0시부터 모을지 (기본 {DEFAULT_DAYS}). 수집 범위 기간 밖은 받지 않는다")
     p.add_argument("--channel", action="append",
-                   help="채널 아이디. 여러 번 줄 수 있다. 기본은 목록 전부")
+                   help="채널 아이디. 여러 번 줄 수 있다. 기본은 수집 범위의 채널 전부")
     p.add_argument("--max-pages", type=int, default=DEFAULT_MAX_PAGES,
                    help=f"채널당 최대 페이지 (기본 {DEFAULT_MAX_PAGES})")
     p.add_argument("--links-per-message", type=int, default=DEFAULT_LINKS_PER_MESSAGE,
                    help=f"메시지 하나에서 열 링크 수 (기본 {DEFAULT_LINKS_PER_MESSAGE}, 0 이면 전부)")
     p.add_argument("--no-links", action="store_true", help="링크를 열지 않는다")
     p.add_argument("--show-links", action="store_true", help="연 링크를 메시지와 나란히 보여준다")
-    p.add_argument("--out", type=Path, default=DEFAULT_OUT, help="결과를 쓸 폴더")
+    p.add_argument("--dry-run", action="store_true",
+                   help="DB 에 쓰지 않는다. 수집 범위 확인과 요약만 본다")
+    p.add_argument("--jsonl", action="store_true",
+                   help="JSONL 파일 사본도 쓴다(--out). DB 밖의 사본이라 보관 정책으로 지울 때 따로 지운다")
+    p.add_argument("--out", type=Path, default=DEFAULT_OUT, help="--jsonl 파일을 쓸 폴더")
     args = p.parse_args()
     if args.days < 0 or args.max_pages < 1:
         p.error("--days 는 0 이상, --max-pages 는 1 이상이어야 한다")
     try:
-        channels = select_channels(args.channel)
-    except ValueError as exc:
-        p.error(str(exc))
+        scope = load_scope()
+        web = scope.require("telegram_web")
+        channels = select_channels(args.channel or sorted(web.allowed))
+    except (ScopeError, ValueError) as exc:
+        p.exit(1, f"{exc}\n")
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     # httpx 는 INFO 에서 요청마다 한 줄을 찍는다. 링크 수십 개면 요약이 묻힌다.
@@ -302,22 +644,39 @@ def main() -> None:
 
     now = datetime.now(KST)
     # 수집 구간은 N일 전 0시(KST)부터 지금까지다. 24시간 규칙의 기준도 같은 now 를 쓴다.
+    # run() 이 이 구간을 수집 범위의 기간으로 한 번 더 자른다.
     since = (now - timedelta(days=args.days)).replace(hour=0, minute=0, second=0, microsecond=0)
-    print(f"수집 구간: {since:%Y-%m-%d %H:%M} ~ {now:%Y-%m-%d %H:%M} (KST) · 채널 {len(channels)}개")
-    messages, stats = asyncio.run(collect(
-        channels, since=since, until=now, now=now, max_pages=args.max_pages,
-        open_links=not args.no_links, per_message=args.links_per_message,
-    ))
-    path = write_jsonl(messages, args.out, now)
+    print(f"수집 구간: {since:%Y-%m-%d %H:%M} ~ {now:%Y-%m-%d %H:%M} (KST) · 채널 {len(channels)}개"
+          f" · 범위 기간 {scope.start} ~ {scope.end}")
+    try:
+        result = asyncio.run(run(
+            channels, scope=scope, since=since, until=now, now=now, max_pages=args.max_pages,
+            per_message=args.links_per_message, no_links=args.no_links, dry_run=args.dry_run,
+            jsonl_dir=args.out if args.jsonl else None,
+        ))
+    except ScopeError as exc:
+        p.exit(1, f"{exc}\n")
+    except Exception as exc:  # noqa: BLE001 — 무엇이 실패했는지만 알린다
+        p.exit(1, f"수집·저장 실패: {type(exc).__name__}: {str(exc)[:200]}\n"
+                  "  ai/ 에서 `uv run alembic upgrade head` 를 했는지 확인하세요.\n")
 
-    print("\n".join(summary_lines(messages, stats)))
+    print("\n".join(summary_lines(result.messages, result.stats)))
     if args.show_links:
-        print("\n".join(link_lines(messages)))
-    print(f"\n저장: {path} ({len(messages)}건)")
+        print("\n".join(link_lines(result.messages)))
+    for line in scope_lines(result):
+        print(line)
+    if result.jsonl:
+        print(f"\n파일 사본: {result.jsonl} ({len(result.messages)}건)")
+    if result.db:
+        print("\n".join(db_summary_lines(result.db)))
+    elif args.dry_run:
+        print("\n--dry-run: DB 에 쓰지 않았다")
 
-    failed = [s.channel.id for s in stats if s.error]
+    failed = [s.channel.id for s in result.stats if s.error]
     if failed:
         p.exit(1, f"채널 수집 실패: {', '.join(failed)}. 위의 실패 사유를 확인하세요.\n")
+    if result.db is not None and result.db.register_error:
+        p.exit(1, "공통 자료 ID 등록에 실패했다. 위의 사유를 확인하세요.\n")
 
 
 if __name__ == "__main__":

@@ -28,6 +28,11 @@ class ChannelMessage(BaseModel):
     # 복사하면 생긴다(parse.py 참고). 대개 비어 있다.
     hidden_links: list[str] = Field(default_factory=list)
     attachment: str | None = None  # 첨부 파일 이름. 본문 없이 PDF 만 올린 글이 있다
+    # 채널에 "edited" 가 보인다. 올린 뒤 고친 글이다. 언제 무엇을 고쳤는지는 알 수 없다.
+    edited: bool = False
+    # 다른 채널 글을 전달한 것이면 원래 채널 이름과 원글 주소. 운영자가 쓴 글이면 None 이다.
+    forwarded_from: str | None = None
+    forwarded_from_url: str | None = None
     # 링크를 연 결과. 수집기(collectors/news_channels.py)가 붙인다. 24시간이 지난 글,
     # --no-links 로 돌린 경우, 열 만한 링크가 없는 글은 비어 있다.
     link_bodies: list[LinkBody] = Field(default_factory=list)
