@@ -3,9 +3,13 @@
 네이버 API는 제목·요약만 주므로 본문은 원문 사이트에서 직접 가져와야 한다.
 JS 로 본문을 그리는 사이트(biz.sbs.co.kr 등)는 실패한다 (SOURCES.md 실측 약 10%).
 실패해도 예외를 올리지 않고 (None, 사유) 를 돌려준다. 호출 측이 항목을 보존한다.
+
+backend 에서 옮겨 오면서 **추출 동작은 바꾸지 않았다**(trafilatura). 텔레그램 링크를 여는
+news_link(bs4)와 합치거나 추출기를 바꾸는 일은 이관과 따로 한다.
 """
 
 import asyncio
+from datetime import UTC, datetime
 
 import httpx
 import trafilatura
@@ -48,6 +52,7 @@ async def attach_bodies(items: list[NewsItem], *, concurrency: int = 5) -> list[
     async def one(client: httpx.AsyncClient, item: NewsItem) -> None:
         async with sem:
             body, err = await fetch_body(client, str(item.url))
+        item.body_fetched_at = datetime.now(UTC)
         item.raw_text = body
         item.body_error = err
         item.cleaned_text = clean_text(body) if body else None

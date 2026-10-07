@@ -11,9 +11,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
     database_url: str = "postgresql+asyncpg://basis:basis@localhost:5432/basis"
 
-    # 외부 API 키
-    naver_client_id: str = ""
-    naver_client_secret: str = ""
+    # 외부 API 키. 네이버 뉴스 검색 키는 뉴스 수집과 함께 ai/ 로 옮겼다.
     kis_app_key: str = ""
     kis_app_secret: str = ""
     kis_env: str = "real"

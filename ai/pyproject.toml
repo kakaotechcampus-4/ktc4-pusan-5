@@ -20,12 +20,14 @@ dependencies = [
     # 1.45 가 최신인데 텔레그램이 최근 만든 객체 몇 개를 아직 모른다.
     # 그래서 services/analyst/telegram.py 가 우회를 두 군데 갖고 있다.
     "telethon>=1.45.0",
+    "trafilatura>=2.2.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "respx>=0.23.1",
     "ruff>=0.16.6",
 ]
 
