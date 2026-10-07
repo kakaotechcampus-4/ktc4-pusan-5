@@ -6,6 +6,7 @@ import { StockListPage } from '@/features/stock/StockListPage';
 import { ConceptListPage } from '@/features/concepts/ConceptListPage';
 import { ConceptPage } from '@/features/concepts/ConceptPage';
 import { KakaoCallbackPage } from '@/features/auth/KakaoCallbackPage';
+import { MyPage } from '@/features/mypage/MyPage';
 import { AuthProvider } from '@/features/auth/AuthProvider';
 
 export function App() {
@@ -18,6 +19,7 @@ export function App() {
           <Route path="/stock/:code" element={<StockBriefingPage />} />
           <Route path="/concepts" element={<ConceptListPage />} />
           <Route path="/concepts/:slug" element={<ConceptPage />} />
+          <Route path="/mypage" element={<MyPage />} />
           <Route path="/oauth/kakao/callback" element={<KakaoCallbackPage />} />
         </Routes>
       </PageShell>

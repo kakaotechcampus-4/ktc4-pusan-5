@@ -35,6 +35,16 @@ export function Header() {
             {item.label}
           </NavLink>
         ))}
+        {loggedIn && (
+          <NavLink
+            to="/mypage"
+            className={({ isActive }) =>
+              cn('hover:text-brand text-sm no-underline', isActive ? 'text-brand' : 'text-ink')
+            }
+          >
+            마이페이지
+          </NavLink>
+        )}
         <button
           type="button"
           className="text-ink hover:text-brand text-sm"
