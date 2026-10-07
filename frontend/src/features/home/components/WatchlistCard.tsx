@@ -10,22 +10,31 @@ import {
   StockAvatar,
 } from '@/components/ui';
 import { formatAsOf, formatPrice } from '@/lib/format';
-import type { Watchlist } from '../mock';
+import type { WatchlistEntry } from '@/lib/types';
 
 /** 관심 종목은 사용자가 직접 담는 목록이라 빈 상태가 실제로 존재한다. */
 export type WatchlistStatus = 'loading' | 'error' | 'empty' | 'success' | 'unauthenticated';
 
 export function WatchlistCard({
   status,
-  watchlist,
+  items,
   onRetry,
   onLoginClick,
+  onAddClick,
 }: {
   status: WatchlistStatus;
-  watchlist: Watchlist;
+  items: WatchlistEntry[];
   onRetry: () => void;
   onLoginClick: () => void;
+  onAddClick: () => void;
 }) {
+  // 종목마다 시세 시각이 다를 수 있어 가장 최근 값을 기준 시각으로 보여준다.
+  const latestAsOf = items
+    .map((item) => item.asOf)
+    .filter((asOf): asOf is string => asOf !== null)
+    .sort()
+    .at(-1);
+
   return (
     <Card>
       <div className="flex items-baseline gap-2">
@@ -60,9 +69,9 @@ export function WatchlistCard({
       {status === 'empty' && (
         <Empty
           title="아직 관심 종목이 없습니다"
-          description="검색해서 추가해보세요"
+          description="검색한 종목의 상세 화면에서 ☆를 눌러 추가해보세요"
           action={
-            <Button variant="secondary" disabled>
+            <Button variant="secondary" onClick={onAddClick}>
               ＋ 종목 추가
             </Button>
           }
@@ -72,32 +81,43 @@ export function WatchlistCard({
       {status === 'success' && (
         <>
           <ul className="flex list-none flex-col">
-            {watchlist.items.map((item) => (
+            {items.map((item) => (
               <li key={item.code}>
                 <Link
                   to={`/stock/${item.code}`}
                   className="border-divider text-ink flex items-center gap-2 border-t py-2 no-underline hover:opacity-70"
                 >
-                  <StockAvatar initial={item.initial} size="sm" />
+                  <StockAvatar initial={item.name.charAt(0)} size="sm" />
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold">{item.name}</span>
                   {/* 패널 폭이 348px 이라 자리가 넉넉하다. 숫자를 이름과 같은 13px 로 맞춘다.
                       xs(11.5px)로 두면 시세를 읽으러 온 화면인데 시세가 제일 작아진다. */}
-                  <span className="flex flex-none flex-col items-end">
-                    <span className="num text-sm font-semibold">{formatPrice(item.price)}</span>
-                    <Change value={item.change} size="sm" />
-                  </span>
+                  {item.quote ? (
+                    <span className="flex flex-none flex-col items-end">
+                      <span className="num text-sm font-semibold">
+                        {formatPrice(item.quote.price)}
+                      </span>
+                      <Change value={item.quote.change} size="sm" />
+                      {/* 관심 종목은 상세 화면을 열어야 시세가 갱신돼서, 오래 안 본 종목은 값이 낡을 수 있다. */}
+                      {item.quoteStatus === 'stale' && (
+                        <span className="text-xs text-neutral-700">갱신 지연</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="flex-none text-sm text-neutral-600">미제공</span>
+                  )}
                 </Link>
               </li>
             ))}
           </ul>
 
-          {/* 판단: 종목을 담으려면 먼저 검색으로 골라야 하는데 그 검색이 아직 없다.
-              누를 곳이 없는 버튼을 살려두면 더 헷갈려서 검색이 붙을 때까지 disabled 로 닫아둔다. */}
-          <Button variant="secondary" block disabled>
+          {/* 판단: 종목은 검색으로 골라 상세 화면에서 담는다. 그래서 이 버튼은 홈 검색창으로 안내한다. */}
+          <Button variant="secondary" block onClick={onAddClick}>
             ＋ 종목 추가
           </Button>
 
-          <p className="text-xs text-neutral-600">{formatAsOf(new Date(watchlist.asOf))}</p>
+          {latestAsOf && (
+            <p className="text-xs text-neutral-600">{formatAsOf(new Date(latestAsOf))}</p>
+          )}
         </>
       )}
     </Card>

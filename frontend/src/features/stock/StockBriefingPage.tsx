@@ -6,7 +6,10 @@ import { SplitLayout } from '@/components/layout/PageShell';
 import type { PricePeriod } from '@/lib/types';
 import { useStockDetail } from './useStockDetail';
 import { useStockFinancials } from './useStockFinancials';
+import { useWatchlistToggle } from './useWatchlistToggle';
+import { LoginModal } from '@/features/auth/LoginModal';
 import { StockHeader, StockHeaderSkeleton } from './components/StockHeader';
+import { WatchlistToggleButton } from './components/WatchlistToggleButton';
 import { PriceActionSection } from './components/PriceActionSection';
 import { AtAGlanceCard } from './components/AtAGlanceCard';
 import { StockInsightSection } from './components/StockInsightSection';
@@ -30,6 +33,8 @@ export function StockBriefingPage() {
     error: financialsError,
     retry: retryFinancials,
   } = useStockFinancials(code);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const watchlistToggle = useWatchlistToggle(code, () => setLoginOpen(true));
 
   if (overviewError instanceof ApiError && overviewError.code === 'STOCK_NOT_FOUND')
     return (
@@ -62,7 +67,18 @@ export function StockBriefingPage() {
           onRetry={retryOverview}
         />
       )}
-      <StockHeader stock={overview.stock} quote={overview.quote} />
+      <StockHeader
+        stock={overview.stock}
+        quote={overview.quote}
+        watchlistAction={
+          <WatchlistToggleButton
+            watched={watchlistToggle.watched}
+            disabled={!watchlistToggle.ready || watchlistToggle.pending}
+            onToggle={watchlistToggle.toggle}
+          />
+        }
+      />
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
       <SplitLayout
         align="stretch"
         main={
