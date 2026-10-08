@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, Input, StockAvatar } from '@/components/ui';
+import { HOME_SEARCH_INPUT_ID } from '../focusHomeSearch';
 import { useSearch } from '../useSearch';
 
 /**
@@ -28,6 +29,7 @@ export function StockSearchBox() {
       <div className="relative">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Input
+            id={HOME_SEARCH_INPUT_ID}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setOpen(true)}
