@@ -54,7 +54,7 @@ export function useStockList() {
         setState({ status: 'success', items });
         if (!complete) {
           alert(
-            '일부 종목 정보가 로딩되지 않았습니다. 새로고침해주세요.',
+            '일부 종목 정보가 아직 준비되지 않았습니다. 새로고침 후에도 계속 보이지 않으면 운영팀에 문의해주세요.',
           );
         }
       })
