@@ -72,7 +72,8 @@ async def test_list_is_ordered_by_rank_and_camel_case(list_db):
     assert response.status_code == 200
     body = response.json()
     StockList.model_validate(body)
-    assert set(body) == {"items"}
+    assert set(body) == {"items", "complete"}
+    assert body["complete"] is False
     assert body["items"] == [
         {"rank": 1, "code": "TST002", "name": "DB이름1", "market": "KOSPI", "sector": "전기전자"},
         {"rank": 2, "code": "TST001", "name": "DB이름2", "market": "KOSDAQ", "sector": "금융"},
@@ -87,6 +88,24 @@ async def test_list_excludes_inactive_unknown_and_non_mvp(list_db):
     assert "TST004" not in codes  # inactive
     assert "TST005" not in codes  # stock 테이블에 없음
     assert codes == ["TST002", "TST001"]
+
+
+async def test_list_marks_complete_false_when_some_mvp_codes_missing(list_db):
+    async with list_db() as session:
+        result = await stock_list.stock_list(session)
+    assert result.complete is False
+
+
+async def test_list_marks_complete_true_when_all_mvp_codes_present(monkeypatch, list_db):
+    mvp = (
+        MvpStock(1, "TST002", "순위1", "전기전자"),
+        MvpStock(2, "TST001", "순위2", "금융"),
+    )
+    monkeypatch.setattr(stock_list, "MVP_STOCKS", mvp)
+    monkeypatch.setattr(stock_list, "MVP_CODES", frozenset(m.code for m in mvp))
+    async with list_db() as session:
+        result = await stock_list.stock_list(session)
+    assert result.complete is True
 
 
 async def test_list_does_not_enqueue_collection(list_db):
