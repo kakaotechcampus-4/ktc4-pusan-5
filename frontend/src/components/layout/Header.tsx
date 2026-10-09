@@ -6,7 +6,7 @@ import { LoginModal } from '@/features/auth/LoginModal';
 
 const NAV = [
   { to: '/', label: '홈' },
-  { to: '/stock/005930', label: '종목 브리핑' },
+  { to: '/stocks', label: '개별 종목' },
   { to: '/concepts', label: '개념' },
 ];
 
@@ -35,6 +35,16 @@ export function Header() {
             {item.label}
           </NavLink>
         ))}
+        {loggedIn && (
+          <NavLink
+            to="/mypage"
+            className={({ isActive }) =>
+              cn('hover:text-brand text-sm no-underline', isActive ? 'text-brand' : 'text-ink')
+            }
+          >
+            마이페이지
+          </NavLink>
+        )}
         <button
           type="button"
           className="text-ink hover:text-brand text-sm"

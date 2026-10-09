@@ -86,10 +86,13 @@ export function ErrorBox({
   title = '불러오지 못했습니다',
   description = '잠시 후 다시 시도해주세요',
   onRetry,
+  action,
 }: {
   title?: string;
   description?: string;
   onRetry?: () => void;
+  /** 재시도로 해결되지 않는 에러에서 다음 행동(다른 화면으로 이동 등)을 안내할 때 */
+  action?: ReactNode;
 }) {
   return (
     <div className="border-up-200 bg-up-100 flex flex-col items-center gap-2 rounded-lg border px-4 py-8 text-center">
@@ -100,6 +103,7 @@ export function ErrorBox({
           다시 시도
         </Button>
       )}
+      {action}
     </div>
   );
 }

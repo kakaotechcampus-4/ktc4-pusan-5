@@ -1,7 +1,6 @@
 export type User = {
   id: number;
   nickname: string;
-  email: string;
 };
 
 export type ResourceStatus = 'pending' | 'ready' | 'stale' | 'unavailable' | 'empty';
@@ -138,7 +137,7 @@ export type MarketItem = {
   code: string;
   name: string;
   source: string | null;
-  unit: 'points' | 'KRW/USD' | null;
+  unit: 'points' | 'KRW/USD' | 'KRW/g' | null;
   status: 'ready' | 'stale' | 'unavailable' | 'pending' | 'notConfigured';
   value: number | null;
   change: number | null;
@@ -178,4 +177,40 @@ export type MarketOverview = {
   rankings: RankingBoard[];
   flows: FlowBoard[];
   sectors: SectorBoard[];
+};
+
+export type WatchlistQuote = {
+  price: number;
+  /** 등락률(%) */
+  change: number;
+  /** 등락액(원) */
+  changeAmount: number;
+};
+
+export type WatchlistEntry = {
+  code: string;
+  name: string;
+  market: 'KOSPI' | 'KOSDAQ';
+  /** 시세가 아직 수집되지 않은 종목은 null */
+  quote: WatchlistQuote | null;
+  /** ready: 최신 / stale: 갱신 지연(마지막 정상값) / pending: 아직 수집 전 */
+  quoteStatus: 'ready' | 'stale' | 'pending';
+  asOf: string | null;
+};
+
+export type WatchlistResponse = {
+  items: WatchlistEntry[];
+};
+
+/** GET /api/stocks 항목. rank 는 시가총액 순위(1이 가장 큼) */
+export type StockListItem = {
+  rank: number;
+  code: string;
+  name: string;
+  market: 'KOSPI' | 'KOSDAQ';
+  sector: string;
+};
+
+export type StockListResponse = {
+  items: StockListItem[];
 };
