@@ -22,6 +22,7 @@ from app.models.stock_financials import (
 )
 from app.models.stock_history import KrxHistoricalCache, StockPeriodMarket
 from app.models.user import User
+from app.models.watchlist import WatchlistItem
 
 __all__ = [
     "Channel",
@@ -47,4 +48,5 @@ __all__ = [
     "StockQuarterlyRatio",
     "StockQuoteSnapshot",
     "User",
+    "WatchlistItem",
 ]

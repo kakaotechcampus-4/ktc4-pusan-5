@@ -12,7 +12,7 @@ class MarketItem(CamelModel):
     code: str
     name: str
     source: str | None
-    unit: Literal["points", "KRW/USD"] | None
+    unit: Literal["points", "KRW/USD", "KRW/g"] | None
     status: Literal["ready", "stale", "unavailable", "pending", "notConfigured"]
     value: FiniteFloat | None = None
     change: FiniteFloat | None = None
