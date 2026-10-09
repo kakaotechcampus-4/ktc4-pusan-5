@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { listStocks } from '@/lib/api';
-import type { StockListItem } from '@/lib/types';
+import type { StockListItem, StockListResponse } from '@/lib/types';
 import { mockStockList } from './mockStockList';
 import { ALL_SECTOR, buildSectorChips, filterBySector } from './stockSectorFilter';
 
@@ -15,14 +15,14 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 const MOCK_DELAY_MS = 500;
 
-function loadMockStockList(): Promise<StockListItem[]> {
+function loadMockStockList(): Promise<StockListResponse> {
   return new Promise((resolve) => {
-    setTimeout(() => resolve(mockStockList), MOCK_DELAY_MS);
+    setTimeout(() => resolve({ items: mockStockList, complete: true }), MOCK_DELAY_MS);
   });
 }
 
-function loadStockList(): Promise<StockListItem[]> {
-  return USE_MOCK ? loadMockStockList() : listStocks().then((response) => response.items);
+function loadStockList(): Promise<StockListResponse> {
+  return USE_MOCK ? loadMockStockList() : listStocks();
 }
 
 /** 가나다순은 한글 로케일 비교, 시가총액순은 백엔드가 준 순위(1이 가장 큼) 오름차순 */
@@ -49,8 +49,14 @@ export function useStockList() {
     let cancelled = false;
 
     loadStockList()
-      .then((items) => {
-        if (!cancelled) setState({ status: 'success', items });
+      .then(({ items, complete }) => {
+        if (cancelled) return;
+        setState({ status: 'success', items });
+        if (!complete) {
+          alert(
+            '일부 종목 정보가 로딩되지 않았습니다. 새로고침해주세요.',
+          );
+        }
       })
       .catch(() => {
         if (!cancelled) setState({ status: 'error', items: [] });

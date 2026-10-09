@@ -213,4 +213,6 @@ export type StockListItem = {
 
 export type StockListResponse = {
   items: StockListItem[];
+  /** 고정 100개 중 일부가 DB에 없으면 false */
+  complete: boolean;
 };
