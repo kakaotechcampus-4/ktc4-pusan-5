@@ -1,7 +1,7 @@
 from app.models.analyst_report import AnalystReport
 from app.models.channel import Channel
 from app.models.news import News
-from app.models.source_card import SourceCard
+from app.models.source_card import SourceCard, SourceCardStock
 from app.models.stock_move_analysis import (
     StockMoveAnalysis,
     StockMoveAnalysisFactor,
@@ -15,6 +15,7 @@ __all__ = [
     "Channel",
     "News",
     "SourceCard",
+    "SourceCardStock",
     "StockMoveAnalysis",
     "StockMoveAnalysisFactor",
     "StockMoveAnalysisFactorSource",

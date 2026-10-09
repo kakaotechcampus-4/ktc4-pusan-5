@@ -29,6 +29,7 @@ MANAGED_TABLES = {
     "analyst_reports",
     "news",
     "source_card",
+    "source_card_stocks",
     "stock_move_analyses",
     "stock_move_analysis_factors",
     "stock_move_analysis_factor_sources",

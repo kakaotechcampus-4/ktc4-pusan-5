@@ -5,7 +5,7 @@
     - 공통 ID 로 본문·발행처·수집 경로·발견 경로를 읽는다
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 
 import asyncpg
 import pytest
@@ -272,3 +272,105 @@ def test_forwarded_message_card_names_the_original_channel_as_publisher(database
     [record] = in_session(database, lambda s: get_sources(s, [ids["message1"]]))
     assert (record.publisher, record.channel, record.forwarded_from_url) == (
         "다른 채널", "skitteam", "https://t.me/other/9")
+
+
+def test_cards_get_earliest_public_time_date_and_report_stock(database):
+    """공개 시각은 원문 시각과 그 자료를 건 메시지 게시 시각 중 가장 이른 것이다."""
+    alembic(database, "upgrade", "head")
+    seed(database)
+    query(database, "UPDATE analyst_reports SET item_code = '005930' WHERE source = 'naver'")
+    register(database)
+
+    rows = query(database, """
+        SELECT card_type, available_at, event_date::text AS day FROM source_card
+        ORDER BY card_type, analyst_report_id
+    """)
+    posted = datetime(2026, 10, 5, 1, 0, tzinfo=UTC)  # 2026-10-05 10:00 KST
+    assert [(r["card_type"], r["available_at"], r["day"]) for r in rows] == [
+        ("message", posted, "2026-10-05"),
+        ("news", posted, "2026-10-05"),  # 발행 시각을 모르는 기사는 그 기사를 건 메시지 시각
+        ("pdf", None, "2026-10-04"),  # 네이버 리포트는 시각 없이 작성일만
+        ("pdf", None, "2026-10-05"),
+    ]
+    tags = query(database, """
+        SELECT s.stock_code, s.tagged_by, c.analyst_report_id IS NOT NULL AS is_pdf
+        FROM source_card_stocks s JOIN source_card c ON c.id = s.source_card_id
+    """)
+    assert [tuple(t) for t in tags] == [("005930", "report_item_code", True)]
+
+    # 더 이른 메시지가 같은 기사를 건 것을 나중에 수집하면 공개 시각이 앞당겨진다.
+    query(database, """
+        INSERT INTO telegram_messages (channel_id, msg_id, url, posted_at, text, collected_via)
+        SELECT id, 2, 'https://t.me/skitteam/2', '2026-10-04 23:00+09', '먼저 공유', 'web'
+        FROM channel WHERE telegram_handle = 'skitteam'
+    """)
+    query(database, """
+        INSERT INTO telegram_message_links (message_id, kind, position, discovered_url, final_url,
+                                            status, news_id)
+        SELECT m.id, 'url', 1, 'https://buly.kr/b', 'https://news.example.com/a/1', 'ok', n.id
+        FROM telegram_messages m, news n WHERE m.msg_id = 2
+    """)
+    register(database)
+    [news] = query(database, "SELECT available_at, event_date::text AS day FROM source_card "
+                             "WHERE card_type = 'news'")
+    assert (news["available_at"], news["day"]) == (datetime(2026, 10, 4, 14, 0, tzinfo=UTC),
+                                                   "2026-10-04")
+    assert query(database, "SELECT count(*) FROM source_card_stocks")[0][0] == 1, "다시 돌려도 같다"
+
+
+def test_stock_card_ids_respects_the_cutoff(database):
+    """기준 시각 이후 자료와, 시각을 몰라 같은 날인지 알 수 없는 자료는 빠진다."""
+    from app.repositories.source_card import stock_card_ids
+
+    alembic(database, "upgrade", "head")
+    seed(database)
+    query(database, "UPDATE analyst_reports SET item_code = '005930' WHERE source = 'naver'")
+    register(database)
+    ids = _card_ids(database)
+    query(database, f"""
+        INSERT INTO source_card_stocks (source_card_id, stock_code, tagged_by)
+        VALUES ({ids["news1"]}, '005930', 'test'), ({ids["message1"]}, '000660', 'test')
+    """)
+
+    def find(until, since=None):
+        return in_session(database, lambda s: stock_card_ids(s, "005930", until=until, since=since))
+
+    kst = timezone(timedelta(hours=9))
+    # 10-05 09:00: 네이버 리포트(10-04 작성)만. 기사는 10:00 에 공개됐다
+    assert find(datetime(2026, 10, 5, 9, 0, tzinfo=kst)) == [ids["pdf1"]]
+    # 10-05 15:30: 리포트와 기사. 다른 종목의 메시지는 빠진다
+    assert find(datetime(2026, 10, 5, 15, 30, tzinfo=kst)) == [ids["pdf1"], ids["news1"]]
+    # 10-04 15:30: 작성일이 같은 날인 리포트는 기준 시각 전인지 몰라 뺀다
+    assert find(datetime(2026, 10, 4, 15, 30, tzinfo=kst)) == []
+    # since 로 앞쪽을 자른다
+    assert find(datetime(2026, 10, 5, 15, 30, tzinfo=kst),
+                since=datetime(2026, 10, 5, 0, 0, tzinfo=kst)) == [ids["news1"]]
+
+
+def test_get_sources_reports_the_public_time(database):
+    alembic(database, "upgrade", "head")
+    seed(database)
+    register(database)
+    ids = _card_ids(database)
+    [record] = in_session(database, lambda s: get_sources(s, [ids["news1"]]))
+    assert record.published_at is None
+    assert record.available_at == datetime(2026, 10, 5, 1, 0, tzinfo=UTC)
+
+
+def test_card_ids_for_urls_matches_messages_and_canonical_news(database):
+    from app.repositories.source_card import card_ids_for_urls
+
+    alembic(database, "upgrade", "head")
+    seed(database)
+    in_session(database, backfill_canonical_urls)
+    register(database)
+    ids = _card_ids(database)
+    found = in_session(database, lambda s: card_ids_for_urls(s, [
+        "https://t.me/skitteam/1",
+        "https://NEWS.example.com/a/1?utm_source=tg",  # 정규화하면 같은 기사
+        "https://t.me/skitteam/999",  # DB 에 없다
+    ]))
+    assert found == {
+        "https://t.me/skitteam/1": ids["message1"],
+        "https://NEWS.example.com/a/1?utm_source=tg": ids["news1"],
+    }

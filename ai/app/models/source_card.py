@@ -17,6 +17,11 @@ report_citation 으로 인용만 한다. 위의 칼럼은 backend 모델 그대�
 
 raw_text·cleaned_text·source_url 은 backend 가 원문을 직접 담던 카드용이다. 위 세 종류의
 카드는 비워 둔다. 원문은 FK 로 따라가 읽는다(repositories/source_card.py 의 get_sources).
+
+종목 브리핑은 "이 종목에 관한 자료 중 기준 시각 이전에 나온 것" 을 찾는다. 그 색인이 둘이다.
+    available_at        이 자료가 공개돼 있었다고 확인된 가장 이른 시각
+    source_card_stocks  자료가 다루는 종목. 자료 하나가 여러 종목을 다룰 수 있다
+backend 의 stock_code 칸은 종목을 하나밖에 못 담아 원문 카드에는 쓰지 않는다.
 """
 
 from datetime import UTC, date, datetime
@@ -33,6 +38,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -51,6 +57,7 @@ class SourceCard(Base):
         Index("idx_source_card_stock_date", "stock_code", "event_date"),
         Index("idx_source_card_tags_gin", "tags", postgresql_using="gin"),
         Index("idx_source_card_payload_gin", "payload", postgresql_using="gin"),
+        Index("ix_source_card_available_at", "available_at"),
         # 원문 한 행에 카드 하나. 등록 처리를 다시 돌려도 같은 원문의 카드가 늘지 않는다.
         UniqueConstraint("news_id", name="uq_source_card_news_id"),
         UniqueConstraint("analyst_report_id", name="uq_source_card_analyst_report_id"),
@@ -92,4 +99,43 @@ class SourceCard(Base):
     )
     telegram_message_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("telegram_messages.id", name="fk_source_card_telegram_message_id")
+    )
+
+    # 이 자료가 공개돼 있었다고 확인된 가장 이른 시각. 등록 처리가 원문에서 계산한다.
+    #     news     발행 시각과, 이 기사를 건 텔레그램 메시지들의 게시 시각 중 가장 이른 것
+    #     pdf      이 PDF 를 올린 텔레그램 메시지의 게시 시각. 네이버 리포트는 작성일만 있어 NULL
+    #     message  게시 시각
+    # 모르면 NULL 이다. 수집 시각으로 대신 채우지 않는다. 날짜는 event_date(KST)에도 적는다 —
+    # 시각을 모르는 네이버 리포트는 event_date 에 작성일만 있다.
+    # 본문을 언제 받았는지(기준 시각 이후 수정이 섞였는지)는 원문 표의 body_fetched_at 이 말한다.
+    available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SourceCardStock(Base):
+    """자료 하나가 다루는 종목 하나. 한 행 = (공통 자료 ID, 종목코드).
+
+    종목코드는 backend 의 stock 표를 FK 로 가리키지 않는다. 종목 마스터에 아직 없거나 빠진
+    종목(신규 상장·상장 폐지)이어도 자료 저장이 막히면 안 된다. analyst_reports.item_code·
+    stock_move_analyses.ticker 와 같은 관례다.
+
+    tagged_by 는 누가 이 연결을 정했는지다. 판단 방식이 다르면 믿을 수 있는 정도도 달라서
+    나중에 골라 쓰거나 지울 수 있게 남긴다.
+        report_item_code   증권사 종목분석 리포트의 종목코드(analyst_reports.item_code). 등록 처리가 채운다
+    뉴스·메시지의 종목 판단(필터·태깅 단계)이 들어오면 그 방식의 값을 더한다.
+    """
+
+    __tablename__ = "source_card_stocks"
+    __table_args__ = (
+        UniqueConstraint("source_card_id", "stock_code", name="uq_source_card_stock"),
+        Index("ix_source_card_stocks_stock_code", "stock_code"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    source_card_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("source_card.id", ondelete="CASCADE")
+    )
+    stock_code: Mapped[str] = mapped_column(String(6))
+    tagged_by: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
     )
