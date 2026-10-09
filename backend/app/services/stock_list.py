@@ -21,6 +21,7 @@ async def stock_list(session: AsyncSession) -> StockList:
                 code=mvp.code,
                 name=stocks[mvp.code].name,
                 market=stocks[mvp.code].market,
+                sector=mvp.sector,
             )
             for mvp in MVP_STOCKS
             if mvp.code in stocks

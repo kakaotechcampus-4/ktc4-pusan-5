@@ -33,6 +33,7 @@ class StockListItem(CamelModel):
     code: str
     name: str
     market: Literal["KOSPI", "KOSDAQ"]
+    sector: str
 
 
 class StockList(CamelModel):
