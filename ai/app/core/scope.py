@@ -33,12 +33,14 @@ DEFAULT_PATH = Path(__file__).resolve().parents[2] / "collection_scope.toml"
 #                    이용 조건을 따로 적으려고 출처를 나눴다
 #   telegram_client  로그인 계정으로 받는 PDF. channels = 허용 채널
 #   naver_research   네이버 증권 리서치. categories = 허용 API 분류, item_codes = company 리포트 종목
+#   dart             DART 공시 목록. stock_codes = 허용 종목코드
 SOURCES: dict[str, str | None] = {
     "naver_news": "queries",
     "telegram_web": "channels",
     "telegram_link": None,
     "telegram_client": "channels",
     "naver_research": "categories",
+    "dart": "stock_codes",
 }
 TERMS_STATUSES = ("확인", "미확인", "미확정")
 TERMS_KEYS = {"status", "basis", "checked_on", "open_issues"}

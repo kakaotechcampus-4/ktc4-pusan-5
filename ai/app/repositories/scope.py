@@ -2,10 +2,10 @@
 
 from contextlib import asynccontextmanager
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AnalystReport, News, TelegramMessage
+from app.models import AnalystReport, DartDisclosure, News, TelegramMessage
 
 # 출처 → 그 경로로 쌓인 행. 보관 정책으로 본문을 지운 행도 센다.
 COLLECTED = {
@@ -14,6 +14,7 @@ COLLECTED = {
     "telegram_web": (TelegramMessage, TelegramMessage.collected_via == "web"),
     "telegram_client": (AnalystReport, AnalystReport.source == "telegram"),
     "naver_research": (AnalystReport, AnalystReport.source == "naver"),
+    "dart": (DartDisclosure, true()),
 }
 
 

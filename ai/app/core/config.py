@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     naver_client_id: str = ""
     naver_client_secret: str = ""
 
+    # DART 공시(opendart.fss.or.kr). 인증키는 오픈다트 > 인증키 신청·관리에서 받는다.
+    # backend 의 DART_API_KEY 와 같은 키를 써도 된다. 하루 호출 한도(약 2만 건)를 함께 쓴다.
+    dart_api_key: str = ""
+
     # 수집 범위 파일(core/scope.py). 비워 두면 ai/collection_scope.toml 을 읽는다.
     collection_scope_file: str | None = None
 
@@ -76,6 +80,11 @@ class Settings(BaseSettings):
                 + "\n  ai/.env 에 넣는다. 주소는 모델 페이지 예시 코드의 https://mlapi.run/<ID>/v1 이다."
             )
         return self.llm_base_url.strip().rstrip("/"), self.llm_api_key.strip()
+
+    def require_dart(self) -> str:
+        if not self.dart_api_key.strip():
+            raise RuntimeError("공시 수집에 DART_API_KEY 가 필요하다. ai/.env 에 넣는다.")
+        return self.dart_api_key.strip()
 
     def require_openrouter(self) -> str:
         if not self.openrouter_api_key:
