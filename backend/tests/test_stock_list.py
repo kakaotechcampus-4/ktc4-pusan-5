@@ -72,7 +72,8 @@ async def test_list_is_ordered_by_rank_and_camel_case(list_db):
     assert response.status_code == 200
     body = response.json()
     StockList.model_validate(body)
-    assert set(body) == {"items"}
+    assert set(body) == {"items", "asOf"}
+    assert body["asOf"] == "2026-10-04T12:00:00+09:00"
     assert body["items"] == [
         {"rank": 1, "code": "TST002", "name": "DB이름1", "market": "KOSPI", "sector": "전기전자"},
         {"rank": 2, "code": "TST001", "name": "DB이름2", "market": "KOSDAQ", "sector": "금융"},
