@@ -28,16 +28,3 @@ export type MyScrapList = {
   /** scrappedAt 내림차순 */
   items: MyScrap[];
 };
-
-export type MyWatchItem = {
-  code: string;
-  name: string;
-  price: number;
-  /** 등락률(%) */
-  change: number;
-};
-
-export type MyWatchlist = {
-  asOf: string;
-  items: MyWatchItem[];
-};
