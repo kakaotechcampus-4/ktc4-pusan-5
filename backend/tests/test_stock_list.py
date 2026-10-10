@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import UTC, date, datetime
 
@@ -97,6 +98,16 @@ async def test_list_marks_complete_false_when_some_mvp_codes_missing(list_db):
     assert result.complete is False
 
 
+async def test_list_logs_missing_codes_split_by_db_presence(list_db, caplog):
+    async with list_db() as session:
+        with caplog.at_level(logging.WARNING, logger="app.services.stock_list"):
+            await stock_list.stock_list(session)
+    [record] = [r for r in caplog.records if "mvp stock catalog incomplete" in r.message]
+    message = record.getMessage()
+    assert "not_in_db=['TST005']" in message  # stock 테이블에 아예 없음
+    assert "inactive=['TST004']" in message  # DB엔 있지만 listing_status != listed
+
+
 async def test_list_marks_complete_true_when_all_mvp_codes_present(monkeypatch, list_db):
     mvp = (
         MvpStock(1, "TST002", "순위1", "전기전자"),
@@ -130,7 +141,7 @@ async def test_list_returns_503_when_catalog_is_not_ready(monkeypatch):
     async def override():
         yield None
 
-    monkeypatch.setattr(repo, "listed_by_codes", empty)
+    monkeypatch.setattr(repo, "by_codes", empty)
     monkeypatch.setattr(repo, "catalog_checked_at", never_synced)
     app.dependency_overrides[get_session] = override
     try:
