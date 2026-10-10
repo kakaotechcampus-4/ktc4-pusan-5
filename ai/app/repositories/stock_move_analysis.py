@@ -85,7 +85,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import inspect
+from sqlalchemy import inspect, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import make_transient_to_detached
@@ -95,6 +95,7 @@ from app.models.stock_move_analysis import (
     StockMoveAnalysisFactor,
     StockMoveAnalysisFactorSource,
 )
+from app.repositories.source_card import card_ids_for_urls
 
 logger = logging.getLogger(__name__)
 
@@ -591,6 +592,11 @@ async def insert_analysis(
         prompt_version=prompt_version,
         source=source,
     )
+    # 출처를 공통 자료 ID 로 잇는다. DB 에 없는 원문은 비워 두고 url 만 남긴다.
+    sources = [s for factor in analysis.factors for s in factor.sources]
+    card_ids = await card_ids_for_urls(session, [s.url for s in sources if s.url])
+    for s in sources:
+        s.source_card_id = card_ids.get(s.url) if s.url else None
 
     # 부모 행만 Core INSERT 로 먼저 넣는다. ORM flush 로는 ON CONFLICT 를 걸 수 없다.
     # 값은 build_analysis 가 채운 칼럼만 넘긴다 — 안 채운 칼럼(id, loaded_at)까지
@@ -664,12 +670,37 @@ async def insert_analysis_files(
     return inserted
 
 
+async def link_analysis_sources(session: AsyncSession) -> int:
+    """공통 자료 ID 가 비어 있는 보고서 출처를 다시 찾아 채운다. 채운 출처 수.
+
+    보고서를 적재한 뒤에 원문을 수집했으면 적재 때는 못 찾는다. 이미 채운 출처는 건드리지
+    않는다. 커밋은 부르는 쪽이 한다.
+    """
+    urls = (await session.execute(
+        select(StockMoveAnalysisFactorSource.url).distinct().where(
+            StockMoveAnalysisFactorSource.source_card_id.is_(None),
+            StockMoveAnalysisFactorSource.url.is_not(None),
+        )
+    )).scalars().all()
+    linked = 0
+    for url, card_id in (await card_ids_for_urls(session, list(urls))).items():
+        result = await session.execute(
+            update(StockMoveAnalysisFactorSource)
+            .where(StockMoveAnalysisFactorSource.url == url,
+                   StockMoveAnalysisFactorSource.source_card_id.is_(None))
+            .values(source_card_id=card_id)
+        )
+        linked += result.rowcount
+    return linked
+
+
 __all__ = [
     "KST",
     "ParsedAnalysis",
     "build_analysis",
     "insert_analysis",
     "insert_analysis_files",
+    "link_analysis_sources",
     "normalize_background",
     "normalize_not_found",
     "normalize_terms",

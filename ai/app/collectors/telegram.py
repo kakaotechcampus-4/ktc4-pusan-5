@@ -8,25 +8,43 @@
 
 네이버와 다른 점은 네트워크 비용이다. 네이버는 PDF 가 건당 수백 KB 인데 텔레그램은
 평균 3.7MB 다(선진짱 220건 806MB). 그래서 이미 받은 건 반드시 건너뛴다.
+
+PDF 가 붙어 있던 **메시지와 발견 경로**도 남긴다(record_pdf_messages). 메시지는
+telegram_messages 에, "이 메시지에서 이 PDF 를 발견했다" 는 telegram_message_links 에 들어간다.
+네이버에 같은 PDF 가 있어 텔레그램 행을 만들지 않은 경우에도 그 네이버 행에 발견 경로를 잇는다.
+이 기록이 실패해도 같은 묶음의 PDF 행은 저장한다 — PDF 는 다시 받기 비싸다.
 """
 
 import argparse
 import asyncio
 import logging
 import tempfile
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SessionLocal
+from app.core.scope import CollectionScope, ScopeError, load_scope
 from app.repositories.analyst_report import (
     known_ids,
     known_naver_pdf_hashes,
     upsert_analyst_reports,
 )
+from app.repositories.scope import collection_locks, count_collected
+from app.repositories.source_card import register_missing_sources
+from app.repositories.telegram_message import (
+    ensure_channels,
+    find_attachment_report,
+    recorded_attachment_ids,
+    save_message_links,
+    save_messages,
+)
 from app.services.analyst.pdf import pdf_text_from_bytes
 from app.services.analyst.schema import PdfText
 from app.services.analyst.telegram import (
-    DEFAULT_CHANNELS,
     KST,
     check_channels,
     connect_authorized,
@@ -34,12 +52,123 @@ from app.services.analyst.telegram import (
     exclusion_reason,
     iter_pdf_messages,
     make_client,
+    parse_channel,
     to_row,
 )
 
 logger = logging.getLogger(__name__)
 SOURCE = "telegram"
 COMMIT_EVERY = 20  # 200건짜리 채널에서 중간에 끊겨도 앞은 남게
+AUTHOR_MAX_CHARS = 200
+
+
+@dataclass
+class FoundPdf:
+    """PDF 가 붙어 있던 메시지 하나. 묶음을 저장할 때 메시지·발견 경로로 남긴다."""
+
+    msg_id: int
+    posted_at: datetime | None
+    text: str
+    author: str | None
+    views: str | None
+    edited: bool
+    filename: str
+    pdf_sha256: str | None
+    excluded: bool  # 수집 대상이 아니라서(AI 생성 자료 등) PDF 행을 만들지 않았다
+    forwarded_from: str | None = None  # 다른 채널 글을 전달한 것이면 원래 채널
+    forwarded_from_url: str | None = None
+
+
+def forward_origin(message: Any) -> tuple[str | None, str | None]:
+    """(원래 출처, 원글 주소). 전달된 메시지가 아니면 (None, None).
+
+    Telethon 은 원래 채널을 이름이 아니라 id 로 준다(fwd_from.from_id). 이름을 찾으려면 API 를 한 번
+    더 불러야 해서 id 를 그대로 남긴다. 사람에게서 전달된 글은 사용자 id 를 남기지 않는다.
+    """
+    header = getattr(message, "fwd_from", None)
+    if header is None:
+        return None, None
+    channel_id = getattr(getattr(header, "from_id", None), "channel_id", None)
+    post = getattr(header, "channel_post", None)
+    url = f"https://t.me/c/{channel_id}/{post}" if channel_id and post else None
+    if channel_id:
+        return f"channel:{channel_id}", url
+    return getattr(header, "from_name", None) or "알 수 없음", url
+
+
+def found_pdf(message: Any, filename: str, pdf: PdfText, *, excluded: bool = False) -> FoundPdf:
+    """Telethon 메시지 → FoundPdf. 캡션이 없거나 값이 없는 메시지도 있어 getattr 로 읽는다."""
+    views = getattr(message, "views", None)
+    forwarded_from, forwarded_from_url = forward_origin(message)
+    return FoundPdf(
+        msg_id=message.id,
+        posted_at=getattr(message, "date", None),
+        text=getattr(message, "message", None) or "",
+        author=(getattr(message, "post_author", None) or None),
+        views=str(views) if views is not None else None,
+        edited=getattr(message, "edit_date", None) is not None,
+        filename=filename,
+        pdf_sha256=pdf.sha256,
+        excluded=excluded,
+        forwarded_from=forwarded_from,
+        forwarded_from_url=forwarded_from_url,
+    )
+
+
+async def record_pdf_messages(
+    session: AsyncSession, channel: str, *, is_public: bool, found: list[FoundPdf]
+) -> str | None:
+    """묶음의 메시지·첨부 발견 경로를 저장하고 카드가 없는 원문을 등록한다. 실패하면 사유.
+
+    savepoint 안에서 한다. 여기서 실패해도 같은 트랜잭션의 PDF 행은 커밋된다.
+    PDF 행을 먼저 넣은 뒤에 불러야 "이 메시지로 저장한 행" 을 찾는다.
+    """
+    if not found:
+        return None
+    try:
+        async with session.begin_nested():
+            channel_ids = await ensure_channels(session, [
+                {"telegram_handle": channel, "name": channel, "is_public": is_public}
+            ])
+            saved = await save_messages(session, [
+                {
+                    "channel_id": channel_ids[channel],
+                    "msg_id": item.msg_id,
+                    "url": f"https://t.me/{channel}/{item.msg_id}",
+                    "posted_at": item.posted_at,
+                    "author": item.author[:AUTHOR_MAX_CHARS] if item.author else None,
+                    "text": item.text,
+                    "attachment_name": item.filename,
+                    "forwarded_from": item.forwarded_from,
+                    "forwarded_from_url": item.forwarded_from_url,
+                    "views": item.views,
+                    "edited": item.edited,
+                    "collected_via": "telethon",
+                }
+                for item in found
+            ])
+            links = []
+            report_ids = []
+            for item, message in zip(found, saved, strict=True):
+                report_id, status = (None, "excluded") if item.excluded else (
+                    await find_attachment_report(session, channel=channel, msg_id=item.msg_id,
+                                                 pdf_sha256=item.pdf_sha256))
+                links.append({
+                    "message_id": message.id, "kind": "attachment", "position": 1,
+                    "discovered_url": None, "final_url": None,
+                    "status": status or "not_saved", "error": None, "http_status": None,
+                    "fetched_at": None, "news_id": None, "analyst_report_id": report_id,
+                })
+                if report_id is not None:
+                    report_ids.append(report_id)
+            await save_message_links(session, links)
+            await register_missing_sources(
+                session, news_ids=[], report_ids=report_ids, message_ids=[m.id for m in saved],
+            )
+    except Exception as exc:  # noqa: BLE001 — PDF 행은 지킨다. 실패는 집계해 종료 코드로 알린다
+        logger.error("%s: 메시지·발견 경로 저장 실패 (%s)", channel, type(exc).__name__)
+        return f"{channel}: 메시지·발견 경로 저장 실패 ({type(exc).__name__})"
+    return None
 
 
 def _is_real_cancel() -> bool:
@@ -84,15 +213,37 @@ async def _extract(client, message, filename: str, *, attempts: int = 3) -> PdfT
     return PdfText(status="failed", error=last)
 
 
+def public_channels(specs: tuple[str, ...]) -> dict[str, bool]:
+    """채널 이름 → 공개 채널인가. channel 표에 처음 등록할 때만 쓴다.
+
+    주소(username)로 연 채널은 공개 채널이다. `이름=채널id:access_hash` 로 연 채널은 공개
+    여부를 확인하지 못했으므로 비공개로 적는다. 공개 채널을 비공개로 적는 쪽이 반대보다 안전하다.
+    """
+    return {parse_channel(spec)[0]: "=" not in spec and ":" not in spec for spec in specs}
+
+
 async def collect(
     *,
     days: int = 7,
-    channels: tuple[str, ...] = DEFAULT_CHANNELS,
+    channels: tuple[str, ...] | None = None,
     limit: int | None = None,
     delay: float = 1.0,
+    scope: CollectionScope | None = None,
 ) -> dict[str, int]:
-    """채널별 저장 건수."""
-    since = datetime.now(KST).date() - timedelta(days=days)
+    """채널별 저장 건수.
+
+    수집 범위(collection_scope.toml 의 telegram_client)는 텔레그램에 접속하기 전에 본다. 허용한
+    채널만 열고, 게시일이 기간 밖인 메시지는 받지 않는다. 새 PDF 는 수집량 상한까지만 내려받는다.
+    channels 를 주지 않으면 범위의 채널 전부다.
+    """
+    scope = scope or load_scope()
+    source = scope.require("telegram_client")
+    channels = channels or tuple(sorted(source.allowed))
+    public = public_channels(channels)
+    source.check(public)
+    since = scope.first_day(datetime.now(KST).date() - timedelta(days=days))
+    if since is None:
+        raise ScopeError(f"수집 기간({scope.start}~{scope.end}) 밖이다. 받을 메시지가 없다.")
 
     saved: dict[str, int] = {}
     client = make_client()
@@ -100,21 +251,45 @@ async def collect(
     try:
         await connect_authorized(client)
         checked_channels = await check_channels(client, channels)
-        async with SessionLocal() as session:
+        async with collection_locks(SessionLocal, "telegram_client"), SessionLocal() as session:
             for channel, peer in checked_channels:
                 # 채널이 곧 원본 구분이다. 메시지 번호가 채널 안에서만 유일해서
                 # 채널로 범위를 좁혀야 비교가 맞는다.
                 seen = await known_ids(session, SOURCE, since, channel)
+                recorded = await recorded_attachment_ids(session, channel)
+                pending_discoveries = seen - recorded
                 rows: list[dict] = []
+                found: list[FoundPdf] = []  # 이번 묶음에서 PDF 가 붙어 있던 메시지
                 n = skipped = stored = 0
                 naver_hashes = await known_naver_pdf_hashes(session)
+                budget = source.remaining(await count_collected(session, "telegram_client"))
                 # 채널 하나가 죽어도 다음 채널은 돌린다. 여기까지 모은 건 아래에서 저장한다.
                 try:
                     async for message, filename in iter_pdf_messages(client, peer, since):
+                        if not scope.contains(message.date.astimezone(KST).date()):
+                            continue  # 기간이 끝난 뒤의 글. 최신부터 훑으므로 기간 안까지 넘긴다
                         if str(message.id) in seen:
+                            if str(message.id) not in recorded:
+                                # PDF는 이미 있다. 재다운로드 없이 캡션·발견 경로만 복구한다.
+                                error = await record_pdf_messages(
+                                    session, channel, is_public=public.get(channel, False),
+                                    found=[found_pdf(message, filename, PdfText(status="pending"))],
+                                )
+                                if error:
+                                    failures.append(error)
+                                else:
+                                    recorded.add(str(message.id))
+                                    pending_discoveries.discard(str(message.id))
+                                await session.commit()
                             continue
                         if limit and n >= limit:
-                            break
+                            if not pending_discoveries:
+                                break
+                            continue  # 뒤에 있는 기존 PDF의 발견 경로 복구는 계속한다.
+                        if n >= budget:
+                            if not pending_discoveries:
+                                break
+                            continue  # 새 PDF만 제한한다. 이미 저장한 PDF의 복구는 상한과 무관하다.
 
                         pdf = await _extract(client, message, filename)
                         if pdf.status == "failed":
@@ -123,6 +298,8 @@ async def collect(
                             logger.info("%s: 네이버에 동일 PDF가 있어 건너뛴다", filename)
                             seen.add(str(message.id))
                             skipped += 1
+                            # PDF 행은 만들지 않지만 이 메시지에서 발견했다는 기록은 남긴다
+                            found.append(found_pdf(message, filename, pdf))
                             await asyncio.sleep(delay)
                             continue
                         # 한국IR협의회가 AI 로 만든 자료는 버린다. 네이버 쪽과 같은 이유다 —
@@ -133,6 +310,7 @@ async def collect(
                         if reason:
                             logger.info("%s: %s — 건너뛴다", filename, reason)
                             skipped += 1
+                            found.append(found_pdf(message, filename, pdf, excluded=True))
                             continue
                         rows.append(
                             to_row(
@@ -143,13 +321,19 @@ async def collect(
                                 pdf=pdf,
                             )
                         )
+                        found.append(found_pdf(message, filename, pdf))
                         seen.add(str(message.id))
                         n += 1
                         if len(rows) >= COMMIT_EVERY:
                             stored += await upsert_analyst_reports(session, rows)
+                            error = await record_pdf_messages(
+                                session, channel, is_public=public.get(channel, False), found=found
+                            )
+                            if error:
+                                failures.append(error)
                             await session.commit()
                             logger.info("%s: %d건 저장", channel, stored)
-                            rows = []
+                            rows, found = [], []
                         await asyncio.sleep(delay)  # 남의 서버다. 내려받기 사이는 쉬어 간다
                 except asyncio.CancelledError:
                     if _is_real_cancel():
@@ -160,8 +344,14 @@ async def collect(
                     failures.append(f"{channel}: {type(exc).__name__}")
                     logger.error("%s: %d건에서 중단 (%s)", channel, n, type(exc).__name__)
 
-                if rows:
-                    stored += await upsert_analyst_reports(session, rows)
+                if rows or found:
+                    if rows:
+                        stored += await upsert_analyst_reports(session, rows)
+                    error = await record_pdf_messages(
+                        session, channel, is_public=public.get(channel, False), found=found
+                    )
+                    if error:
+                        failures.append(error)
                     await session.commit()
                 saved[channel] = stored
                 logger.info("%s: 총 %d건 (수집 대상 외 %d건 제외)", channel, stored, skipped)
@@ -180,7 +370,7 @@ def main() -> None:
         "--channel", action="append",
         help=(
             "채널 username, 또는 '이름=채널id:access_hash'. 여러 번 줄 수 있다. "
-            f"기본 {', '.join(DEFAULT_CHANNELS)}"
+            "이름은 수집 범위(telegram_client.channels)에 있어야 한다. 기본은 범위의 채널 전부"
         ),
     )
     p.add_argument("--limit", type=int, help="채널당 최대 건수. 시험용")
@@ -192,11 +382,13 @@ def main() -> None:
         saved = asyncio.run(
             collect(
                 days=args.days,
-                channels=tuple(args.channel) if args.channel else DEFAULT_CHANNELS,
+                channels=tuple(args.channel) if args.channel else None,
                 limit=args.limit,
                 delay=args.delay,
             )
         )
+    except ScopeError as exc:
+        p.exit(1, f"{exc}\n")
     except Exception as exc:  # noqa: BLE001 — 오류는 집계하되 계정 정보는 출력하지 않는다
         message = str(exc) if type(exc) is RuntimeError else type(exc).__name__
         p.exit(1, f"텔레그램 수집 실패: {message}\n")

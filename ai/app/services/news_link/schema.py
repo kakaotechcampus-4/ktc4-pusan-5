@@ -12,7 +12,7 @@ Pydantic 을 쓰는 이유는 여기가 **외부 경계**라서다. 남의 사�
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # 링크를 연 결과.
 #   ok          본문을 뽑았다
@@ -47,3 +47,9 @@ class LinkBody(BaseModel):
     # 이 링크를 연 시각. tz-aware UTC 다. **기사는 발행 뒤에도 고쳐지므로**,
     # 이 값이 있어야 나중에 "대상일 컷오프보다 늦게 연 것" 을 걸러낼 수 있다.
     fetched_at: datetime
+    # 정제한 본문 **전체**. news 표의 본문(cleaned_text)으로 저장한다(collectors/news_channels.py).
+    # excerpt 를 본문 자리에 넣지 않으려고 따로 둔다.
+    # JSON 으로 내보낼 때 뺀다(exclude). 기사 전문은 DB 에만 두고 JSONL 파일에는 넣지 않는다.
+    # 그래서 파일에서 다시 읽은 LinkBody 는 이 값이 비어 있다.
+    # repr 에서도 뺀다. 로그에 기사 전문이 찍히지 않게 하려는 것이다.
+    text: str | None = Field(default=None, exclude=True, repr=False)

@@ -11,9 +11,11 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "pyjwt>=2.14.0",
     "sqlalchemy[asyncio]>=2.0.52",
-    "trafilatura>=2.2.0",
     "uvicorn[standard]>=0.52.4",
     "alembic>=1.13",
+    # ZoneInfo("Asia/Seoul") 용. Windows 에는 시스템 시간대 DB 가 없다.
+    # 뉴스 수집을 ai/ 로 옮기며 뺀 trafilatura 를 따라 설치되던 것이라 직접 적는다.
+    "tzdata>=2026.3",
 ]
 
 [dependency-groups]
