@@ -2,6 +2,7 @@ export { Button } from './Button';
 export { Card, CardTitle, CardBody, CardMeta, Kicker } from './Card';
 export { Change } from './Change';
 export { Input } from './Input';
+export { Select } from './Select';
 export { Markdown } from './Markdown';
 export { Stat, StatGrid } from './Stat';
 export { StatList, StatListItem } from './StatList';

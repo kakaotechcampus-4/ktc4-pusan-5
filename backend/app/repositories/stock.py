@@ -231,5 +231,15 @@ async def sync_catalog(session: AsyncSession, rows: list[dict], now: datetime):
     )
 
 
+async def listed_by_codes(session: AsyncSession, codes: frozenset[str]) -> list[Stock]:
+    return list(
+        (
+            await session.scalars(
+                select(Stock).where(Stock.code.in_(codes), Stock.listing_status == "listed")
+            )
+        ).all()
+    )
+
+
 async def catalog_checked_at(session: AsyncSession):
     return await session.scalar(select(func.max(Stock.synced_at)))
