@@ -1,0 +1,41 @@
+{
+  "stock": "솔마루전자",
+  "code": "999990",
+  "target_date": "2026-09-18",
+  "cutoff": "2026-09-18T15:30:00+09:00",
+  "change_pct": -4.2,
+  "market": {
+    "index": "코스피",
+    "change_pct": -0.5,
+    "as_of": "15:30",
+    "url": ""
+  },
+  "messages": [
+    {
+      "channel": "sample_channel_a",
+      "url": "https://t.me/sample_channel_a/101",
+      "datetime_kst": "2026-09-18T08:10:00+09:00",
+      "views": "1200",
+      "text": "솔마루전자, 3분기 영업이익 잠정치 412억원… 시장 예상치 590억원 30% 하회",
+      "match": "direct",
+      "link_bodies": [
+        {
+          "url": "https://example.com/s/a1b2c3",
+          "final_url": "https://news.example.com/article/1001",
+          "domain": "news.example.com",
+          "title": "솔마루전자 3분기 영업이익 412억원, 예상치 크게 밑돌아",
+          "excerpt": "솔마루전자가 3분기 연결 기준 영업이익이 412억원으로 잠정 집계됐다고 18일 공시했다. 시장 예상치 590억원을 30%가량 밑도는 수준이다. 회사 측은 주요 고객사의 재고 조정으로 출하량이 줄었다고 설명했다.",
+          "fetched_at": "2026-09-18T08:30:00+09:00"
+        }
+      ]
+    },
+    {
+      "channel": "sample_channel_b",
+      "url": "https://t.me/sample_channel_b/202",
+      "datetime_kst": "2026-09-18T10:05:00+09:00",
+      "views": "800",
+      "text": "전방 스마트폰 수요 둔화 우려로 카메라 모듈 부품 업종 전반 약세",
+      "match": "indirect"
+    }
+  ]
+}
