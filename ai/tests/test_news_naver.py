@@ -1,3 +1,5 @@
+"""backend tests/test_naver.py 에서 옮겨 왔다. 뉴스 수집은 이제 ai/ 가 맡는다."""
+
 import httpx
 import pytest
 import respx
