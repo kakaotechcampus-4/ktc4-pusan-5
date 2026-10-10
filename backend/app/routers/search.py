@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.core.mvp_stocks import MVP_CODES
 from app.repositories import search as repo
 from app.schemas.search import ConceptSearchItem, SearchResponse, StockSearchItem
 
@@ -19,7 +20,7 @@ async def search(
     query = q.strip()
     if not query:
         return SearchResponse(query=query, stocks=[], concepts=[])
-    stocks = await repo.search_stocks(session, query, limit)
+    stocks = await repo.search_stocks(session, query, limit, MVP_CODES)
     concepts = await repo.search_concepts(session, query, limit)
     return SearchResponse(
         query=query,

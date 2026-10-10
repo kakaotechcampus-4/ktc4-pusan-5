@@ -1,12 +1,14 @@
 from datetime import UTC, datetime
 
 import httpx
+import pytest
 from httpx import ASGITransport
 from sqlalchemy import delete
 
 from app.core.database import SessionLocal
 from app.main import app
 from app.models import Concept, Stock
+from app.routers import search as search_router
 
 # 실제 종목과 겹치지 않도록 쓰지 않는 단어를 쓴다.
 _STOCKS = [
@@ -16,7 +18,18 @@ _STOCKS = [
     ("9S0004", "쿼카폐지", "KOSPI", "inactive"),
     ("9S0005", "100%쿼카", "KOSPI", "listed"),
 ]
+# 고정 목록(MVP) 밖 종목. 이름이 일치해도 검색되면 안 된다.
+_OUTSIDE_CODE = "9S0006"
+_OUTSIDE_STOCK = (_OUTSIDE_CODE, "쿼카밖", "KOSPI", "listed")
 _CONCEPT_SLUG = "search-test-quokka"
+
+
+@pytest.fixture(autouse=True)
+def mvp_codes(monkeypatch):
+    # 검색은 고정 목록 안에서만 한다. 테스트 종목 중 _OUTSIDE_CODE 만 목록에서 뺀다.
+    monkeypatch.setattr(
+        search_router, "MVP_CODES", frozenset(code for code, *_ in _STOCKS)
+    )
 
 
 async def _cleanup() -> None:
@@ -31,7 +44,7 @@ async def _seed() -> None:
     async with SessionLocal() as session:
         session.add_all(
             Stock(code=code, name=name, market=market, listing_status=status, synced_at=now)
-            for code, name, market, status in _STOCKS
+            for code, name, market, status in [*_STOCKS, _OUTSIDE_STOCK]
         )
         session.add(
             Concept(
@@ -63,6 +76,19 @@ async def test_search_orders_exact_then_prefix_then_contains_and_skips_inactive(
         # 정확 일치 → 이름 앞부분 일치 → 이름에 포함(짧은 이름 먼저). 상장폐지(inactive)는 제외.
         assert [s["code"] for s in body["stocks"]] == ["9S0003", "9S0002", "9S0001", "9S0005"]
         assert body["stocks"][0] == {"code": "9S0003", "name": "쿼카", "market": "KOSPI"}
+    finally:
+        await _cleanup()
+
+
+async def test_search_only_returns_stocks_in_fixed_list():
+    await _cleanup()
+    await _seed()
+    try:
+        async with _client() as client:
+            by_name = await client.get("/api/search", params={"q": "쿼카밖"})
+            by_code = await client.get("/api/search", params={"q": _OUTSIDE_CODE})
+        assert by_name.json()["stocks"] == []
+        assert by_code.json()["stocks"] == []
     finally:
         await _cleanup()
 

@@ -11,7 +11,10 @@ def _escape_like(text: str) -> str:
     return text.replace(_ESCAPE, _ESCAPE * 2).replace("%", _ESCAPE + "%").replace("_", _ESCAPE + "_")
 
 
-async def search_stocks(session: AsyncSession, query: str, limit: int) -> list[Stock]:
+async def search_stocks(
+    session: AsyncSession, query: str, limit: int, codes: frozenset[str]
+) -> list[Stock]:
+    """codes 에 포함된 종목 안에서만 검색한다."""
     escaped = _escape_like(query)
     contains = f"%{escaped}%"
     prefix = f"{escaped}%"
@@ -26,6 +29,7 @@ async def search_stocks(session: AsyncSession, query: str, limit: int) -> list[S
         select(Stock)
         .where(
             Stock.listing_status == "listed",
+            Stock.code.in_(codes),
             or_(Stock.name.ilike(contains, escape=_ESCAPE), Stock.code.ilike(prefix, escape=_ESCAPE)),
         )
         .order_by(rank, func.length(Stock.name), Stock.name)
