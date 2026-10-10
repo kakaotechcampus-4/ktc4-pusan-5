@@ -211,6 +211,8 @@ export type StockListItem = {
   sector: string;
 };
 
+/** asOf: 시가총액 순위를 조회한 시각 */
 export type StockListResponse = {
   items: StockListItem[];
+  asOf: string;
 };

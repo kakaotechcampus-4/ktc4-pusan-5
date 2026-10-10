@@ -3,7 +3,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
-from app.core.mvp_stocks import MVP_CODES, MVP_STOCKS
+from app.core.mvp_stocks import MVP_CODES, MVP_STOCKS, MVP_STOCKS_AS_OF
 from app.repositories import stock as repo
 from app.schemas.stock import StockList, StockListItem
 
@@ -25,5 +25,6 @@ async def stock_list(session: AsyncSession) -> StockList:
             )
             for mvp in MVP_STOCKS
             if mvp.code in stocks
-        ]
+        ],
+        as_of=MVP_STOCKS_AS_OF,
     )
