@@ -211,8 +211,10 @@ export type StockListItem = {
   sector: string;
 };
 
+/** asOf: 시가총액 순위를 조회한 시각 */
 export type StockListResponse = {
   items: StockListItem[];
   /** 고정 100개 중 일부가 DB에 없으면 false */
   complete: boolean;
+  asOf: string;
 };

@@ -39,6 +39,7 @@ class StockListItem(CamelModel):
 class StockList(CamelModel):
     items: list[StockListItem]
     complete: bool
+    as_of: datetime
 
 
 class QuoteData(CamelModel):

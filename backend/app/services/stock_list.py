@@ -5,7 +5,7 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
-from app.core.mvp_stocks import MVP_CODES, MVP_STOCKS
+from app.core.mvp_stocks import MVP_CODES, MVP_STOCKS, MVP_STOCKS_AS_OF
 from app.repositories import stock as repo
 from app.schemas.stock import StockList, StockListItem
 
@@ -36,4 +36,5 @@ async def stock_list(session: AsyncSession) -> StockList:
             if mvp.code in stocks
         ],
         complete=missing == 0,
+        as_of=MVP_STOCKS_AS_OF,
     )

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom';
 import type { StockListItem } from '@/lib/types';
 import { listStocks } from '@/lib/api';
+import { formatAsOf } from '@/lib/format';
 import { StockListPage } from './StockListPage';
 
 vi.mock('@/lib/api', async (importOriginal) => {
@@ -23,8 +24,10 @@ const items: StockListItem[] = [
   stock(12, '셀트리온', '제약'),
 ];
 
+const AS_OF = '2026-10-04T12:00:00+09:00';
+
 async function renderPage() {
-  listStocksRequest.mockResolvedValue({ items, complete: true });
+  listStocksRequest.mockResolvedValue({ items, complete: true, asOf: AS_OF });
   render(
     <MemoryRouter>
       <StockListPage />
@@ -67,7 +70,7 @@ it('keeps the selected sector when the sort order changes', async () => {
 
 it('alerts when the catalog response is incomplete', async () => {
   const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-  listStocksRequest.mockResolvedValue({ items, complete: false });
+  listStocksRequest.mockResolvedValue({ items, complete: false, asOf: AS_OF });
   render(
     <MemoryRouter>
       <StockListPage />
@@ -78,4 +81,13 @@ it('alerts when the catalog response is incomplete', async () => {
   expect(alertSpy).toHaveBeenCalledTimes(1);
   expect(alertSpy.mock.calls[0][0]).toContain('일부 종목');
   alertSpy.mockRestore();
+});
+
+it('shows the asOf time from the response next to the market cap ranking', async () => {
+  await renderPage();
+  expect(screen.getByText(formatAsOf(new Date(AS_OF), '시가총액 기준'))).toBeTruthy();
+
+  fireEvent.change(screen.getByLabelText('정렬'), { target: { value: 'name' } });
+
+  expect(screen.queryByText(formatAsOf(new Date(AS_OF), '시가총액 기준'))).toBeNull();
 });
