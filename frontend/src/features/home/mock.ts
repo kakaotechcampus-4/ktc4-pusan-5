@@ -195,30 +195,6 @@ export const mockEmptySignalBoard: SignalBoard = {
   signals: [],
 };
 
-/* 검색 자동완성 */
-
-export type SearchableStock = {
-  code: string;
-  name: string;
-  initial: string;
-};
-
-/** 검색창 자동완성용 mock */
-export const mockSearchIndex: SearchableStock[] = [
-  { code: '005930', name: '삼성전자', initial: '삼' },
-  { code: '000660', name: 'SK하이닉스', initial: 'SK' },
-  { code: '032830', name: '삼성생명', initial: '생' },
-  { code: '373220', name: 'LG에너지솔루션', initial: 'LG' },
-  { code: '009150', name: '삼성전기', initial: '전' },
-  { code: '196170', name: '알테오젠', initial: '알' },
-  { code: '035420', name: 'NAVER', initial: 'N' },
-  { code: '035720', name: '카카오', initial: '카' },
-  { code: '005380', name: '현대차', initial: '현' },
-  { code: '000270', name: '기아', initial: '기' },
-  { code: '068270', name: '셀트리온', initial: '셀' },
-  { code: '005490', name: 'POSCO홀딩스', initial: 'P' },
-];
-
 /* 실시간 랭킹 */
 
 export type RankingItem = {
