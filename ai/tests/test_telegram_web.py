@@ -16,7 +16,7 @@ KST = timezone(timedelta(hours=9))
 
 
 def box(post: str, *, time: str | None = None, text: str | None = None,
-        author: str | None = None, views: str | None = None, doc: str | None = None) -> str:
+        author: str | None = None, doc: str | None = None) -> str:
     """가짜 메시지 HTML 한 칸. 텔레그램 웹 미리보기의 실제 구조와 같다(parse.py 맨 위 참고)."""
     parts = [f'<div class="tgme_widget_message js-widget_message" data-post="{post}">']
     if author:
@@ -25,8 +25,6 @@ def box(post: str, *, time: str | None = None, text: str | None = None,
         parts.append(f'<div class="tgme_widget_message_document_title">{doc}</div>')
     if text is not None:
         parts.append(f'<div class="tgme_widget_message_text js-message_text">{text}</div>')
-    if views:
-        parts.append(f'<span class="tgme_widget_message_views">{views}</span>')
     if time:
         parts.append(f'<a class="tgme_widget_message_date"><time datetime="{time}">.</time></a>')
     parts.append("</div>")
@@ -40,7 +38,7 @@ def page(*boxes: str) -> str:
 
 def test_message_fields_are_read_as_shown() -> None:
     html = page(box(
-        "skitteam/105", time="2026-09-30T01:00:00+00:00", author="한동희", views="1.2K",
+        "skitteam/105", time="2026-09-30T01:00:00+00:00", author="한동희",
         text='[SK증권] 삼성전자가 <b>HBM</b>을 공개했다<br/>기사: '
              '<a href="https://buly.kr/abc">https://buly.kr/abc</a>',
     ))
@@ -51,7 +49,6 @@ def test_message_fields_are_read_as_shown() -> None:
     assert message.url == "https://t.me/skitteam/105"
     assert message.posted_at == datetime(2026, 9, 30, 10, 0, tzinfo=KST), "UTC → KST"
     assert message.author == "한동희"
-    assert message.views == "1.2K"
     # 굵은 글씨 앞뒤에서 끊지 않는다. 줄은 <br> 에서만 나뉜다
     assert message.text == "[SK증권] 삼성전자가 HBM을 공개했다\n기사: https://buly.kr/abc"
     assert message.links == ["https://buly.kr/abc"]

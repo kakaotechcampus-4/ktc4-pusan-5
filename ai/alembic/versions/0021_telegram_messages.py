@@ -52,7 +52,6 @@ def upgrade() -> None:
             server_default=sa.text("'[]'::jsonb"),
             nullable=False,
         ),
-        sa.Column("views", sa.String(length=32), nullable=True),
         sa.Column("edited", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         sa.Column("edit_detected_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("purged_at", sa.DateTime(timezone=True), nullable=True),

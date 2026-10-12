@@ -70,7 +70,6 @@ class FoundPdf:
     posted_at: datetime | None
     text: str
     author: str | None
-    views: str | None
     edited: bool
     filename: str
     pdf_sha256: str | None
@@ -98,14 +97,12 @@ def forward_origin(message: Any) -> tuple[str | None, str | None]:
 
 def found_pdf(message: Any, filename: str, pdf: PdfText, *, excluded: bool = False) -> FoundPdf:
     """Telethon 메시지 → FoundPdf. 캡션이 없거나 값이 없는 메시지도 있어 getattr 로 읽는다."""
-    views = getattr(message, "views", None)
     forwarded_from, forwarded_from_url = forward_origin(message)
     return FoundPdf(
         msg_id=message.id,
         posted_at=getattr(message, "date", None),
         text=getattr(message, "message", None) or "",
         author=(getattr(message, "post_author", None) or None),
-        views=str(views) if views is not None else None,
         edited=getattr(message, "edit_date", None) is not None,
         filename=filename,
         pdf_sha256=pdf.sha256,
@@ -141,7 +138,6 @@ async def record_pdf_messages(
                     "attachment_name": item.filename,
                     "forwarded_from": item.forwarded_from,
                     "forwarded_from_url": item.forwarded_from_url,
-                    "views": item.views,
                     "edited": item.edited,
                     "collected_via": "telethon",
                 }
