@@ -1,20 +1,45 @@
-import { mockMyWatchlist } from './mock';
-import { useMockLoad, useRemovedIds, type MyListStatus } from './useMyScraps';
+import { useEffect, useRef, useState } from 'react';
+import { useWatchlist } from '@/features/home/useWatchlist';
+import { addToWatchlist, removeFromWatchlist } from '@/lib/api';
+import type { MyListStatus } from './useMyScraps';
 
 /**
- * 관심 종목. 스크랩 훅과 같은 패턴이다.
- * 에러 화면은 아래 MOCK_RESULT 를 'error' 로 바꿔서 확인한다.
- * 빈 상태는 import 한 mockMyWatchlist 를 mockEmptyMyWatchlist 로 바꿔서 확인한다.
+ * 관심 종목. 홈과 같은 GET /api/watchlist 를 쓴다.
+ * 별을 누르면 서버에서 바로 해제하고, 목록에는 흐리게 남겨 둔다(다시 담기 가능).
+ * 탭을 떠나면 해제 표시를 버리고, 다시 열 때 서버 목록을 새로 불러온다.
  */
-const MOCK_RESULT: 'loading' | 'error' | 'success' = 'success';
-
 export function useMyWatchlist(enabled: boolean) {
-  const [loadState, retry] = useMockLoad(enabled, 700, MOCK_RESULT);
-  const [removedIds, toggleRemoved] = useRemovedIds();
+  const { status: fetchStatus, items, retry } = useWatchlist(enabled);
+  const [removedIds, setRemovedIds] = useState<Set<string>>(() => new Set());
+  // 같은 종목의 요청이 끝나기 전에 또 누르는 것을 막는다.
+  const inFlight = useRef(new Set<string>());
 
-  const watchlist = mockMyWatchlist;
+  useEffect(() => {
+    if (!enabled) return;
+    return () => setRemovedIds(new Set());
+  }, [enabled]);
+
+  async function toggleRemoved(code: string) {
+    if (inFlight.current.has(code)) return;
+    inFlight.current.add(code);
+    const removing = !removedIds.has(code);
+    try {
+      await (removing ? removeFromWatchlist(code) : addToWatchlist(code));
+      setRemovedIds((prev) => {
+        const next = new Set(prev);
+        if (removing) next.add(code);
+        else next.delete(code);
+        return next;
+      });
+    } catch {
+      // 실패하면 상태를 바꾸지 않는다. 별 모양이 그대로라 사용자가 다시 시도할 수 있다.
+    } finally {
+      inFlight.current.delete(code);
+    }
+  }
+
   const status: MyListStatus =
-    loadState === 'success' && watchlist.items.length === 0 ? 'empty' : loadState;
+    fetchStatus === 'success' && items.length === 0 ? 'empty' : fetchStatus;
 
-  return { status, watchlist, removedIds, toggleRemoved, retry };
+  return { status, items, removedIds, toggleRemoved, retry };
 }

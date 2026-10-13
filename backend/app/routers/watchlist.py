@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
-from app.core.errors import AppError
 from app.models import User
 from app.repositories import watchlist as repo
 from app.schemas.watchlist import (
@@ -16,6 +15,7 @@ from app.schemas.watchlist import (
     WatchlistResponse,
 )
 from app.services.quote_freshness import quote_status
+from app.services.stock_detail import require_stock
 
 router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
 Code = Annotated[str, Path(pattern=r"^[0-9A-Z]{6}$")]
@@ -49,8 +49,8 @@ async def add_watchlist(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    if not await repo.stock_exists(session, body.stock_code):
-        raise AppError("STOCK_NOT_FOUND", "종목을 찾을 수 없습니다", status_code=404)
+    # 종목 상세와 같은 규칙: 서비스 대상(MVP) 종목만 담을 수 있다.
+    await require_stock(session, body.stock_code)
     await repo.add(session, user.id, body.stock_code)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
