@@ -46,11 +46,24 @@ export function SplitLayout({
   );
 }
 
-/** 아래 2px 실선이 들어가는 섹션 제목 */
-export function SectionHead({ title, right }: { title: string; right?: ReactNode }) {
+
+export function SectionHead({
+  title,
+  right,
+  tone = 'default',
+}: {
+  title: string;
+  right?: ReactNode;
+  tone?: 'default' | 'muted';
+}) {
   return (
-    <div className="border-ink mb-4 flex flex-wrap items-end gap-3 border-b-2 pb-2">
-      <h2 className="text-h2">{title}</h2>
+    <div
+      className={cn(
+        'mb-4 flex flex-wrap items-end gap-3 border-b-2 pb-2',
+        tone === 'muted' ? 'border-neutral-400' : 'border-ink',
+      )}
+    >
+      <h2 className={cn('text-h2', tone === 'muted' && 'text-neutral-600')}>{title}</h2>
       {right && <div className="ml-auto">{right}</div>}
     </div>
   );

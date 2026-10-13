@@ -14,7 +14,6 @@ class KakaoAuthError(Exception):
 class KakaoUserInfo(BaseModel):
     kakao_id: str
     nickname: str
-    email: str | None = None
 
 
 async def exchange_code_for_token(code: str) -> str:
@@ -61,5 +60,4 @@ async def fetch_user_info(access_token: str) -> KakaoUserInfo:
     return KakaoUserInfo(
         kakao_id=str(raw["id"]),
         nickname=profile.get("nickname", ""),
-        email=account.get("email"),
     )

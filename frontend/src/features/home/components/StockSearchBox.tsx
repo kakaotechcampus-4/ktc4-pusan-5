@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Input, StockAvatar } from '@/components/ui';
+import { HOME_SEARCH_INPUT_ID } from '../focusHomeSearch';
 import { mockSearchIndex } from '../mock';
 
 const MAX_SUGGESTIONS = 6;
@@ -33,6 +34,7 @@ export function StockSearchBox() {
       <div className="relative">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Input
+            id={HOME_SEARCH_INPUT_ID}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setOpen(true)}

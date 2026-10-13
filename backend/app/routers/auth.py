@@ -20,7 +20,6 @@ def _to_response(user: User) -> UserResponse:
     return UserResponse(
         id=user.id,
         nickname=user.nickname,
-        email=user.email,
     )
 
 
@@ -48,16 +47,10 @@ async def login_with_kakao(
     except KakaoAuthError as e:
         raise AppError("KAKAO_AUTH_FAILED", "카카오 로그인에 실패했습니다", status_code=401) from e
 
-    if kakao_user.email is None:
-        raise AppError(
-            "KAKAO_EMAIL_REQUIRED", "카카오 계정의 이메일 동의가 필요합니다", status_code=401
-        )
-
     user = await get_or_create_user(
         session,
         kakao_id=kakao_user.kakao_id,
         nickname=kakao_user.nickname,
-        email=kakao_user.email,
     )
     await session.commit()
 

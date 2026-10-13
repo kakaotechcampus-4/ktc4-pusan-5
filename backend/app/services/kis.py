@@ -187,3 +187,34 @@ class KisClient:
             (current - previous) / previous * 100,
             date.fromisoformat(rows[0]["stck_bsop_date"]),
         )
+
+    async def fetch_gold_quote(self, symbol: str) -> Quote:
+        """KRX 금시장(금 99.99) 일별 시세. 가격은 원/g 이다."""
+        body = await self.get(
+            "/uapi/domestic-stock/v1/quotations/inquire-daily-price",
+            "FHKST01010400",
+            {
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_INPUT_ISCD": symbol,
+                "FID_PERIOD_DIV_CODE": "D",
+                "FID_ORG_ADJ_PRC": "0",
+            },
+        )
+        output = body.get("output")
+        if not isinstance(output, list) or any(not isinstance(row, dict) for row in output):
+            raise MarketDataError("INVALID_RESPONSE")
+        rows = sorted(
+            (row for row in output if row.get("stck_bsop_date")),
+            key=lambda row: row["stck_bsop_date"],
+            reverse=True,
+        )
+        if not rows:
+            raise MarketDataError("NO_DATA")
+        latest = rows[0]
+        # 날짜가 붙은 최신 행의 종가와, KIS 가 주는 전일 대비율(prdy_ctrt)을 그대로 쓴다.
+        # 필드가 없을 때도 값이 이상할 때와 같이 INVALID_RESPONSE 가 되도록 .get() 으로 읽는다.
+        return Quote(
+            number(latest.get("stck_clpr")),
+            number(latest.get("prdy_ctrt")),
+            date.fromisoformat(latest["stck_bsop_date"]),
+        )

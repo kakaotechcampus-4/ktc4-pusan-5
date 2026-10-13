@@ -1,17 +1,22 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { ErrorBox } from '@/components/ui';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Button, ErrorBox } from '@/components/ui';
+import { ApiError } from '@/lib/api';
 import { SplitLayout } from '@/components/layout/PageShell';
 import type { PricePeriod } from '@/lib/types';
 import { useStockDetail } from './useStockDetail';
 import { useStockFinancials } from './useStockFinancials';
+import { useWatchlistToggle } from './useWatchlistToggle';
+import { LoginModal } from '@/features/auth/LoginModal';
 import { StockHeader, StockHeaderSkeleton } from './components/StockHeader';
+import { WatchlistToggleButton } from './components/WatchlistToggleButton';
 import { PriceActionSection } from './components/PriceActionSection';
 import { AtAGlanceCard } from './components/AtAGlanceCard';
 import { StockInsightSection } from './components/StockInsightSection';
 
 export function StockBriefingPage() {
   const { code } = useParams();
+  const navigate = useNavigate();
   const [period, setPeriod] = useState<PricePeriod>('1Y');
   const {
     overview,
@@ -28,7 +33,21 @@ export function StockBriefingPage() {
     error: financialsError,
     retry: retryFinancials,
   } = useStockFinancials(code);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const watchlistToggle = useWatchlistToggle(code, () => setLoginOpen(true));
 
+  if (overviewError instanceof ApiError && overviewError.code === 'STOCK_NOT_FOUND')
+    return (
+      <ErrorBox
+        title="지금은 해당 종목을 서비스하지 않습니다"
+        description="개별 종목 목록에서 제공 중인 종목을 확인해주세요"
+        action={
+          <Button variant="secondary" onClick={() => navigate('/stocks')}>
+            종목 목록으로
+          </Button>
+        }
+      />
+    );
   if (!code || (overviewError && !overview.stock))
     return (
       <ErrorBox
@@ -48,7 +67,18 @@ export function StockBriefingPage() {
           onRetry={retryOverview}
         />
       )}
-      <StockHeader stock={overview.stock} quote={overview.quote} />
+      <StockHeader
+        stock={overview.stock}
+        quote={overview.quote}
+        watchlistAction={
+          <WatchlistToggleButton
+            watched={watchlistToggle.watched}
+            disabled={!watchlistToggle.ready || watchlistToggle.pending}
+            onToggle={watchlistToggle.toggle}
+          />
+        }
+      />
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
       <SplitLayout
         align="stretch"
         main={

@@ -231,5 +231,13 @@ async def sync_catalog(session: AsyncSession, rows: list[dict], now: datetime):
     )
 
 
+async def by_codes(session: AsyncSession, codes: frozenset[str]) -> list[Stock]:
+    """listing_status 와 무관하게 DB에 있는 행을 전부 가져온다.
+    호출 쪽에서 listing_status 로 걸러 쓴다 (DB에 없는 것과 inactive 를 구분하기 위함)."""
+    return list(
+        (await session.scalars(select(Stock).where(Stock.code.in_(codes)))).all()
+    )
+
+
 async def catalog_checked_at(session: AsyncSession):
     return await session.scalar(select(func.max(Stock.synced_at)))

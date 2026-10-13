@@ -148,3 +148,81 @@ async def test_malformed_kis_response_is_contained_and_next_fetch_succeeds(paylo
         _, value, error = await fetch_result("usdkrw", kis.fetch_quote)
         assert value.value == 1100
         assert error is None
+
+
+GOLD_URL = "/uapi/domestic-stock/v1/quotations/inquire-daily-price"
+
+
+def mock_gold(output):
+    respx.post(settings.kis_api_base_url + "/oauth2/tokenP").respond(
+        200, json={"access_token": "test-token", "expires_in": 86400}
+    )
+    return respx.get(settings.kis_api_base_url + GOLD_URL).mock(
+        return_value=httpx.Response(200, json={"rt_cd": "0", "output": output})
+    )
+
+
+@respx.mock
+async def test_kis_gold_uses_latest_dated_close_and_source_change_rate():
+    route = mock_gold(
+        [
+            {"stck_bsop_date": "20261001", "stck_clpr": "183480", "prdy_ctrt": "0.30"},
+            {"stck_bsop_date": "20261002", "stck_clpr": "182,770", "prdy_ctrt": "-0.39"},
+        ]
+    )
+    async with httpx.AsyncClient() as client:
+        quote = await KisClient(client).fetch_gold_quote("M04020000")
+    assert route.calls.last.request.url.params["FID_INPUT_ISCD"] == "M04020000"
+    assert quote.value == 182770
+    assert quote.observation_date.isoformat() == "2026-10-02"
+    # 직접 계산하지 않고 KIS 의 전일 대비율을 그대로 쓴다.
+    assert quote.change == Decimal("-0.39")
+
+
+@respx.mock
+async def test_kis_gold_works_with_a_single_row():
+    mock_gold([{"stck_bsop_date": "20261002", "stck_clpr": "182770", "prdy_ctrt": "-0.39"}])
+    async with httpx.AsyncClient() as client:
+        quote = await KisClient(client).fetch_gold_quote("M04020000")
+    assert quote.value == 182770
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        None,
+        "bad",
+        [None],
+        [],
+        [{"stck_bsop_date": "20261002", "prdy_ctrt": "-0.39"}],
+        [{"stck_bsop_date": "20261002", "stck_clpr": "182770"}],
+        [{"stck_bsop_date": "20261002", "stck_clpr": "abc", "prdy_ctrt": "-0.39"}],
+        [{"stck_bsop_date": "20261002", "stck_clpr": "0", "prdy_ctrt": "0"}],
+    ],
+)
+@respx.mock
+async def test_kis_gold_rejects_malformed_responses(output):
+    mock_gold(output)
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(MarketDataError):
+            await KisClient(client).fetch_gold_quote("M04020000")
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"stck_bsop_date": "20261002", "prdy_ctrt": "-0.39"},
+        {"stck_bsop_date": "20261002", "stck_clpr": "182770"},
+        {"stck_bsop_date": "20261002", "stck_clpr": "abc", "prdy_ctrt": "-0.39"},
+    ],
+)
+@respx.mock
+async def test_kis_gold_missing_or_invalid_field_is_recorded_as_invalid_response(row):
+    from app.collectors.market import fetch_result
+
+    mock_gold([row])
+    async with httpx.AsyncClient() as client:
+        kis = KisClient(client)
+        _, value, error = await fetch_result("gold", lambda: kis.fetch_gold_quote("M04020000"))
+    assert value is None
+    assert error == "INVALID_RESPONSE"

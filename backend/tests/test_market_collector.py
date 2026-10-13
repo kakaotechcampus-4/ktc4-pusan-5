@@ -35,6 +35,9 @@ async def test_one_source_failure_does_not_stop_other_sources(monkeypatch):
         async def fetch_quote(self):
             return quote
 
+        async def fetch_gold_quote(self, symbol):
+            return quote
+
     monkeypatch.setattr(market, "list_snapshots", empty_snapshots)
     monkeypatch.setattr(market, "list_rankings", empty_snapshots)
     monkeypatch.setattr(market.krx, "fetch_market", fetch_krx)
@@ -53,10 +56,9 @@ async def test_one_source_failure_does_not_stop_other_sources(monkeypatch):
                     row.code: row for row in (await session.scalars(select(MarketSnapshot))).all()
                 }
                 assert rows["sp500"].error_code == "NO_DATA"
-                for code in ("kospi", "kosdaq", "nasdaq", "usdkrw"):
+                for code in ("kospi", "kosdaq", "nasdaq", "usdkrw", "gold"):
                     assert rows[code].error_code is None
                     assert rows[code].collected_at is not None
-                assert "gold" not in rows
         finally:
             await transaction.rollback()
 
@@ -115,6 +117,9 @@ async def test_slow_source_does_not_block_saving_other_results(monkeypatch):
         async def fetch_quote(self):
             return quote
 
+        async def fetch_gold_quote(self, symbol):
+            return quote
+
         async def fetch_ranking(self, kind):
             return []
 
@@ -142,13 +147,15 @@ async def test_slow_source_does_not_block_saving_other_results(monkeypatch):
 async def test_sector_parse_failure_preserves_sector_but_updates_quote(monkeypatch):
     from datetime import UTC, datetime
     from types import SimpleNamespace
+    from zoneinfo import ZoneInfo
 
     from app.models.ranking import RankingSnapshot
     from app.repositories.ranking import save_ranking
     from app.schemas.market_flow import SectorItem
 
-    quote = Quote(Decimal(7000), Decimal(2), date(2026, 9, 21))
     now = datetime.now(UTC)
+    today = now.astimezone(ZoneInfo("Asia/Seoul")).date()
+    quote = Quote(Decimal(7000), Decimal(2), today)
 
     async def snapshots(session):
         return {
@@ -180,7 +187,7 @@ async def test_sector_parse_failure_preserves_sector_but_updates_quote(monkeypat
                 await save_ranking(
                     session,
                     "sectorKospi",
-                    [SectorItem(name="건설", change=1, as_of=date(2026, 9, 21))],
+                    [SectorItem(name="건설", change=1, as_of=today)],
                     None,
                     now,
                 )

@@ -49,22 +49,6 @@ export type SignalBoard = {
   sources: string[];
 };
 
-/* ── 관심 종목 ──────────────────────────────────────────────────────────── */
-
-export type WatchItem = {
-  code: string;
-  name: string;
-  initial: string;
-  price: number;
-  /** 등락률(%) */
-  change: number;
-};
-
-export type Watchlist = {
-  items: WatchItem[];
-  asOf: string;
-};
-
 /* ── 값 ─────────────────────────────────────────────────────────────────── */
 
 /**
@@ -173,21 +157,6 @@ export const mockSignalBoard: SignalBoard = {
     },
   ],
 };
-
-export const mockWatchlist: Watchlist = {
-  asOf: AS_OF,
-  items: [
-    { code: '005930', name: '삼성전자', initial: '삼', price: 62400, change: -1.08 },
-    { code: '000660', name: 'SK하이닉스', initial: 'SK', price: 1730000, change: 2.31 },
-    { code: '032830', name: '삼성생명', initial: '생', price: 328500, change: 10.61 },
-    { code: '009150', name: '삼성전기', initial: '전', price: 1316000, change: -5.73 },
-    { code: '373220', name: 'LG에너지솔루션', initial: 'LG', price: 343500, change: -4.05 },
-    { code: '196170', name: '알테오젠', initial: '알', price: 320000, change: -5.74 },
-  ],
-};
-
-/** 빈 상태를 눈으로 확인할 때 mockWatchlist 대신 이걸 넘긴다. */
-export const mockEmptyWatchlist: Watchlist = { asOf: AS_OF, items: [] };
 
 /** 빈 상태를 눈으로 확인할 때 mockSignalBoard 대신 아래 내용을 넘긴다. */
 export const mockEmptySignalBoard: SignalBoard = {

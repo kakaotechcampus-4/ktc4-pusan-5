@@ -84,6 +84,7 @@ BASIS 프론트엔드 디자인 규칙. `frontend/` 안에서만 적용된다. �
 | 수치 나열(리스트) | `<StatList><StatListItem label="시가총액" value={...} /></StatList>` |
 | 태그 | `<Tag tone="neutral" \| "brand" \| "ai">` |
 | 종목 로고 | `<StockAvatar initial="삼" />` (size="sm" 은 좁은 리스트용) |
+| 드롭다운 선택(정렬 등) | `<Select label options value onChange />` |
 | 목록 필터 | `<FilterChips label chips value onChange />` |
 | 로딩 | `<SkeletonText lines={3} />` / `<Skeleton className="h-40" />` |
 | 빈 상태 | `<Empty title description action />` |

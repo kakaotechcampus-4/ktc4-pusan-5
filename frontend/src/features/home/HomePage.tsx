@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { SplitLayout } from '@/components/layout/PageShell';
-import { mockMarketInsights, mockSignalBoard, mockWatchlist } from './mock';
+import { LoginModal } from '@/features/auth/LoginModal';
+import { mockMarketInsights, mockSignalBoard } from './mock';
+import { focusHomeSearch } from './focusHomeSearch';
 import { useMarketOverview } from './useMarketOverview';
 import { useHomeSections } from './useHomeSections';
 import { HomeHero } from './components/HomeHero';
@@ -15,6 +18,7 @@ import { MarketInsightSection } from './components/MarketInsightSection';
  * 섹션별 로딩 상태 관리는 useHomeSections가, 그리는 일은 components/가 맡는다.
  */
 export function HomePage() {
+  const [loginOpen, setLoginOpen] = useState(false);
   const sections = useHomeSections();
   const market = useMarketOverview();
 
@@ -47,8 +51,10 @@ export function HomePage() {
         side={
           <WatchlistCard
             status={sections.watchlist.status}
-            watchlist={mockWatchlist}
+            items={sections.watchlist.items}
             onRetry={sections.watchlist.retry}
+            onLoginClick={() => setLoginOpen(true)}
+            onAddClick={focusHomeSearch}
           />
         }
       />
@@ -66,6 +72,8 @@ export function HomePage() {
         insights={mockMarketInsights}
         onRetry={sections.insight.retry}
       />
+
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
     </>
   );
 }
