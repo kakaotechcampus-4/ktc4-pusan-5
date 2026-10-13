@@ -8,7 +8,12 @@
     "index": "코스피",
     "change_pct": 0.3,
     "as_of": "11:00",
-    "url": ""
+    "url": "",
+    "peer_median_pct": 0.2,
+    "peer_up": 11,
+    "peer_down": 7,
+    "peer_total": 19,
+    "excess_pct": 0.25
   },
   "messages": [
     {

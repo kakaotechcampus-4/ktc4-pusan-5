@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.llm.client import LLMError
+from app.llm.client import LLMError, StreamInterrupted
 from app.repositories.stock_move_analysis import parse_wrapper
 from app.services.stock_analysis import generate as gen
 
@@ -54,7 +54,26 @@ async def test_prompt_and_input_are_sent(fake_complete):
     await run(fake_complete, REPORT_TEXT)
     system, user = fake_complete.call_args.args
     assert system == "SYS"
-    assert json.loads(user) == CAUSE
+    # 입력에 move_case 만 더해 보낸다. 원본 dict 는 그대로다
+    assert json.loads(user) == {**CAUSE, "market": {**CAUSE["market"], "move_case": "normal"}}
+    assert "move_case" not in CAUSE["market"]
+
+
+async def test_move_case_is_recomputed_and_kept_in_wrapper(fake_complete):
+    fake_complete.side_effect = None
+    fake_complete.return_value = (REPORT_TEXT, USAGE)
+    stale = {**CAUSE, "market": {**CAUSE["market"], "excess_pct": 0.3, "move_case": "normal"}}
+    w = await gen.generate(stale, system="SYS", prompt_hash="abc", run_id="r1")
+    assert json.loads(fake_complete.call_args.args[1])["market"]["move_case"] == "flat"
+    assert w["move_case"] == "flat"
+
+
+async def test_null_market_gets_no_move_case(fake_complete):
+    fake_complete.side_effect = None
+    fake_complete.return_value = (REPORT_TEXT, USAGE)
+    w = await gen.generate({**CAUSE, "market": None}, system="SYS", prompt_hash="abc", run_id="r1")
+    assert json.loads(fake_complete.call_args.args[1])["market"] is None
+    assert w["move_case"] is None
 
 
 @pytest.mark.parametrize("text", [
@@ -101,6 +120,110 @@ async def test_empty_response_is_error(fake_complete):
     assert "finish_reason=stop" in w["error"]
     # 비용은 나갔으므로 남긴다
     assert w["cost"] == pytest.approx(0.0123)
+
+
+# 프록시가 비스트리밍 출력을 2000 에서 자른 날의 모양. 추론에 예산을 다 써서 본문이 비었다.
+TRUNCATED_USAGE = {"prompt_tokens": 80000, "completion_tokens": 2000, "finish_reason": "length",
+                   "completion_tokens_details": {"reasoning_tokens": 2000}}
+
+
+@pytest.mark.parametrize("text, empty", [("", True), ('{"ticker": "999990", "summ', False)])
+async def test_length_is_output_truncated_not_empty(fake_complete, text, empty):
+    fake_complete.side_effect = None
+    fake_complete.return_value = (text, TRUNCATED_USAGE)
+    w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
+    assert w["is_error"] is True and w["error_code"] == "OUTPUT_TRUNCATED"
+    assert w["json_status"] == "invalid" and w["final_text"] == ""
+    assert w["truncation"] == {"body_empty": empty, "body_chars": len(text),
+                               "reasoning_tokens": 2000, "completion_tokens": 2000}
+    # 잘린 본문은 원문 칸에 남는다. 열어 보지 않는다
+    assert w["raw_text"] == (text or None)
+    assert "reasoning_tokens=2000" in w["error"]
+    # 같은 설정으로 다시 보내지 않는다
+    assert fake_complete.await_count == 1
+
+
+async def test_wrapper_splits_input_tokens_and_marks_cost_basis(fake_complete, monkeypatch):
+    """캐시 쓰기가 있는 첫 호출. prompt_tokens 에 쓰기 할증(25%)이 섞여 있다."""
+    monkeypatch.setattr(gen.settings, "llm_provider", "elice")
+    monkeypatch.setattr(gen.settings, "llm_input_krw_per_m", 1000.0)
+    monkeypatch.setattr(gen.settings, "llm_output_krw_per_m", 8000.0)
+    monkeypatch.setattr(gen.settings, "llm_cache_read_krw_per_m", 100.0)
+    monkeypatch.setattr(gen.settings, "llm_cache_write_krw_per_m", None)
+    usage = {"prompt_tokens": 9159, "completion_tokens": 1000, "finish_reason": "stop",
+             "prompt_tokens_details": {"cached_tokens": 8702, "cache_write_tokens": 363}}
+    fake_complete.side_effect = None
+    fake_complete.return_value = (REPORT_TEXT, usage)
+    w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
+    assert w["input_tokens"] == {"reported": 9159, "total": 9068, "cache_read": 8702,
+                                 "cache_write": 363, "uncached": 3}
+    assert w["cost_basis"] == "token_rates"
+    # 쓰기 단가가 비어 입력 단가로 계산한다. 무엇을 썼는지 남는다
+    assert w["cost_rates"] == {"input": 1000.0, "cache_read": 100.0, "cache_write": 1000.0,
+                               "output": 8000.0}
+    assert w["cost"] == pytest.approx((3 * 1000 + 8702 * 100 + 363 * 1000 + 1000 * 8000) / 1e6)
+    assert w["cost_currency"] == "KRW"
+
+
+async def test_provider_cost_is_marked(fake_complete):
+    w = await run(fake_complete, REPORT_TEXT)
+    assert w["cost_basis"] == "provider" and w["cost_rates"] is None
+    assert w["input_tokens"]["total"] == 1000 and w["input_tokens"]["uncached"] == 1000
+
+
+async def test_wrapper_records_request_settings(fake_complete, monkeypatch):
+    """Elice 면 기본으로 스트리밍이다. 상한·추론 강도를 complete 에 명시해 넘기고 래퍼에 남긴다."""
+    monkeypatch.setattr(gen.settings, "llm_provider", "elice")
+    monkeypatch.setattr(gen.settings, "stock_analysis_stream", None)
+    monkeypatch.setattr(gen.settings, "summary_max_tokens", 8000)
+    monkeypatch.setattr(gen.settings, "summary_reasoning_effort", "low")
+    w = await run(fake_complete, REPORT_TEXT)
+    assert fake_complete.await_args.kwargs == {"max_tokens": 8000, "stream": True}
+    assert (w["stream"], w["max_completion_tokens"], w["reasoning_effort"]) == (True, 8000, "low")
+    assert w["stream_interruptions"] == []
+
+
+async def test_openrouter_does_not_stream_by_default(fake_complete):
+    w = await run(fake_complete, REPORT_TEXT)
+    assert fake_complete.await_args.kwargs["stream"] is False and w["stream"] is False
+
+
+async def test_stream_interruption_is_retried_once(fake_complete):
+    fake_complete.side_effect = [StreamInterrupted("스트림이 끊겼다: ReadError", 120),
+                                 (REPORT_TEXT, USAGE)]
+    w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
+    assert fake_complete.await_count == 2
+    assert not w["is_error"] and w["json_status"] == "clean"
+    # 끊긴 시도는 길이만 남는다
+    assert w["stream_interruptions"] == [{"partial_chars": 120,
+                                          "error": "스트림이 끊겼다: ReadError"}]
+
+
+async def test_stream_interrupted_twice_is_error_without_partial_body(fake_complete):
+    fake_complete.side_effect = [StreamInterrupted("스트림이 끊겼다: ReadError", 120),
+                                 StreamInterrupted("스트림이 finish_reason 없이 끝났다", 340)]
+    w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
+    assert fake_complete.await_count == 2  # 재시도는 1회까지
+    assert w["is_error"] is True and w["error_code"] == "STREAM_INTERRUPTED"
+    assert [i["partial_chars"] for i in w["stream_interruptions"]] == [120, 340]
+    # 부분 응답을 열거나 저장하지 않는다
+    assert w["json_status"] is None and w["final_text"] == "" and w["raw_text"] is None
+    assert parse_wrapper(w).parse_status == "parse_failed"
+
+
+async def test_stream_length_is_truncated_not_retried(fake_complete):
+    fake_complete.side_effect = None
+    fake_complete.return_value = ('{"ticker": "99', {**TRUNCATED_USAGE, "completion_tokens": 8000})
+    w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
+    assert w["error_code"] == "OUTPUT_TRUNCATED" and fake_complete.await_count == 1
+
+
+async def test_missing_usage_marks_cost_unavailable(fake_complete):
+    fake_complete.side_effect = None
+    fake_complete.return_value = (REPORT_TEXT, {"finish_reason": "stop", "cost_currency": "USD"})
+    w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
+    assert not w["is_error"] and w["json_status"] == "clean"
+    assert (w["cost"], w["cost_basis"], w["input_tokens"]) == (0.0, "unavailable", None)
 
 
 async def test_llm_error_is_recorded_not_raised(fake_complete):

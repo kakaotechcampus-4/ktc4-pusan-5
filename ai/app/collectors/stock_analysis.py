@@ -38,7 +38,12 @@ from app.services.stock_analysis.generate import (
     prompt_sha256,
     report_of,
 )
-from app.services.stock_analysis.verify import code_of, verify_wrapper
+from app.services.stock_analysis.verify import (
+    MOVE_CASES,
+    check_events,
+    families_of,
+    verify_wrapper,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +86,27 @@ def load_inputs(paths: list[Path]) -> list[tuple[Path, bytes, dict[str, Any]]]:
     return loaded
 
 
+def count_move_cases(wrappers: list[dict[str, Any]]) -> tuple[dict[str, int], int]:
+    """(경우별 보고서 수, opposite 중 summary.counter 가 null 이 아닌 수).
+
+    두 번째 숫자는 opposite 날 factors 의 direction_match 를 change_pct 와 excess_pct 중
+    무엇에 맞출지 정할 근거다. 지금은 change_pct 기준이라 차이를 만든 재료가 counter 로
+    밀려난다. 보고서를 열 수 없는 회차는 counter 를 알 수 없어 세지 않는다.
+    """
+    cases = {case: 0 for case in (*MOVE_CASES, "null")}
+    opposite_with_counter = 0
+    for w in wrappers:
+        case = w.get("move_case") or "null"
+        cases[case] += 1
+        if case != "opposite":
+            continue
+        report = report_of(w)
+        summary = report.get("summary") if report else None
+        if isinstance(summary, dict) and summary.get("counter") is not None:
+            opposite_with_counter += 1
+    return cases, opposite_with_counter
+
+
 def _assign_run_ids(payloads: list[dict[str, Any]]) -> list[str]:
     """같은 종목·날짜·기준시각이 두 번 들어오면 반복 번호로 가른다. 파일이 덮어써지면 안 된다."""
     seen: Counter[str] = Counter()
@@ -120,9 +146,12 @@ async def run(
         wrapper["input_path"] = copied.relative_to(run_dir).as_posix()
         wrapper["input_original_path"] = source.as_posix()
         wrapper["input_sha256"] = hashlib.sha256(data).hexdigest()
-        status, problems = verify_wrapper(wrapper, report_of(wrapper), payload)
+        report = report_of(wrapper)
+        status, problems = verify_wrapper(wrapper, report, payload)
         wrapper["verify_status"] = status
         wrapper["verify_problems"] = problems
+        # 검수용 events 칸. 판정(verify_status)과 섞지 않는다(verify.check_events).
+        wrapper["events_status"], wrapper["events_problems"] = check_events(report)
         out = run_dir / "parsed" / f"{run_id}.json"
         out.write_text(json.dumps(wrapper, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"  {status:6} {run_id} ({wrapper['json_status']}, "
@@ -134,11 +163,14 @@ async def run(
         for run_id, (path, data, payload) in zip(run_ids, items, strict=True)
     ))
 
-    # 사유는 **보고서 기준**으로 센다. 한 보고서에서 quote 가 셋 틀려도 1건이다 —
-    # "몇 회차가 이 규칙에 걸렸나" 가 프롬프트를 고칠지 판단하는 숫자라서다.
+    # 사유는 **보고서 기준·계열 단위**로 센다. 한 보고서에서 quote 가 셋 틀려도 1건이고,
+    # 한 실수로 함께 나오는 코드(FLAT_MOVE_VERDICT + FLAT_MOVE_FACTORS 등)도 1건이다 —
+    # "몇 회차가 이 실수를 했나" 가 프롬프트를 고칠지 판단하는 숫자라서다.
+    # 코드별 상세는 래퍼의 verify_problems 에 그대로 있다.
     reasons: Counter[str] = Counter()
     for w in wrappers:
-        reasons.update({code_of(p) for p in w["verify_problems"]})
+        reasons.update(families_of(w["verify_problems"]))
+    move_cases, opposite_with_counter = count_move_cases(wrappers)
     result = {
         "run_dir": str(run_dir),
         "total": len(wrappers),
@@ -149,6 +181,11 @@ async def run(
         # 한 실행은 프로바이더 하나라 통화도 하나다.
         "currency": cost_currency(),
         "reasons": dict(sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))),
+        "move_cases": move_cases,
+        "opposite_with_counter": opposite_with_counter,
+        # 검수용 events 칸의 상태별 건수. passed·failed 와 따로 센다.
+        "events": {s: sum(w["events_status"] == s for w in wrappers)
+                   for s in ("passed", "failed", "missing")},
         "loaded": None,
     }
 
@@ -175,6 +212,11 @@ async def run(
     # 헷갈리지 않게 줄을 나누고 기준을 적어 둔다.
     print("사유별 건수 (사유에 걸린 보고서 수, 한 보고서가 여러 사유에 들 수 있음): "
           + (", ".join(f"{c}={n}" for c, n in result["reasons"].items()) or "없음"))
+    print("경우별 건수: " + ", ".join(
+        f"{c}={n}" + (f" (그중 counter 있음 {opposite_with_counter})" if c == "opposite" else "")
+        for c, n in move_cases.items()))
+    print("events 검사 (판정과 별도): "
+          + ", ".join(f"{s}={n}" for s, n in result["events"].items()))
     return result
 
 

@@ -1,6 +1,7 @@
 """토큰 추정치보다 프로바이더 사용료를 우선하고 응답 중단 사유를 보존한다."""
 
 import asyncio
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -25,13 +26,49 @@ def test_provider_cost_takes_precedence():
     assert client.cost_currency() == "USD"
 
 
-def _elice(monkeypatch, *, input_krw=300.0, output_krw=2500.0):
+def _elice(monkeypatch, *, input_krw=300.0, output_krw=2500.0, read_krw=None, write_krw=None):
     """단가를 테스트 안에서 고정한다. 개인 ai/.env 의 단가가 기대값을 흔들지 않게."""
     monkeypatch.setattr(client.settings, "llm_provider", "elice")
     monkeypatch.setattr(client.settings, "llm_base_url", "https://mlapi.run/abc/v1/")
     monkeypatch.setattr(client.settings, "llm_api_key", "test-only")
     monkeypatch.setattr(client.settings, "llm_input_krw_per_m", input_krw)
     monkeypatch.setattr(client.settings, "llm_output_krw_per_m", output_krw)
+    monkeypatch.setattr(client.settings, "llm_cache_read_krw_per_m", read_krw)
+    monkeypatch.setattr(client.settings, "llm_cache_write_krw_per_m", write_krw)
+
+
+# 2026-10-09 Elice 에서 같은 요청을 두 번 보낸 실제 usage(필드 일부).
+_FIRST = {"prompt_tokens": 10887, "completion_tokens": 16,
+          "prompt_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 8707}}
+_SECOND = {"prompt_tokens": 8710, "completion_tokens": 16,
+           "prompt_tokens_details": {"cached_tokens": 8707, "cache_write_tokens": 0}}
+
+
+def test_input_tokens_removes_cache_write_surcharge(monkeypatch):
+    """첫 호출의 prompt_tokens 는 쓰기 할증만큼 크다. 실제 입력 수는 두 호출이 같다."""
+    _elice(monkeypatch)
+    first, second = client.input_tokens(_FIRST), client.input_tokens(_SECOND)
+    assert first == {"reported": 10887, "total": 8710, "cache_read": 0, "cache_write": 8707,
+                     "uncached": 3}
+    assert second == {"reported": 8710, "total": 8710, "cache_read": 8707, "cache_write": 0,
+                      "uncached": 3}
+    # 캐시 칸이 없는 응답은 prompt_tokens 그대로다
+    assert client.input_tokens({"prompt_tokens": 500}) == {
+        "reported": 500, "total": 500, "cache_read": 0, "cache_write": 0, "uncached": 500}
+
+
+def test_elice_cost_uses_itemized_rates(monkeypatch):
+    _elice(monkeypatch, input_krw=1000.0, output_krw=0.0, read_krw=100.0, write_krw=1250.0)
+    # 할증이 섞인 10887 이 아니라 쓰기 8707 × 1250 + 미적용 3 × 1000
+    assert client.cost_detail(_FIRST) == (pytest.approx((8707 * 1250 + 3 * 1000) / 1e6),
+                                          "token_rates")
+    assert client.cost(_SECOND) == pytest.approx((8707 * 100 + 3 * 1000) / 1e6)
+
+
+def test_openrouter_rates_come_from_settings(monkeypatch):
+    monkeypatch.setattr(client.settings, "openrouter_input_usd_per_m", 1.0)
+    assert client.cost_detail({"prompt_tokens": 1000}) == (pytest.approx(0.001), "token_rates")
+    assert client.cost_detail({"cost": 0.5, "prompt_tokens": 1000}) == (0.5, "provider")
 
 
 @pytest.mark.parametrize("effort, expected", [
@@ -86,6 +123,8 @@ async def test_elice_uses_its_own_parameter_names(monkeypatch):
     assert "max_tokens" not in sent and "reasoning" not in sent
     # 응답에 비용이 없으니 원화 단가로 계산한다. ₩300 + ₩2,500
     assert client.cost(usage) == pytest.approx(2800)
+    # 계산한 값을 usage.cost 에 넣지 않는다. 그 칸은 프로바이더가 준 값 자리다
+    assert "cost" not in usage
     assert usage["cost_currency"] == "KRW"
 
 
@@ -190,3 +229,127 @@ def test_format_cost():
     assert client.format_cost(5.115691, "KRW") == "₩5.12"
     assert client.format_cost(12345.6, "KRW") == "₩12,345.60"
     assert client.format_cost(0.0123, "USD") == "$0.0123"
+
+
+# --- 스트리밍 -------------------------------------------------------------
+# 실제 API 는 부르지 않는다. SSE 줄을 정해 둔 가짜 스트림을 끼운다.
+
+
+def _sse(event: dict) -> str:
+    return "data: " + json.dumps(event, ensure_ascii=False)
+
+
+def _chunk(content: str = "", finish: str | None = None) -> str:
+    return _sse({"choices": [{"delta": {"content": content}, "finish_reason": finish}]})
+
+
+_STREAM_USAGE = {"prompt_tokens": 9159, "completion_tokens": 1355,
+                 "prompt_tokens_details": {"cached_tokens": 8702, "cache_write_tokens": 363},
+                 "completion_tokens_details": {"reasoning_tokens": 466}}
+
+
+class _FakeStream:
+    """httpx 의 스트리밍 응답 흉내. lines 를 차례로 주고, fail_after 줄 뒤에 연결을 끊는다."""
+
+    def __init__(self, lines, fail_after=None):
+        self.lines, self.fail_after = lines, fail_after
+        self.is_error = False
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    def raise_for_status(self):
+        pass
+
+    async def aiter_lines(self):
+        for i, line in enumerate(self.lines):
+            if i == self.fail_after:
+                raise client.httpx.ReadError("connection reset")
+            yield line
+
+
+def _fake_stream(monkeypatch, lines, fail_after=None) -> MagicMock:
+    http = MagicMock()
+    http.stream.return_value = _FakeStream(lines, fail_after)
+    manager = AsyncMock()
+    manager.__aenter__.return_value = http
+    monkeypatch.setattr(client.httpx, "AsyncClient", lambda **kwargs: manager)
+    return http
+
+
+async def test_stream_normal_end_feeds_usage_into_cost(monkeypatch):
+    _elice(monkeypatch, input_krw=1000.0, output_krw=8000.0)
+    monkeypatch.setattr(client.settings, "summary_reasoning_effort", "low")
+    http = _fake_stream(monkeypatch, [
+        ": keep-alive", "", _chunk('{"ticker": '), _chunk('"999990"}'), _chunk(finish="stop"),
+        _sse({"choices": [], "usage": _STREAM_USAGE}), "data: [DONE]"])
+    text, usage = await client.complete("s", "u", max_tokens=8000, stream=True)
+    assert text == '{"ticker": "999990"}'
+    assert usage["finish_reason"] == "stop" and usage["prompt_tokens"] == 9159
+    sent = http.stream.call_args.kwargs["json"]
+    assert sent["stream"] is True and sent["stream_options"] == {"include_usage": True}
+    # 스트리밍에서도 상한과 추론 강도를 명시한다
+    assert sent["max_completion_tokens"] == 8000 and sent["reasoning_effort"] == "low"
+    # 3번 작업의 토큰·비용 계산에 그대로 이어진다
+    assert client.input_tokens(usage)["total"] == 9068
+    assert client.cost_detail(usage)[1] == "token_rates"
+
+
+async def test_stream_length_keeps_finish_reason(monkeypatch):
+    _elice(monkeypatch)
+    _fake_stream(monkeypatch, [_chunk('{"ticker": "99'), _chunk(finish="length"),
+                               _sse({"choices": [], "usage": {"completion_tokens": 8000}}),
+                               "data: [DONE]"])
+    text, usage = await client.complete("s", "u", stream=True)
+    assert text == '{"ticker": "99' and usage["finish_reason"] == "length"
+
+
+@pytest.mark.parametrize("lines, fail_after, partial", [
+    ([_chunk("가나다"), _chunk("라마"), _chunk(finish="stop")], 2, 5),  # 연결이 끊김
+    ([_chunk("가나다")], None, 3),  # finish_reason 없이 끝남
+    ([_chunk("가나"), _sse({"error": {"message": "upstream"}})], None, 2),  # 스트림 안의 오류
+])
+async def test_stream_interrupted_reports_only_partial_length(monkeypatch, lines, fail_after,
+                                                              partial):
+    _elice(monkeypatch)
+    _fake_stream(monkeypatch, lines, fail_after)
+    with pytest.raises(client.StreamInterrupted) as info:
+        await client.complete("s", "u", stream=True)
+    assert info.value.partial_chars == partial
+    assert isinstance(info.value, client.LLMError)
+
+
+async def test_stream_without_usage_is_not_free(monkeypatch):
+    """finish_reason 까지 왔으면 끊김이 아니다. usage 만 없다 — 비용을 0 원으로 계산하지 않는다."""
+    _elice(monkeypatch)
+    _fake_stream(monkeypatch, [_chunk("{}"), _chunk(finish="stop"), "data: [DONE]"])
+    text, usage = await client.complete("s", "u", stream=True)
+    assert text == "{}" and usage["finish_reason"] == "stop"
+    assert client.cost_detail(usage) == (0.0, "unavailable")
+
+
+async def test_non_stream_is_the_default(monkeypatch):
+    """리포트 요약(analyst)은 stream 을 넘기지 않는다. 지금처럼 한 번에 받는다."""
+    _elice(monkeypatch)
+    http = _fake_http(monkeypatch, _OK)
+    await client.complete("test", "test")
+    assert http.post.await_count == 1
+    assert "stream" not in http.post.await_args.kwargs["json"]
+
+
+@pytest.mark.parametrize("provider, configured, expected", [
+    ("elice", None, True), ("openrouter", None, False),
+    ("elice", False, False), ("openrouter", True, True),
+])
+def test_stock_analysis_stream_default_follows_provider(monkeypatch, provider, configured, expected):
+    monkeypatch.setattr(client.settings, "llm_provider", provider)
+    monkeypatch.setattr(client.settings, "stock_analysis_stream", configured)
+    assert client.settings.stock_analysis_streams() is expected
+
+
+def test_blank_stock_analysis_stream_env_means_auto(monkeypatch):
+    monkeypatch.setenv("STOCK_ANALYSIS_STREAM", "")
+    assert Settings(_env_file=None).stock_analysis_stream is None
