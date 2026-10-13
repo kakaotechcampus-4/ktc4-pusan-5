@@ -104,6 +104,11 @@ export function loginWithKakao(code: string): Promise<User> {
   });
 }
 
+/** 로컬 개발 전용. 백엔드의 ENABLE_TEST_LOGIN이 꺼져 있으면 404 ApiError */
+export function loginAsTestAccount(): Promise<User> {
+  return request<User>('/api/auth/test-login', { method: 'POST' });
+}
+
 export function logout(): Promise<void> {
   return request<void>('/api/auth/logout', { method: 'POST' });
 }
