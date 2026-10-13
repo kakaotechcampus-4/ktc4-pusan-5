@@ -26,10 +26,12 @@ from typing import Any
 
 VERDICTS = ("explained", "partially_explained", "no_clear_cause")
 STANCES = ("bullish", "bearish", "neutral")
+# link.strength 의 값. 이전 형식 factor 의 size_fit 과 같은 값 체계다.
 SIZE_FITS = ("sufficient", "partial", "insufficient")
 MATCHES = ("direct", "indirect")
 BACKGROUND_SLOTS = ("bullish", "bearish", "neutral")
-# factor 의 층. move 는 오늘 등락의 원인, relative 는 다른 대형주와 달랐던 이유다(2부 3단계).
+# link 의 층. move 는 오늘 등락의 원인, relative 는 다른 대형주와 달랐던 이유다(2부 3단계).
+# factor 는 사건 하나이고, 그 사건이 어느 층에 답하는지는 factor.links 에 층마다 하나씩 단다.
 LAYERS = ("move", "relative")
 # 층마다 판정이 하나씩 있다. verdict 는 등락 층, relative_verdict 는 상대 층.
 VERDICT_KEYS = {"move": "verdict", "relative": "relative_verdict"}
@@ -64,9 +66,10 @@ FLAT_EXCESS_PCT = Decimal("1.00")
 # 반올림하는 경우가 있어 0.01 까지는 같은 값으로 본다. float 로 빼면 1.09 - 1.08 이
 # 0.010000000000000009 가 되어 경계에서 떨어지므로 Decimal 로 계산한다.
 CHANGE_PCT_TOLERANCE = Decimal("0.01")
-# 2부 6단계 표. 간접·미확인 근거는 partial 을 넘을 수 없다.
+# 2부 6단계 표. 간접·미확인 근거는 partial 을 넘을 수 없다(모든 link 의 strength).
 CAPPED_SIZE_FIT = "sufficient"
 # 4부 factors.sources "최소 1개, 최대 3개". background.sources 도 같은 규칙이다.
+# 출처는 factor(사건)에 달리므로 links 가 몇 개든 factor 하나에 한 번 센다.
 SOURCES_MAX = 3
 
 # --- 문제 코드 ----------------------------------------------------------------
@@ -78,17 +81,22 @@ SCHEMA_VALUE = "SCHEMA_VALUE"  # 값 목록 밖의 값, 비움 불가 칸이 빈
 # events 항목의 reason 이 placed 와 맞지 않음. dropped 인데 reason 이 없거나, reason 을 쓰지
 # 않는 placed 에 reason 이 있거나, background 에 over_cap 아닌 reason 이 붙었다.
 EVENT_REASON_MISMATCH = "EVENT_REASON_MISMATCH"
+# links 가 빈 배열. 층에 하나도 답하지 않는 사건은 factor 가 아니다(2부 7단계).
+LINKS_EMPTY = "LINKS_EMPTY"
+# 한 factor 의 links 에 같은 layer 가 두 번. 층마다 link 는 하나다.
+LINK_LAYER_DUPLICATE = "LINK_LAYER_DUPLICATE"
 # 규칙
 FLAT_MOVE_VERDICT = "FLAT_MOVE_VERDICT"  # |change_pct| ±1% 이내인데 verdict 가 no_clear_cause 아님
-FLAT_MOVE_FACTORS = "FLAT_MOVE_FACTORS"  # |change_pct| ±1% 이내인데 layer: move factor 가 있음
+FLAT_MOVE_FACTORS = "FLAT_MOVE_FACTORS"  # |change_pct| ±1% 이내인데 layer: move link 를 가진 factor 가 있음
 # 상대 층. |excess_pct| ±1% 이내이거나 excess_pct 가 null(상대 층을 판단하지 않는 날)인데
-# relative_verdict 가 no_clear_cause 가 아니거나 layer: relative factor 가 있음.
+# relative_verdict 가 no_clear_cause 가 아니거나 layer: relative link 를 가진 factor 가 있음.
 FLAT_RELATIVE_VERDICT = "FLAT_RELATIVE_VERDICT"
 FLAT_RELATIVE_FACTORS = "FLAT_RELATIVE_FACTORS"
-SIZE_FIT_OVER_CAP = "SIZE_FIT_OVER_CAP"  # indirect 만 근거인데 sufficient
-UNCONFIRMED_OVER_CAP = "UNCONFIRMED_OVER_CAP"  # unconfirmed 인데 sufficient
-DIRECTION_MISMATCH = "DIRECTION_MISMATCH"  # factors 에 direction_match: false
-# direction_match 를 그 factor 의 층 방향으로 계산한 값과 다르다. move 는 change_pct 부호,
+# 아래 세 코드는 link 마다 본다. 이름은 이전 형식(factor.size_fit) 때 것을 그대로 둬 빈도를 이어 센다.
+SIZE_FIT_OVER_CAP = "SIZE_FIT_OVER_CAP"  # indirect 만 근거인데 link strength 가 sufficient
+UNCONFIRMED_OVER_CAP = "UNCONFIRMED_OVER_CAP"  # unconfirmed 인데 link strength 가 sufficient
+DIRECTION_MISMATCH = "DIRECTION_MISMATCH"  # link 에 direction_match: false
+# link 의 direction_match 를 그 link 층 방향으로 계산한 값과 다르다. move 는 change_pct 부호,
 # relative 는 excess_pct 부호다. 덜 내린 날의 악재를 relative 로 넣으면 여기서 걸린다.
 DIRECTION_MATCH_WRONG = "DIRECTION_MATCH_WRONG"
 # summary.counter 는 background 에 있는 재료만 요약한다. background 가 모두 비었는데
@@ -98,8 +106,8 @@ COUNTER_WITHOUT_BACKGROUND = "COUNTER_WITHOUT_BACKGROUND"
 # sufficient factor 가 모두 종목 고유 재료다. 종목 고유 재료는 다른 대형주와 달랐던 부분까지만
 # 설명할 수 있어 상한이 partial 이다.
 MOVE_SUFFICIENT_STOCK_ONLY = "MOVE_SUFFICIENT_STOCK_ONLY"
-VERDICT_SIZE_FIT = "VERDICT_SIZE_FIT"  # 판정표 조건과 move factors 가 어긋남(verdict)
-RELATIVE_VERDICT_SIZE_FIT = "RELATIVE_VERDICT_SIZE_FIT"  # 같은 표, relative factors 와 relative_verdict
+VERDICT_SIZE_FIT = "VERDICT_SIZE_FIT"  # 판정표 조건과 move link 가 어긋남(verdict)
+RELATIVE_VERDICT_SIZE_FIT = "RELATIVE_VERDICT_SIZE_FIT"  # 같은 표, relative link 와 relative_verdict
 TICKER_MISMATCH = "TICKER_MISMATCH"
 DATE_MISMATCH = "DATE_MISMATCH"
 CHANGE_PCT_MISMATCH = "CHANGE_PCT_MISMATCH"
@@ -125,6 +133,13 @@ OUTPUT_TRUNCATED = "OUTPUT_TRUNCATED"
 STREAM_INTERRUPTED = "STREAM_INTERRUPTED"
 JSON_INVALID = "JSON_INVALID"  # 벗겨내도 JSON 으로 안 열림
 ASKED_QUESTION = "ASKED_QUESTION"  # 되묻기 금지 위반
+
+# --- 경고 코드 (실패 아님) ----------------------------------------------------
+
+# 서로 다른 두 factor 의 출처 url 집합이 같다. 한 사건을 factor 둘로 나눴을 수 있다
+# (한 사건은 factor 하나, 층은 links). 다른 사건을 같은 메시지가 함께 전한 경우도 있어
+# 실패로 두지 않는다. check_warnings() 가 보고 verify_status 에는 넣지 않는다.
+DUPLICATE_SOURCES = "DUPLICATE_SOURCES"
 
 
 def code_of(problem: str) -> str:
@@ -186,6 +201,48 @@ def _decimal(value: Any) -> Decimal | None:
         return None
 
 
+# --- 이전 형식 정규화 ---------------------------------------------------------
+
+# 이전 형식에서 link 로 옮겨 가는 층별 칸. (옛 이름, 새 이름).
+_LEGACY_LINK_FIELDS = (("size_fit", "strength"), ("direction_match", "direction_match"))
+
+
+def _is_legacy_factor(f: Any) -> bool:
+    """이전 형식 factor 인가. 층이 links 가 아니라 layer 문자열로 와 있다."""
+    return isinstance(f, dict) and "links" not in f and isinstance(f.get("layer"), str)
+
+
+def _normalize_factor(f: dict[str, Any]) -> dict[str, Any]:
+    """layer·size_fit·direction_match 를 link 하나로 옮기고 claim 은 event 로 옮긴다.
+
+    note 는 채우지 않는다. 옛 detail 에는 출처의 사실과 모델의 판단이 섞여 있어 어느 층의
+    답인지 기계적으로 가를 수 없다. 비워 두고 converted: true 로 변환된 link 임을 남긴다.
+    """
+    out = {k: v for k, v in f.items() if k not in ("claim", "layer", "size_fit", "direction_match")}
+    if "event" not in out and "claim" in f:
+        out["event"] = f["claim"]
+    link: dict[str, Any] = {"layer": f["layer"], "note": None, "converted": True}
+    for old, new in _LEGACY_LINK_FIELDS:
+        if old in f:
+            link[new] = f[old]
+    out["links"] = [link]
+    return out
+
+
+def normalize_report(report: Any) -> Any:
+    """이전 형식 factor 를 links 형식으로 편 사본. 새 형식이거나 factor 가 없으면 그대로다.
+
+    검증 함수마다 처음에 부른다. 같은 보고서를 두 번 불러도 결과가 같고, 원본은 고치지 않는다.
+    """
+    if not isinstance(report, dict):
+        return report
+    factors = report.get("factors")
+    if not isinstance(factors, list) or not any(_is_legacy_factor(f) for f in factors):
+        return report
+    return {**report, "factors": [_normalize_factor(f) if _is_legacy_factor(f) else f
+                                  for f in factors]}
+
+
 # --- 스키마 -------------------------------------------------------------------
 
 
@@ -242,9 +299,41 @@ def _check_sources_schema(obj: dict, path: str, out: list[str]) -> None:
         _check_bool(s, "is_market_recap", spath, out)
 
 
+def _check_links_schema(f: dict, path: str, out: list[str]) -> None:
+    """factor.links. 최소 1개, 층마다 최대 1개.
+
+    note 는 비울 수 없다. 이전 형식에서 변환한 link(converted: true)만 null 을 받는다.
+    """
+    links = _check_list(f, "links", path, out)
+    if links is None:
+        return
+    if not links:
+        out.append(_p(LINKS_EMPTY, f"{path}links 가 비었다"))
+        return
+    seen: set[str] = set()
+    for k, link in enumerate(links):
+        lpath = f"{path}links[{k}]."
+        if not isinstance(link, dict):
+            out.append(_p(SCHEMA_TYPE, f"{lpath[:-1]} 는 객체여야 한다"))
+            continue
+        _check_enum(link, "layer", LAYERS, lpath, out)
+        if "converted" in link:
+            _check_bool(link, "converted", lpath, out)
+        converted = link.get("converted") is True
+        _check_str(link, "note", lpath, out, nullable=converted, non_empty=not converted)
+        _check_bool(link, "direction_match", lpath, out)
+        _check_enum(link, "strength", SIZE_FITS, lpath, out)
+        layer = link.get("layer")
+        if layer in seen:
+            out.append(_p(LINK_LAYER_DUPLICATE, f"{path}links 에 layer={layer} 가 두 번"))
+        elif layer in LAYERS:
+            seen.add(layer)
+
+
 def check_schema(report: dict[str, Any]) -> list[str]:
     """필수 칸과 값 목록. 개수 상한(factors 4개 등)은 보지 않는다 — 적재 모듈이
     로그로 관측하기로 한 값이고, 여기서 떨어뜨리면 그 관측이 끊긴다."""
+    report = normalize_report(report)
     out: list[str] = []
     for key in REQUIRED_TOP:
         if key not in report:
@@ -273,14 +362,13 @@ def check_schema(report: dict[str, Any]) -> list[str]:
         if not isinstance(f, dict):
             out.append(_p(SCHEMA_TYPE, f"factors[{i}] 는 객체여야 한다"))
             continue
-        _check_str(f, "claim", path, out, non_empty=True)
+        # 사건·출처 칸. 층마다 달라지는 칸(layer·note·direction_match·strength)은 links 에 있다.
+        _check_str(f, "event", path, out, non_empty=True)
         _check_str(f, "detail", path, out)
-        _check_enum(f, "layer", LAYERS, path, out)
         _check_enum(f, "stance", STANCES, path, out)
-        _check_bool(f, "direction_match", path, out)
-        _check_enum(f, "size_fit", SIZE_FITS, path, out)
         _check_bool(f, "unconfirmed", path, out)
         _check_sources_schema(f, path, out)
+        _check_links_schema(f, path, out)
 
     terms = _check_list(report, "terms", "", out) if "terms" in report else None
     for i, t in enumerate(terms or []):
@@ -374,6 +462,15 @@ def _factors(report: dict[str, Any]) -> list[dict[str, Any]]:
 def _sources(factor: dict[str, Any]) -> list[dict[str, Any]]:
     sources = factor.get("sources")
     return [s for s in sources if isinstance(s, dict)] if isinstance(sources, list) else []
+
+
+def _links(factor: dict[str, Any]) -> list[dict[str, Any]]:
+    links = factor.get("links")
+    return [x for x in links if isinstance(x, dict)] if isinstance(links, list) else []
+
+
+def _has_layer(factor: dict[str, Any], layer: str) -> bool:
+    return any(x.get("layer") == layer for x in _links(factor))
 
 
 def _background_items(report: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -473,11 +570,12 @@ def check_rules(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
     층의 값(layer_pct)은 보고서가 아니라 **입력으로** 정한다. 보고서 값은 모델이
     옮겨 적은 것이라, 그걸 기준으로 삼으면 옮기다 틀린 보고서가 규칙을 피해 간다.
     """
+    report = normalize_report(report)
     out: list[str] = []
     factors = _factors(report)
     quiet = {layer: _layer_is_quiet(payload, layer) for layer in LAYERS}
 
-    # 2부 7단계: 층마다 ±1% 이내면 그 층 판정은 no_clear_cause 이고 그 층 factor 는 없다.
+    # 2부 7단계: 층마다 ±1% 이내면 그 층 판정은 no_clear_cause 이고 그 층 link 는 없다.
     for layer, (is_quiet, pct) in quiet.items():
         if not is_quiet:
             continue
@@ -486,33 +584,38 @@ def check_rules(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
         why = "excess_pct 가 null" if pct is None else f"±1% 이내({layer} 값 {pct})"
         if report.get(key) != "no_clear_cause":
             out.append(_p(verdict_code, f"{why} 인데 {key}={report.get(key)!r}"))
-        n = sum(f.get("layer") == layer for f in factors)
+        # 층마다 센다. 두 층에 link 를 단 factor 는 두 층에 각각 하나로 들어간다.
+        n = sum(_has_layer(f, layer) for f in factors)
         if n:
-            out.append(_p(factors_code, f"{why} 인데 layer={layer} factor {n}개"))
+            out.append(_p(factors_code, f"{why} 인데 layer={layer} link 를 가진 factor {n}개"))
 
     for i, f in enumerate(factors):
         sources = _sources(f)
-        size_fit = f.get("size_fit")
         # "match: indirect 메시지만 있음" 이 상한 조건이다. 출처가 하나도 없으면
         # 간접인지 알 수 없으므로 여기서는 보지 않고 FACTOR_WITHOUT_SOURCE 가 잡는다.
-        if sources and all(s.get("match") == "indirect" for s in sources) \
-                and size_fit == CAPPED_SIZE_FIT:
-            out.append(_p(SIZE_FIT_OVER_CAP, f"factors[{i}] 간접 근거만 있는데 size_fit=sufficient"))
-        if f.get("unconfirmed") is True and size_fit == CAPPED_SIZE_FIT:
-            out.append(_p(UNCONFIRMED_OVER_CAP, f"factors[{i}] 미확인 정보인데 size_fit=sufficient"))
-        if f.get("direction_match") is False:
-            out.append(_p(DIRECTION_MISMATCH, f"factors[{i}] direction_match=false 는 counter 로 간다"))
-        # 적힌 값이 그 factor 층의 방향으로 계산한 값과 다르면 실패. 스키마를 어긴 값은
-        # check_schema 가 잡으므로 보지 않는다. ±1% 날 그 층의 factor 는 FLAT_*_FACTORS 로
-        # 떨어지므로 같은 실수를 두 번 세지 않게 건너뛴다.
-        layer, stance, match = f.get("layer"), f.get("stance"), f.get("direction_match")
-        if layer not in LAYERS or stance not in STANCES or not isinstance(match, bool):
-            continue
-        is_quiet, pct = quiet[layer]
-        if pct is not None and not is_quiet and match != expected_direction_match(stance, pct):
-            out.append(_p(DIRECTION_MATCH_WRONG,
-                          f"factors[{i}] layer={layer}, stance={stance}, 값 {pct} 인데 "
-                          f"direction_match={match}"))
+        indirect_only = bool(sources) and all(s.get("match") == "indirect" for s in sources)
+        stance = f.get("stance")
+        for k, link in enumerate(_links(f)):
+            where = f"factors[{i}].links[{k}]"
+            strength = link.get("strength")
+            # 근거의 성질(출처·unconfirmed)은 factor 에 있고 상한은 모든 link 에 걸린다.
+            if indirect_only and strength == CAPPED_SIZE_FIT:
+                out.append(_p(SIZE_FIT_OVER_CAP, f"{where} 간접 근거만 있는데 strength=sufficient"))
+            if f.get("unconfirmed") is True and strength == CAPPED_SIZE_FIT:
+                out.append(_p(UNCONFIRMED_OVER_CAP, f"{where} 미확인 정보인데 strength=sufficient"))
+            if link.get("direction_match") is False:
+                out.append(_p(DIRECTION_MISMATCH, f"{where} direction_match=false 는 counter 로 간다"))
+            # 적힌 값이 그 link 층의 방향으로 계산한 값과 다르면 실패. stance 는 사건 하나에
+            # 하나라 factor 에서 읽는다. 스키마를 어긴 값은 check_schema 가 잡으므로 보지 않는다.
+            # ±1% 날 그 층의 link 는 FLAT_*_FACTORS 로 떨어지므로 같은 실수를 두 번 세지 않게 건너뛴다.
+            layer, match = link.get("layer"), link.get("direction_match")
+            if layer not in LAYERS or stance not in STANCES or not isinstance(match, bool):
+                continue
+            is_quiet, pct = quiet[layer]
+            if pct is not None and not is_quiet and match != expected_direction_match(stance, pct):
+                out.append(_p(DIRECTION_MATCH_WRONG,
+                              f"{where} layer={layer}, stance={stance}, 값 {pct} 인데 "
+                              f"direction_match={match}"))
 
     out.extend(_check_market_share(factors, payload, quiet["move"][0]))
 
@@ -542,9 +645,9 @@ def is_stock_specific(factor: dict[str, Any]) -> bool:
 def _check_market_share(factors: list[dict[str, Any]], payload: dict[str, Any],
                         move_quiet: bool) -> list[str]:
     """2부 5단계. change_pct 와 peer_median_pct 의 부호가 같고 |peer| >= |change|/2 (경계 포함)
-    인 날, layer: move 이고 sufficient 인 factor 가 있는데 모두 종목 고유 재료면 실패.
+    인 날, layer: move link 가 sufficient 인 factor 가 있는데 모두 종목 고유 재료면 실패.
 
-    ±1% 날은 move factor 자체가 FLAT_MOVE_FACTORS 로 떨어지므로 보지 않는다.
+    ±1% 날은 move link 자체가 FLAT_MOVE_FACTORS 로 떨어지므로 보지 않는다.
     """
     change = layer_pct(payload, "move")
     market = payload.get("market")
@@ -553,7 +656,8 @@ def _check_market_share(factors: list[dict[str, Any]], payload: dict[str, Any],
             or 2 * abs(peer) < abs(change):
         return []
     sufficient = [i for i, f in enumerate(factors)
-                  if f.get("layer") == "move" and f.get("size_fit") == CAPPED_SIZE_FIT]
+                  if any(x.get("layer") == "move" and x.get("strength") == CAPPED_SIZE_FIT
+                         for x in _links(f))]
     if not sufficient or not all(is_stock_specific(factors[i]) for i in sufficient):
         return []
     where = ", ".join(f"factors[{i}]" for i in sufficient)
@@ -566,29 +670,37 @@ def _check_verdict_tables(report: dict[str, Any], raw_factors: Any,
                           factors: list[dict[str, Any]]) -> list[str]:
     """2부 7단계 판정표의 세 줄을 층마다 적용한다. 표에 없는 조합은 보지 않는다.
 
-        explained            그 층에 size_fit: sufficient 인 factor 가 최소 1개
-        partially_explained  그 층에 factor 가 있으나 전부 partial 이나 insufficient
-        no_clear_cause       그 층에 factor 가 없음
+        explained            그 층에 strength: sufficient 인 link 가 최소 1개
+        partially_explained  그 층에 link 가 있으나 전부 partial 이나 insufficient
+        no_clear_cause       그 층에 link 가 없음
 
-    verdict 는 layer: move factor 로, relative_verdict 는 layer: relative factor 로 본다.
+    verdict 는 layer: move link 로, relative_verdict 는 layer: relative link 로 본다.
+    factor 하나에 층마다 link 는 하나라 "그 층 link 수" 가 곧 "그 층 link 를 가진 factor 수" 다.
 
     판정 재료가 스키마를 어겼으면 **건너뛴다** — 판정이 목록 밖, factors 가 배열이
-    아님, factor 가 객체가 아님, size_fit 이나 layer 가 없거나 목록 밖. 그 상태에서
+    아님, factor 가 객체가 아님, links 가 없거나 비었거나 객체 아닌 항목이 있음, link 의
+    strength 나 layer 가 없거나 목록 밖, 한 factor 에 같은 layer 가 두 번. 그 상태에서
     일관성을 따지면 같은 원인이 SCHEMA_* 와 판정표 코드로 두 번 세어져 사유별 빈도가
-    부풀고, "size_fit 이 medium 이라 sufficient 가 없다" 처럼 뜻 없는 사유가 붙는다.
-    layer 가 하나라도 깨지면 factor 를 층으로 가를 수 없어 두 층 모두 건너뛴다.
+    부풀고, "strength 가 medium 이라 sufficient 가 없다" 처럼 뜻 없는 사유가 붙는다.
+    layer 가 하나라도 깨지면 link 를 층으로 가를 수 없어 두 층 모두 건너뛴다.
     스키마 실패는 check_schema 가 잡으므로 보고서는 어차피 failed 다.
     """
     if not isinstance(raw_factors, list) or len(factors) != len(raw_factors):
         return []
-    if any(f.get("size_fit") not in SIZE_FITS or f.get("layer") not in LAYERS for f in factors):
-        return []
+    for f in factors:
+        links = f.get("links")
+        if not isinstance(links, list) or not links or len(_links(f)) != len(links):
+            return []
+        if any(x.get("strength") not in SIZE_FITS or x.get("layer") not in LAYERS for x in links):
+            return []
+        if len({x["layer"] for x in links}) != len(links):
+            return []
     out: list[str] = []
     for layer, key in VERDICT_KEYS.items():
         verdict = report.get(key)
         if verdict not in VERDICTS:
             continue
-        fits = [f["size_fit"] for f in factors if f["layer"] == layer]
+        fits = [x["strength"] for f in factors for x in f["links"] if x["layer"] == layer]
         code, where = _TABLE_CODES[layer], f"{key}={verdict} 인데 layer={layer}"
         if verdict == "explained" and "sufficient" not in fits:
             out.append(_p(code, f"{where} 에 size_fit=sufficient 인 factor 가 없다"))
@@ -693,6 +805,28 @@ def check_grounding(report: dict[str, Any], payload: dict[str, Any]) -> list[str
     return out
 
 
+# --- 경고 (판정과 분리) -------------------------------------------------------
+
+
+def check_warnings(report: dict[str, Any] | None) -> list[str]:
+    """실패는 아니지만 검수자가 볼 것. verify() 와 따로 돌고 verify_status 에 넣지 않는다.
+
+    DUPLICATE_SOURCES  서로 다른 두 factor 의 출처 url 집합이 같다. 한 사건을 층마다
+                       factor 로 나눈 이전 방식일 수 있다. 출처가 없는 factor 는 보지 않는다.
+    """
+    if not isinstance(report, dict):
+        return []
+    keys = [frozenset(s["url"] for s in _sources(f) if isinstance(s.get("url"), str))
+            for f in _factors(normalize_report(report))]
+    out: list[str] = []
+    for i, a in enumerate(keys):
+        for j in range(i + 1, len(keys)):
+            if a and a == keys[j]:
+                out.append(_p(DUPLICATE_SOURCES,
+                              f"factors[{i}] 와 factors[{j}] 의 출처가 같다. 한 사건이면 factor 하나에 links 로 단다"))
+    return out
+
+
 # --- 판정 ---------------------------------------------------------------------
 
 
@@ -739,12 +873,14 @@ __all__ = [
     "check_grounding",
     "check_rules",
     "check_schema",
+    "check_warnings",
     "code_of",
     "expected_direction_match",
     "families_of",
     "is_stock_specific",
     "layer_pct",
     "move_case",
+    "normalize_report",
     "normalize_ws",
     "verify",
     "verify_wrapper",

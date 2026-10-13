@@ -18,6 +18,7 @@ from app.services.stock_analysis.verify import (
     DATE_MISMATCH,
     DIRECTION_MATCH_WRONG,
     DIRECTION_MISMATCH,
+    DUPLICATE_SOURCES,
     EMPTY_RESPONSE,
     EVENT_REASON_MISMATCH,
     FACTOR_WITHOUT_SOURCE,
@@ -28,6 +29,8 @@ from app.services.stock_analysis.verify import (
     FLAT_RELATIVE_FACTORS,
     FLAT_RELATIVE_VERDICT,
     JSON_INVALID,
+    LINK_LAYER_DUPLICATE,
+    LINKS_EMPTY,
     LLM_ERROR,
     MOVE_SUFFICIENT_STOCK_ONLY,
     OUTPUT_TRUNCATED,
@@ -47,11 +50,13 @@ from app.services.stock_analysis.verify import (
     check_grounding,
     check_rules,
     check_schema,
+    check_warnings,
     code_of,
     families_of,
     is_stock_specific,
     layer_pct,
     move_case,
+    normalize_report,
     verify,
     verify_wrapper,
 )
@@ -81,7 +86,25 @@ def source(url=DIRECT_URL, quote=DIRECT_QUOTE, match="direct"):
             "quote": quote, "match": match, "is_market_recap": False}
 
 
-def factor(size_fit="sufficient", sources=None, **kw):
+def link(layer="move", strength="sufficient", direction_match=True, **kw):
+    return {"layer": layer, "note": f"{layer} 층 답.", "direction_match": direction_match,
+            "strength": strength, **kw}
+
+
+def factor(size_fit="sufficient", sources=None, *, layer="move", direction_match=True,
+           links=None, **kw):
+    """사건 하나. 층 칸(layer·strength·direction_match)은 link 하나로 들어간다.
+    links 를 넘기면 그것을 그대로 쓴다."""
+    f = {"event": "3분기 영업이익이 시장 예상을 밑돌았습니다.", "detail": "부연.",
+         "stance": "bearish", "unconfirmed": False,
+         "sources": sources if sources is not None else [source()],
+         "links": links if links is not None else [link(layer, size_fit, direction_match)]}
+    f.update(kw)
+    return f
+
+
+def legacy_factor(size_fit="sufficient", sources=None, **kw):
+    """이전 형식. 층이 factor 의 layer 문자열이고 claim 이 사건 문장이다."""
     f = {"claim": "실적이 예상보다 나빴습니다.", "detail": "부연.", "layer": "move",
          "stance": "bearish", "direction_match": True, "size_fit": size_fit,
          "unconfirmed": False, "sources": sources if sources is not None else [source()]}
@@ -156,13 +179,13 @@ def test_schema_missing_top_level_and_summary_fields():
     del r["relative_verdict"]
     del r["summary"]["unexplained"]
     del r["summary"]["relative"]
-    del r["factors"][0]["layer"]
+    del r["factors"][0]["links"][0]["layer"]
     problems = check_schema(r)
     assert f"{SCHEMA_MISSING}: not_found" in problems
     assert f"{SCHEMA_MISSING}: relative_verdict" in problems
     assert f"{SCHEMA_MISSING}: summary.unexplained" in problems
     assert f"{SCHEMA_MISSING}: summary.relative" in problems
-    assert f"{SCHEMA_MISSING}: factors[0].layer" in problems
+    assert f"{SCHEMA_MISSING}: factors[0].links[0].layer" in problems
 
 
 def test_schema_values_outside_prompt_lists():
@@ -172,8 +195,8 @@ def test_schema_values_outside_prompt_lists():
     problems = check_schema(r)
     assert all(code_of(p) == SCHEMA_VALUE for p in problems)
     assert {p.split(":", 1)[1].split("=")[0].strip() for p in problems} == {
-        "verdict", "relative_verdict", "factors[0].size_fit", "factors[0].stance",
-        "factors[0].layer", "factors[0].sources[0].match"}
+        "verdict", "relative_verdict", "factors[0].links[0].strength", "factors[0].stance",
+        "factors[0].links[0].layer", "factors[0].sources[0].match"}
 
 
 def test_schema_bool_fields_reject_strings():
@@ -626,7 +649,7 @@ def test_verdict_table(verdict, fits, ok):
 
 def _without_size_fit():
     f = factor()
-    del f["size_fit"]
+    del f["links"][0]["strength"]
     return f
 
 
@@ -754,19 +777,30 @@ def test_verify_does_not_mutate_inputs():
 
 def big_up_report(**kw):
     """+6.5%, 중간값 -0.6%, excess +7.1. 공급 계약 호재(직접) 하나가 두 층의 답이다.
-    층마다 factor 를 하나씩 두고 출처는 같다(2부 3단계)."""
+    사건은 factor 하나이고 층마다 link 를 하나씩 단다(2부 3단계)."""
     contract = msg_source(BIG_UP, 0, 30)
     return cause_report(**{
         "date": "2026-09-25", "change_pct": 6.5,
         "verdict": "explained", "relative_verdict": "explained",
         "summary": summary(relative="같은 공급 계약 소식으로 다른 대형주보다 크게 올랐습니다."),
-        "factors": [factor(stance="bullish", sources=[contract]),
-                    rel(stance="bullish", sources=[contract])],
+        "factors": [factor(stance="bullish", sources=[contract],
+                           links=[link("move"), link("relative")])],
         "background": {"bullish": [], "bearish": [], "neutral": []}, **kw})
 
 
 def test_same_event_in_both_layers_passes():
-    assert verify(big_up_report(), BIG_UP) == ("passed", [])
+    r = big_up_report()
+    assert verify(r, BIG_UP) == ("passed", [])
+    assert check_warnings(r) == []
+
+
+def test_same_event_split_into_two_factors_still_passes_but_warns():
+    """이전 방식(층마다 factor 복제)은 실패가 아니라 경고다."""
+    contract = msg_source(BIG_UP, 0, 30)
+    r = big_up_report(factors=[factor(stance="bullish", sources=[contract]),
+                               rel(stance="bullish", sources=[contract])])
+    assert verify(r, BIG_UP) == ("passed", [])
+    assert codes(check_warnings(r)) == {DUPLICATE_SOURCES}
 
 
 # 하락 대부분이 시장 몫인 날 — 종목 고유 재료는 partial 까지
@@ -906,3 +940,135 @@ def test_verdict_table_is_kept_on_normal_day():
 
 def test_unrelated_codes_are_their_own_family():
     assert families_of([f"{LLM_ERROR}: x", f"{QUOTE_NOT_IN_SOURCE}: y", f"{QUOTE_NOT_IN_SOURCE}: z"])         == {LLM_ERROR, QUOTE_NOT_IN_SOURCE}
+
+
+# --- links ---------------------------------------------------------------
+
+
+def test_one_factor_counts_in_each_linked_layer_table():
+    """삼성전자 2회차: 같은 사건이 relative 에도 답하는데 factor 를 move 하나로만 두면
+    relative_verdict 가 근거 없이 남아 RELATIVE_VERDICT_SIZE_FIT 이었다. relative link 를
+    달면 그 factor 가 상대 층 판정표에도 들어간다."""
+    move_only = cause_report(verdict="partially_explained", relative_verdict="partially_explained",
+                             factors=[factor("partial")])
+    assert codes(check_rules(move_only, CAUSE)) == {RELATIVE_VERDICT_SIZE_FIT}
+    linked = cause_report(verdict="partially_explained", relative_verdict="partially_explained",
+                          factors=[factor(links=[link("move", "partial"), link("relative", "partial")])])
+    assert check_rules(linked, CAUSE) == []
+
+
+def test_layer_tables_use_each_links_own_strength():
+    """같은 factor 라도 층마다 strength 가 다를 수 있다. 판정표는 그 층 link 만 본다."""
+    r = cause_report(verdict="explained", relative_verdict="partially_explained",
+                     factors=[factor(links=[link("move", "sufficient"), link("relative", "partial")])])
+    assert check_rules(r, CAUSE) == []
+    wrong = cause_report(verdict="explained", relative_verdict="explained",
+                         factors=[factor(links=[link("move", "sufficient"), link("relative", "partial")])])
+    assert codes(check_rules(wrong, CAUSE)) == {RELATIVE_VERDICT_SIZE_FIT}
+
+
+def test_links_must_not_be_empty():
+    r = cause_report(factors=[factor(links=[])])
+    assert codes(check_schema(r)) == {LINKS_EMPTY}
+    # 판정표는 건너뛴다. 같은 원인을 두 번 세지 않는다.
+    assert not {VERDICT_SIZE_FIT, RELATIVE_VERDICT_SIZE_FIT} & codes(verify(r, CAUSE)[1])
+    no_links = factor()
+    del no_links["links"]
+    assert codes(check_schema(cause_report(factors=[no_links]))) == {SCHEMA_MISSING}
+
+
+def test_same_layer_twice_in_one_factor_fails():
+    r = cause_report(factors=[factor(links=[link("move"), link("move", "partial")])])
+    assert codes(check_schema(r)) == {LINK_LAYER_DUPLICATE}
+    assert not {VERDICT_SIZE_FIT, RELATIVE_VERDICT_SIZE_FIT} & codes(verify(r, CAUSE)[1])
+
+
+def test_link_note_cannot_be_empty():
+    r = cause_report(factors=[factor(links=[link(note="")])])
+    assert codes(check_schema(r)) == {SCHEMA_VALUE}
+    r = cause_report(factors=[factor(links=[link(note=None)])])
+    assert codes(check_schema(r)) == {SCHEMA_TYPE}
+
+
+def test_flat_rule_counts_factors_with_that_layer_link():
+    """±1% 날 상대 층 link 를 단 factor 는 move link 가 함께 있어도 FLAT_RELATIVE 에 걸린다."""
+    r = cause_report(relative_verdict="no_clear_cause",
+                     factors=[factor(links=[link("move"), link("relative")])])
+    problems = check_rules(r, with_market(excess_pct=-0.5))
+    assert codes(problems) == {FLAT_RELATIVE_FACTORS, RELATIVE_VERDICT_SIZE_FIT}
+    assert families_of(problems) == {FLAT_RELATIVE}
+
+
+def test_direction_is_checked_per_link_with_factor_stance():
+    """-1.8% 에 excess +1.4 인 날, 악재 하나를 두 층에 달면 relative link 만 어긋난다."""
+    src = msg_source(MARKET, 0, 20)
+    r = cause_report(date="2026-09-21", change_pct=-1.8, verdict="partially_explained",
+                     relative_verdict="partially_explained",
+                     factors=[factor(sources=[src], links=[link("move", "partial"),
+                                                           link("relative", "partial")])])
+    assert check_rules(r, MARKET) == [
+        f"{DIRECTION_MATCH_WRONG}: factors[0].links[1] layer=relative, stance=bearish, "
+        f"값 1.4 인데 direction_match=True"]
+
+
+def test_caps_apply_to_every_link():
+    indirect = [source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")]
+    r = cause_report(relative_verdict="explained",
+                     factors=[factor(sources=indirect, links=[link("move"), link("relative")])])
+    assert [p for p in check_rules(r, CAUSE) if code_of(p) == SIZE_FIT_OVER_CAP] == [
+        f"{SIZE_FIT_OVER_CAP}: factors[0].links[0] 간접 근거만 있는데 strength=sufficient",
+        f"{SIZE_FIT_OVER_CAP}: factors[0].links[1] 간접 근거만 있는데 strength=sufficient"]
+
+
+def test_sources_cap_counts_factor_once_regardless_of_links():
+    r = cause_report(factors=[factor(sources=[source()] * 3, links=[link("move"), link("relative")])])
+    assert check_grounding(r, CAUSE) == []
+
+
+def test_duplicate_sources_warning_needs_same_url_set():
+    a, b = source(), source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")
+    assert check_warnings(cause_report(factors=[factor(sources=[a]), factor(sources=[b])])) == []
+    assert check_warnings(cause_report(factors=[factor(sources=[a, b]), factor(sources=[a])])) == []
+    same = cause_report(factors=[factor(sources=[a, b]), factor(sources=[b, a])])
+    assert codes(check_warnings(same)) == {DUPLICATE_SOURCES}
+    assert check_warnings(None) == []
+
+
+# --- 이전 형식 ---------------------------------------------------------------
+
+
+def test_legacy_factor_is_normalized_to_one_link():
+    old = legacy_factor("partial", layer="relative", stance="bullish")
+    got = normalize_report(cause_report(factors=[old]))["factors"][0]
+    assert got["links"] == [{"layer": "relative", "note": None, "converted": True,
+                             "strength": "partial", "direction_match": True}]
+    assert got["event"] == old["claim"] and got["detail"] == old["detail"]
+    assert not {"claim", "layer", "size_fit", "direction_match"} & got.keys()
+
+
+def test_legacy_note_is_not_filled_from_detail():
+    """옛 detail 에는 사실과 판단이 섞여 있다. relative note 를 detail 로 채우지 않는다."""
+    old = legacy_factor(layer="relative", detail="같은 소식이 다른 대형주보다 강세의 배경이 됐습니다.")
+    link_ = normalize_report(cause_report(factors=[old]))["factors"][0]["links"][0]
+    assert link_["note"] is None and link_["converted"] is True
+
+
+def test_normalize_leaves_new_format_and_input_untouched():
+    r = cause_report()
+    assert normalize_report(r) is r
+    old = cause_report(factors=[legacy_factor()])
+    before = copy.deepcopy(old)
+    once = normalize_report(old)
+    assert old == before
+    assert normalize_report(once) == once
+
+
+def test_legacy_reports_verify_like_new_ones():
+    """이전 형식 보고서도 같은 규칙으로 판정한다. converted link 는 note 가 null 이어도 된다."""
+    assert verify(cause_report(factors=[legacy_factor()]), CAUSE) == ("passed", [])
+    flat = cause_report(change_pct=0.45, factors=[legacy_factor()])
+    payload = with_market(change=0.45, peer_median_pct=0.7, excess_pct=-0.25)
+    assert codes(check_rules(flat, payload)) == {FLAT_MOVE_VERDICT, FLAT_MOVE_FACTORS}
+    bad = cause_report(factors=[legacy_factor(size_fit="medium")])
+    assert check_schema(bad) == [
+        f"{SCHEMA_VALUE}: factors[0].links[0].strength='medium' (허용: sufficient|partial|insufficient)"]

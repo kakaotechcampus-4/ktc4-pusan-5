@@ -41,6 +41,7 @@ from app.services.stock_analysis.generate import (
 from app.services.stock_analysis.verify import (
     MOVE_CASES,
     check_events,
+    check_warnings,
     families_of,
     verify_wrapper,
 )
@@ -152,6 +153,8 @@ async def run(
         wrapper["verify_problems"] = problems
         # 검수용 events 칸. 판정(verify_status)과 섞지 않는다(verify.check_events).
         wrapper["events_status"], wrapper["events_problems"] = check_events(report)
+        # 실패는 아니지만 검수자가 볼 것(verify.check_warnings). 판정과 섞지 않는다.
+        wrapper["verify_warnings"] = check_warnings(report)
         out = run_dir / "parsed" / f"{run_id}.json"
         out.write_text(json.dumps(wrapper, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"  {status:6} {run_id} ({wrapper['json_status']}, "
@@ -186,6 +189,8 @@ async def run(
         # 검수용 events 칸의 상태별 건수. passed·failed 와 따로 센다.
         "events": {s: sum(w["events_status"] == s for w in wrappers)
                    for s in ("passed", "failed", "missing")},
+        # 경고가 하나라도 붙은 보고서 수. passed·failed 와 따로 센다.
+        "warned": sum(bool(w["verify_warnings"]) for w in wrappers),
         "loaded": None,
     }
 

@@ -13,7 +13,8 @@
 
 보고서는 두 층을 따로 판정한다. 등락 층(`layer: "move"`, `verdict`)은 종목 등락률의 부호,
 상대 층(`layer: "relative"`, `relative_verdict`)은 `excess_pct` 의 부호가 방향이다.
-층마다 절댓값이 1 이하면 그 층 판정은 `no_clear_cause` 이고 그 층 factor 는 없다.
+층마다 절댓값이 1 이하면 그 층 판정은 `no_clear_cause` 이고 그 층 link 를 가진 factor 는 없다.
+사건 하나는 factor 하나이고, 어느 층에 답하는지는 factor 의 `links` 로 단다.
 
 | 파일 | 케이스 |
 |---|---|
@@ -24,7 +25,7 @@
 | `sample_up_no_cause.json` | 재료 없이 오른 날(+0.54%, 중간값 -2.41%, `excess_pct` +2.95). 등락 층은 ±1% 이내, 상대 층은 종목 고유 재료가 없어 `factors` 는 비고 `not_found` 를 채운다 |
 | `sample_two_layers.json` | 덜 내린 하락일(-1.2%, 중간값 -2.41%, `excess_pct` +1.21). 업종 악재(간접)가 등락 층, 자사주 매입 호재(직접)가 상대 층 원인 |
 | `sample_more_down.json` | 시장보다 더 내린 날(-7.0%, 중간값 -1.5%, `excess_pct` -5.5). 업종 악재(간접)가 등락 층, 고객사 공급사 제외(직접)가 상대 층 원인. 두 층 모두 아래 |
-| `sample_big_up.json` | 크게 오르고 다른 대형주보다도 크게 오른 날(+6.5%, 중간값 -0.6%, `excess_pct` +7.1). 공급 계약 호재(직접) 하나가 `move`·`relative` 두 factor 로 들어가도 통과한다 |
+| `sample_big_up.json` | 크게 오르고 다른 대형주보다도 크게 오른 날(+6.5%, 중간값 -0.6%, `excess_pct` +7.1). 공급 계약 호재(직접) 하나가 factor 하나에 `move`·`relative` 두 link 로 들어간다. 층마다 factor 를 복제하면 통과하되 `DUPLICATE_SOURCES` 경고가 붙는다 |
 | `sample_market_share_down.json` | 하락 대부분이 시장 몫인 날(-3.57%, 중간값 -2.62%, `excess_pct` -0.95). 종목 고유 재료(직접, 공장 보수) 하나로 `move` 가 `sufficient` 면 `MOVE_SUFFICIENT_STOCK_ONLY`, `partial` 이면 통과. 상대 층은 ±1% 이내 |
 
 `sample_less_down.json`·`sample_up_no_cause.json`·`sample_two_layers.json`·`sample_more_down.json`·
