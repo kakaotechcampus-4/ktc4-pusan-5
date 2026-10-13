@@ -17,7 +17,10 @@ const MOCK_DELAY_MS = 500;
 
 function loadMockStockList(): Promise<StockListResponse> {
   return new Promise((resolve) => {
-    setTimeout(() => resolve({ items: mockStockList, asOf: mockStockListAsOf }), MOCK_DELAY_MS);
+    setTimeout(
+      () => resolve({ items: mockStockList, complete: true, asOf: mockStockListAsOf }),
+      MOCK_DELAY_MS,
+    );
   });
 }
 
@@ -49,8 +52,14 @@ export function useStockList() {
     let cancelled = false;
 
     loadStockList()
-      .then(({ items, asOf }) => {
-        if (!cancelled) setState({ status: 'success', items, asOf });
+      .then(({ items, complete, asOf }) => {
+        if (cancelled) return;
+        setState({ status: 'success', items, asOf });
+        if (!complete) {
+          alert(
+            '일부 종목 정보가 아직 준비되지 않았습니다. 새로고침 후에도 계속 보이지 않으면 운영팀에 문의해주세요.',
+          );
+        }
       })
       .catch(() => {
         if (!cancelled) setState({ status: 'error', items: [], asOf: null });

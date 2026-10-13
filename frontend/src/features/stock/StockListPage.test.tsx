@@ -27,7 +27,7 @@ const items: StockListItem[] = [
 const AS_OF = '2026-10-04T12:00:00+09:00';
 
 async function renderPage() {
-  listStocksRequest.mockResolvedValue({ items, asOf: AS_OF });
+  listStocksRequest.mockResolvedValue({ items, complete: true, asOf: AS_OF });
   render(
     <MemoryRouter>
       <StockListPage />
@@ -66,6 +66,21 @@ it('keeps the selected sector when the sort order changes', async () => {
   );
   expect(visibleNames()).toEqual(['삼성전자', 'SK하이닉스']);
   expect(screen.queryByText('1~10위')).toBeNull();
+});
+
+it('alerts when the catalog response is incomplete', async () => {
+  const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  listStocksRequest.mockResolvedValue({ items, complete: false, asOf: AS_OF });
+  render(
+    <MemoryRouter>
+      <StockListPage />
+    </MemoryRouter>,
+  );
+  await screen.findByRole('group', { name: '업종' });
+
+  expect(alertSpy).toHaveBeenCalledTimes(1);
+  expect(alertSpy.mock.calls[0][0]).toContain('일부 종목');
+  alertSpy.mockRestore();
 });
 
 it('shows the asOf time from the response next to the market cap ranking', async () => {
