@@ -154,3 +154,50 @@ async def test_search_rejects_empty_or_too_long_query():
         assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
     assert blank.status_code == 200
     assert blank.json() == {"query": "", "stocks": [], "concepts": []}
+
+
+async def test_search_ignores_whitespace_inside_query():
+    await _cleanup()
+    await _seed()
+    try:
+        async with _client() as client:
+            spaced = await client.get("/api/search", params={"q": "쿼카 전자"})
+            wide = await client.get("/api/search", params={"q": "쿼카   전자"})
+            exact = await client.get("/api/search", params={"q": "쿼  카"})
+            concept_name = await client.get("/api/search", params={"q": "쿼카 효과"})
+            concept_alias = await client.get("/api/search", params={"q": "웃는 동물"})
+        for resp in (spaced, wide):
+            assert [s["code"] for s in resp.json()["stocks"]] == ["9S0002"]
+        # 공백을 무시하고도 정확 일치("쿼카")가 맨 앞에 온다.
+        assert exact.json()["stocks"][0]["code"] == "9S0003"
+        for resp in (concept_name, concept_alias):
+            assert [c["slug"] for c in resp.json()["concepts"]] == [_CONCEPT_SLUG]
+        # 응답의 query 는 사용자가 입력한 값(양끝 공백만 제거) 그대로다.
+        assert wide.json()["query"] == "쿼카   전자"
+    finally:
+        await _cleanup()
+
+
+async def test_search_ignores_whitespace_inside_stored_name(monkeypatch):
+    spaced_code = "9S0007"
+    monkeypatch.setattr(search_router, "MVP_CODES", frozenset({spaced_code}))
+    await _cleanup()
+    async with SessionLocal() as session:
+        session.add(
+            Stock(
+                code=spaced_code,
+                name="쿼카 시스템",
+                market="KOSPI",
+                listing_status="listed",
+                synced_at=datetime.now(UTC),
+            )
+        )
+        await session.commit()
+    try:
+        async with _client() as client:
+            joined = await client.get("/api/search", params={"q": "쿼카시스템"})
+            spaced = await client.get("/api/search", params={"q": "쿼카  시스템"})
+        for resp in (joined, spaced):
+            assert [s["code"] for s in resp.json()["stocks"]] == [spaced_code]
+    finally:
+        await _cleanup()
