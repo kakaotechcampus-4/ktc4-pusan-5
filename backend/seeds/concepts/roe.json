@@ -29,7 +29,16 @@
       "question": "ROE는 부채 규모와 무관하게 결정된다.",
       "answer": false,
       "explanation": "레버리지로 부풀려질 수 있습니다."
+    },
+    {
+      "question": "ROE는 순이익을 총자산으로 나눈 비율이다.",
+      "answer": false,
+      "explanation": "ROE는 순이익을 자기자본으로 나눈 비율입니다."
     }
   ],
-  "sources": []
+  "sources": [
+    "한국은행 「경제금융용어 800선」(2026) '자기자본이익률(ROE)' 항목 https://www.bok.or.kr/portal/bbs/B0000249/view.do?nttId=10096081&menuNo=200765",
+    "기획재정부 「시사경제용어사전」 'ROE/ROI' 항목 https://www.data.go.kr/data/15006052/fileData.do",
+    "한국거래소 「기업가치제고계획 가이드라인 해설서」(2024.5) https://kind.krx.co.kr/external/dst/valueupNotice/11058/[%EB%B3%84%EC%B2%A82]%20%EA%B8%B0%EC%97%85%EA%B0%80%EC%B9%98%20%EC%A0%9C%EA%B3%A0%20%EA%B3%84%ED%9A%8D%20%EA%B0%80%EC%9D%B4%EB%93%9C%EB%9D%BC%EC%9D%B8%20%ED%95%B4%EC%84%A4%EC%84%9C.pdf"
+  ]
 }

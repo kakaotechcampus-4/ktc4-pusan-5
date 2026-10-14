@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 20160  # 14일
     cookie_secure: bool = True  # 로컬 http 개발 환경에서만 .env 로 false 로 내린다
 
+    # 로컬 개발용 테스트 로그인(/api/auth/test-login). 운영 환경에서는 true로 두지 말 것
+    enable_test_login: bool = False
+
 
 
 settings = Settings()
