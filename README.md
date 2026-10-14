@@ -36,8 +36,9 @@ uv run uvicorn app.main:app --reload  # http://localhost:8000
 ```bash
 cd backend
 uv run python -m app.collectors.market --loop   # 시세, 지수, 랭킹, 재무 관련 수집. --loop 없으면 한번만 수집함
-uv run python -m app.collectors.news             # 뉴스
 ```
+
+뉴스 수집은 `ai/` 로 옮겼다. 실행 방법과 전환 절차는 `ai/README.md` 를 본다.
 
 - 수집기는 KIS·KRX·DART·FRED 관련
 - `.env`에 키가 비어 있는 항목은 `notConfigured`/에러로만 표시되고 나머지 수집은 정상 동작함

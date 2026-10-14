@@ -5,7 +5,7 @@ import ipaddress
 import pytest
 
 from app.services.news_link import fetch
-from tests.test_migrations import database  # noqa: F401
+from tests.test_migrations import database, empty_database  # noqa: F401
 
 # 가짜 DNS 가 모르는 호스트에 돌려주는 공개 IP (example.com 의 것).
 PUBLIC_IP = "93.184.216.34"

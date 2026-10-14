@@ -142,3 +142,20 @@ def test_telegram_waits_for_inflight_naver_insert(database):
             await engine.dispose()
     asyncio.run(work())
     assert [r[0] for r in query(database, "SELECT source FROM analyst_reports")] == ["naver"]
+
+
+def test_purged_report_body_is_not_restored_by_naver_recollection(database):
+    """보관 정책으로 지운 PDF 본문은 네이버를 다시 수집해도 채우지 않는다."""
+    alembic(database, "upgrade", "head")
+    naver = report(source="naver", category="company", pdf_sha256="b" * 64)
+    save(database, [naver])
+    query(database, """
+        UPDATE analyst_reports SET body_text = NULL, body_status = 'purged', purged_at = now(),
+                                   purge_reason = '보관 정책'
+    """)
+
+    save(database, [{**naver, "body_text": "다시 받은 본문", "read_count": 7}])
+
+    [row] = query(database, "SELECT body_text, body_status, purge_reason, read_count "
+                            "FROM analyst_reports")
+    assert tuple(row) == (None, "purged", "보관 정책", 7), "조회 수 같은 목록 정보만 갱신한다"
