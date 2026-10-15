@@ -5,6 +5,9 @@
 리포트를 못 찾는데 원인은 안 보이는 상태가 된다.
 """
 
+from typing import Literal
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +42,93 @@ class Settings(BaseSettings):
     # 기본 모델은 고강도 추론이 기본값이다. 짧은 요약에는 low로 시간을 제한한다.
     summary_reasoning_effort: str | None = "low"
     summary_timeout_sec: float = 180.0
+
+    # LLM 을 어디로 보내나. **기본은 openrouter 다** — 이 줄이 없는 .env 는 동작이 안 바뀐다.
+    #   openrouter  OPENROUTER_API_KEY 로 보낸다. 비용은 응답의 usage.cost 를 쓴다
+    #   elice       카카오테크캠퍼스 Elice ML API(팀 예산). LLM_BASE_URL·LLM_API_KEY 로 보낸다
+    #
+    # Elice 는 목록에 없는 매개변수를 무시하지 않고 400 으로 거절한다. OpenRouter 전용인
+    # max_tokens·reasoning 을 그대로 보내면 안 되는 이유다(client.py 가 형식을 가른다).
+    llm_provider: Literal["openrouter", "elice"] = "openrouter"
+    # 모델마다 주소가 따로 있다. 모델 페이지 예시 코드의 https://mlapi.run/<ID> 에 /v1 을 붙인다.
+    # ID 없는 https://mlapi.run/v1 로 보내면 500 이 난다(2026-09-25 확인).
+    llm_base_url: str | None = None
+    llm_api_key: str | None = None
+    # Elice 는 응답에 비용을 주지 않는다. 모델 페이지의 1M 토큰당 단가로 계산하는데,
+    # **사이트가 원화로 표시한다**(gemini·luna 모두, 2026-09-28 확인). 달러로 환산하지 않고
+    # 원화 그대로 받아 비용도 원화로 남긴다 — 팀 예산이 원화로 청구돼서, 환율을 거치면
+    # 청구액과 맞춰 볼 수 없고 환율이 바뀔 때마다 어긋난다.
+    # 기본값을 두지 않는다. 모델마다 단가가 달라 틀린 기본값은 조용히 틀린 비용을 만든다.
+    # 비어 있으면 require_elice 가 호출 전에 멈춘다. 모델을 바꾸면 같이 바꾼다.
+    llm_input_krw_per_m: float | None = None
+    llm_output_krw_per_m: float | None = None
+    # 캐시 읽기·쓰기 단가. 모델 페이지에 따로 있으면 옮겨 적는다. 비우면 입력 단가로 계산한다 —
+    # 캐시 읽기는 보통 입력보다 싸므로 실제보다 비싸게 잡힌다(틀려도 적게 잡히지는 않는 쪽).
+    # 래퍼의 cost_rates 에 어느 단가를 썼는지 남는다.
+    llm_cache_read_krw_per_m: float | None = None
+    llm_cache_write_krw_per_m: float | None = None
+    # OpenRouter 는 응답에 usage.cost 를 주므로 평소엔 안 쓴다. 없을 때의 추정 단가다.
+    # deepseek-v4-flash-0731 기준. 302건 돌렸을 때 $0.71 이 나왔고 실제 청구액과 자릿수가 맞았다.
+    openrouter_input_usd_per_m: float = 0.06
+    openrouter_output_usd_per_m: float = 0.12
+    # 종목 변동 요인 보고서를 스트리밍으로 받나. 비우면 Elice 일 때만 켠다(stock_analysis_streams).
+    # Elice 프록시는 비스트리밍 응답의 max_completion_tokens 를 2000 까지만 받고 넘으면 400 이다.
+    # 스트리밍은 그 상한이 없다(2026-10-09 확인). 리포트 요약(analyst)은 이 값을 보지 않는다.
+    stock_analysis_stream: bool | None = None
+    # 호출 쪽이 값을 안 넘길 때 쓰는 temperature. 0.2 인 이유는 client.complete() 참고.
+    # 추론 모델 중에는 기본값(1) 말고는 400 으로 거절하는 것이 있다(Elice luna).
+    # 그런 모델은 .env 에 `LLM_TEMPERATURE=` 로 비워 두면 요청에서 필드를 아예 뺀다.
+    llm_temperature: float | None = 0.2
+
+    @field_validator("stock_analysis_stream", mode="before")
+    @classmethod
+    def _blank_stream_is_auto(cls, value: object) -> object:
+        # `STOCK_ANALYSIS_STREAM=` 로 비워 두면 프로바이더에 따른 기본값을 쓴다.
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    def stock_analysis_streams(self) -> bool:
+        if self.stock_analysis_stream is not None:
+            return self.stock_analysis_stream
+        return self.llm_provider == "elice"
+
+    @field_validator("llm_temperature", mode="before")
+    @classmethod
+    def _blank_temperature_is_none(cls, value: object) -> object:
+        # 빈 문자열은 float 로 못 읽어 설정 로딩이 통째로 죽는다. "보내지 않는다" 는 뜻으로 받는다.
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    def require_elice(self) -> tuple[str, str]:
+        """(주소, 키). 빠진 게 있으면 무엇을 채울지 알려주고 멈춘다."""
+        missing = [name.upper() for name in ("llm_base_url", "llm_api_key")
+                   if not (getattr(self, name) or "").strip()]
+        missing += [name.upper() for name in ("llm_input_krw_per_m", "llm_output_krw_per_m")
+                    if getattr(self, name) is None]
+        if missing:
+            raise RuntimeError(
+                "LLM_PROVIDER=elice 인데 설정이 없다: " + ", ".join(missing)
+                + "\n  ai/.env 에 넣는다. 주소는 모델 페이지 예시 코드의 https://mlapi.run/<ID>/v1 이다."
+                + "\n  단가는 모델 페이지의 1M 토큰당 원화 금액이다. 예전 LLM_*_USD_PER_M 은 더 읽지 않는다."
+            )
+        return self.llm_base_url.strip().rstrip("/"), self.llm_api_key.strip()
+
+    def token_rates(self) -> dict[str, float]:
+        """지금 프로바이더의 1M 토큰당 단가. 통화는 client.cost_currency() 다.
+
+        단가는 여기서만 읽는다. 캐시 단가가 비어 있으면 입력 단가를 쓴다(위 설정 주석 참고).
+        Elice 입력·출력 단가가 비어 있으면 0 이지만, 그 상태로는 require_elice 가 호출 전에 멈춘다.
+        """
+        if self.llm_provider == "elice":
+            inp, out = self.llm_input_krw_per_m or 0.0, self.llm_output_krw_per_m or 0.0
+            read, write = self.llm_cache_read_krw_per_m, self.llm_cache_write_krw_per_m
+        else:
+            inp, out = self.openrouter_input_usd_per_m, self.openrouter_output_usd_per_m
+            read = write = None
+        return {"input": inp, "cache_read": inp if read is None else read,
+                "cache_write": inp if write is None else write, "output": out}
 
     def require_openrouter(self) -> str:
         if not self.openrouter_api_key:
