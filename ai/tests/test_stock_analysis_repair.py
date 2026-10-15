@@ -1,18 +1,21 @@
-"""quote 고쳐 쓰기(repair)와 issue_trace 참조 검사. complete() 를 바꿔 끼워 API 를 부르지 않는다."""
+"""quote 고쳐 쓰기(repair)·main_cause 다시 쓰기와 issue_trace 검사. complete() 를 바꿔 끼워 API 를 부르지 않는다."""
 
 import json
 from unittest.mock import AsyncMock
 
 import pytest
 
+from app.llm.client import LLMError
 from app.services.stock_analysis import repair
 from app.services.stock_analysis.verify import (
     ISSUE_ID_UNKNOWN,
+    ISSUE_TRACE_MISSING_URL,
     ISSUE_UNREFERENCED,
     QUOTE_VERIFY_FAIL,
     check_events,
     check_issue_trace,
     code_of,
+    issue_trace_stats,
 )
 
 URL = "https://t.me/ch/1"
@@ -98,3 +101,72 @@ def test_issue_trace_unknown_id_and_missing_trace():
     assert [code_of(w) for w in check_issue_trace(trace(("i1", "direct")), r)] == [ISSUE_ID_UNKNOWN]
     assert check_issue_trace(None, r) == []
     assert check_issue_trace(trace(("i1", "direct")), None) == []
+
+
+def test_issue_trace_missing_input_url_warns_and_is_counted():
+    payload = {"messages": [{"url": URL}, {"url": "https://t.me/ch/2"}, {"url": "https://t.me/ch/3"}]}
+    r = {"events": [{"issue_ids": ["i1"]}]}
+    warnings = check_issue_trace(trace(("i1", "direct")), r, payload)
+    assert [code_of(w) for w in warnings] == [ISSUE_TRACE_MISSING_URL] * 2
+    assert "ch/2" in warnings[0] and "ch/3" in warnings[1]
+    stats = issue_trace_stats(trace(("i1", "direct")), r, payload)
+    assert (stats["messages_traced"], stats["messages_total"]) == (1, 3)
+
+
+def test_market_issue_is_not_warned_but_counted_when_unreferenced():
+    t = trace(("i1", "direct"), ("i2", "market"), ("i3", "market"))
+    r = {"events": [{"issue_ids": ["i1", "i2"]}]}
+    assert check_issue_trace(t, r, {"messages": [{"url": URL}]}) == []
+    stats = issue_trace_stats(t, r, {"messages": [{"url": URL}]})
+    assert stats["market_unreferenced"] == 1
+    assert stats["relations"] == {"direct": 1, "market": 2}
+    assert issue_trace_stats(None, r, {"messages": []}) is None
+
+
+def cause_report():
+    """factors[0] 은 quote 가 원문에 없는 move factor, factors[1] 은 멀쩡한 move factor."""
+    r = report("규제 대상으로 장비로 명시")
+    r["verdict"] = "explained"
+    r["summary"] = {"main_cause": "행정명령과 다른 사건 때문입니다."}
+    return r
+
+
+def answers(*texts):
+    return [(t, USAGE) for t in texts]
+
+
+async def test_main_cause_is_rewritten_when_move_factor_is_dropped(fake_complete):
+    r = cause_report()
+    fake_complete.side_effect = answers(json.dumps({"event": "x", "sources": [source("없는 문장")]}),
+                                        json.dumps({"main_cause": "다른 사건 때문입니다."}))
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    assert records[0]["layers"] == ["move"]
+    rewrite = await repair.rewrite_main_cause(r, records, stream=True)
+    assert rewrite["result"] == "rewritten"
+    assert (rewrite["before"], rewrite["after"]) == ("행정명령과 다른 사건 때문입니다.", "다른 사건 때문입니다.")
+    assert r["summary"]["main_cause"] == "다른 사건 때문입니다."
+    # 남은 근거만 넘긴다. 뺀 factor 는 dropped 에 사건 이름만 간다.
+    sent = json.loads(fake_complete.await_args_list[1].args[1])
+    assert [f["event"] for f in sent["remaining_factors"]] == ["다른 사건"]
+    assert sent["dropped"] == ["행정명령"]
+
+
+@pytest.mark.parametrize("reply", [LLMError("HTTP 500"), ("다시 쓸 수 없습니다", USAGE)])
+async def test_failed_main_cause_rewrite_keeps_text_and_reports_failure(fake_complete, reply):
+    r = cause_report()
+    fake_complete.side_effect = [(json.dumps({"event": "x", "sources": [source("없는 문장")]}), USAGE), reply]
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    rewrite = await repair.rewrite_main_cause(r, records, stream=True)
+    assert rewrite["result"] == "failed" and rewrite["error"]
+    assert r["summary"]["main_cause"] == "행정명령과 다른 사건 때문입니다."
+
+
+async def test_main_cause_is_left_alone_without_dropped_move_factor(fake_complete):
+    r = cause_report()
+    r["factors"][0]["links"] = [{"layer": "relative", "strength": "partial"}]
+    fake_complete.return_value = (json.dumps({"event": "x", "sources": [source("없는 문장")]}), USAGE)
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    assert records[0]["result"] == "dropped"
+    assert await repair.rewrite_main_cause(r, records, stream=True) is None
+    assert await repair.rewrite_main_cause(r, [], stream=True) is None
+    assert fake_complete.await_count == 1

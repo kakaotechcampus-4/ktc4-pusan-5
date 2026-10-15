@@ -8,8 +8,10 @@ quote 가 그 url 메시지 원문에 있는지 보고, 없으면 실패한 quot
 고쳐 쓴 결과에서 받는 칸은 event·detail·sources 뿐이다. stance·unconfirmed·links 는 원래 값을
 둔다 — quote 를 고치다가 판정(strength·층)이 바뀌면 verdict 표 검증과 어긋난다.
 
-factor 를 빼도 summary 문장은 고치지 않는다. 뺀 factor 를 summary 가 아직 말하고 있을 수 있어
-기록(quote_repair[].summary_may_mention)에 남긴다.
+factor 를 빼도 repair_quotes 는 summary 문장을 고치지 않는다. 뺀 factor 에 등락 층(move) link 가
+있었으면 rewrite_main_cause 가 남은 근거만으로 summary.main_cause 를 한 번 다시 쓰게 한다. 다시 쓰지
+못하면 러너가 MAIN_CAUSE_STALE 경고를 남긴다. relative·counter 등 다른 summary 칸은 고치지 않고
+기록(quote_repair[].summary_may_mention)에만 남긴다.
 """
 
 import json
@@ -21,8 +23,11 @@ from app.services.stock_analysis.verify import (
     QUOTE_NOT_IN_SOURCE,
     QUOTE_VERIFY_FAIL,
     _check_source,
+    _factors,
+    _links,
     _messages,
     _sources,
+    normalize_report,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,6 +42,8 @@ REPAIR_SYSTEM = """\
 아래 원문 메시지에서 **글자 그대로 복사한** 40자 이내 quote 로 바꾸세요. 띄어쓰기 말고는 한 글자도
 바꾸면 안 됩니다. 원문에서 그 사건을 뒷받침하는 문장을 찾을 수 없으면 event·detail 을 원문에 있는
 내용으로 좁혀 쓰세요. 원문에 없는 내용을 새로 만들지 않습니다.
+괄호 속 영문 약어(예: "(AI)")는 빼고 옮겨도 됩니다. 원문의 말을 약어로 바꿔 쓰면 안 됩니다
+(원문 "인공지능(AI) 산업" → O "인공지능 산업", X "AI 산업").
 
 출력은 JSON 객체 하나입니다. 첫 글자는 `{`, 마지막 글자는 `}` 입니다. 코드펜스·설명 금지.
 {"event": "...", "detail": "...", "sources": [{"channel": "", "url": "", "datetime_kst": "", "quote": "", "match": "direct|indirect", "is_market_recap": false}]}
@@ -68,6 +75,12 @@ def _parse_factor(text: str) -> dict[str, Any] | None:
     if not isinstance(parsed, dict) or not isinstance(parsed.get("sources"), list) or not parsed["sources"]:
         return None
     return parsed
+
+
+def _layers(factor: dict[str, Any]) -> list[Any]:
+    """factor 가 link 를 단 층. 이전 형식(layer 문자열)도 편다."""
+    normalized = normalize_report({"factors": [factor]})
+    return [x.get("layer") for f in _factors(normalized) for x in _links(f)]
 
 
 def _drop(report: dict[str, Any], index: int) -> None:
@@ -109,6 +122,7 @@ async def repair_quotes(
         if not failures:
             continue
         record: dict[str, Any] = {"factor_index": i, "event": factor.get("event"),
+                                  "layers": _layers(factor),
                                   "failed": failures, "usage": None, "cost": 0.0, "error": None}
         rewritten = None
         try:
@@ -143,4 +157,80 @@ async def repair_quotes(
     return records
 
 
-__all__ = ["REPAIR_SYSTEM", "quote_failures", "repair_quotes"]
+MAIN_CAUSE_SYSTEM = """\
+주가 변동 보고서의 summary.main_cause 한 칸을 다시 씁니다.
+
+보고서를 쓴 뒤 근거(factor) 일부가 출처 확인에 실패해 빠졌습니다(dropped). 지금 main_cause 는 빠진
+근거를 아직 말하고 있을 수 있습니다. **남은 근거(remaining_factors)만으로** main_cause 를 다시 쓰세요.
+
+- 남은 근거에 없는 내용은 쓰지 않습니다. 빠진 근거의 내용은 한 마디도 남기지 않습니다.
+- 최대 3문장, 줄글입니다. 등락 층 link(move_link)의 strength 가 높은 것부터 씁니다.
+  strength 가 insufficient 인 근거는 넣지 않습니다.
+- partial 이상인 근거가 하나도 없으면 그 사실을 적습니다. 남은 근거가 하나도 없으면
+  "제공된 메시지에서 확인된 원인은 없습니다." 로 적습니다.
+- 간접 근거(sources 의 match 가 모두 indirect)나 미확인(unconfirmed: true)에서 온 원인은
+  추정·미확인임이 드러나게 씁니다("…가 부담이 됐을 수 있습니다").
+- 지금 main_cause 의 문장 중 남은 근거를 말하는 부분은 표현을 되도록 그대로 둡니다.
+- 방향이 반대인 재료를 섞지 않습니다.
+
+출력은 JSON 객체 하나입니다. 첫 글자는 `{`, 마지막 글자는 `}` 입니다. 코드펜스·설명 금지.
+{"main_cause": "..."}
+"""
+
+
+def _main_cause_user(report: dict[str, Any], dropped: list[dict[str, Any]]) -> str:
+    remaining = []
+    for f in _factors(normalize_report(report)):
+        move = next((x for x in _links(f) if x.get("layer") == "move"), None)
+        if move is None:
+            continue
+        remaining.append({"event": f.get("event"), "detail": f.get("detail"),
+                          "stance": f.get("stance"), "unconfirmed": f.get("unconfirmed"),
+                          "source_matches": [s.get("match") for s in _sources(f)],
+                          "move_link": {"note": move.get("note"), "strength": move.get("strength")}})
+    return json.dumps({"verdict": report.get("verdict"),
+                       "main_cause": report["summary"]["main_cause"],
+                       "dropped": [r.get("event") for r in dropped],
+                       "remaining_factors": remaining}, ensure_ascii=False, indent=2)
+
+
+async def rewrite_main_cause(
+    report: dict[str, Any], records: list[dict[str, Any]], *, stream: bool, run_id: str = ""
+) -> dict[str, Any] | None:
+    """repair_quotes 가 등락 층 link 를 가진 factor 를 뺐으면 main_cause 를 한 번 다시 쓰게 한다.
+
+    report 를 제자리에서 고친다. 할 일이 없으면 None, 있으면 기록(래퍼 main_cause_rewrite 칸)을
+    돌려준다. result 가 rewritten 이 아니면 main_cause 는 그대로이고 러너가 MAIN_CAUSE_STALE 을 단다.
+    """
+    dropped = [r for r in records if r.get("result") == "dropped" and "move" in (r.get("layers") or [])]
+    if not dropped:
+        return None
+    record: dict[str, Any] = {"result": "failed", "dropped": [r.get("event") for r in dropped],
+                              "before": None, "after": None, "usage": None, "cost": 0.0, "error": None}
+    summary = report.get("summary")
+    if not isinstance(summary, dict) or not isinstance(summary.get("main_cause"), str):
+        record["error"] = "summary.main_cause 가 없다"
+        return record
+    record["before"] = summary["main_cause"]
+    try:
+        text, usage = await complete(MAIN_CAUSE_SYSTEM, _main_cause_user(report, dropped),
+                                     max_tokens=REPAIR_MAX_TOKENS, stream=stream)
+    except (LLMError, StreamInterrupted) as exc:
+        logger.warning("%s: main_cause 다시 쓰기 실패: %s", run_id, exc)
+        record["error"] = str(exc)
+        return record
+    record["usage"] = usage
+    record["cost"], _ = cost_detail(usage)
+    from app.services.stock_analysis.generate import extract_json  # 순환 import 를 피한다
+
+    _, parsed, _ = extract_json(text)
+    after = parsed.get("main_cause") if isinstance(parsed, dict) else None
+    if not isinstance(after, str) or not after.strip():
+        record["error"] = "다시 쓴 응답에서 main_cause 를 읽지 못함"
+        return record
+    summary["main_cause"] = after
+    record.update(result="rewritten", after=after)
+    return record
+
+
+__all__ = ["MAIN_CAUSE_SYSTEM", "REPAIR_SYSTEM", "quote_failures", "repair_quotes", "rewrite_main_cause"]

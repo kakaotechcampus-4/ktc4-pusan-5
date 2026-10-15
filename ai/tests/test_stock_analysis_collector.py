@@ -290,3 +290,38 @@ async def test_stock_only_material_is_capped_on_market_share_day(monkeypatch, tm
     monkeypatch.setattr(collector, "endpoint", MagicMock(return_value=("url", "key")))
     result = await collector.run(path, out_root=tmp_path)
     assert result["reasons"] == reasons
+
+
+async def test_dropped_move_factor_without_rewrite_warns_main_cause_stale(monkeypatch, tmp_path):
+    """quote 고쳐 쓰기와 main_cause 다시 쓰기가 둘 다 실패하면 factor 는 빠지고 MAIN_CAUSE_STALE 경고가
+    붙는다. issue_trace 숫자(오른 메시지 / 입력 메시지)도 래퍼와 집계에 남는다."""
+    from app.llm.client import LLMError
+    from app.services.stock_analysis import repair
+
+    path = FIXTURES / "sample_big_up.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    good = _factor(payload, 0, "move", "sufficient")
+    bad = {**good, "claim": "없는 사건",
+           "sources": [{**good["sources"][0], "quote": "원문에 없는 문장"}]}
+
+    async def fake(system, user, **_):
+        report = report_for(json.loads(user))
+        report["factors"] = [bad, good]
+        report["issue_trace"] = [{"url": payload["messages"][0]["url"],
+                                  "issues": [{"id": "i1", "issue": "x", "relation": "market"}]}]
+        return json.dumps(report, ensure_ascii=False), {"cost": 0.01}
+
+    monkeypatch.setattr(gen, "complete", AsyncMock(side_effect=fake))
+    monkeypatch.setattr(repair, "complete", AsyncMock(side_effect=LLMError("HTTP 500")))
+    monkeypatch.setattr(collector, "endpoint", MagicMock(return_value=("url", "key")))
+    result = await collector.run(path, out_root=tmp_path)
+
+    wrapper = json.loads(next((only_run_dir(tmp_path) / "parsed").glob("*.json"))
+                         .read_text(encoding="utf-8"))
+    assert wrapper["main_cause_rewrite"]["result"] == "failed"
+    assert [w.split(":")[0] for w in wrapper["verify_warnings"]] == ["MAIN_CAUSE_STALE"]
+    total = len(payload["messages"])
+    assert wrapper["issue_trace_stats"]["messages_traced"] == 1
+    assert wrapper["issue_trace_stats"]["market_unreferenced"] == 1
+    assert [w.split(":")[0] for w in wrapper["issue_trace_warnings"]] == ["ISSUE_TRACE_MISSING_URL"] * (total - 1)
+    assert result["issue_trace_messages"] == {"traced": 1, "total": total}

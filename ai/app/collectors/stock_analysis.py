@@ -38,13 +38,15 @@ from app.services.stock_analysis.generate import (
     prompt_sha256,
     report_of,
 )
-from app.services.stock_analysis.repair import repair_quotes
+from app.services.stock_analysis.repair import repair_quotes, rewrite_main_cause
 from app.services.stock_analysis.verify import (
+    MAIN_CAUSE_STALE,
     MOVE_CASES,
     check_events,
     check_issue_trace,
     check_warnings,
     families_of,
+    issue_trace_stats,
     verify_wrapper,
 )
 
@@ -150,6 +152,12 @@ async def run(
             # quote 가 원문에 없는 factor 는 검증 전에 한 번 고쳐 쓰게 하고, 그래도 없으면 뺀다.
             if report is not None:
                 repairs = await repair_quotes(report, payload, stream=wrapper["stream"], run_id=run_id)
+                # 등락 층 근거가 빠졌으면 남은 근거로 main_cause 를 한 번 다시 쓰게 한다.
+                rewrite = await rewrite_main_cause(report, repairs, stream=wrapper["stream"],
+                                                   run_id=run_id)
+                if rewrite is not None:
+                    wrapper["main_cause_rewrite"] = rewrite
+                    wrapper["cost"] += rewrite["cost"]
                 if repairs:
                     wrapper["quote_repair"] = repairs
                     wrapper["cost"] += sum(r["cost"] for r in repairs)
@@ -164,8 +172,16 @@ async def run(
         wrapper["events_status"], wrapper["events_problems"] = check_events(report)
         # 실패는 아니지만 검수자가 볼 것(verify.check_warnings). 판정과 섞지 않는다.
         wrapper["verify_warnings"] = check_warnings(report)
-        # direct·sector 이슈가 events 어디에도 없으면 경고만 남긴다. 판정과 섞지 않는다.
-        wrapper["issue_trace_warnings"] = check_issue_trace(wrapper.get("issue_trace"), report)
+        rewrite = wrapper.get("main_cause_rewrite")
+        if rewrite is not None and rewrite["result"] != "rewritten":
+            wrapper["verify_warnings"].append(
+                f"{MAIN_CAUSE_STALE}: 등락 층 근거 {rewrite['dropped']} 를 뺐는데 main_cause 를 다시 "
+                f"쓰지 못했다 ({rewrite['error']})")
+        # 입력 메시지가 issue_trace 에서 빠졌거나 direct·sector 이슈가 events 어디에도 없으면
+        # 경고만 남긴다. 판정과 섞지 않는다. market 이슈는 경고 없이 stats 에서만 센다.
+        trace = wrapper.get("issue_trace")
+        wrapper["issue_trace_warnings"] = check_issue_trace(trace, report, payload)
+        wrapper["issue_trace_stats"] = issue_trace_stats(trace, report, payload)
         out = run_dir / "parsed" / f"{run_id}.json"
         out.write_text(json.dumps(wrapper, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"  {status:6} {run_id} ({wrapper['json_status']}, "
@@ -202,6 +218,10 @@ async def run(
                    for s in ("passed", "failed", "missing")},
         # 경고가 하나라도 붙은 보고서 수. passed·failed 와 따로 센다.
         "warned": sum(bool(w["verify_warnings"]) for w in wrappers),
+        # issue_trace 에 오른 메시지 수 / 입력 메시지 수. issue_trace 가 있는 보고서만 더한다.
+        "issue_trace_messages": {
+            k: sum(w["issue_trace_stats"][f"messages_{k}"] for w in wrappers if w["issue_trace_stats"])
+            for k in ("traced", "total")},
         "loaded": None,
     }
 
@@ -233,6 +253,8 @@ async def run(
         for c, n in move_cases.items()))
     print("events 검사 (판정과 별도): "
           + ", ".join(f"{s}={n}" for s, n in result["events"].items()))
+    traced = result["issue_trace_messages"]
+    print(f"issue_trace 에 오른 메시지: {traced['traced']} / 입력 {traced['total']}")
     return result
 
 

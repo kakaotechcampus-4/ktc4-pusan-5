@@ -19,6 +19,7 @@ LLM 을 부르지 않는다. 모델에게 "네 인용이 맞느냐" 를 물으�
 검증기가 프롬프트보다 너그러우면 위반이 통과하고, 엄격하면 멀쩡한 보고서가 떨어진다.
 """
 
+import re
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -54,6 +55,9 @@ EVENT_REASONS = ("no_change", "mechanism_only", "schedule_only", "off_topic", "o
 QUOTE_VERIFY_FAIL = "quote_verify_fail"
 # direct·sector 이슈 — events 의 issue_ids 로 반드시 어딘가에 기록돼야 하는 관련(2부 1단계 1-2).
 RELATED_ISSUE_RELATIONS = ("direct", "sector")
+# 시장 전체(지수·수급·거시 지표) 이슈. 다음 단계로 가져가지만 events 에 꼭 남길 필요는 없어
+# ISSUE_UNREFERENCED 에서 뺀다. 참조되지 않은 수만 issue_trace_stats() 가 따로 센다.
+MARKET_ISSUE_RELATION = "market"
 # reason 을 쓰는 곳. dropped 는 반드시 쓰고, background 는 factors 상한에 밀려 온 것(over_cap)만 쓴다.
 # 나머지 placed 는 reason 칸을 뺀다.
 EVENT_REASON_BY_PLACEMENT = {"dropped": EVENT_REASONS, "background": ("over_cap",)}
@@ -151,6 +155,11 @@ DUPLICATE_SOURCES = "DUPLICATE_SOURCES"
 ISSUE_UNREFERENCED = "ISSUE_UNREFERENCED"
 # events 의 issue_ids 가 issue_trace 에 없는 id 를 가리킨다.
 ISSUE_ID_UNKNOWN = "ISSUE_ID_UNKNOWN"
+# 입력 메시지 url 이 issue_trace 에 없다. 1-1 에서 그 메시지를 건너뛴 것이다(메시지가 많을 때).
+ISSUE_TRACE_MISSING_URL = "ISSUE_TRACE_MISSING_URL"
+# 생성 뒤 처리(quote 고쳐 쓰기 실패로 factor 를 뺌)로 등락 층 근거가 빠졌는데 summary.main_cause 를
+# 다시 쓰지 못했다. main_cause 가 뺀 근거를 아직 말하고 있을 수 있다(repair.rewrite_main_cause).
+MAIN_CAUSE_STALE = "MAIN_CAUSE_STALE"
 
 
 def code_of(problem: str) -> str:
@@ -755,6 +764,23 @@ def normalize_ws(text: str) -> str:
     return " ".join(text.split())
 
 
+# 괄호 안이 영문·숫자뿐인 짧은 약어. "(AI)", "(FE)", "(HBM4)" 처럼 앞말을 줄여 병기한 것이다.
+# 영문이 한 글자는 있어야 한다 — "(2)", "(2026)" 같은 번호·숫자는 약어가 아니라 내용이라 남긴다.
+_ABBR_PAREN = re.compile(r"\((?=[A-Za-z0-9]*[A-Za-z])[A-Za-z0-9]{1,10}\)")
+
+
+def normalize_quote(text: str) -> str:
+    """quote 대조용 정규화. 원문과 quote **양쪽에 똑같이** 적용한다.
+
+    1. 괄호 안이 영문·숫자로 된 짧은 약어면 괄호째 뺀다("인공지능(AI) 산업" → "인공지능 산업").
+    2. 공백을 정리한다(normalize_ws).
+
+    이것 말고는 손대지 않는다. 유사도·부분 일치는 허용하지 않는다 — 단어를 바꾸거나 빼거나
+    더한 quote 는 여전히 떨어진다.
+    """
+    return normalize_ws(_ABBR_PAREN.sub("", text))
+
+
 def _messages(payload: dict[str, Any]) -> list[dict[str, Any]]:
     messages = payload.get("messages")
     return [m for m in messages if isinstance(m, dict)] if isinstance(messages, list) else []
@@ -770,10 +796,10 @@ def _haystack(messages: list[dict[str, Any]]) -> list[str]:
     texts = []
     for m in messages:
         if isinstance(m.get("text"), str):
-            texts.append(normalize_ws(m["text"]))
+            texts.append(normalize_quote(m["text"]))
         for b in _link_bodies(m):
             if isinstance(b.get("excerpt"), str):
-                texts.append(normalize_ws(b["excerpt"]))
+                texts.append(normalize_quote(b["excerpt"]))
     return texts
 
 
@@ -791,8 +817,8 @@ def _check_source(s: dict[str, Any], path: str, messages: list[dict[str, Any]],
             out.append(_p(URL_NOT_IN_INPUT, f"{path} {url!r}"))
             scope = messages
     quote = s.get("quote")
-    # 빈 quote 는 어떤 문자열에도 들어 있으므로 따로 떨어뜨린다.
-    needle = normalize_ws(quote) if isinstance(quote, str) else ""
+    # 빈 quote 는 어떤 문자열에도 들어 있으므로 따로 떨어뜨린다("(AI)" 만 쓴 quote 도 비게 된다).
+    needle = normalize_quote(quote) if isinstance(quote, str) else ""
     if not needle or not any(needle in text for text in _haystack(scope)):
         out.append(_p(QUOTE_NOT_IN_SOURCE, f"{path} {quote!r}"))
 
@@ -846,34 +872,85 @@ def check_warnings(report: dict[str, Any] | None) -> list[str]:
     return out
 
 
-def check_issue_trace(issue_trace: Any, report: dict[str, Any] | None) -> list[str]:
-    """issue_trace 의 direct·sector 이슈가 events 에서 참조되는지. 경고만 돌려준다.
+def _trace_issues(issue_trace: list[Any]) -> list[dict[str, Any]]:
+    return [i for m in issue_trace if isinstance(m, dict)
+            for i in (m.get("issues") if isinstance(m.get("issues"), list) else [])
+            if isinstance(i, dict)]
+
+
+def _event_issue_ids(report: dict[str, Any]) -> list[tuple[int, Any]]:
+    """(events 순번, issue_ids 의 id) 목록."""
+    events = report.get("events") if isinstance(report.get("events"), list) else []
+    return [(k, x) for k, e in enumerate(events)
+            for x in (e.get("issue_ids") if isinstance(e, dict) and isinstance(e.get("issue_ids"), list)
+                      else [])]
+
+
+def _missing_message_urls(issue_trace: list[Any], payload: dict[str, Any]) -> tuple[list[str], int, int]:
+    """(issue_trace 에 없는 입력 url — 입력 순서·중복 없이, issue_trace 에 오른 메시지 수, 입력 메시지 수)."""
+    traced = {m.get("url") for m in issue_trace if isinstance(m, dict)}
+    messages = _messages(payload)
+    missing = list(dict.fromkeys(m.get("url") for m in messages if m.get("url") not in traced))
+    return missing, sum(m.get("url") in traced for m in messages), len(messages)
+
+
+def check_issue_trace(issue_trace: Any, report: dict[str, Any] | None,
+                      payload: dict[str, Any] | None = None) -> list[str]:
+    """issue_trace 가 입력 메시지를 다 훑었는지, direct·sector 이슈가 events 에서 참조되는지.
+    경고만 돌려준다.
 
     generate() 가 보고서에서 떼어 래퍼에 둔 issue_trace 와 보고서 events 를 맞춰 본다. 관련 이슈가
     events 어디에도 없으면 factors·background·dropped 어느 칸에도 기록되지 않고 사라진 것이다.
+    market 이슈는 events 에 남기지 않아도 되므로 여기서 보지 않는다(issue_trace_stats 가 센다).
+    payload 를 주면 issue_trace 에 오르지 않은 입력 메시지 url 도 ISSUE_TRACE_MISSING_URL 로 남긴다.
     verify_status 에는 넣지 않는다 — 검수 칸이 어긋났다고 멀쩡한 본문을 떨어뜨리지 않는다.
     issue_trace 가 없거나(예전 프롬프트) 보고서를 열지 못했으면 볼 것이 없어 빈 목록이다.
     """
     if not isinstance(issue_trace, list) or not isinstance(report, dict):
         return []
-    issues = [i for m in issue_trace if isinstance(m, dict)
-              for i in (m.get("issues") if isinstance(m.get("issues"), list) else [])
-              if isinstance(i, dict)]
+    out: list[str] = []
+    if payload is not None:
+        missing, _, _ = _missing_message_urls(issue_trace, payload)
+        out += [_p(ISSUE_TRACE_MISSING_URL, f"{url!r} 가 issue_trace 에 없다") for url in missing]
+    issues = _trace_issues(issue_trace)
     known = {i.get("id") for i in issues}
     referenced: set[str] = set()
-    out: list[str] = []
-    events = report.get("events") if isinstance(report.get("events"), list) else []
-    for k, e in enumerate(events):
-        ids = e.get("issue_ids") if isinstance(e, dict) else None
-        for x in ids if isinstance(ids, list) else []:
-            referenced.add(x)
-            if x not in known:
-                out.append(_p(ISSUE_ID_UNKNOWN, f"events[{k}].issue_ids 의 {x!r} 가 issue_trace 에 없다"))
+    for k, x in _event_issue_ids(report):
+        referenced.add(x)
+        if x not in known:
+            out.append(_p(ISSUE_ID_UNKNOWN, f"events[{k}].issue_ids 의 {x!r} 가 issue_trace 에 없다"))
     for i in issues:
         if i.get("relation") in RELATED_ISSUE_RELATIONS and i.get("id") not in referenced:
             out.append(_p(ISSUE_UNREFERENCED,
                           f"{i.get('id')!r} ({i.get('relation')}) {i.get('issue')!r} 가 events 어디에도 없다"))
     return out
+
+
+def issue_trace_stats(issue_trace: Any, report: dict[str, Any] | None,
+                      payload: dict[str, Any]) -> dict[str, int] | None:
+    """issue_trace 의 숫자. 래퍼 issue_trace_stats 칸이다. issue_trace 가 없으면 None.
+
+        messages_traced      issue_trace 에 url 이 오른 입력 메시지 수
+        messages_total       입력 메시지 수
+        relations            관련 유형별 이슈 수
+        market_unreferenced  events 어디에서도 참조되지 않은 market 이슈 수(경고로 남기지 않는다)
+    """
+    if not isinstance(issue_trace, list):
+        return None
+    _, traced, total = _missing_message_urls(issue_trace, payload)
+    issues = _trace_issues(issue_trace)
+    referenced = {x for _, x in _event_issue_ids(report)} if isinstance(report, dict) else set()
+    relations: dict[str, int] = {}
+    for i in issues:
+        rel = str(i.get("relation"))
+        relations[rel] = relations.get(rel, 0) + 1
+    return {
+        "messages_traced": traced,
+        "messages_total": total,
+        "relations": relations,
+        "market_unreferenced": sum(i.get("relation") == MARKET_ISSUE_RELATION
+                                   and i.get("id") not in referenced for i in issues),
+    }
 
 
 # --- 판정 ---------------------------------------------------------------------
@@ -911,6 +988,8 @@ __all__ = [
     "EVENT_PLACEMENTS",
     "EVENT_REASONS",
     "LAYERS",
+    "MAIN_CAUSE_STALE",
+    "MARKET_ISSUE_RELATION",
     "MATCHES",
     "MOVE_CASES",
     "QUOTE_VERIFY_FAIL",
@@ -930,8 +1009,10 @@ __all__ = [
     "expected_direction_match",
     "families_of",
     "is_stock_specific",
+    "issue_trace_stats",
     "layer_pct",
     "move_case",
+    "normalize_quote",
     "normalize_report",
     "normalize_ws",
     "verify",
