@@ -781,6 +781,79 @@ def normalize_quote(text: str) -> str:
     return normalize_ws(_ABBR_PAREN.sub("", text))
 
 
+# 원문의 "말(약어)". 말은 괄호 바로 앞(공백 하나까지)의 한글·영문·숫자 덩어리다.
+_WORD_ABBR = re.compile(r"([가-힣A-Za-z0-9]+) ?\(((?=[A-Za-z0-9]*[A-Za-z])[A-Za-z0-9]{1,10})\)")
+
+
+def _source_units(text: str) -> list[tuple[str, ...]]:
+    """원문을 대조 단위로 편다. 글자 하나는 (글자,), "말(약어)" 하나는 (말, 약어) 다.
+
+    quote 쪽은 normalize_quote 로 괄호 약어를 지우므로, 원문의 "말(약어)" 는 quote 가 "말(약어)"·"말"·
+    "약어" 어느 꼴로 써도 맞는다. 말 앞에 붙은 것 없이 홀로 있는 괄호 약어는 normalize_quote 처럼 지운다.
+    """
+    def plain(segment: str) -> list[tuple[str, ...]]:
+        # 조각 경계의 공백을 지우면 앞뒤 낱말이 붙는다. 공백은 하나로 줄이기만 한다.
+        return [(c,) for c in re.sub(r"\s+", " ", _ABBR_PAREN.sub("", segment))]
+
+    text = normalize_ws(text)
+    units: list[tuple[str, ...]] = []
+    pos = 0
+    for m in _WORD_ABBR.finditer(text):
+        units += plain(text[pos:m.start()])
+        units.append((m.group(1), m.group(2)))
+        pos = m.end()
+    units += plain(text[pos:])
+    # 조각마다 정규화해서 생긴 경계의 겹친 공백·맨 앞뒤 공백을 다시 정리한다.
+    out: list[tuple[str, ...]] = []
+    for u in units:
+        if u == (" ",) and (not out or out[-1] == (" ",)):
+            continue
+        out.append(u)
+    while out and out[-1] == (" ",):
+        out.pop()
+    return out
+
+
+def _units_contain(units: list[tuple[str, ...]], needle: str) -> bool:
+    """needle 이 units 로 만들 수 있는 문자열의 연속 부분에 글자 그대로 있는가.
+
+    상태는 (단위 순번, 고른 꼴, 그 꼴 안의 위치). 어느 단위의 어느 꼴, 어느 위치에서든 시작할 수 있고
+    (quote 가 말 중간에서 시작해도 된다), 한 꼴을 다 읽으면 다음 단위의 아무 꼴 맨 앞으로 넘어간다.
+    글자 비교는 정확 일치뿐이다.
+    """
+    if not needle:
+        return False
+    states = {(u, o, k) for u, opts in enumerate(units) for o, opt in enumerate(opts)
+              for k in range(len(opt))}
+    for idx, c in enumerate(needle):
+        last = idx == len(needle) - 1
+        nxt: set[tuple[int, int, int]] = set()
+        for u, o, k in states:
+            opt = units[u][o]
+            if opt[k] != c:
+                continue
+            if last:
+                return True
+            if k + 1 < len(opt):
+                nxt.add((u, o, k + 1))
+            elif u + 1 < len(units):
+                nxt.update((u + 1, o2, 0) for o2 in range(len(units[u + 1])))
+        if not nxt:
+            return False
+        states = nxt
+    return False
+
+
+def quote_in_text(quote: str, text: str) -> bool:
+    """quote 가 원문 text 에 있는가. 정규화(normalize_quote)와 "말(약어)" 세 꼴 말고는 정확 일치다."""
+    needle = normalize_quote(quote)
+    if not needle:
+        return False
+    if needle in normalize_quote(text):
+        return True
+    return bool(_WORD_ABBR.search(text)) and _units_contain(_source_units(text), needle)
+
+
 def _messages(payload: dict[str, Any]) -> list[dict[str, Any]]:
     messages = payload.get("messages")
     return [m for m in messages if isinstance(m, dict)] if isinstance(messages, list) else []
@@ -792,14 +865,14 @@ def _link_bodies(message: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _haystack(messages: list[dict[str, Any]]) -> list[str]:
-    """quote 를 찾을 원문. 메시지 text 와 그 메시지에 딸린 기사 excerpt 다."""
+    """quote 를 찾을 원문. 메시지 text 와 그 메시지에 딸린 기사 excerpt 다. 정규화는 quote_in_text 가 한다."""
     texts = []
     for m in messages:
         if isinstance(m.get("text"), str):
-            texts.append(normalize_quote(m["text"]))
+            texts.append(m["text"])
         for b in _link_bodies(m):
             if isinstance(b.get("excerpt"), str):
-                texts.append(normalize_quote(b["excerpt"]))
+                texts.append(b["excerpt"])
     return texts
 
 
@@ -817,9 +890,8 @@ def _check_source(s: dict[str, Any], path: str, messages: list[dict[str, Any]],
             out.append(_p(URL_NOT_IN_INPUT, f"{path} {url!r}"))
             scope = messages
     quote = s.get("quote")
-    # 빈 quote 는 어떤 문자열에도 들어 있으므로 따로 떨어뜨린다("(AI)" 만 쓴 quote 도 비게 된다).
-    needle = normalize_quote(quote) if isinstance(quote, str) else ""
-    if not needle or not any(needle in text for text in _haystack(scope)):
+    # 빈 quote 는 quote_in_text 가 떨어뜨린다("(AI)" 만 쓴 quote 도 정규화하면 빈다).
+    if not isinstance(quote, str) or not any(quote_in_text(quote, text) for text in _haystack(scope)):
         out.append(_p(QUOTE_NOT_IN_SOURCE, f"{path} {quote!r}"))
 
 
@@ -1015,6 +1087,7 @@ __all__ = [
     "normalize_quote",
     "normalize_report",
     "normalize_ws",
+    "quote_in_text",
     "verify",
     "verify_wrapper",
 ]

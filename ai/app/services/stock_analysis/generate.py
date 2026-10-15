@@ -13,6 +13,13 @@
 남긴다. 원문을 final_text 에 넣으면 벗기면 멀쩡한 보고서가 전부 parse_failed 가 된다.
 그래도 json_status=stripped 가 남으므로 적재는 schema_violation 으로 표시해 화면에 내지 않는다.
 
+## JSON 이 안 열리면 한 번 다시 부른다
+
+정상 응답(finish_reason=stop)인데 JSON 으로 열리지 않으면(json_status=invalid) 같은 입력으로 한 번 더
+부른다. 따옴표 하나가 빠지는 식의 깨짐은 다시 부르면 대개 열린다. 래퍼 json_retry 에 다시 불렀는지와
+첫 시도의 상태·원문을 남기고, 첫 시도 비용은 cost 에 더한다. 잘림(OUTPUT_TRUNCATED)·빈 응답·호출 실패는
+다시 부르지 않는다 — 같은 설정이면 같은 자리에서 또 잘리고, 호출 실패는 스트림 재시도가 따로 있다.
+
 ## 실패를 예외로 올리지 않는다
 
 LLM 호출 실패·출력 잘림·빈 응답은 is_error=true 래퍼로 돌려준다. 여러 입력을 도는 중에 한 건이
@@ -169,6 +176,31 @@ async def generate(
     payload: dict[str, Any], *, system: str, prompt_hash: str, run_id: str
 ) -> dict[str, Any]:
     """입력 하나로 보고서를 만들어 래퍼로 감싼다. 예외를 던지지 않는다.
+
+    JSON 이 안 열린 회차는 한 번 다시 부른다(모듈 docstring). 래퍼 json_retry 칸:
+    {"retried": false} 또는 {"retried": true, "first": {json_status, asked_question, raw_text, usage,
+    cost, duration_ms}}.
+    """
+    wrapper = await _generate_once(payload, system=system, prompt_hash=prompt_hash, run_id=run_id)
+    if wrapper["is_error"] or wrapper["json_status"] != "invalid":
+        wrapper["json_retry"] = {"retried": False}
+        return wrapper
+    logger.warning("%s: JSON 이 열리지 않아 한 번 다시 부른다", run_id)
+    first = wrapper
+    wrapper = await _generate_once(payload, system=system, prompt_hash=prompt_hash, run_id=run_id)
+    wrapper["json_retry"] = {"retried": True, "first": {
+        key: first[key] for key in ("json_status", "asked_question", "raw_text", "usage", "cost",
+                                    "duration_ms")}}
+    wrapper["cost"] += first["cost"]
+    wrapper["duration_ms"] += first["duration_ms"]
+    wrapper["stream_interruptions"] = first["stream_interruptions"] + wrapper["stream_interruptions"]
+    return wrapper
+
+
+async def _generate_once(
+    payload: dict[str, Any], *, system: str, prompt_hash: str, run_id: str
+) -> dict[str, Any]:
+    """complete() 한 번(스트림 끊김 재시도 포함)으로 래퍼 하나를 만든다.
 
     모델·타임아웃은 `complete()` 가 settings 에서 읽는다. 래퍼의 model 도 같은 settings 값을
     적는다 — complete 를 model 인자 없이 부르므로 둘이 같다. 스트리밍 여부와 출력 상한은

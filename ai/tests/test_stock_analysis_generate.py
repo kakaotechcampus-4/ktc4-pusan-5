@@ -260,3 +260,39 @@ def test_prompt_sha256_is_file_hash():
 
     path = gen.PROMPT_DIR / "stock_analysis_system.md"
     assert gen.prompt_sha256() == hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+async def test_invalid_json_is_retried_once_and_recorded(fake_complete):
+    broken = '{"ticker": "999990", "issue_ids": ["i13]}'
+    fake_complete.side_effect = [(broken, USAGE), (REPORT_TEXT, USAGE)]
+    w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
+    assert fake_complete.await_count == 2
+    assert w["json_status"] == "clean" and w["final_text"] == REPORT_TEXT
+    assert w["json_retry"]["retried"] is True
+    assert w["json_retry"]["first"]["json_status"] == "invalid"
+    assert w["json_retry"]["first"]["raw_text"] == broken
+    assert w["cost"] == pytest.approx(0.0123 * 2)  # 첫 시도 비용도 센다
+
+
+async def test_invalid_twice_stays_invalid_after_one_retry(fake_complete):
+    w = await run(fake_complete, "보고서를 쓰지 못했습니다.")
+    assert fake_complete.await_count == 2
+    assert w["json_status"] == "invalid" and w["json_retry"]["retried"] is True
+
+
+@pytest.mark.parametrize("text, usage", [
+    (REPORT_TEXT, USAGE),                                    # 열림
+    ("", USAGE),                                             # 빈 응답
+    ('{"ticker": "9', {**USAGE, "finish_reason": "length"}),  # 잘림
+])
+async def test_no_json_retry_for_clean_empty_or_truncated(fake_complete, text, usage):
+    fake_complete.side_effect = None
+    fake_complete.return_value = (text, usage)
+    w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
+    assert fake_complete.await_count == 1
+    assert w["json_retry"] == {"retried": False}
+
+
+async def test_llm_error_is_not_json_retried(fake_complete):
+    w = await run(fake_complete, exc=LLMError("HTTP 500"))
+    assert fake_complete.await_count == 1 and w["json_retry"] == {"retried": False}

@@ -170,3 +170,61 @@ async def test_main_cause_is_left_alone_without_dropped_move_factor(fake_complet
     assert await repair.rewrite_main_cause(r, records, stream=True) is None
     assert await repair.rewrite_main_cause(r, [], stream=True) is None
     assert fake_complete.await_count == 1
+
+
+def bg_report(quote, counter="반대 재료가 있었습니다."):
+    r = report("규제 대상 장비로 명시")  # factor 는 둘 다 통과
+    r["summary"] = {"main_cause": "c", "counter": counter}
+    r["background"] = {"bullish": [], "neutral": [],
+                       "bearish": [{"text": "행정명령", "sources": [source(quote)], "watch": True}]}
+    r["events"].append({"event": "행정명령 배경", "issue_ids": ["i3"], "dup_channels": None,
+                        "placed": "background"})
+    return r
+
+
+async def test_background_quote_is_rewritten_and_keeps_watch(fake_complete):
+    r = bg_report("규제 대상으로 장비로 명시")
+    fake_complete.return_value = (json.dumps(
+        {"text": "행정명령이 BESS 를 규제 대상으로 명시했습니다.", "sources": [source("규제 대상 장비로 명시")]}), USAGE)
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    assert [(x["kind"], x["path"], x["result"]) for x in records] == [
+        ("background", "background.bearish[0]", "fixed")]
+    item = r["background"]["bearish"][0]
+    assert item["sources"][0]["quote"] == "규제 대상 장비로 명시" and item["watch"] is True
+    assert fake_complete.await_args.args[0] == repair.BACKGROUND_REPAIR_SYSTEM
+
+
+async def test_background_second_failure_drops_item_clears_counter_and_passes(fake_complete):
+    from app.services.stock_analysis.verify import check_grounding, check_rules
+
+    r = bg_report("규제 대상으로 장비로 명시")
+    fake_complete.return_value = (json.dumps({"text": "x", "sources": [source("여전히 없는 문장")]}), USAGE)
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    assert records[0]["result"] == "dropped" and records[0]["counter_cleared"] is True
+    assert r["background"]["bearish"] == []
+    assert r["summary"]["counter"] is None
+    assert r["events"][-1] == {"event": "행정명령", "issue_ids": [], "dup_channels": None,
+                               "placed": "dropped", "reason": QUOTE_VERIFY_FAIL}
+    assert check_events(r) == ("passed", [])
+    assert check_grounding(r, PAYLOAD) == []
+    assert "COUNTER_WITHOUT_BACKGROUND" not in {code_of(p) for p in check_rules(r, {"change_pct": 2.0})}
+
+
+async def test_counter_is_kept_when_other_background_items_remain(fake_complete):
+    r = bg_report("규제 대상으로 장비로 명시")
+    r["background"]["neutral"].append({"text": "다른 재료", "sources": [source("BESS를 규제 대상 장비로")]})
+    fake_complete.side_effect = LLMError("HTTP 500")
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    assert records[0]["result"] == "dropped" and "counter_cleared" not in records[0]
+    assert r["summary"]["counter"] == "반대 재료가 있었습니다."
+    assert len(r["background"]["neutral"]) == 1
+
+
+async def test_background_drops_keep_slot_indexes_right(fake_complete):
+    r = bg_report("없는 문장 하나")
+    r["background"]["bearish"] += [{"text": "가운데", "sources": [source("BESS를 규제 대상 장비로")]},
+                                   {"text": "끝", "sources": [source("없는 문장 둘")]}]
+    fake_complete.side_effect = LLMError("HTTP 500")
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    assert [x["path"] for x in records] == ["background.bearish[0]", "background.bearish[2]"]
+    assert [x["text"] for x in r["background"]["bearish"]] == ["가운데"]
