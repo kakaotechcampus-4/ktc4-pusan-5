@@ -105,6 +105,8 @@ JSON 하나를 받습니다.
 
 **1-3. 사건으로 묶습니다.** 1-2 를 통과한 이슈 중 같은 사건을 여러 채널이 전했으면 하나로
 묶습니다. 이후 「1단계에서 추린 사건」은 이렇게 묶은 사건을 말합니다.
+**`direct`·`sector` 이슈는 하나도 빠짐없이 어떤 사건에 들어갑니다.** 근거(`factors`)로 쓰지 않는
+이슈도 사라지지 않고 `background` 나 `dropped` 사건으로 `events` 에 남습니다(4부 `events`).
 **어떤 사건이 있었는지는 주가가 얼마나 움직였는지와 무관하게** 정해집니다.
 등락률이 달라지면 사건이 놓이는 칸은 바뀔 수 있지만, 사건 목록 자체는 바뀌면 안 됩니다.
 
@@ -561,7 +563,14 @@ terms  { "plain": "그때그때 거래되는 시세", "term": "스팟가격" }
 어느 칸으로 갔는지 검수자가 보는 칸입니다.
 
 - 2부 1단계에서 추린 사건을 **빠짐없이 전부** 적습니다. 사건 하나에 항목 하나입니다.
+- **`issue_trace` 의 `direct`·`sector` 이슈 id 는 모두 어느 한 사건의 `issue_ids` 에 들어가야 합니다.**
+  다 쓴 뒤 `direct`·`sector` 이슈를 하나씩 짚어 빠진 id 가 없는지 확인하세요. 근거로 쓰지 않았으면
+  `background`(상한에 밀렸으면 `reason: over_cap`) 또는 `dropped`(아래 `reason` 표)로 적습니다.
+  빠진 id 는 실행 뒤 코드가 찾아 경고로 남깁니다.
 - **`event`** — 사건 한 줄.
+- **`issue_ids`** — 이 사건으로 묶은 `issue_trace` 이슈 id 전부(예: `["i3", "i17"]`). 여러 메시지의
+  이슈를 묶었으면 그 id 를 모두 적습니다. 이슈에서 오지 않은 사건(`summary.move` 의 시장 수치 등)은 `[]`.
+- **`factor`** — `placed` 가 `factors` 일 때만, 그 사건을 담은 `factors` 항목의 순번(0부터). 그 밖에는 뺍니다.
 - **`dup_channels`** — 그 사건을 전한 입력 메시지의 `dup_channels` 값. 여러 메시지면 가장 큰 값.
   입력에 이 값이 없으면 `null`.
 - **`placed`** — 그 사건을 담은 곳. `factors` | `background` | `summary.move` | `dropped`.
@@ -600,7 +609,8 @@ terms  { "plain": "그때그때 거래되는 시세", "term": "스팟가격" }
 
 `issue_trace` 는 **맨 앞 키**입니다. 2부 1단계 1-1·1-2 의 결과를 먼저 다 적은 뒤 나머지 칸을
 씁니다. 입력 메시지마다 항목 하나(이슈가 없으면 `issues: []`), 이슈는 한 줄 30자 안팎으로
-짧게 씁니다. 이 칸은 시스템이 떼어 실행 기록에만 남기고 보고서에는 넣지 않습니다.
+짧게 씁니다. 이슈 `id` 는 전체에서 `i1`, `i2` … 순서로 겹치지 않게 붙입니다.
+이 칸은 시스템이 떼어 실행 기록에만 남기고 보고서에는 넣지 않습니다.
 
 ```
 {
@@ -608,7 +618,7 @@ terms  { "plain": "그때그때 거래되는 시세", "term": "스팟가격" }
     {
       "url": "<입력 메시지 url>",
       "issues": [
-        { "issue": "<이슈 한 줄>", "relation": "direct | sector | none" }
+        { "id": "i1", "issue": "<이슈 한 줄>", "relation": "direct | sector | none" }
       ]
     }
   ],
@@ -671,6 +681,8 @@ terms  { "plain": "그때그때 거래되는 시세", "term": "스팟가격" }
   "events": [
     {
       "event": "<사건 한 줄>",
+      "issue_ids": ["<issue_trace 이슈 id>"],
+      "factor": <placed 가 factors 일 때만, factors 순번>,
       "dup_channels": <숫자 | null>,
       "placed": "factors | background | summary.move | dropped",
       "reason": "<dropped 이거나 over_cap 일 때만> no_change | mechanism_only | schedule_only | off_topic | over_cap"

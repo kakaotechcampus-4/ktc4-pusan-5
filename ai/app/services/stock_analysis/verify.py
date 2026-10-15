@@ -47,7 +47,13 @@ SUMMARY_NULLABLE = ("relative", "counter")
 # events — 검수용 칸(4부 「events」). 화면에 나가지 않아 REQUIRED_TOP 에 넣지 않고, 판정과
 # 따로 check_events() 가 본다. 아래 값 목록과 reason 조건이 그 기준이다.
 EVENT_PLACEMENTS = ("factors", "background", "summary.move", "dropped")
-EVENT_REASONS = ("no_change", "mechanism_only", "schedule_only", "off_topic", "over_cap")
+EVENT_REASONS = ("no_change", "mechanism_only", "schedule_only", "off_topic", "over_cap",
+                 "quote_verify_fail")
+# 모델이 아니라 러너가 쓰는 사유. quote 를 한 번 고쳐 쓰게 해도 원문에 없어 factor 에서 뺀 사건이다
+# (repair.repair_quotes). 프롬프트 reason 표에는 없다.
+QUOTE_VERIFY_FAIL = "quote_verify_fail"
+# direct·sector 이슈 — events 의 issue_ids 로 반드시 어딘가에 기록돼야 하는 관련(2부 1단계 1-2).
+RELATED_ISSUE_RELATIONS = ("direct", "sector")
 # reason 을 쓰는 곳. dropped 는 반드시 쓰고, background 는 factors 상한에 밀려 온 것(over_cap)만 쓴다.
 # 나머지 placed 는 reason 칸을 뺀다.
 EVENT_REASON_BY_PLACEMENT = {"dropped": EVENT_REASONS, "background": ("over_cap",)}
@@ -140,6 +146,11 @@ ASKED_QUESTION = "ASKED_QUESTION"  # 되묻기 금지 위반
 # (한 사건은 factor 하나, 층은 links). 다른 사건을 같은 메시지가 함께 전한 경우도 있어
 # 실패로 두지 않는다. check_warnings() 가 보고 verify_status 에는 넣지 않는다.
 DUPLICATE_SOURCES = "DUPLICATE_SOURCES"
+# issue_trace 의 direct·sector 이슈가 events 어디의 issue_ids 에도 없다. 1-2 를 통과한 이슈가
+# factors·background·dropped 어디에도 기록되지 않고 사라진 것이다. check_issue_trace() 가 본다.
+ISSUE_UNREFERENCED = "ISSUE_UNREFERENCED"
+# events 의 issue_ids 가 issue_trace 에 없는 id 를 가리킨다.
+ISSUE_ID_UNKNOWN = "ISSUE_ID_UNKNOWN"
 
 
 def code_of(problem: str) -> str:
@@ -434,8 +445,16 @@ def _check_event(e: Any, path: str, out: list[str]) -> None:
     elif e["dup_channels"] is not None and (
             isinstance(e["dup_channels"], bool) or not isinstance(e["dup_channels"], int)):
         out.append(_p(SCHEMA_TYPE, f"{path}.dup_channels 는 정수나 null 이어야 한다: {e['dup_channels']!r}"))
+    # issue_ids 는 issue_trace 를 쓰는 프롬프트부터 생겼다. 없는 예전 보고서는 그대로 통과한다.
+    if "issue_ids" in e and not (isinstance(e["issue_ids"], list)
+                                 and all(isinstance(x, str) for x in e["issue_ids"])):
+        out.append(_p(SCHEMA_TYPE, f"{path}.issue_ids 는 문자열 배열이어야 한다: {e['issue_ids']!r}"))
     _check_enum(e, "placed", EVENT_PLACEMENTS, f"{path}.", out)
     placed = e.get("placed")
+    if "factor" in e and (placed != "factors" or isinstance(e["factor"], bool)
+                          or not isinstance(e["factor"], int)):
+        out.append(_p(SCHEMA_VALUE, f"{path}.factor 는 placed=factors 일 때 factors 순번(정수)만 쓴다: "
+                                    f"{e['factor']!r}"))
     if placed not in EVENT_PLACEMENTS:
         return  # placed 가 깨졌으면 reason 조건을 따질 기준이 없다.
     allowed = EVENT_REASON_BY_PLACEMENT.get(placed, ())
@@ -827,6 +846,36 @@ def check_warnings(report: dict[str, Any] | None) -> list[str]:
     return out
 
 
+def check_issue_trace(issue_trace: Any, report: dict[str, Any] | None) -> list[str]:
+    """issue_trace 의 direct·sector 이슈가 events 에서 참조되는지. 경고만 돌려준다.
+
+    generate() 가 보고서에서 떼어 래퍼에 둔 issue_trace 와 보고서 events 를 맞춰 본다. 관련 이슈가
+    events 어디에도 없으면 factors·background·dropped 어느 칸에도 기록되지 않고 사라진 것이다.
+    verify_status 에는 넣지 않는다 — 검수 칸이 어긋났다고 멀쩡한 본문을 떨어뜨리지 않는다.
+    issue_trace 가 없거나(예전 프롬프트) 보고서를 열지 못했으면 볼 것이 없어 빈 목록이다.
+    """
+    if not isinstance(issue_trace, list) or not isinstance(report, dict):
+        return []
+    issues = [i for m in issue_trace if isinstance(m, dict)
+              for i in (m.get("issues") if isinstance(m.get("issues"), list) else [])
+              if isinstance(i, dict)]
+    known = {i.get("id") for i in issues}
+    referenced: set[str] = set()
+    out: list[str] = []
+    events = report.get("events") if isinstance(report.get("events"), list) else []
+    for k, e in enumerate(events):
+        ids = e.get("issue_ids") if isinstance(e, dict) else None
+        for x in ids if isinstance(ids, list) else []:
+            referenced.add(x)
+            if x not in known:
+                out.append(_p(ISSUE_ID_UNKNOWN, f"events[{k}].issue_ids 의 {x!r} 가 issue_trace 에 없다"))
+    for i in issues:
+        if i.get("relation") in RELATED_ISSUE_RELATIONS and i.get("id") not in referenced:
+            out.append(_p(ISSUE_UNREFERENCED,
+                          f"{i.get('id')!r} ({i.get('relation')}) {i.get('issue')!r} 가 events 어디에도 없다"))
+    return out
+
+
 # --- 판정 ---------------------------------------------------------------------
 
 
@@ -864,6 +913,8 @@ __all__ = [
     "LAYERS",
     "MATCHES",
     "MOVE_CASES",
+    "QUOTE_VERIFY_FAIL",
+    "RELATED_ISSUE_RELATIONS",
     "SIZE_FITS",
     "SOURCES_MAX",
     "STANCES",
@@ -871,6 +922,7 @@ __all__ = [
     "VERDICT_KEYS",
     "check_events",
     "check_grounding",
+    "check_issue_trace",
     "check_rules",
     "check_schema",
     "check_warnings",

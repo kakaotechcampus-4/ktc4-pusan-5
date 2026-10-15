@@ -38,9 +38,11 @@ from app.services.stock_analysis.generate import (
     prompt_sha256,
     report_of,
 )
+from app.services.stock_analysis.repair import repair_quotes
 from app.services.stock_analysis.verify import (
     MOVE_CASES,
     check_events,
+    check_issue_trace,
     check_warnings,
     families_of,
     verify_wrapper,
@@ -144,10 +146,17 @@ async def run(
         copied.write_bytes(data)
         async with gate:
             wrapper = await generate(payload, system=system, prompt_hash=prompt_hash, run_id=run_id)
+            report = report_of(wrapper)
+            # quote 가 원문에 없는 factor 는 검증 전에 한 번 고쳐 쓰게 하고, 그래도 없으면 뺀다.
+            if report is not None:
+                repairs = await repair_quotes(report, payload, stream=wrapper["stream"], run_id=run_id)
+                if repairs:
+                    wrapper["quote_repair"] = repairs
+                    wrapper["cost"] += sum(r["cost"] for r in repairs)
+                    wrapper["final_text"] = json.dumps(report, ensure_ascii=False)
         wrapper["input_path"] = copied.relative_to(run_dir).as_posix()
         wrapper["input_original_path"] = source.as_posix()
         wrapper["input_sha256"] = hashlib.sha256(data).hexdigest()
-        report = report_of(wrapper)
         status, problems = verify_wrapper(wrapper, report, payload)
         wrapper["verify_status"] = status
         wrapper["verify_problems"] = problems
@@ -155,6 +164,8 @@ async def run(
         wrapper["events_status"], wrapper["events_problems"] = check_events(report)
         # 실패는 아니지만 검수자가 볼 것(verify.check_warnings). 판정과 섞지 않는다.
         wrapper["verify_warnings"] = check_warnings(report)
+        # direct·sector 이슈가 events 어디에도 없으면 경고만 남긴다. 판정과 섞지 않는다.
+        wrapper["issue_trace_warnings"] = check_issue_trace(wrapper.get("issue_trace"), report)
         out = run_dir / "parsed" / f"{run_id}.json"
         out.write_text(json.dumps(wrapper, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"  {status:6} {run_id} ({wrapper['json_status']}, "
