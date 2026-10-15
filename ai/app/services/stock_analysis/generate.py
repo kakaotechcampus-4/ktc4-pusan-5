@@ -280,6 +280,10 @@ async def generate(
         return wrapper
 
     status, report, final_text = extract_json(text)
+    # 1단계 이슈 목록(issue_trace)은 실행 기록에만 남긴다. 보고서 스키마에 넣지 않는다.
+    if report is not None and "issue_trace" in report:
+        wrapper["issue_trace"] = report.pop("issue_trace")
+        final_text = json.dumps(report, ensure_ascii=False)
     wrapper["json_status"] = status
     wrapper["final_text"] = final_text
     if status != "clean":
