@@ -132,6 +132,35 @@ async def test_search_finds_concepts_by_name_and_alias():
         await _cleanup()
 
 
+async def test_search_ranks_exact_alias_above_name_contains():
+    other_slug = "search-test-other"
+    await _cleanup()
+    await _seed()
+    async with SessionLocal() as session:
+        session.add(
+            Concept(
+                slug=other_slug,
+                name="대웃는동물효과론",
+                aliases=[],
+                category="shareholder-return/dividend",
+                summary="이름에만 검색어가 포함된 개념",
+                body="본문",
+                sources=[],
+            )
+        )
+        await session.commit()
+    try:
+        async with _client() as client:
+            resp = await client.get("/api/search", params={"q": "웃는동물효과"})
+        # 별칭 정확 일치가 다른 개념의 이름 포함 일치보다 먼저 나온다.
+        assert [c["slug"] for c in resp.json()["concepts"]] == [_CONCEPT_SLUG, other_slug]
+    finally:
+        async with SessionLocal() as session:
+            await session.execute(delete(Concept).where(Concept.slug == other_slug))
+            await session.commit()
+        await _cleanup()
+
+
 async def test_search_respects_limit_per_kind():
     await _cleanup()
     await _seed()
