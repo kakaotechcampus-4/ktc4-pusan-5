@@ -14,7 +14,8 @@ type AuthCheckFailure = 'unauthenticated' | 'serverError' | 'networkError' | 'cl
 // GET /api/auth/me 실패를 client의 action level 기준 4가지로 분류한다.
 function classifyAuthCheckFailure(err: unknown): AuthCheckFailure {
   if (!(err instanceof ApiError)) return 'clientError';
-  if (err.status === 401 || err.status === 403) return 'unauthenticated';
+  // 403은 "로그인은 됐지만 권한 없음"이라 로그아웃 사유가 아니다. 다른 4xx처럼 clientError로 둔다
+  if (err.status === 401) return 'unauthenticated';
   if (err.status === 0) return 'networkError';
   if (err.status >= 500) return 'serverError';
   return 'clientError';
@@ -35,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch((err: unknown) => {
         const failure = classifyAuthCheckFailure(err);
 
-        // 인증 만료 or 무효(401/403): 서버가 "로그인 안 됐다"고 확정해준 경우만 로그아웃 처리
+        // 인증 만료 or 무효(401): 서버가 "로그인 안 됐다"고 확정해준 경우만 로그아웃 처리
         if (failure === 'unauthenticated') {
           setUser(null);
           setStatus('unauthenticated');
