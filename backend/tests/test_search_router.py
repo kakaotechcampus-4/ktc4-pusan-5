@@ -143,17 +143,21 @@ async def test_search_respects_limit_per_kind():
         await _cleanup()
 
 
-async def test_search_rejects_empty_or_too_long_query():
+async def test_search_returns_empty_result_for_empty_or_blank_query():
     async with _client() as client:
         empty = await client.get("/api/search", params={"q": ""})
         missing = await client.get("/api/search")
-        too_long = await client.get("/api/search", params={"q": "가" * 51})
         blank = await client.get("/api/search", params={"q": "   "})
-    for resp in (empty, missing, too_long):
-        assert resp.status_code == 422
-        assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
-    assert blank.status_code == 200
-    assert blank.json() == {"query": "", "stocks": [], "concepts": []}
+    for resp in (empty, missing, blank):
+        assert resp.status_code == 200
+        assert resp.json() == {"query": "", "stocks": [], "concepts": []}
+
+
+async def test_search_rejects_too_long_query():
+    async with _client() as client:
+        too_long = await client.get("/api/search", params={"q": "가" * 51})
+    assert too_long.status_code == 422
+    assert too_long.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 async def test_search_ignores_whitespace_inside_query():

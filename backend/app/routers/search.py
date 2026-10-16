@@ -13,11 +13,12 @@ router = APIRouter(prefix="/api/search", tags=["search"])
 
 @router.get("", response_model=SearchResponse)
 async def search(
-    q: Annotated[str, Query(min_length=1, max_length=50)],
+    q: Annotated[str, Query(max_length=50)] = "",
     limit: Annotated[int, Query(ge=1, le=20, description="종류별 최대 개수")] = 6,
     session: AsyncSession = Depends(get_session),
 ) -> SearchResponse:
     query = q.strip()
+    # 검색어가 없거나 공백뿐이면 에러가 아니라 빈 결과로 응답한다.
     if not query:
         return SearchResponse(query=query, stocks=[], concepts=[])
     stocks = await repo.search_stocks(session, query, limit, MVP_CODES)
