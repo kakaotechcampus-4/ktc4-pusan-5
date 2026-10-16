@@ -4,6 +4,8 @@ import { Button, Input, StockAvatar } from '@/components/ui';
 import { HOME_SEARCH_INPUT_ID } from '../focusHomeSearch';
 import { useSearch } from '../useSearch';
 
+const SEARCH_LISTBOX_ID = 'home-search-listbox';
+
 /**
  * 종목·개념 자동완성 검색창. 히어로의 타이틀·기준시각 표시와 책임을 분리해서
  * 입력·드롭다운 상태는 여기서만 관리한다. 검색 요청은 useSearch 가 맡는다.
@@ -38,7 +40,8 @@ export function StockSearchBox() {
             aria-label="종목 또는 개념 검색"
             aria-describedby="home-search-note"
             role="combobox"
-            aria-expanded={showDropdown && hasResults}
+            aria-expanded={showDropdown}
+            aria-controls={SEARCH_LISTBOX_ID}
             aria-autocomplete="list"
             autoComplete="off"
           />
@@ -49,6 +52,7 @@ export function StockSearchBox() {
 
         {showDropdown && (
           <ul
+            id={SEARCH_LISTBOX_ID}
             role="listbox"
             className="border-divider bg-canvas absolute top-full right-0 left-0 z-20 mt-1 flex max-h-80 list-none flex-col overflow-y-auto rounded-md border shadow-md"
           >
