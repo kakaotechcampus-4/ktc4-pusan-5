@@ -132,6 +132,35 @@ async def test_search_finds_concepts_by_name_and_alias():
         await _cleanup()
 
 
+async def test_search_ranks_exact_alias_above_name_contains():
+    other_slug = "search-test-other"
+    await _cleanup()
+    await _seed()
+    async with SessionLocal() as session:
+        session.add(
+            Concept(
+                slug=other_slug,
+                name="대웃는동물효과론",
+                aliases=[],
+                category="shareholder-return/dividend",
+                summary="이름에만 검색어가 포함된 개념",
+                body="본문",
+                sources=[],
+            )
+        )
+        await session.commit()
+    try:
+        async with _client() as client:
+            resp = await client.get("/api/search", params={"q": "웃는동물효과"})
+        # 별칭 정확 일치가 다른 개념의 이름 포함 일치보다 먼저 나온다.
+        assert [c["slug"] for c in resp.json()["concepts"]] == [_CONCEPT_SLUG, other_slug]
+    finally:
+        async with SessionLocal() as session:
+            await session.execute(delete(Concept).where(Concept.slug == other_slug))
+            await session.commit()
+        await _cleanup()
+
+
 async def test_search_respects_limit_per_kind():
     await _cleanup()
     await _seed()
@@ -143,17 +172,21 @@ async def test_search_respects_limit_per_kind():
         await _cleanup()
 
 
-async def test_search_rejects_empty_or_too_long_query():
+async def test_search_returns_empty_result_for_empty_or_blank_query():
     async with _client() as client:
         empty = await client.get("/api/search", params={"q": ""})
         missing = await client.get("/api/search")
-        too_long = await client.get("/api/search", params={"q": "가" * 51})
         blank = await client.get("/api/search", params={"q": "   "})
-    for resp in (empty, missing, too_long):
-        assert resp.status_code == 422
-        assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
-    assert blank.status_code == 200
-    assert blank.json() == {"query": "", "stocks": [], "concepts": []}
+    for resp in (empty, missing, blank):
+        assert resp.status_code == 200
+        assert resp.json() == {"query": "", "stocks": [], "concepts": []}
+
+
+async def test_search_rejects_too_long_query():
+    async with _client() as client:
+        too_long = await client.get("/api/search", params={"q": "가" * 51})
+    assert too_long.status_code == 422
+    assert too_long.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 async def test_search_ignores_whitespace_inside_query():

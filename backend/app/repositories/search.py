@@ -1,9 +1,10 @@
-from sqlalchemy import case, func, literal, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Concept, Stock
 
 _ESCAPE = "\\"
+_NO_MATCH = 99  # 이름·별칭 어느 쪽도 일치하지 않는 등급
 
 
 def _escape_like(text: str) -> str:
@@ -57,22 +58,35 @@ async def search_concepts(session: AsyncSession, query: str, limit: int) -> list
     prefix = f"{escaped}%"
     name = _no_space(Concept.name)
     aliases = func.jsonb_array_elements_text(Concept.aliases).table_valued("value")
-    alias_matches = (
-        select(literal(1))
-        .select_from(aliases)
-        .where(_no_space(aliases.c.value).ilike(contains, escape=_ESCAPE))
-        .correlate(Concept)
-        .exists()
-    )
-    rank = case(
+    alias = _no_space(aliases.c.value)
+    # 이름과 별칭을 같은 기준으로 등급을 매긴다. 같은 등급이면 이름 쪽이 먼저다.
+    # 이름 정확 → 별칭 정확 → 이름 앞부분 → 별칭 앞부분 → 이름 포함 → 별칭 포함
+    name_rank = case(
         (func.lower(name) == needle.lower(), 0),
-        (name.ilike(prefix, escape=_ESCAPE), 1),
-        (name.ilike(contains, escape=_ESCAPE), 2),
-        else_=3,  # 별칭으로만 일치
+        (name.ilike(prefix, escape=_ESCAPE), 2),
+        (name.ilike(contains, escape=_ESCAPE), 4),
+        else_=_NO_MATCH,
     )
+    # 별칭이 여러 개면 가장 잘 맞는 별칭의 등급을 쓴다.
+    alias_rank = (
+        select(
+            func.min(
+                case(
+                    (func.lower(alias) == needle.lower(), 1),
+                    (alias.ilike(prefix, escape=_ESCAPE), 3),
+                    (alias.ilike(contains, escape=_ESCAPE), 5),
+                    else_=_NO_MATCH,
+                )
+            )
+        )
+        .select_from(aliases)
+        .correlate(Concept)
+        .scalar_subquery()
+    )
+    rank = func.least(name_rank, func.coalesce(alias_rank, _NO_MATCH))
     result = await session.execute(
         select(Concept)
-        .where(or_(name.ilike(contains, escape=_ESCAPE), alias_matches))
+        .where(rank < _NO_MATCH)
         .order_by(rank, func.length(Concept.name), Concept.name)
         .limit(limit)
     )
