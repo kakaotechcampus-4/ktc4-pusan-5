@@ -1,0 +1,51 @@
+{
+  "name": "mock — 테스트용. 연결 근거는 실제 사업보고서 확인이 아니다",
+  "krx_groups": [
+    {"code": "krx_electronics", "name": "전기전자"},
+    {"code": "krx_finance", "name": "금융"},
+    {"code": "krx_transport_equip", "name": "운송장비·부품"}
+  ],
+  "industries": [
+    {"code": "semiconductor", "name": "반도체", "krx_group": "krx_electronics", "parent": null,
+     "aliases": ["반도체 업황"]},
+    {"code": "memory", "name": "메모리반도체", "krx_group": "krx_electronics", "parent": "semiconductor",
+     "aliases": ["D램", "메모리"]},
+    {"code": "foundry", "name": "파운드리", "krx_group": "krx_electronics", "parent": "semiconductor",
+     "aliases": ["파운드리"]},
+    {"code": "smartphone", "name": "스마트폰", "krx_group": "krx_electronics", "parent": null,
+     "aliases": ["스마트폰"]},
+    {"code": "home_appliance", "name": "가전", "krx_group": "krx_electronics", "parent": null,
+     "aliases": ["TV 제조사", "가전"]},
+    {"code": "holding", "name": "지주회사", "krx_group": "krx_finance", "parent": null,
+     "aliases": ["지주사"]},
+    {"code": "auto", "name": "자동차", "krx_group": "krx_transport_equip", "parent": null,
+     "aliases": ["완성차"]}
+  ],
+  "stocks": [
+    {"code": "005930", "name": "삼성전자", "aliases": ["삼전", "Samsung Electronics"]},
+    {"code": "000660", "name": "SK하이닉스", "aliases": ["하이닉스", "SK hynix"]},
+    {"code": "066570", "name": "LG전자", "aliases": []},
+    {"code": "402340", "name": "SK스퀘어", "aliases": []},
+    {"code": "005380", "name": "현대차", "aliases": ["현대자동차"]}
+  ],
+  "links": [
+    {"stock_code": "005930", "industry_code": "memory", "link_type": "business", "status": "confirmed",
+     "evidence": "mock", "reviewed_by": "mock", "reviewed_on": "2026-10-14"},
+    {"stock_code": "005930", "industry_code": "foundry", "link_type": "business", "status": "confirmed",
+     "evidence": "mock", "reviewed_by": "mock", "reviewed_on": "2026-10-14"},
+    {"stock_code": "005930", "industry_code": "smartphone", "link_type": "business", "status": "confirmed",
+     "evidence": "mock", "reviewed_by": "mock", "reviewed_on": "2026-10-14"},
+    {"stock_code": "005930", "industry_code": "home_appliance", "link_type": "business", "status": "confirmed",
+     "evidence": "mock", "reviewed_by": "mock", "reviewed_on": "2026-10-14"},
+    {"stock_code": "000660", "industry_code": "memory", "link_type": "business", "status": "confirmed",
+     "evidence": "mock", "reviewed_by": "mock", "reviewed_on": "2026-10-14"},
+    {"stock_code": "066570", "industry_code": "home_appliance", "link_type": "business", "status": "confirmed",
+     "evidence": "mock", "reviewed_by": "mock", "reviewed_on": "2026-10-14"},
+    {"stock_code": "402340", "industry_code": "memory", "link_type": "ownership", "status": "confirmed",
+     "evidence": "mock", "reviewed_by": "mock", "reviewed_on": "2026-10-14"},
+    {"stock_code": "402340", "industry_code": "holding", "link_type": "business", "status": "unreviewed"},
+    {"stock_code": "005380", "industry_code": "auto", "link_type": "business", "status": "confirmed",
+     "evidence": "mock", "reviewed_by": "mock", "reviewed_on": "2026-10-14"}
+  ],
+  "blocked_aliases": ["삼성", "현대", "SK", "LG"]
+}
