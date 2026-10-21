@@ -67,8 +67,6 @@ def _refresh(message: TelegramMessage, row: dict) -> bool:
         message.edit_detected_at = func.now()
     message.edited = message.edited or bool(row.get("edited"))
     message.last_seen_at = func.now()
-    if row.get("views") is not None:
-        message.views = row["views"]
     # 처음에 못 읽은 값만 채운다. 본문·링크 서식은 처음 것을 둔다.
     for name in ("posted_at", "author", "attachment_name", "forwarded_from", "forwarded_from_url"):
         if getattr(message, name) is None and row.get(name) is not None:
