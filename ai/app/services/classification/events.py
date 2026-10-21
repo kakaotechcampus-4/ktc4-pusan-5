@@ -1,10 +1,11 @@
 """LLM 이 낸 사건 목록을 검사한다.
 
-LLM 은 기사마다 한 번 불러 사건 목록을 받는다(전제 P3). 응답은 아래 모양이라고 가정한다.
-프롬프트는 아직 없다 — 사건 형식은 실험 E2·E3 로 정한다(전제 P10). 형식이 바뀌면 여기를 고친다.
+LLM 은 기사마다 한 번 불러 사건 목록을 받는다(전제 P3). 응답 모양은 프롬프트
+llm/prompts/classification_events.md 의 출력 절과 같다. 사건 형식은 실험 E2·E3 로 확정하므로
+(전제 P10) 프롬프트의 형식을 바꾸면 여기도 같이 고친다.
 
     {"events": [
-        {"scope": "industry", "role": "cause", "tense": "happened",
+        {"scope": "industry", "role": "cause", "tense": "past",
          "sentences": [1], "context": [], "mentions": ["D램"], "reason": "..."}
     ]}
 
@@ -19,7 +20,9 @@ from dataclasses import dataclass
 
 SCOPES = ("company", "industry", "macro", "market")
 ROLES = ("cause", "price_move", "outlook", "context", "analyst_view")
-TENSES = ("happened", "expected")
+# 값 이름을 role(cause·outlook …)과 헷갈리지 않는 말로 골랐다. happened·expected 였을 때
+# 모델이 role 칸에 tense 값을 넣는 실수를 했다(2026-10-21, 3건 중 2건 실패)
+TENSES = ("past", "future")
 
 _FENCE_RE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
 
@@ -47,8 +50,12 @@ class ParsedEvents:
     dropped_mentions: list[tuple[int, str]]
 
 
-def parse_events(response: str, sentences: list[str]) -> ParsedEvents:
-    """응답 텍스트 → 사건 목록. sentences 는 LLM 에 넣은 그 문장들(splitter 결과)이다."""
+def parse_events(response: str, sentences: list[str], title: str = "") -> ParsedEvents:
+    """응답 텍스트 → 사건 목록. sentences 는 LLM 에 넣은 그 문장들(splitter 결과)이다.
+
+    표기는 제목에서도 찾는다. 회사 이름이 제목에만 있고 본문은 "회사는" 으로 쓰는 기사가 흔하다.
+    근거 번호는 본문 문장만 가리킨다 — 제목은 번호가 없다.
+    """
     text = response.strip()
     fenced = _FENCE_RE.match(text)
     if fenced:
@@ -60,7 +67,7 @@ def parse_events(response: str, sentences: list[str]) -> ParsedEvents:
     if not isinstance(data, dict) or not isinstance(data.get("events"), list):
         raise EventParseError("최상위에 events 배열이 없다")
 
-    body = "\n".join(sentences)
+    body = "\n".join([title, *sentences])
     events: list[Event] = []
     dropped: list[tuple[int, str]] = []
     for order, item in enumerate(data["events"], start=1):

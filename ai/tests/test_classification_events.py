@@ -14,7 +14,7 @@ def response(*events: dict) -> str:
 
 
 def event(**overrides) -> dict:
-    base = {"scope": "industry", "role": "cause", "tense": "happened",
+    base = {"scope": "industry", "role": "cause", "tense": "past",
             "sentences": [1], "context": [], "mentions": ["D램"]}
     return {**base, **overrides}
 
@@ -44,6 +44,12 @@ def test_event_without_evidence_fails_the_run() -> None:
 def test_unknown_scope_fails_the_run() -> None:
     with pytest.raises(EventParseError):
         parse_events(response(event(scope="sector")), SENTENCES)
+
+
+def test_tense_value_in_role_fails_the_run() -> None:
+    """모델이 role 칸에 tense 값을 넣은 적이 있다(2026-10-21). 형식 오류로 막는다."""
+    with pytest.raises(EventParseError):
+        parse_events(response(event(role="future", tense="future")), SENTENCES)
 
 
 def test_broken_json_fails_the_run() -> None:

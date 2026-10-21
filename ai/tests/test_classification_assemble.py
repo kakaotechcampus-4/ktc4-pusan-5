@@ -22,14 +22,14 @@ ARTICLE = [
 ]
 # LLM 이 냈다고 치는 응답. 사건 ①~⑤ 는 문장 ①~⑤ 와 같다
 MOCK_LLM_RESPONSE = json.dumps({"events": [
-    {"scope": "industry", "role": "cause", "tense": "happened", "sentences": [1], "mentions": ["D램"]},
-    {"scope": "industry", "role": "cause", "tense": "happened", "sentences": [2],
+    {"scope": "industry", "role": "cause", "tense": "past", "sentences": [1], "mentions": ["D램"]},
+    {"scope": "industry", "role": "cause", "tense": "past", "sentences": [2],
      "mentions": ["TV 제조사"]},
-    {"scope": "company", "role": "price_move", "tense": "happened", "sentences": [3],
+    {"scope": "company", "role": "price_move", "tense": "past", "sentences": [3],
      "mentions": ["LG전자"]},
-    {"scope": "macro", "role": "cause", "tense": "happened", "sentences": [4],
+    {"scope": "macro", "role": "cause", "tense": "past", "sentences": [4],
      "mentions": ["미국 금리", "코스피"]},
-    {"scope": "industry", "role": "outlook", "tense": "expected", "sentences": [5],
+    {"scope": "industry", "role": "outlook", "tense": "future", "sentences": [5],
      "mentions": ["반도체 업황"]},
 ]}, ensure_ascii=False)
 
@@ -65,7 +65,7 @@ def test_company_event_does_not_spread_through_industry() -> None:
     basis = load_basis(MOCK_BASIS)
     sentences = ["삼성전자, 메모리 가격 상승에 실적 개선."]
     response = json.dumps({"events": [
-        {"scope": "company", "role": "cause", "tense": "happened", "sentences": [1],
+        {"scope": "company", "role": "cause", "tense": "past", "sentences": [1],
          "mentions": ["삼성전자", "메모리"]},
     ]}, ensure_ascii=False)
     items = classify(response, sentences, basis)
@@ -86,7 +86,7 @@ def test_price_move_with_reason_in_same_sentence_is_a_cause() -> None:
     basis = load_basis(MOCK_BASIS)
     sentences = ["원가 부담 우려에 LG전자 주가는 3% 내렸다."]
     response = json.dumps({"events": [
-        {"scope": "company", "role": "cause", "tense": "happened", "sentences": [1],
+        {"scope": "company", "role": "cause", "tense": "past", "sentences": [1],
          "mentions": ["LG전자"]},
     ]}, ensure_ascii=False)
     assert table(classify(response, sentences, basis), "066570", basis) == {"company": [1]}
