@@ -188,7 +188,7 @@ classification_events.id
 | `order_index` | integer | NN | 사건 순서(1부터) |
 | `scope` | varchar(16) | NN, CHECK | `company` \| `industry` \| `macro` \| `market` |
 | `role` | varchar(16) | NN, CHECK | `cause` \| `price_move` \| `outlook` \| `context` \| `analyst_view` |
-| `tense` | varchar(16) | NN, CHECK | `happened`(이미 일어남) \| `expected`(전망) |
+| `tense` | varchar(16) | NN, CHECK | `past`(이미 일어남) \| `future`(전망). 2026-10-21 `happened`·`expected` 에서 바꿈 — 모델이 role 칸에 이 값을 넣는 실수를 했다 |
 | `sentence_indices` | integer[] | NN | 근거 문장 번호(1부터). 떨어진 문장도 담는다 (예: `{2,15}`) |
 | `context_indices` | integer[] | NN, 기본 `{}` | 근거 문장을 읽으려면 함께 필요한 앞 문장 번호(전제 P2) |
 | `mentions` | text[] | NN, 기본 `{}` | LLM 이 낸 기사 속 표기 그대로. 코드가 원문에 있는지 검사하고, 없는 표기는 빼고 저장한다 |
@@ -393,6 +393,7 @@ classification_events.id
 | 9 | `raw_response`·`reason` 을 보관 정책 삭제 범위에 넣을지 | 넣음 / 안 넣음 | 넣음(원문 일부가 섞일 수 있다) |
 | 10 | 공시(`dart_disclosures`)를 분류 대상에 넣을지 | — | 공시를 `source_card` 에 연결할지 먼저 정한다 |
 | 11 | 마이그레이션 시점 | 지금 / 실험 E3 채택 뒤 | E3 채택 뒤(전제 P10). 사건 형식이 바뀔 수 있다 |
+| 12 | 기업–기업 관계 경로와 관련성 판정 단계 | 5절 조립 뒤에 판정 단계를 둘지 | [COMPANY_RELATIONS.md](COMPANY_RELATIONS.md). 관계는 후보 생성기로만 쓰고 관련성은 기사로 다시 판단한다(2026-10-21 멘토 피드백). 표는 아직 설계하지 않았다 |
 
 ---
 
