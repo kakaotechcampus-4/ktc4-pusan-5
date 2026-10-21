@@ -156,7 +156,6 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 | `forwarded_from` | text | NULL | 다른 채널 글을 전달했으면 원래 채널 이름 |
 | `forwarded_from_url` | text | NULL | 전달한 원글 주소 |
 | `hidden_links` | jsonb | NN, 기본 `[]` | 보이는 글자와 실제 주소가 달라 쓰지 않은 링크 |
-| `views` | varchar(32) | NULL | 마지막으로 본 조회수. `"1.2K"` 그대로 |
 | `edited` | boolean | NN, 기본 false | 채널에 '수정됨' 표시가 있었는지 |
 | `edit_detected_at` | timestamptz | NULL | 재수집 때 본문이 달라진 걸 처음 발견한 시각. 본문은 바꾸지 않는다 |
 | `purged_at` | timestamptz | NULL | 보관 정책으로 본문을 지운 시각 |
@@ -186,7 +185,7 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 | `id` | bigint | NN | PK |
 | `message_id` | bigint | NN | FK → `telegram_messages.id` (ON DELETE CASCADE) |
 | `kind` | varchar(16) | NN, CHECK | `url` \| `attachment` |
-| `position` | integer | NN | 메시지 안 순서(1부터). 첨부는 1 |
+| `position` | integer | NN | 메시지에 링크가 적힌 순서(위에서부터 1, 2, 3…). 링크는 이 순서로 메시지당 상한까지만 열고 나머지는 `over_limit`. 첨부는 메시지당 하나라 항상 1 |
 | `discovered_url` | text | NULL | 메시지에 적힌 주소 그대로(대개 단축 URL). `url` 이면 필수, `attachment` 면 NULL |
 | `final_url` | text | NULL | 리다이렉트를 따라 도착한 주소 |
 | `status` | varchar(16) | NN | 아래 상태값 표 참고 |
@@ -199,7 +198,8 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 
 제약·인덱스
 
-- `uq_telegram_message_link_position` UNIQUE(`message_id`, `kind`, `position`)
+- `uq_telegram_message_link_position` UNIQUE(`message_id`, `kind`, `position`) — 같은 메시지를 다시 수집해도 행이 늘지 않는다.
+  첨부는 적힌 주소가 없어(`discovered_url` NULL) 주소 대신 순서로 키를 잡았다
 - `ck_telegram_message_link_kind` CHECK(`kind IN ('url','attachment')`)
 - `ck_telegram_message_link_url` CHECK(`(kind = 'url') = (discovered_url IS NOT NULL)`)
 - `ck_telegram_message_link_target` CHECK(`num_nonnulls(news_id, analyst_report_id) <= 1`) — 발견 하나는 기사 하나 또는 PDF 하나로만 이어진다
@@ -233,8 +233,8 @@ backend 가 "모든 근거 카드가 들어오는 단일 테이블" 로 만든 �
 | `event_date` | date | NULL | 원문 카드는 `available_at` 의 날짜(KST). 시각을 모르는 네이버 리포트는 작성일 | ✏️ 원문 카드에도 채움 |
 | `channel_id` | integer | NULL | FK → `channel.id`. 텔레그램 메시지·텔레그램 첨부 PDF 만 | |
 | `source_name` | varchar(100) | NULL | 원 발행처. news=`publisher`, pdf=`broker`, message=`forwarded_from` 또는 채널명 | |
-| `source_url` | varchar(500) | NULL | backend 직접 입력 카드용. 원문 카드는 비움 | |
-| `raw_text` | text | NULL | 〃 | |
+| `source_url` | varchar(500) | NULL | backend 가 원문을 카드에 직접 담던 칸. 원문 카드(news·pdf·message)는 항상 NULL | |
+| `raw_text` | text | NULL | 〃. 원문 카드는 본문을 복제하지 않고 FK 로 원문 표를 읽는다 | |
 | `cleaned_text` | text | NULL | 〃 | |
 | `tags` | jsonb | NN | DB 기본값 없음 → 넣을 때 `[]` | |
 | `payload` | jsonb | NN | DB 기본값 없음 → 넣을 때 `{}` | |
