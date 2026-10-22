@@ -67,3 +67,10 @@ def test_mention_may_come_from_another_sentence() -> None:
     """근거 문장이 '이 회사' 처럼 대명사여도 표기는 기사 안에 있으면 된다."""
     parsed = parse_events(response(event(sentences=[1], mentions=["LG전자"])), SENTENCES)
     assert parsed.events[0].mentions == ("LG전자",)
+
+
+def test_events_over_prompt_limit_are_kept() -> None:
+    """프롬프트의 '많아도 8개' 는 권고다. 넘었다고 회차를 버리지 않는다.
+    9번째 사건이 정답 문장을 담은 기사가 있었다(2026-10-21 실행, 756ccd)."""
+    parsed = parse_events(response(*[event()] * 9), SENTENCES)
+    assert len(parsed.events) == 9

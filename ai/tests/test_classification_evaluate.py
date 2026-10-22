@@ -120,3 +120,25 @@ def test_review_sheet_shows_sentences_and_failed_raw_events(tmp_path: Path) -> N
     assert rows[0]["사람: 추출 판정 (all/some/none/pass/fail)"] == ""
     assert rows[1]["상태"].startswith("failed — scope 오류")
     assert "analyst_view" in rows[1]["뽑힌 사건"]
+
+
+def test_similar_company_name_is_not_target() -> None:
+    """이름이 겹치는 다른 회사는 그 종목 근거가 아니다. 연결(link)도 표기 전체로 맞춘다."""
+    assert score([event([1], mentions=["삼성전자서비스"])], label()) == "pass"
+
+
+def test_review_handles_invalid_indices_and_formula_title(tmp_path: Path) -> None:
+    """실패한 응답의 번호 칸에는 무엇이든 올 수 있다. 밖에서 온 제목은 엑셀 수식이 되지 않게 쓴다."""
+    import csv
+
+    from app.services.classification.evaluate import write_review
+
+    raw = json.dumps({"events": [{"sentences": ["1", True, None, 1], "context": 3}]})
+    result = {"results": [{"id": "a", "title": '=HYPERLINK("https://example.com")',
+                           "run": {"status": "failed", "raw_response": raw}}]}
+    out = tmp_path / "review.csv"
+    assert write_review(result, {"a": {"body": "실적 증가."}}, out) == 1
+    with out.open(encoding="utf-8-sig") as f:
+        row = next(csv.DictReader(f))
+    assert row["제목"].startswith("'=HYPERLINK")
+    assert "1. 실적 증가." in row["뽑힌 사건"]

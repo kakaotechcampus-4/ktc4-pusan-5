@@ -88,6 +88,14 @@ def _payload(system: str, user: str, model: str | None, max_tokens: int | None,
     return payload
 
 
+def _error_detail(text: str, key: str) -> str:
+    """오류 메시지에 붙일 응답 앞부분. 프록시가 인증 정보를 되비출 수 있어 키를 지운다.
+
+    자르기 전에 지운다. 거꾸로 하면 경계에 걸린 키 앞부분이 남는다.
+    """
+    return text.replace(key, "[REDACTED]")[:ERROR_BODY_MAX_CHARS]
+
+
 def _elice_cost(usage: dict) -> float:
     """Elice 는 응답에 비용을 안 준다. 설정한 단가로 계산한다."""
     return (usage.get("prompt_tokens", 0) * settings.llm_input_usd_per_m
@@ -126,17 +134,32 @@ async def complete(
     except httpx.HTTPStatusError as exc:
         # 상태 코드와 응답 앞부분을 남긴다. 예외 이름만 남기면 429(속도 제한)인지
         # 400(매개변수 거절)인지 몰라서 고칠 곳을 못 찾는다 — Elice 첫 실행에서 겪었다.
-        # 응답 본문은 프로바이더의 오류 메시지라 키가 들어 있지 않다.
         raise LLMError(
             f"LLM 호출 실패: HTTP {exc.response.status_code} "
-            f"{exc.response.text[:ERROR_BODY_MAX_CHARS]}"
+            f"{_error_detail(exc.response.text, key)}"
         ) from exc
     except (httpx.HTTPError, json.JSONDecodeError, TimeoutError) as exc:
         raise LLMError(f"LLM 호출 실패: {type(exc).__name__}") from exc
 
-    choice = (data.get("choices") or [{}])[0]
-    text = ((choice.get("message") or {}).get("content") or "").strip()
-    usage = dict(data.get("usage") or {})
+    # 호출부는 LLMError 만 잡는다. 모양이 다른 응답이 AttributeError 로 새면 배치 전체가 멈춘다
+    if not isinstance(data, dict):
+        raise LLMError("LLM 응답 형식 오류: JSON 객체가 아니다")
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        # OpenRouter 는 생성 중에 난 오류를 HTTP 200 본문의 error 로 준다. 그 사유를 남긴다
+        error = data.get("error")
+        detail = _error_detail(json.dumps(error, ensure_ascii=False), key) if error else ""
+        raise LLMError(f"LLM 응답 형식 오류: choices 가 없다 {detail}".rstrip())
+    choice = choices[0]
+    message = choice.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(message, dict) or not isinstance(content, str | None):
+        raise LLMError("LLM 응답 형식 오류: message.content 가 문자열이 아니다")
+    usage = data.get("usage") or {}
+    if not isinstance(usage, dict):
+        raise LLMError("LLM 응답 형식 오류: usage 가 객체가 아니다")
+    text = (content or "").strip()
+    usage = dict(usage)
     usage["finish_reason"] = choice.get("finish_reason")
     if settings.llm_provider == "elice" and "cost" not in usage:
         # cost_usd 가 OpenRouter 의 usage.cost 를 먼저 보므로 같은 자리에 넣어 둔다.

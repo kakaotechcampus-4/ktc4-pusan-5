@@ -201,12 +201,13 @@ def _alias_conflicts(
     problems = []
     entries = [(name, f"종목 {s.code}") for s in stocks.values() for name in (s.name, *s.aliases)]
     entries += [(alias, f"산업 {i.code}") for i in industries.values() for alias in i.aliases]
+    blocked_keys = {normalize_mention(b) for b in blocked}
     for alias, target in entries:
         key = normalize_mention(alias)
         if not key:
             problems.append(f"{target}: 빈 표기")
             continue
-        if key in {normalize_mention(b) for b in blocked}:
+        if key in blocked_keys:
             problems.append(f"{target}: 막은 표기 {alias!r} 를 별칭으로 쓸 수 없다")
         if key in owner and owner[key] != target:
             problems.append(f"표기 {alias!r} 가 {owner[key]} 와 {target} 를 함께 가리킨다")

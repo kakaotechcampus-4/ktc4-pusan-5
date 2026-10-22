@@ -11,7 +11,8 @@
 판정 (지난 실험의 "원인을 빠짐없이 담음 / 일부라도 담음" 과 같은 기준)
     원인 있는 기사   근거 사건(price_move 제외)의 근거·문맥 문장이 정답 문장을
                     전부 덮으면 all, 하나라도 덮으면 some, 아니면 none
-    원인 없는 기사   근거 사건 중 그 종목 이름을 표기로 가진 것이 없으면 pass
+    원인 없는 기사   근거 사건 중 표기가 그 종목 이름과 같은 것이 없으면 pass
+                    (link 처럼 표기 전체로 맞춘다. "삼성전자서비스" 는 삼성전자가 아니다)
                     다른 회사·산업 사건이 있는 건 괜찮다 — 이 종목의 직접 근거만 없으면 된다
 
 정답은 종목 하나 기준이고 추출은 기사 전체 기준이다. 그래서 원인 있는 기사의 판정은
@@ -25,6 +26,7 @@ from pathlib import Path
 
 from app.services.classification import splitter
 from app.services.classification.assemble import NON_EVIDENCE_ROLES
+from app.services.classification.basis import normalize_mention
 from app.services.classification.events import Event
 
 
@@ -60,7 +62,8 @@ def score(events: list[Event], label: Label) -> str:
     """all / some / none (원인 있는 기사), pass / fail (원인 없는 기사)."""
     evidence = evidence_events(events)
     if not label.gold:
-        about_stock = any(label.stock in mention for e in evidence for mention in e.mentions)
+        about_stock = any(normalize_mention(label.stock) == normalize_mention(mention)
+                          for e in evidence for mention in e.mentions)
         return "fail" if about_stock else "pass"
     covered = {i for e in evidence for i in (*e.sentence_indices, *e.context_indices)}
     if label.gold <= covered:
@@ -113,7 +116,10 @@ REVIEW_COLUMNS = [
 
 
 def _numbered(sentences: list[str], indices) -> str:
-    return "\n".join(f"{i}. {sentences[i - 1]}" for i in indices if 1 <= i <= len(sentences))
+    if not isinstance(indices, (list, tuple, range)):
+        return ""
+    return "\n".join(f"{i}. {sentences[i - 1]}" for i in indices
+                     if type(i) is int and 1 <= i <= len(sentences))
 
 
 def _event_block(event: dict, sentences: list[str]) -> str:
@@ -126,6 +132,14 @@ def _event_block(event: dict, sentences: list[str]) -> str:
     lines += [f"  (문맥) {line}" for line in _numbered(sentences, context).splitlines()]
     lines += [f"  {line}" for line in _numbered(sentences, indices).splitlines()]
     return "\n".join(lines)
+
+
+def _csv_text(value: object) -> str:
+    """기사 제목처럼 밖에서 온 글이 엑셀에서 수식으로 실행되지 않게 앞에 ' 를 붙인다."""
+    text = "" if value is None else str(value)
+    if text.lstrip().startswith(("=", "+", "-", "@")) or text.startswith(("\t", "\r", "\n")):
+        return "'" + text
+    return text
 
 
 def write_review(result: dict, articles: dict, out: Path,
@@ -171,5 +185,5 @@ def write_review(result: dict, articles: dict, out: Path,
     with out.open("w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=REVIEW_COLUMNS)
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows({key: _csv_text(value) for key, value in row.items()} for row in rows)
     return len(rows)

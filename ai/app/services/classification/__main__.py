@@ -38,13 +38,14 @@ from app.services.classification.evaluate import (
     write_review,
 )
 from app.services.classification.extract import ExtractionRun, extract_events
-from app.services.classification.link import link_mentions
+from app.services.classification.link import alias_index, link_mentions
 
 
 def print_events(run: ExtractionRun, body: str, basis: Basis | None) -> None:
     sentences = splitter.split(body, run.splitter_version)
     if not run.events:
         print("사건 없음 — 이유가 될 내용이 없는 기사로 판단")
+    index = alias_index(basis) if basis else None
     for event in run.events:
         print(f"\n[{event.order_index}] {event.scope} / {event.role} / {event.tense}"
               f"  문장 {list(event.sentence_indices)}  문맥 {list(event.context_indices)}")
@@ -53,7 +54,7 @@ def print_events(run: ExtractionRun, body: str, basis: Basis | None) -> None:
             print(f"    {i}. {sentences[i - 1]}{mark}")
         print(f"    표기 {list(event.mentions)}")
         if basis:
-            result = link_mentions(event.mentions, basis)
+            result = link_mentions(event.mentions, basis, index)
             linked = [f"{link.mention}→{link.stock_code or link.industry_code}" for link in result.links]
             print(f"    연결 {linked}  미연결 {result.unresolved}")
         if event.reason:
@@ -81,8 +82,16 @@ async def run_batch(args: argparse.Namespace) -> None:
     articles: dict = json.loads(args.articles.read_text(encoding="utf-8"))
     labels_path = args.articles.parent / "labels.csv"
     labels = load_labels(labels_path) if labels_path.is_file() else {}
-    ids = args.ids.split(",") if args.ids else list(articles)
-    if args.limit:
+    if args.ids:
+        # 같은 id 를 두 번 적으면 LLM 도 두 번 부른다. 순서는 지키고 한 번만 남긴다
+        ids = list(dict.fromkeys(part.strip() for part in args.ids.split(",") if part.strip()))
+    else:
+        ids = list(articles)
+    # 오타 난 id 가 섞이면 앞 기사들에 비용을 쓴 뒤에야 멈춘다. 부르기 전에 확인한다
+    missing = [article_id for article_id in ids if article_id not in articles]
+    if missing:
+        raise ValueError(f"없는 기사 ID: {', '.join(missing)}")
+    if args.limit is not None:
         ids = ids[: args.limit]
 
     results = []
@@ -159,6 +168,9 @@ def main() -> None:
     args = parser.parse_args()
     if bool(args.file) == bool(args.articles):
         parser.error("기사 파일 하나 또는 --articles 중 하나만 준다")
+    if args.limit is not None and args.limit < 1:
+        # 0 이 '제한 없음' 으로 읽히면 묶음 전체를 부른다
+        parser.error("--limit 은 1 이상이어야 한다")
     if args.review:
         if not args.articles:
             parser.error("--review 는 --articles 와 함께 준다 (문장 원문을 거기서 읽는다)")

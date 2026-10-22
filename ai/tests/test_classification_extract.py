@@ -92,3 +92,17 @@ async def test_broken_response_is_failed_but_kept(monkeypatch) -> None:
     assert run.status == "failed"
     assert run.raw_response == '{"events": ['
     assert "finish_reason=length" in run.error
+
+
+async def test_title_counts_toward_input_limit(monkeypatch) -> None:
+    """제목도 같이 보낸다. 본문만 세면 긴 제목이 상한을 우회한다."""
+    complete = fake_complete(monkeypatch)
+    assert (await extract_events(BODY, "x" * MAX_INPUT_CHARS)).status == "skipped"
+    complete.assert_not_awaited()
+
+
+async def test_complete_json_is_ok_even_if_finish_reason_is_length(monkeypatch) -> None:
+    """잘린 응답은 JSON 이 깨져 검사에서 걸린다. 끝까지 읽힌 JSON 을 finish_reason 만 보고 버리지 않는다."""
+    fake_complete(monkeypatch, text=OK_RESPONSE, usage={"finish_reason": "length"})
+    run = await extract_events(BODY, TITLE)
+    assert run.status == "ok" and len(run.events) == 2
