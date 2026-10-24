@@ -135,7 +135,9 @@ runs/<YYYYMMDD-HHMMSS>/
 
 `common_move` — 대형주 전반이 같은 방향으로 함께 움직인 날. `change_pct` 와 `peer_median_pct` 부호가 같고
 `abs(peer_median_pct) >= abs(change_pct) × 0.5` 이며 `judge_layers.relative` 가 `false`. `peer_median_pct` 가 null 이면 null.
-`true` 면 `summary.main_cause` 첫 문장에 그 사실을 쓴다.
+`true` 면 그날은 등락 층 factor 를 세우지 않는다(`verdict` 는 `no_clear_cause`). 시장 사건(`relation: market`)은
+`summary.move`, 종목·업종 재료는 `background` 로 가고, `main_cause` 는 "대형주 전반이 함께 오른(내린) 날이었습니다. 이 종목만의
+원인은 따로 확인되지 않았습니다." 다. 어기면 경고 `COMMON_MOVE_WITH_MOVE_LINK`.
 
 `move_case` — 래퍼 집계용 이름표(모델에 보내지 않음).
 
@@ -312,7 +314,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verify_status` | `passed` / `failed`. 스키마·규칙·근거 중 하나라도 걸리면 failed |
 | `verify_problems` | `"<코드>: <상세>"` 문자열 배열 (예: `QUOTE_NOT_IN_SOURCE: factors[0].sources[0] ...`) |
 | `events_status` / `events_problems` | `events` 칸 검사. `passed` / `failed` / `missing`. 판정과 별개. 형식(`SCHEMA_*`, `EVENT_REASON_MISMATCH`)과 실제 칸 대조: `EVENT_BACKGROUND_REF_MISSING`·`_REF_DUPLICATE`·`_UNREFERENCED`(background 항목과 사건이 하나씩 짝), `EVENT_FACTOR_COUNT`·`_REF_MISSING`·`_DUPLICATE`, `ISSUE_ID_DUPLICATE` |
-| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`, `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외) |
+| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`, `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음) |
 | `issue_trace_warnings` / `issue_trace_stats` | `ISSUE_TRACE_MISSING_URL`(messages 칸 누락)·`ISSUE_ID_UNKNOWN` 경고와 집계(`messages_traced`, `messages_total`, `relations`, `issues_used`) |
 
 ### 재시도·고쳐 쓰기 기록

@@ -167,6 +167,9 @@ THEME_RECAP_NOT_SECTOR = "THEME_RECAP_NOT_SECTOR"
 # factor 의 첫 출처 quote 에 event 의 대상어(매매 주체, 영문 고유명)가 없다. quote 가 event 를 뒷받침하는지
 # 글자만으로는 알 수 없어 겹침만 본다. 이 종목명은 대상어로 보지 않는다.
 QUOTE_MISSING_SUBJECT = "QUOTE_MISSING_SUBJECT"
+# 입력 common_move 가 true(대형주 전반이 함께 움직인 날)인데 등락 층 link 를 단 factor 가 있다. 그날은 등락 층
+# factor 를 세우지 않는다(프롬프트 7단계). 판정에는 넣지 않는다.
+COMMON_MOVE_WITH_MOVE_LINK = "COMMON_MOVE_WITH_MOVE_LINK"
 
 # --- events ↔ 실제 칸 대조 (events_problems, 판정과 분리) ------------------------
 
@@ -1088,6 +1091,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     THEME_RECAP_NOT_SECTOR      theme_recap 출처의 이슈 중 이 factor 로 묶인 sector 이슈가 없다.
                                 issue_trace 가 있어야 본다(events → issue_ids → issue_trace relation).
     QUOTE_MISSING_SUBJECT       첫 출처 quote 에 event 의 매매 주체·영문 고유명이 없다.
+    COMMON_MOVE_WITH_MOVE_LINK  common_move 가 true 인 날 layer: move link 를 가진 factor 가 있다.
     """
     if not isinstance(report, dict):
         return []
@@ -1113,6 +1117,12 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
         out += _check_theme_recap_sector(report, kinds, issue_trace,
                                          {i: m.get("url") for i, m in message_ids(payload)})
     out += _check_quote_subjects(factors, str(payload.get("stock") or ""))
+    if common_move(payload):
+        moved = [i for i, f in enumerate(factors) if _has_layer(f, "move")]
+        if moved:
+            out.append(_p(COMMON_MOVE_WITH_MOVE_LINK,
+                          f"common_move=true 인데 layer=move link 를 가진 factor {len(moved)}개 "
+                          f"({', '.join(f'factors[{i}]' for i in moved)}), verdict={report.get('verdict')!r}"))
     return out
 
 

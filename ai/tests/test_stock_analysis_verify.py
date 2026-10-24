@@ -14,6 +14,7 @@ from app.services.stock_analysis.verify import (
     ASKED_QUESTION,
     BACKGROUND_WITHOUT_SOURCE,
     CHANGE_PCT_MISMATCH,
+    COMMON_MOVE_WITH_MOVE_LINK,
     COUNT_OVER_CAP,
     COUNTER_WITHOUT_BACKGROUND,
     DATE_MISMATCH,
@@ -1251,3 +1252,14 @@ def test_quote_missing_subject(event_text, quote, missing):
         assert len(warnings) == 1 and all(m in warnings[0] for m in missing)
     else:
         assert warnings == []
+
+
+def test_common_move_day_with_move_link_warns():
+    """대형주 전반이 함께 움직인 날(common_move)은 등락 층 factor 를 세우지 않는다. 판정과 따로 경고만."""
+    common = with_market(change=-3.57, peer_median_pct=-2.62, excess_pct=-0.95)
+    assert common_move(common) is True
+    r = cause_report(change_pct=-3.57)
+    assert codes(check_warnings(r, common)) == {COMMON_MOVE_WITH_MOVE_LINK}
+    assert check_warnings(cause_report(change_pct=-3.57, verdict="no_clear_cause", factors=[]), common) == []
+    # common_move 가 아닌 날은 경고하지 않는다
+    assert COMMON_MOVE_WITH_MOVE_LINK not in codes(check_warnings(cause_report(), CAUSE))
