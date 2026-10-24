@@ -10,7 +10,7 @@ import pytest
 
 from app.collectors import stock_analysis as collector
 from app.services.stock_analysis import generate as gen
-from app.services.stock_analysis.verify import code_of
+from app.services.stock_analysis.verify import code_of, move_case
 
 FIXTURES = Path(__file__).parent / "fixtures" / "stock_analysis"
 
@@ -23,8 +23,8 @@ def report_for(payload: dict) -> dict:
     market_share_down)은 MOVE_SUFFICIENT_STOCK_ONLY 로 떨어진다. opposite 케이스만 background 없이 counter 를 채워
     COUNTER_WITHOUT_BACKGROUND 와 「그중 counter 있음」 집계를 확인한다."""
     msg = payload["messages"][0]
-    market = payload.get("market") or {}
-    opposite = market.get("move_case") == "opposite"
+    # 모델 입력에는 move_case 가 없다(래퍼 집계에만). 같은 함수로 다시 계산한다
+    opposite = move_case(payload) == "opposite"
     return {
         "ticker": payload["code"], "name": payload["stock"], "date": payload["target_date"],
         "as_of": "15:30", "change_pct": payload["change_pct"], "verdict": "explained",
@@ -337,6 +337,6 @@ async def test_dropped_move_factor_without_rewrite_warns_main_cause_stale(monkey
     assert [w.split(":")[0] for w in wrapper["verify_warnings"]] == ["MAIN_CAUSE_STALE"]
     total = len(payload["messages"])
     assert wrapper["issue_trace_stats"]["messages_traced"] == 1
-    assert wrapper["issue_trace_stats"]["market_unreferenced"] == 1
+    assert wrapper["issue_trace_stats"]["issues_used"] == 0
     assert [w.split(":")[0] for w in wrapper["issue_trace_warnings"]] == ["ISSUE_TRACE_MISSING_URL"] * (total - 1)
     assert result["issue_trace_messages"] == {"traced": 1, "total": total}

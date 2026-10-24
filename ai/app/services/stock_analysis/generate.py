@@ -68,6 +68,7 @@ from app.services.stock_analysis.verify import (
     common_move,
     judge_layers,
     move_case,
+    split_messages,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ PROMPT_NAME = "stock_analysis_system"
 # 프롬프트 1부 입력 형식에서 러너가 반드시 있어야 하는 칸. market 은 null 이 허용이라
 # 빠져 있다. change_pct 는 ±1% 규칙과 초과분 판단의 기준이라 없으면 검증을 못 한다.
 REQUIRED_INPUT = ("stock", "code", "target_date", "cutoff", "change_pct", "messages")
-# 래퍼 skipped_llm 값. 직접 언급·테마 동향 메시지가 0건이라 LLM 을 부르지 않고 정형 보고서(canned_report)를 냈다.
+# 래퍼 skipped_llm 값. 근거 칸(messages)에 직접 언급·테마 동향 메시지가 0건이라 LLM 을 부르지 않고 정형 보고서(canned_report)를 냈다.
 NO_DIRECT_MESSAGES = "NO_DIRECT_MESSAGES"
 
 _FENCE = re.compile(r"```[A-Za-z]*[ \t]*\n(.*?)```", re.DOTALL)
@@ -111,22 +112,22 @@ def check_input(payload: Any) -> list[str]:
     return problems
 
 
-def with_market_flags(payload: dict[str, Any]) -> dict[str, Any]:
-    """모델에 보낼 입력. `market` 에 러너가 계산한 칸(move_case·judge_layers·common_move)을 넣은
-    사본이다. 원본은 바꾸지 않는다.
+def model_input(payload: dict[str, Any]) -> dict[str, Any]:
+    """모델에 보낼 입력. 원본은 바꾸지 않는다(프롬프트 1부).
 
-    입력에 같은 칸이 이미 있어도 다시 계산해 덮어쓴다 — 계산은 verify 의 함수 한 곳에서만 한다.
-    모델이 ±1% 규칙이나 대형주 몫을 다시 계산하지 않게 하려고 넣는다(프롬프트 1부).
-    market 이 null 이면 넣을 자리가 없어 그대로 둔다(프롬프트의 null 경우).
-    러너가 남기는 입력 사본(inputs/)은 받은 바이트 그대로라 이 칸들이 없다. 같은 함수로
-    언제든 다시 만들 수 있다.
+    - 메시지를 messages·market_context·flow 세 칸으로 나눈다(verify.split_messages).
+    - market 에 러너가 계산한 judge_layers·common_move 를 넣는다. 입력에 같은 칸이 있어도 다시 계산해
+      덮어쓴다 — 계산은 verify 의 함수 한 곳에서만 한다. move_case 는 보내지 않는다(래퍼 집계에만 남긴다).
+      market 이 null 이면 넣을 자리가 없어 그대로 둔다.
+    러너가 남기는 입력 사본(inputs/)은 받은 바이트 그대로다. 같은 함수로 언제든 다시 만들 수 있다.
     """
+    out = {k: v for k, v in payload.items() if k != "messages"}
+    out.update(split_messages(payload))
     market = payload.get("market")
-    if not isinstance(market, dict):
-        return payload
-    return {**payload, "market": {**market, "move_case": move_case(payload),
-                                  "judge_layers": judge_layers(payload),
-                                  "common_move": common_move(payload)}}
+    if isinstance(market, dict):
+        out["market"] = {**{k: v for k, v in market.items() if k != "move_case"},
+                         "judge_layers": judge_layers(payload), "common_move": common_move(payload)}
+    return out
 
 
 def direct_message_count(payload: dict[str, Any]) -> int:
@@ -137,15 +138,14 @@ def direct_message_count(payload: dict[str, Any]) -> int:
 
 
 def needs_llm(payload: dict[str, Any]) -> bool:
-    """LLM 을 부를 입력인가. direct 메시지가 있거나 theme_recap 메시지가 있으면 부른다.
+    """LLM 을 부를 입력인가. 근거 칸(messages)에 direct 메시지나 theme_recap 메시지가 있으면 부른다.
 
-    테마 동향은 이 종목 업종 단락이면 sector 근거가 될 수 있어(프롬프트 6단계) 직접 언급이 없어도 부른다.
-    둘 다 없으면(시장 시황뿐이거나 메시지가 없음) 근거가 될 메시지가 없어 정형 보고서를 낸다.
+    테마 동향은 이 종목 업종 단락이면 sector 근거가 될 수 있어(프롬프트 1부) 직접 언급이 없어도 부른다.
+    market_context(시장 시황·전날 장 설명)와 flow(매매 순위)는 근거가 될 수 없어 세지 않는다.
+    둘 다 없으면 정형 보고서를 낸다.
     """
-    messages = payload.get("messages")
-    return direct_message_count(payload) > 0 or any(
-        isinstance(m, dict) and m.get("kind") == THEME_RECAP_KIND
-        for m in (messages if isinstance(messages, list) else []))
+    messages = split_messages(payload)["messages"]
+    return any(m.get("match") == "direct" or m.get("kind") == THEME_RECAP_KIND for m in messages)
 
 
 def _topic_josa(word: str) -> str:
@@ -438,7 +438,7 @@ async def _generate_once(
     started = time.monotonic()
     wrapper = _base_wrapper(payload, prompt_hash=prompt_hash, run_id=run_id)
     stream, max_tokens = wrapper["stream"], wrapper["max_completion_tokens"]
-    user = json.dumps(with_market_flags(payload), ensure_ascii=False, indent=2)
+    user = json.dumps(model_input(payload), ensure_ascii=False, indent=2)
     for attempt in range(STREAM_RETRIES + 1):
         try:
             text, usage = await complete(system, user, max_tokens=max_tokens, stream=stream)
@@ -525,5 +525,5 @@ __all__ = [
     "make_run_id",
     "prompt_sha256",
     "report_of",
-    "with_market_flags",
+    "model_input",
 ]

@@ -10,7 +10,6 @@ from app.services.stock_analysis import repair
 from app.services.stock_analysis.verify import (
     ISSUE_ID_UNKNOWN,
     ISSUE_TRACE_MISSING_URL,
-    ISSUE_UNREFERENCED,
     QUOTE_VERIFY_FAIL,
     check_events,
     check_issue_trace,
@@ -89,11 +88,12 @@ def trace(*issues):
     return [{"url": URL, "issues": [{"id": i, "issue": i, "relation": rel} for i, rel in issues]}]
 
 
-def test_issue_trace_unreferenced_related_issue_warns():
+def test_issue_not_in_any_event_is_not_warned_but_counted():
+    """events 는 실제로 적은 사건만 담는다. 어느 사건에도 들지 않은 이슈는 issue_trace 에만 남고 경고가 아니다."""
     r = {"events": [{"issue_ids": ["i1"]}]}
-    warnings = check_issue_trace(trace(("i1", "direct"), ("i2", "sector"), ("i3", "none")), r)
-    assert [code_of(w) for w in warnings] == [ISSUE_UNREFERENCED]
-    assert "'i2'" in warnings[0]
+    t = trace(("i1", "direct"), ("i2", "sector"), ("i3", "market"))
+    assert check_issue_trace(t, r) == []
+    assert issue_trace_stats(t, r, {"messages": [{"url": URL}]})["issues_used"] == 1
 
 
 def test_issue_trace_unknown_id_and_missing_trace():
@@ -113,14 +113,26 @@ def test_issue_trace_missing_input_url_warns_and_is_counted():
     assert (stats["messages_traced"], stats["messages_total"]) == (1, 3)
 
 
-def test_market_issue_is_not_warned_but_counted_when_unreferenced():
+def test_issue_trace_stats_relations_and_used():
     t = trace(("i1", "direct"), ("i2", "market"), ("i3", "market"))
     r = {"events": [{"issue_ids": ["i1", "i2"]}]}
     assert check_issue_trace(t, r, {"messages": [{"url": URL}]}) == []
     stats = issue_trace_stats(t, r, {"messages": [{"url": URL}]})
-    assert stats["market_unreferenced"] == 1
+    assert stats["issues_used"] == 2
     assert stats["relations"] == {"direct": 1, "market": 2}
     assert issue_trace_stats(None, r, {"messages": []}) is None
+
+
+def test_issue_trace_only_covers_messages_column():
+    """market_context(시장 시황·전날 장 설명)와 flow(매매 순위)는 issue_trace 대상이 아니라 누락으로 세지 않는다."""
+    payload = {"messages": [{"url": URL, "kind": "news"},
+                            {"url": "https://t.me/ch/2", "kind": "market_recap"},
+                            {"url": "https://t.me/ch/3", "kind": "theme_recap", "after_prev_close": True},
+                            {"url": "https://t.me/ch/4", "kind": "flow_rank"}]}
+    r = {"events": [{"issue_ids": ["i1"]}]}
+    assert check_issue_trace(trace(("i1", "direct")), r, payload) == []
+    stats = issue_trace_stats(trace(("i1", "direct")), r, payload)
+    assert (stats["messages_traced"], stats["messages_total"]) == (1, 1)
 
 
 def test_none_issues_are_counted_from_none_count():

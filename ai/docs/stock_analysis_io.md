@@ -68,7 +68,7 @@ runs/<YYYYMMDD-HHMMSS>/
     "peer_median_pct": -0.6,                  // 이 종목을 뺀 비교 대형주 등락률 중간값. 없으면 null
     "peer_up": 5, "peer_down": 13, "peer_total": 19,
     "excess_pct": -3.6                        // change_pct − peer_median_pct. 없으면 null
-    // "move_case"·"judge_layers"·"common_move" 는 넣지 않아도 된다. 러너가 계산해 덮어쓴다(아래)
+    // "judge_layers"·"common_move" 는 넣지 않아도 된다. 러너가 계산해 덮어쓴다(아래)
   },
   "messages": [                               // 필수. 배열. 이미 종목·시간으로 걸러진 상태
     {
@@ -82,7 +82,7 @@ runs/<YYYYMMDD-HHMMSS>/
       "after_prev_close": false,              // true 면 직전 거래일 장을 정리한 시황(오늘 원인이 아님)
       "first_seen_kst": null,                 // 직전 구간에 같은 내용이 처음 나온 시각. 없으면 null
       "dup_channels": 1,                      // 같은 내용으로 묶인 메시지들의 채널 수. 묶인 게 없으면 1
-      "link_bodies": [                        // 선택. 메시지 속 뉴스 링크를 cutoff 안에서 미리 연 것
+      "link_bodies": [                        // 선택. 메시지 속 뉴스 링크를 cutoff 안에서 미리 연 것. 프롬프트는 설명하지 않는다(지금 입력에 없음), 검증은 excerpt 도 quote 원문으로 본다
         {
           "url": "https://example.com/s/a1b2c3",        // 메시지에 적힌 주소
           "final_url": "https://news.example.com/article/1001",  // 단축 URL 을 푼 주소
@@ -107,10 +107,23 @@ runs/<YYYYMMDD-HHMMSS>/
 - `kind`·`after_prev_close`·`first_seen_kst` 는 입력 생성 단계가 붙인다. 러너 `check_input()` 은 보지 않는다.
   그날 시장 시황·테마 동향 메시지가 종목과 상관없이 `match: indirect` 로 최대 3건 함께 들어온다.
 
-### 러너가 입력에 덧붙이는 것 — `market.move_case`·`judge_layers`·`common_move`
+### 러너가 모델에 보내는 입력 — `generate.model_input()`
 
-모델에 보내기 직전 계산해 넣는다(입력에 값이 있어도 덮어쓴다). `inputs/` 사본에는 없다.
-`market` 이 null 이면 넣지 않는다. 계산은 `verify.move_case`·`judge_layers`·`common_move` 한 곳이고 검증도 같은 함수를 본다.
+받은 입력을 그대로 보내지 않는다. `inputs/` 사본은 받은 바이트 그대로이고, 같은 함수로 언제든 다시 만들 수 있다.
+검증·출처 대조는 나누기 전 입력 전체로 한다.
+
+- **메시지를 세 칸으로 나눈다**(`verify.split_messages`).
+
+  | 칸 | 들어가는 메시지 | 프롬프트의 용도 |
+  | --- | --- | --- |
+  | `messages` | `news`·`news_digest`·`disclosure`·`other`·`theme_recap`, kind 없음 | 근거. theme_recap 은 이 종목 업종 단락만 sector 근거 |
+  | `market_context` | `market_recap`, `after_prev_close: true`(kind 무관) | `summary.move` 의 시장 설명에만. 출처 금지. after_prev_close 는 참고만 |
+  | `flow` | `flow_rank` | factor `detail`·`background` 보조 근거만 |
+
+  `issue_trace` 는 `messages` 칸만 나열한다. 누락 검사(`ISSUE_TRACE_MISSING_URL`)도 그 칸 기준이다.
+- **`market` 에 계산 칸을 넣는다**(`judge_layers`·`common_move`, 아래). 입력에 값이 있어도 덮어쓴다.
+  `market` 이 null 이면 넣지 않는다. 계산은 verify 의 함수 한 곳이고 검증도 같은 함수를 본다.
+- `move_case` 는 모델에 보내지 않는다. 래퍼 `move_case` 와 러너 집계에만 남긴다.
 
 `judge_layers` — 층마다 이 입력에서 원인을 판단하는가. `false` 인 층에는 link 를 달지 않고 그 층 판정은 `no_clear_cause`.
 
@@ -123,7 +136,7 @@ runs/<YYYYMMDD-HHMMSS>/
 `abs(peer_median_pct) >= abs(change_pct) × 0.5` 이며 `judge_layers.relative` 가 `false`. `peer_median_pct` 가 null 이면 null.
 `true` 면 `summary.main_cause` 첫 문장에 그 사실을 쓴다.
 
-`move_case` — 참고용 이름표.
+`move_case` — 래퍼 집계용 이름표(모델에 보내지 않음).
 
 | 값 | 조건 |
 | --- | --- |
@@ -136,7 +149,7 @@ runs/<YYYYMMDD-HHMMSS>/
 
 ### 직접 언급·테마 동향이 0건이면 — 정형 보고서
 
-`match: "direct"` 메시지와 `kind: "theme_recap"` 메시지가 하나도 없으면(시장 시황만 있어도) LLM 을 부르지 않고
+`messages` 칸에 `match: "direct"` 메시지와 `kind: "theme_recap"` 메시지가 하나도 없으면(시장 시황·매매 순위만 있어도) LLM 을 부르지 않고
 `generate.canned_report()` 로 정형 보고서를 낸다. 두 판정 `no_clear_cause`, `factors`·`background`·`terms`·`events` 는 비고,
 `summary.move` 는 입력 숫자로 채운 문장, `main_cause` 는 "제공된 메시지에서 확인된 원인은 없습니다."(`common_move` 날은
 앞에 "대형주 전반이 함께 오른/내린 날이었습니다."), `unexplained` 는 "이 종목을 직접 다룬 소식이 수집되지 않았습니다."
@@ -191,7 +204,7 @@ LLM 을 부른다(`generate.needs_llm`).
           "channel": "sample_channel_a",
           "url": "https://t.me/sample_channel_a/101",  // 입력 messages[].url 그대로
           "datetime_kst": "2026-09-18T08:10:00+09:00",
-          "quote": "3분기 영업이익 잠정치 412억원",      // text 또는 link_bodies[].excerpt 글자 그대로, 40자 이내
+          "quote": "3분기 영업이익 잠정치 412억원",      // 메시지 text 글자 그대로, 40자 이내
           "match": "direct",                           // 입력 값 그대로
           "is_market_recap": false                     // 입력 kind 가 market_recap·theme_recap 이면 true. 검증은 입력 kind 를 본다
         }
@@ -219,15 +232,14 @@ LLM 을 부른다(`generate.needs_llm`).
 
   "not_found": ["검수용 문자열"],          // 화면에 안 나감
 
-  "events": [                             // 검수용. 화면에 안 나감. REQUIRED 는 아님
+  "events": [                             // 검수용. 화면에 안 나감. REQUIRED 는 아님. factors·background 에 실제로 적은 사건만
     {
       "event": "사건 한 줄",
       "issue_ids": ["i1", "i3"],          // issue_trace 이슈 id
       "factor": 0,                        // placed 가 factors 일 때만
       "background": { "slot": "bearish", "index": 0 },  // placed 가 background 일 때만(필수). 그 사건을 담은 항목 자리
       "dup_channels": 2,                  // 숫자 | null
-      "placed": "factors",                // factors | background | summary.move | dropped
-      "reason": "over_cap"                // dropped 이거나 over_cap 일 때만. background 상한에 밀린 사건은 dropped/over_cap
+      "placed": "factors"                 // factors | background. dropped 는 러너만 쓴다(아래)
     }
   ]
 }
@@ -242,12 +254,12 @@ LLM 을 부른다(`generate.needs_llm`).
 | `links[].layer` | `move`, `relative` | |
 | `links[].strength` | `sufficient`, `partial`, `insufficient` | 간접(`match: indirect`)만 근거이거나 `unconfirmed: true` 면 `partial` 이 상한 |
 | `sources[].match` | `direct`, `indirect` | |
-| `events[].placed` | `factors`, `background`, `summary.move`, `dropped` | |
-| `events[].reason` | `no_change`, `mechanism_only`, `schedule_only`, `off_topic`, `over_cap`, `quote_verify_fail` | `quote_verify_fail` 은 러너만 쓴다(repair 에서 뺀 항목) |
+| `events[].placed` | `factors`, `background`, `dropped` | 모델은 `factors`·`background` 만. `dropped` 는 러너가 quote 실패로 뺀 항목 |
+| `events[].reason` | `quote_verify_fail` | `dropped` 일 때만. 러너만 쓴다(repair) |
 
 ### `issue_trace` (래퍼로 옮겨짐)
 
-모델 출력의 맨 앞 키. 입력 메시지마다 하나(이슈가 없거나 전부 none 이어도 url 은 남긴다 — 누락 검사용).
+모델 출력의 맨 앞 키. `messages` 칸 메시지마다 하나(이슈가 없거나 전부 none 이어도 url 은 남긴다 — 누락 검사용).
 `none` 이슈는 적지 않고 개수만 `none_count` 에 둔다. `issue_trace_stats.relations.none` 은 이 값을 더한 것이다.
 
 ```jsonc
@@ -263,7 +275,7 @@ LLM 을 부른다(`generate.needs_llm`).
 ]
 ```
 
-`direct`·`sector` 이슈 id 는 모두 `events[].issue_ids` 어딘가에 있어야 한다. 빠지면 경고(`ISSUE_UNREFERENCED`)만 남는다.
+어느 칸에도 쓰지 않은 이슈는 `issue_trace` 에만 남는다(경고 아님). 쓰인 이슈 수는 `issue_trace_stats.issues_used`.
 
 ### 이전 형식 호환
 
@@ -289,7 +301,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `asked_question` | JSON 이 안 열렸고 응답이 `?` 로 끝남 |
 | `skipped_llm` | 정형 보고서일 때만 `"NO_DIRECT_MESSAGES"` (직접 언급·테마 동향 0건). 그 밖에는 칸이 없다 |
 | `issue_trace` | 모델이 낸 이슈 목록 |
-| `move_case` / `judge_layers` / `common_move` | 입력에 넣은 값과 같음(`market` 이 null 이면 null) |
+| `move_case` / `judge_layers` / `common_move` | 러너가 계산한 값(`market` 이 null 이면 null). `move_case` 는 모델에 보내지 않는다 |
 
 ### 검증 결과
 
@@ -299,7 +311,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verify_problems` | `"<코드>: <상세>"` 문자열 배열 (예: `QUOTE_NOT_IN_SOURCE: factors[0].sources[0] ...`) |
 | `events_status` / `events_problems` | `events` 칸 검사. `passed` / `failed` / `missing`. 판정과 별개. 형식(`SCHEMA_*`, `EVENT_REASON_MISMATCH`)과 실제 칸 대조: `EVENT_BACKGROUND_REF_MISSING`·`_REF_DUPLICATE`·`_UNREFERENCED`(background 항목과 사건이 하나씩 짝), `EVENT_FACTOR_COUNT`·`_REF_MISSING`·`_DUPLICATE`, `ISSUE_ID_DUPLICATE` |
 | `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`, `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외) |
-| `issue_trace_warnings` / `issue_trace_stats` | 메시지 누락·이슈 미참조 경고와 집계 |
+| `issue_trace_warnings` / `issue_trace_stats` | `ISSUE_TRACE_MISSING_URL`(messages 칸 누락)·`ISSUE_ID_UNKNOWN` 경고와 집계(`messages_traced`, `messages_total`, `relations`, `issues_used`) |
 
 ### 재시도·고쳐 쓰기 기록
 

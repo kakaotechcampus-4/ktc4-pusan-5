@@ -54,11 +54,13 @@ async def test_prompt_and_input_are_sent(fake_complete):
     await run(fake_complete, REPORT_TEXT)
     system, user = fake_complete.call_args.args
     assert system == "SYS"
-    # 입력에 러너가 계산한 market 칸만 더해 보낸다. 원본 dict 는 그대로다
-    assert json.loads(user) == {**CAUSE, "market": {
-        **CAUSE["market"], "move_case": "normal", "judge_layers": {"move": True, "relative": True},
-        "common_move": False}}
-    assert "move_case" not in CAUSE["market"] and "judge_layers" not in CAUSE["market"]
+    # 메시지를 세 칸으로 나누고 market 에 러너가 계산한 칸을 더해 보낸다. move_case 는 보내지 않는다.
+    # 원본 dict 는 그대로다
+    sent = {k: v for k, v in CAUSE.items() if k != "messages"}
+    assert json.loads(user) == {**sent, "messages": CAUSE["messages"], "market_context": [], "flow": [],
+                                "market": {**CAUSE["market"], "judge_layers": {"move": True, "relative": True},
+                                           "common_move": False}}
+    assert "judge_layers" not in CAUSE["market"]
 
 
 async def test_move_case_is_recomputed_and_kept_in_wrapper(fake_complete):
@@ -66,7 +68,8 @@ async def test_move_case_is_recomputed_and_kept_in_wrapper(fake_complete):
     fake_complete.return_value = (REPORT_TEXT, USAGE)
     stale = {**CAUSE, "market": {**CAUSE["market"], "excess_pct": 0.3, "move_case": "normal"}}
     w = await gen.generate(stale, system="SYS", prompt_hash="abc", run_id="r1")
-    assert json.loads(fake_complete.call_args.args[1])["market"]["move_case"] == "flat"
+    # 입력에 적힌 move_case 를 믿지 않고 다시 계산해 래퍼에만 남긴다. 모델에는 보내지 않는다
+    assert "move_case" not in json.loads(fake_complete.call_args.args[1])["market"]
     assert w["move_case"] == "flat"
 
 
@@ -410,3 +413,33 @@ def test_canned_report_without_market_or_messages():
     report = gen.canned_report(payload)
     assert report["summary"]["move"] == "오전 11시 기준 KB금융은 등락이 없었습니다."
     assert report["as_of"] == "11:00"
+
+
+def _msg(n, kind, match="indirect", **kw):
+    return {"channel": "c", "url": f"https://t.me/c/{n}", "datetime_kst": "2026-10-23T11:00:00+09:00",
+            "text": "t", "match": match, "kind": kind, "after_prev_close": False, "first_seen_kst": None, **kw}
+
+
+def test_model_input_splits_messages_into_three_columns():
+    msgs = [_msg(1, "news", "direct"), _msg(2, "market_recap", "direct"), _msg(3, "flow_rank", "direct"),
+            _msg(4, "theme_recap"), _msg(5, "theme_recap", after_prev_close=True), _msg(6, "disclosure"),
+            {**_msg(7, None), "kind": None}]
+    payload = {**_kb(-3.1, -1.57, -1.53, messages=msgs), "market": {**_kb(-3.1, -1.57, -1.53)["market"],
+                                                                    "move_case": "normal"}}
+    sent = gen.model_input(payload)
+    urls = {k: [m["url"][-1] for m in sent[k]] for k in ("messages", "market_context", "flow")}
+    # 전날 장 설명(after_prev_close)은 kind 와 상관없이 market_context. kind 가 없으면 messages
+    assert urls == {"messages": ["1", "4", "6", "7"], "market_context": ["2", "5"], "flow": ["3"]}
+    assert "move_case" not in sent["market"] and sent["market"]["judge_layers"] == {"move": True, "relative": True}
+    assert len(payload["messages"]) == 7  # 원본은 그대로
+
+
+@pytest.mark.parametrize(("msgs", "llm"), [
+    ([_msg(1, "market_recap", "direct")], False),                  # 시황은 direct 여도 근거 칸이 아니다
+    ([_msg(1, "flow_rank", "direct")], False),
+    ([_msg(1, "theme_recap", after_prev_close=True)], False),       # 전날 장 설명인 테마 동향은 참고만
+    ([_msg(1, "theme_recap")], True),
+    ([_msg(1, "news", "direct")], True),
+])
+def test_needs_llm_counts_only_messages_column(msgs, llm):
+    assert gen.needs_llm(_kb(-3.1, -1.57, -1.53, messages=msgs)) is llm

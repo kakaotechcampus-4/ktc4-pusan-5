@@ -32,76 +32,40 @@ JSON 하나를 받습니다.
               "peer_median_pct": <비교 대상 종목 등락률의 중간값. 없으면 null>,
               "peer_up": <상승 종목 수>, "peer_down": <하락 종목 수>, "peer_total": <비교 종목 수>,
               "excess_pct": <change_pct − peer_median_pct. 없으면 null>,
-              "move_case": "<flat | opposite | normal. excess_pct 가 null 이면 null>",
               "judge_layers": { "move": <true | false>, "relative": <true | false> },
-              "common_move": <true | false. peer_median_pct 가 null 이면 null> },   // 없으면 null
-  "messages": [
-    { "channel": "", "url": "", "datetime_kst": "", "views": "", "text": "", "match": "direct|indirect",
-      "kind": "flow_rank | market_recap | theme_recap | news_digest | disclosure | news | other",
-      "after_prev_close": <true | false>, "first_seen_kst": "<직전 구간에 같은 내용이 처음 나온 시각 | null>",
-      "dup_channels": <숫자>,
-      // 메시지에 뉴스 링크가 있으면 붙습니다. 없는 메시지가 더 많습니다.
-      "link_bodies": [
-        { "url": "<메시지에 적힌 주소>", "final_url": "<단축 URL 을 푼 실제 주소>",
-          "domain": "", "title": "<기사 제목>",
-          "excerpt": "<기사 본문 앞 3문장. 원문 그대로이며 요약이 아닙니다>",
-          "fetched_at": "<이 본문을 가져온 시각>" }
-      ]
-    }
-  ]
+              "common_move": <true | false | null> },   // 없으면 null
+  "messages":       [ <메시지> ],   // 근거가 되는 메시지
+  "market_context": [ <메시지> ],   // 그날 시장 시황
+  "flow":           [ <메시지> ]    // 장중 매매 순위 목록
 }
+
+<메시지> = { "channel": "", "url": "", "datetime_kst": "", "views": "", "text": "", "match": "direct|indirect",
+             "kind": "", "after_prev_close": <true | false>, "first_seen_kst": "<시각 | null>",
+             "dup_channels": <숫자> }
 ```
 
-- `messages` 는 이미 종목·시간으로 걸러진 상태입니다. `cutoff` 이후 메시지는 애초에
-  들어오지 않으므로 날짜 검증은 필요 없습니다.
+**세 칸의 용도.** 칸마다 쓸 수 있는 곳이 정해져 있습니다.
+
+| 칸 | 쓰는 곳 |
+| --- | --- |
+| `messages` | 근거. `kind: "theme_recap"`(테마·업종별 동향)은 **이 종목 업종을 다룬 단락만** `sector` 근거로 쓰고 다른 업종 단락은 쓰지 않는다 |
+| `market_context` | `summary.move` 의 시장 설명에만 쓴다. 출처(`sources`)로 쓰지 않는다. `after_prev_close: true` 인 항목은 전날 장 설명이라 어디에도 쓰지 않는다(참고만) |
+| `flow` | 같은 사건 factor 의 `detail` 이나 `background` 의 보조 근거로만 쓴다. 순위만으로 factor 를 만들지 않는다 |
+
+- 메시지는 이미 종목·시간으로 걸러진 상태입니다. `cutoff` 이후 메시지는 들어오지 않습니다.
 - `match` 는 그 메시지가 이 종목을 직접 다루는지(`direct`), 업황·경쟁사·전방산업만
   다루는지(`indirect`)입니다. 뉴스 모음 속에 이 종목 헤드라인 줄이 있으면 그 메시지는 `direct` 입니다.
   시황·테마 동향에서 종목명이 나열된 것은 `indirect` 일 수 있습니다. `indirect` 라고 이 종목이 언급되지
   않았다는 뜻은 아닙니다. `direct` 메시지 안에도 이 종목과 무관한 줄이 있을 수 있으므로, 이슈마다의
   관련은 1단계 1-2 에서 따로 정합니다. 판단 절차 6단계에서 씁니다.
-- `kind` 는 메시지의 종류입니다. 종류마다 쓸 수 있는 칸이 다르고, 그 규칙은 6단계 「메시지 종류」에 있습니다.
-
-  | `kind` | 뜻 |
-  | --- | --- |
-  | `flow_rank` | 장중 매매 순위 목록(어느 종목을 누가 사고팔았는지 순서대로 나열) |
-  | `market_recap` | 시장 전체 시황(지수·시장 전체 수급·그날 시장을 움직인 사건) |
-  | `theme_recap` | 테마·업종별 동향(업종마다 단락을 나눠 그 업종이 왜 움직였는지 정리) |
-  | `news_digest` | 여러 뉴스 제목을 모은 메시지 |
-  | `disclosure` | 공시 |
-  | `news` | 개별 뉴스·기사 |
-  | `other` | 그 밖(분석 글, 리포트 요약 등) |
-- `after_prev_close` 가 `true` 면 **직전 거래일 장을 정리한 시황**입니다. 오늘 장이 열리기 전에
-  나온 전날 결과 설명이라 오늘 원인이 아닙니다(6단계 「그날의 정보」).
-- `first_seen_kst` 는 직전 구간(전날) 입력에 같은 내용이 처음 나온 시각입니다. 없으면 `null` 입니다.
-  값이 있으면 전날부터 이어진 재료입니다(6단계 「그날의 정보」).
-- 이 종목을 다루지 않더라도 그날의 시장 시황·테마 동향 메시지가 `match: "indirect"` 로 최대 3건
-  함께 들어옵니다. 그날 시장 전체가 어떻게 움직였는지 알려 주려고 넣은 것입니다.
-- `dup_channels` 는 중복 제거 때 이 메시지와 같은 내용으로 묶인 메시지들의 채널 수입니다.
-  묶인 것이 없으면 1 입니다.
+- `first_seen_kst` 가 있으면 전날부터 이어진 재료입니다(6단계 「그날의 정보」).
+- `dup_channels` 는 같은 내용으로 묶인 메시지들의 채널 수입니다. 묶인 것이 없으면 1 입니다.
 - `change_pct` 는 **기준 시각의 값**입니다. 기준 시각이 장 마감 전이면 확정값이 아닙니다.
-- `market.peer_*` 는 분석 대상 대형주 가운데 **이 종목을 뺀 나머지**를 같은 시각에 본 값입니다.
-  `excess_pct` 는 그 중간값과의 차이로, 이미 계산돼 들어옵니다. 판단 절차 3단계에서 씁니다.
-- `market.move_case` 는 이날이 어떤 경우인지 `excess_pct` 로 미리 정해 넣은 이름표입니다. 참고용입니다.
-- **`market.judge_layers` 는 이 입력에서 판단할 층입니다.** 판단 절차 3단계의 두 층 중 `false` 인
-  층에는 어떤 factor 에도 link 를 달지 않고, 그 층의 판정은 `no_clear_cause` 입니다(7단계).
-  이미 계산돼 들어오므로 등락률이나 `excess_pct` 로 다시 따지지 마세요.
-- `market.common_move` 가 `true` 면 **대형주 전반이 이 종목과 같은 방향으로 함께 움직였고, 종목 등락의
-  절반 이상이 그 몫이며, 다른 대형주와의 차이는 작은** 날입니다. 이것도 계산돼 들어옵니다. `summary.main_cause` 에서 씁니다(4부).
-- `market` 이 `null` 이면 `judge_layers` 도 없습니다. 이때는 상대 층을 판단하지 않습니다.
-
-### `link_bodies` — 메시지에 딸린 뉴스 본문
-
-텔레그램 메시지는 "제목 + 단축 URL" 만 있고 내용이 링크 안에 있는 경우가 많습니다.
-그 링크를 **컷오프 안에서 미리 열어** 앞부분을 잘라 넣은 것이 `link_bodies` 입니다.
-
-- **`excerpt` 는 기사 본문의 첫 3문장 그대로입니다.** 메시지 `text` 와 똑같이 취급하고,
-  `quote` 로 그대로 쓸 수 있습니다.
-- 광고·저작권 안내·기자 바이라인·소제목은 미리 걷어냈습니다. 매체와 작성 시각은
-  `domain` 과 `datetime_kst` 에 있으니 본문에서 다시 찾지 마세요.
-- **기사의 앞부분일 뿐입니다.** 세 문장으로 사건의 크기(`strength`)를 단정하지 마세요.
-- `excerpt` 가 없고 `final_url` 만 있으면 **본문을 못 읽은 것**입니다(대개 증권사
-  리서치 PDF). 도메인으로 출처가 어디인지만 참고하고, 내용을 짐작하지 마세요.
-- 들어와 있는 `link_bodies` 는 컷오프 안에서 가져온 것만입니다. 시점은 이미 검증됐습니다.
+- `market.peer_*` 는 분석 대상 대형주 가운데 **이 종목을 뺀 나머지**를 같은 시각에 본 값이고,
+  `excess_pct` 는 그 중간값과의 차이입니다. 판단 절차 3단계에서 씁니다.
+- **`market.judge_layers` 를 따릅니다.** `false` 인 층에는 link 를 달지 않고 그 층 판정은 `no_clear_cause` 입니다.
+- **`market.common_move` 를 따릅니다.** 쓰는 곳은 4부 `main_cause` 입니다.
+- `market` 이 `null` 이면 상대 층을 판단하지 않습니다.
 
 ---
 
@@ -112,8 +76,8 @@ JSON 하나를 받습니다.
 두 번에 나눠 추립니다. 그 결과는 출력 JSON 맨 앞의 `issue_trace` 에 먼저 적고, 나머지 칸은
 그 뒤에 씁니다.
 
-**1-1. 메시지마다 이슈를 빠짐없이 나열합니다.** 메시지 하나에 이슈가 여러 개 있을 수 있습니다.
-`kind` 가 `market_recap`·`theme_recap`·`news_digest` 인 메시지는 대개 단락이나 줄마다 다른 이슈를
+**1-1. `messages` 의 메시지마다 이슈를 빠짐없이 나열합니다.** `market_context`·`flow` 는 나열하지 않습니다.
+메시지 하나에 이슈가 여러 개 있을 수 있습니다. 테마 동향·뉴스 모음은 대개 단락이나 줄마다 다른 이슈를
 담고 있습니다. 첫 단락만 읽고 넘어가지 말고, 메시지 끝까지 단락마다 이슈인지 확인합니다.
 "아울러", "한편", "또한" 으로 시작하는 단락은 앞 단락과 다른 이슈일 때가 많습니다.
 이슈는 메시지에 적힌 것만 씁니다. 메시지에 없는 이유를 추론해 이슈로 만들지 않습니다.
@@ -130,8 +94,7 @@ JSON 하나를 받습니다.
 `direct`·`sector`·`market` 이슈를 다음 단계로 가져갑니다. `none` 이슈는 `issue_trace` 에 개수만
 남고(`none_count`) 다른 칸에 쓰지 않습니다. `sector` 이슈는 메시지의 `match` 값과 관계없이 6단계의 간접
 근거로 다룹니다(`strength` 상한 `partial`, 추정임이 드러나게).
-`market` 이슈는 따로 규칙을 두지 않습니다. 3단계(시장·업종 전체를 움직인 사건), 6단계(시황
-메시지·매매 주체), 3부 표(시장 전체 등락 수치는 `summary.move`)에 적힌 대로 다룹니다.
+`market` 이슈는 3단계(시장·업종 전체를 움직인 사건)와 3부 표에 적힌 대로 다룹니다.
 관련을 판단할 때 이슈를 새로 만들지 않습니다. "실적 기대", "투자심리 개선", "저가 매수" 처럼
 메시지에 적히지 않은 막연한 이유로 빈 곳을 채우지 마세요.
 
@@ -147,10 +110,7 @@ JSON 하나를 받습니다.
 
 묶을지 정할 때 등락률·`excess_pct`·층은 보지 않습니다. 출처·채널·수치가 다르다는 이유만으로 나누지 않고, 같은 메시지에 있었다는 이유만으로 묶지도 않습니다. 한 사건에 묶는 소식은 최대 3개입니다(`sources` 상한).
 1-1 에서 이슈를 잘게 나열하는 것은 빠뜨리지 않기 위해서이고, 사건 수를 늘리라는 뜻이 아닙니다.
-이후 「1단계에서 추린 사건」은 이렇게 묶은 사건을 말합니다.
-**`direct`·`sector` 이슈는 하나도 빠짐없이 어떤 사건에 들어갑니다.** 근거(`factors`)로 쓰지 않는
-이슈도 사라지지 않고 `background` 나 `dropped` 사건으로 `events` 에 남습니다(4부 `events`).
-`market` 이슈는 쓴 것만 사건에 넣습니다.
+이후 「1단계에서 추린 사건」은 이렇게 묶은 사건을 말합니다. 어느 칸에도 쓰지 않은 이슈는 `issue_trace` 에만 남습니다.
 **어떤 사건이 있었는지는 주가가 얼마나 움직였는지와 무관하게** 정해집니다.
 등락률이 달라지면 사건이 놓이는 칸은 바뀔 수 있지만, 사건 목록 자체는 바뀌면 안 됩니다.
 
@@ -266,20 +226,9 @@ JSON 하나를 받습니다.
 공식 확인되지 않았습니다"). **독자 화면에 보이지 않는 `not_found` 에만 적어서는 안 됩니다.**
 독자는 그 칸을 볼 수 없습니다.
 
-**메시지 종류.** 메시지의 `kind` 에 따라 쓸 수 있는 칸이 다릅니다. 아래에 없는 종류
-(`news_digest`·`disclosure`·`news`·`other`)는 이 절의 다른 규칙을 그대로 따릅니다.
-
-| `kind` | 쓰는 곳 | 쓰지 않는 곳 |
-| --- | --- | --- |
-| `market_recap` | `summary.move` (지수·시장 전체 매매 수치, 그날 시장을 움직인 사건) | `factors`·`background` 의 출처 |
-| `theme_recap` | 이 종목이 속한 업종을 다룬 단락만 — `sector` 이슈로 `factors`·`background` 의 출처가 될 수 있다(간접 근거) | 다른 업종 단락은 어디에도 쓰지 않는다 |
-| `flow_rank` | 같은 사건 factor 의 `detail`, 또는 `background` (보조 근거) | `factors` 의 원인 — 순위만으로 factor 를 만들지 않는다 |
-| **예외** `after_prev_close: true` (`kind` 무관) | `background` 까지만 | `factors`·`summary.move` — 전날 장의 결과 설명이다 |
-
-- 시황·테마 동향·매매 순위는 주가가 **어떻게 됐는지(결과)** 를 적은 것입니다. "OO 급등", "반도체 강세"
-  같은 제목 자체를 근거로 삼으면 순환 논리입니다. 그 안에 인용된 사건만 위 표의 칸에 씁니다.
-- 공통으로 들어온 시황·테마 동향(1부)도 같은 표를 따릅니다.
-- 출처의 `is_market_recap` 은 `kind` 가 `market_recap`·`theme_recap` 인 메시지면 `true` 입니다.
+**결과를 적은 메시지.** 시황·테마 동향·매매 순위는 주가가 **어떻게 됐는지(결과)** 를 적은 것입니다.
+"OO 급등", "반도체 강세" 같은 제목 자체를 근거로 삼으면 순환 논리입니다. 그 안에 인용된 사건만
+1부 「세 칸의 용도」에 따라 씁니다.
 
 **매매 주체.** 외국인·기관 순매수/순매도는 **수치가 있을 때만** 씁니다.
 
@@ -311,9 +260,6 @@ JSON 하나를 받습니다.
   근거가 아닙니다.
 - **변화**(그날 발표된 수치, 그날 넘은 선, 그날 바뀐 전망, 그날 나온 새 리포트)는 근거가 됩니다.
   `event` 에는 무엇이 언제 어떻게 바뀌었는지를 씁니다.
-- `after_prev_close: true` 인 메시지는 **직전 거래일 장의 결과 설명**입니다. `kind` 와 상관없이 거기 적힌
-  사건을 오늘 원인(어느 층의 link)으로 쓰지 않고 `summary.move` 에도 쓰지 않습니다. 그날 있었던 재료로
-  `background` 에 둘 수만 있습니다(「메시지 종류」 표의 예외).
 - `first_seen_kst` 가 있는 메시지의 재료는 금지하지 않습니다. 쓸 때는 그 재료를 적은 문장(`detail` 또는
   `background` 의 `text`)에 **전날부터 이어진 소식**임을 드러냅니다(예: "전날부터 전해진 소식입니다").
 - 재료가 없으면 없다고 씁니다. 차이를 메우려고 일반적인 설명을 가져오지 않습니다.
@@ -336,21 +282,9 @@ JSON 하나를 받습니다.
 "없다" 고 답하는 것이 틀린 원인을 대는 것보다 낫습니다. 메시지가 적거나 전부 무관하면
 `no_clear_cause` 입니다.
 
-#### 판단하지 않는 층 — `market.judge_layers`
-
-- `judge_layers.move` 가 `false` 면 `verdict` 는 `no_clear_cause` 이고 `layer: "move"` link 는 없습니다.
-- `judge_layers.relative` 가 `false` 면 `relative_verdict` 는 `no_clear_cause` 이고 `layer: "relative"`
-  link 는 없습니다.
-- `market` 이 `null` 이면 상대 층은 판단하지 않으므로 `relative_verdict` 는 `no_clear_cause` 이고
-  `layer: "relative"` link 는 없습니다.
-
-`false` 인 층에 들어맞는 재료가 있어도 그 층 link 를 달지 않습니다. 다른 층의 판단에 끌려 달지
-않도록, factor 를 다 쓴 뒤 `false` 인 층의 link 가 남아 있지 않은지 한 번 확인하세요.
-
-link 가 하나도 남지 않는 사건은 factor 가 아닙니다. 3부 표에 따라 `background` 로 갑니다.
-
-한 층이 `false` 라도 `true` 인 층은 위 절차와 판정표를 그대로 따릅니다. 종목 등락률과 `excess_pct` 의
-부호가 달라도(`move_case` 가 `opposite`) 같습니다. 각 층의 방향은 3단계에서 정한 대로입니다.
+`market.judge_layers` 가 `false` 인 층(그리고 `market` 이 `null` 인 날의 상대 층)은 그 층 판정이
+`no_clear_cause` 이고 그 층 link 는 없습니다. link 가 하나도 남지 않는 사건은 factor 가 아니라 `background` 로 갑니다.
+`true` 인 층은 위 판정표를 그대로 따릅니다. 각 층의 방향은 3단계에서 정한 대로입니다.
 
 다른 재료가 그 영향을 상쇄했다고 쓰지 마세요. 메시지만으로는 각 재료가 얼마나 반영됐는지 알 수 없습니다.
 
@@ -371,11 +305,8 @@ link 가 하나도 남지 않는 사건은 factor 가 아닙니다. 3부 표에 
 | 원인은 아니지만 그날 있었던 재료 | `background` | 쓰지 않음 |
 | 그중 다음에 확인할 사건 | `background` 항목에 `watch` 표시 | 쓰지 않음 |
 | 시장 전체 등락 수치 (지수·종목 수·중간값·시장 전체 매매 수치) | `summary.move` | **다른 칸에 쓰지 않음** |
-| `kind: "market_recap"` 메시지에만 있는 내용 (그날 시장을 움직인 사건 포함). `after_prev_close: true` 는 제외(아래 줄) | `summary.move` | **다른 칸에 쓰지 않음** |
-| 시장·업종 전체를 움직인 사건 (금리, 지정학, 업황 등) — `market_recap` 이 아닌 출처가 있을 때 | `factors` (`layer: "move"` link) | 쓰지 않음 |
-| 이 종목의 매매 순위 (`kind: "flow_rank"`) | 같은 사건 factor 의 `detail` 또는 `background` | **factor 의 원인으로 쓰지 않음** |
+| 시장·업종 전체를 움직인 사건 (금리, 지정학, 업황 등) — `messages` 에 출처가 있을 때 | `factors` (`layer: "move"` link) | 쓰지 않음 |
 | 이 종목의 매매 규모가 금액·수량으로 나온 소식 | 해당 factor 의 `detail` 또는 독립 factor | 쓰지 않음 |
-| 직전 거래일 장을 정리한 메시지(`after_prev_close: true`, `kind` 무관)의 사건 | `background` | 원인(link)·`summary.move` 에 쓰지 않음 |
 | 이 보고서에만 해당하는 한계 | `summary.unexplained` | 검수용 상세는 `not_found` |
 
 `main_cause` 와 `factors` 는 같은 재료를 **요약과 상세**로 나눠 싣는 것이라 중복이 아닙니다.
@@ -439,20 +370,14 @@ link 가 하나도 남지 않는 사건은 factor 가 아닙니다. 3부 표에 
 **차이 숫자는 따로 적지 않습니다.** 종목 등락률과 중간값을 나란히 쓰고, 둘의 관계를
 "더 내렸습니다 / 덜 내렸습니다 / 반대로 움직였습니다" 처럼 말로 씁니다
 (예: "이 종목은 0.39% 내려, 중간값 2.41% 하락보다 덜 내렸습니다.").
-**`judge_layers.relative` 가 `false` 이고 `excess_pct` 가 있는 날은 숫자가 조금 달라도 "더/덜" 을 쓰지 않고
-"대형주 전반과 비슷하게 움직였습니다" 로 씁니다.**
+**`judge_layers.relative` 가 `false` 이고 `excess_pct` 가 있으면 "더/덜" 대신 "대형주 전반과 비슷하게 움직였습니다" 로 씁니다.**
 **%p 표기는 쓰지 않습니다.**
-시장 전체 외국인·기관 순매수/순매도 수치가 있으면 한 문장으로 덧붙입니다.
-`kind: "market_recap"` 메시지에 그날 시장을 움직인 사건이 있으면 한 문장으로 덧붙일 수 있습니다
-(예: "이날 코스피는 반도체주 급등에 힘입어 올랐습니다."). 시황을 주어로 쓰지 않습니다.
-`after_prev_close: true` 인 메시지는 전날 장 설명이라 여기에 쓰지 않습니다.
+`market_context` 에 시장 전체 매매 수치나 그날 시장을 움직인 사건이 있으면 한 문장으로 덧붙일 수 있습니다.
 
 **`main_cause`** — `layer: "move"` link 를 가진 `factors` 를 줄글로 요약합니다. 등락 층의 원인만 씁니다.
 - 최대 3문장입니다. 원인이 여럿이면 `partial` 이상인 것 위주로 묶어 3문장 안에 담습니다.
-- **`market.common_move` 가 `true` 면 첫 문장에 대형주 전반이 함께 오른(내린) 날이었다는 사실을 씁니다**
-  (예: "대형주 전반이 함께 오른 날이었습니다."). 그다음 문장부터 factor 를 요약합니다. 이 문장도 3문장에
-  셉니다. 그날 시장을 움직인 사건은 `move` 에 쓰고 여기서 되풀이하지 않습니다. `verdict` 가
-  `no_clear_cause` 여도 첫 문장은 같습니다.
+- **`market.common_move` 가 `true` 면 첫 문장은 "대형주 전반이 함께 오른(내린) 날이었습니다." 입니다.**
+  이 문장도 3문장에 셉니다. `verdict` 가 `no_clear_cause` 여도 같습니다.
 - 그 층 link 의 `strength` 가 `insufficient` 인 factor 는 넣지 않습니다. "거의 설명되지 않는다" 고 스스로
   표시한 것을 원인이라 부르면 앞뒤가 맞지 않습니다.
 - `partial` 이상인 factor 가 하나도 없으면 그 사실을 적습니다.
@@ -476,9 +401,7 @@ link 가 하나도 남지 않는 사건은 factor 가 아닙니다. 3부 표에 
 1. 설명되지 않는 폭 — `move` 에서 쓴 비교를 **같은 말로** 받아 씁니다("대형주 전반보다 더 내린 부분",
    "대형주 전반과 비슷하게 움직였다"). `move` 가 "비슷하게" 라고 했으면 여기서도 "비슷하게" 입니다.
    숫자를 다시 적지 않습니다.
-   - `judge_layers.relative` 가 `false` 이고 `excess_pct` 가 있는 날: "대형주 전반과 비슷하게 움직였다" 를
-     그대로 받아, 따로 설명할 차이가 크지 않았다고 씁니다.
-   - `judge_layers.move` 가 `false` 인 날: 주가 움직임이 크지 않았다고 씁니다.
+   `judge_layers.move` 가 `false` 인 날은 주가 움직임이 크지 않았다고 씁니다.
    - **판정에 쓰는 말을 독자 칸에 쓰지 않습니다.** "층", "1% 이내", "중간값", "판정" 같은
      말이나 "~여서 원인을 따로 판정하지 않았습니다" 같은 규칙 설명은 쓰지 않습니다.
 2. **이 사례에서** 무엇이 빠져서 그런지 — 입력을 보고 구체적으로
@@ -530,20 +453,17 @@ factor 에는 **출처에서 확인할 수 있는 말**만 쓰고, **당신이 �
 
 - **`unconfirmed`** — 6단계의 미확인 정보에 기댄 원인이면 `true`, 아니면 `false`.
 - **`sources`** — 최소 1개, 최대 3개. 출처 없는 주장은 넣지 않습니다.
-  - 같은 사건을 전한 메시지가 여럿이면 **서로 다른 채널**을 고르고, 테마 동향(`kind: "theme_recap"`)이나
-    매매 순위(`kind: "flow_rank"`)보다 **원 소식**을 먼저 고릅니다. `kind: "market_recap"` 메시지는
-    출처로 쓰지 않습니다. 단 `after_prev_close: true` 인 메시지는 `background` 출처로만 쓸 수 있습니다
-    (2부 6단계 「메시지 종류」).
+  - 같은 사건을 전한 메시지가 여럿이면 **서로 다른 채널**을 고르고, 테마 동향·매매 순위보다 **원 소식**을
+    먼저 고릅니다. `market_context` 메시지는 출처로 쓰지 않습니다(1부).
   - 1-3 에서 서로 다른 소식을 묶은 사건이면 **소식마다 출처를 하나씩** 답니다. 같은 메시지에서 나온 소식이면 같은 `url` 을 두 번 써도 되고, `quote` 는 소식마다 다른 구절을 발췌합니다.
-  - `url` — **입력 메시지에 있는 URL 을 그대로.** 만들어내지 마세요. `link_bodies` 에서 가져온
-    내용이라도 그 링크가 실려 있던 **텔레그램 메시지 URL** 을 씁니다.
-  - `quote` — 메시지 `text` 나 `link_bodies[].excerpt` 에서 **글자 그대로** 발췌합니다(40자 이내).
+  - `url` — **입력 메시지에 있는 URL 을 그대로.** 만들어내지 마세요.
+  - `quote` — 메시지 `text` 에서 **글자 그대로** 발췌합니다(40자 이내).
     단어를 더하거나 빼거나 바꾸지 마세요. 한 글자만 달라도 검증에서 떨어집니다.
     **첫 번째 출처의 `quote` 는 `event`(background 는 `text`)의 핵심 부분을 담아야 합니다.**
     사건이 있었다는 것만, 또는 미확인이라는 것만 보여주는 구절은 첫 번째 출처의 `quote` 가
     될 수 없습니다. 두 번째, 세 번째 출처는 같은 사건을 다른 채널이 전했다는 확인이면 됩니다.
   - `match` — 입력의 값을 그대로 옮깁니다.
-  - `is_market_recap` — 그 메시지의 `kind` 가 `market_recap`·`theme_recap` 이면 `true`.
+  - `is_market_recap` — 그 메시지의 `kind` 가 `theme_recap` 이면 `true`.
   - `match` 와 `is_market_recap` 은 검증용이라 화면에 나가지 않습니다. 정확하게 채우되
     본문 서술에는 영향을 주지 마세요.
 - **`links`** — 이 사건이 어느 층의 질문에 어떻게 답하는지입니다. **최소 1개**, 층마다 최대 1개입니다
@@ -653,41 +573,17 @@ terms  { "plain": "그때그때 거래되는 시세", "term": "스팟가격" }
 
 ### `events` — 검수용
 
-`not_found` 와 같이 **독자 화면에는 나가지 않습니다.** 2부 1단계에서 추린 사건이 각각
-어느 칸으로 갔는지 검수자가 보는 칸입니다.
+`not_found` 와 같이 **독자 화면에는 나가지 않습니다.** `factors`·`background` 에 실제로 적은 사건마다 항목
+하나를 적어, 각 항목이 어느 이슈에서 왔는지 남기는 칸입니다. 어느 칸에도 쓰지 않은 이슈는 적지 않습니다.
 
-- 2부 1단계에서 추린 사건을 **빠짐없이 전부** 적습니다. 사건 하나에 항목 하나입니다.
-- **`issue_trace` 의 `direct`·`sector` 이슈 id 는 모두 어느 한 사건의 `issue_ids` 에 들어가야 합니다.**
-  다 쓴 뒤 `direct`·`sector` 이슈를 하나씩 짚어 빠진 id 가 없는지 확인하세요. 근거로 쓰지 않았으면
-  `background` 또는 `dropped`(아래 `reason` 표)로 적습니다. 빠진 id 는 실행 뒤 코드가 찾아 경고로 남깁니다.
-  `market` 이슈는 어느 칸에 썼을 때만 그 사건의 `issue_ids` 에 넣습니다.
-- 한 이슈 id 는 한 사건에만 넣습니다. 1-3 의 규칙으로 묶이지 않는 이슈를 빠뜨리지 않으려고 한 사건에
-  모아 넣지 마세요("기타 관련 자료" 같은 묶음 사건 금지). 각각 따로 사건이 되고, 상한에 밀렸으면
-  `dropped`(`reason: over_cap`)입니다.
-- **`placed: "background"` 는 실제로 `background` 에 적은 사건에만 씁니다.** `background` 항목 하나에
-  사건 하나이고, `background` 칸에 그 항목의 자리를 적습니다. `background` 상한(전체 6개, 한 칸 3개)에
-  밀려 적지 못한 사건은 `placed: "dropped"`, `reason: "over_cap"` 입니다.
 - **`event`** — 사건 한 줄.
-- **`issue_ids`** — 이 사건으로 묶은 `issue_trace` 이슈 id 전부(예: `["i3", "i17"]`). 여러 이슈를
-  묶었으면(같은 메시지 안이든 여러 메시지든) 그 id 를 모두 적습니다. 이슈에서 오지 않은 사건은 `[]`.
-- **`factor`** — `placed` 가 `factors` 일 때만, 그 사건을 담은 `factors` 항목의 순번(0부터). 그 밖에는 뺍니다.
-  factor 하나를 두 사건이 가리키지 않습니다.
-- **`background`** — `placed` 가 `background` 일 때만, 그 사건을 담은 항목의 자리
-  `{"slot": "bullish | bearish | neutral", "index": <그 칸 안의 순번, 0부터>}`. 그 밖에는 뺍니다.
+- **`issue_ids`** — 이 사건으로 묶은 `issue_trace` 이슈 id 전부(예: `["i3", "i17"]`). 이슈에서 오지 않은 사건은 `[]`.
+  한 이슈 id 는 한 사건에만 넣습니다.
+- **`placed`** — `factors` | `background`.
+- **`factor`** — `placed` 가 `factors` 일 때만, 그 `factors` 항목의 순번(0부터). factor 하나에 사건 하나입니다.
+- **`background`** — `placed` 가 `background` 일 때만, 그 항목의 자리
+  `{"slot": "bullish | bearish | neutral", "index": <그 칸 안의 순번, 0부터>}`. 항목 하나에 사건 하나입니다.
 - **`dup_channels`** — 그 사건을 전한 입력 메시지의 `dup_channels` 값. 여러 메시지면 가장 큰 값.
-  입력에 이 값이 없으면 `null`.
-- **`placed`** — 그 사건을 담은 곳. `factors` | `background` | `summary.move` | `dropped`.
-- **`reason`** — `placed` 가 `dropped` 이거나, 상한에 밀려 담긴 곳이 바뀐 사건(`over_cap`)일 때만
-  씁니다. 그 밖에는 이 칸을 뺍니다.
-
-  | 값 | 뜻 | `placed` |
-  | --- | --- | --- |
-  | `no_change` | 6단계 「그날의 정보」에 걸렸다 (변화가 아니라 수준) | `dropped` |
-  | `mechanism_only` | 6단계 「메커니즘 표현」에 걸렸다 (트리거 없음) | `dropped` |
-  | `schedule_only` | 6단계 「일정」에 걸렸다 (자금 이동 없음) | `dropped` |
-  | `off_topic` | 이 종목, 이 종목의 업종, 그날 시장 전체 등락 중 어디와도 이어지지 않는다 | `dropped` |
-  | `over_cap` | `factors` 상한에 밀려 `background` 로 갔다(3부 표) | `background` |
-  | `over_cap` | `background` 상한(전체 6개, 한 칸 3개)에 밀려 어디에도 적지 못했다 | `dropped` |
 
 ---
 
@@ -711,7 +607,7 @@ terms  { "plain": "그때그때 거래되는 시세", "term": "스팟가격" }
 출력 직전에 첫 글자가 `{` 인지 스스로 확인하세요.
 
 `issue_trace` 는 **맨 앞 키**입니다. 2부 1단계 1-1·1-2 의 결과를 먼저 다 적은 뒤 나머지 칸을
-씁니다. **입력 메시지마다 항목 하나**이고, 이슈가 하나도 없거나 전부 `none` 인 메시지도 `url` 을 적습니다.
+씁니다. **`messages` 의 메시지마다 항목 하나**이고, 이슈가 하나도 없거나 전부 `none` 인 메시지도 `url` 을 적습니다.
 `issues` 에는 `direct`·`sector`·`market` 이슈만 적고, `none` 이슈는 적지 않고 개수만 `none_count` 에
 씁니다. 이슈는 한 줄 30자 안팎으로 짧게 씁니다. 이슈 `id` 는 전체에서 `i1`, `i2` … 순서로 겹치지 않게 붙입니다.
 이 칸은 시스템이 떼어 실행 기록에만 남기고 보고서에는 넣지 않습니다.
@@ -720,7 +616,7 @@ terms  { "plain": "그때그때 거래되는 시세", "term": "스팟가격" }
 {
   "issue_trace": [
     {
-      "url": "<입력 메시지 url>",
+      "url": "<messages 의 메시지 url>",
       "issues": [
         { "id": "i1", "issue": "<이슈 한 줄>", "relation": "direct | sector | market" }
       ],
@@ -790,8 +686,7 @@ terms  { "plain": "그때그때 거래되는 시세", "term": "스팟가격" }
       "factor": <placed 가 factors 일 때만, factors 순번>,
       "background": <placed 가 background 일 때만, { "slot": "bullish | bearish | neutral", "index": <순번> }>,
       "dup_channels": <숫자 | null>,
-      "placed": "factors | background | summary.move | dropped",
-      "reason": "<dropped 이거나 over_cap 일 때만> no_change | mechanism_only | schedule_only | off_topic | over_cap"
+      "placed": "factors | background"
     }
   ]
 }

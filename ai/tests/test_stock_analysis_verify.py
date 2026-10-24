@@ -272,11 +272,10 @@ def schema_codes(problems):
 
 def test_events_passed():
     # cause_report: factor 1개, background.neutral 2개. 사건이 칸과 하나씩 짝이 맞는다
-    ok = [event(factor=0, issue_ids=["i1"]), event("summary.move", dup_channels=None, issue_ids=["i2"]),
-          event("background", background={"slot": "neutral", "index": 0}),
-          event("background", reason="over_cap", background={"slot": "neutral", "index": 1}),
-          event("dropped", reason="off_topic"),
-          event("dropped", reason="over_cap")]
+    ok = [event(factor=0, issue_ids=["i1"]),
+          event("background", dup_channels=None, background={"slot": "neutral", "index": 0}),
+          event("background", background={"slot": "neutral", "index": 1}),
+          event("dropped", reason="quote_verify_fail")]   # 러너가 quote 실패로 뺀 사건
     assert check_events(cause_report(events=ok)) == ("passed", [])
     assert check_events(cause_report(events=[], factors=[],
                                      background={"bullish": [], "bearish": [], "neutral": []})) == ("passed", [])
@@ -314,7 +313,7 @@ def test_events_background_ref(e):
 
 
 def test_events_schema_values():
-    r = cause_report(events=[event("counter"), event("dropped", reason="single_source"),
+    r = cause_report(events=[event("summary.move"), event("dropped", reason="off_topic"),
                              event(dup_channels="2"), {"placed": "factors", "dup_channels": 1}])
     status, problems = check_events(r)
     assert status == "failed" and schema_codes(problems) == {SCHEMA_VALUE, SCHEMA_TYPE, SCHEMA_MISSING}
@@ -324,9 +323,8 @@ def test_events_schema_values():
 
 @pytest.mark.parametrize("e", [
     event("dropped"),                              # dropped 인데 reason 없음
-    event("factors", reason="over_cap"),           # reason 을 쓰지 않는 placed
-    event("summary.move", reason="no_change"),
-    event("background", reason="off_topic",        # background 는 over_cap 만
+    event("factors", reason="quote_verify_fail"),  # reason 을 쓰지 않는 placed
+    event("background", reason="quote_verify_fail",
           background={"slot": "bullish", "index": 0}),
 ])
 def test_events_reason_condition(e):
@@ -1230,7 +1228,7 @@ def test_theme_recap_source_needs_sector_issue(relation, warned):
 
 
 def test_theme_recap_without_linked_issue_warns_and_needs_trace():
-    r = cause_report(events=[event("dropped", reason="off_topic", issue_ids=["i1"])])
+    r = cause_report(events=[event("dropped", reason="quote_verify_fail", issue_ids=["i1"])])
     assert THEME_RECAP_NOT_SECTOR in codes(check_warnings(r, with_kinds("theme_recap"), theme_trace("sector")))
     # issue_trace 가 없으면(예전 보고서) relation 을 알 수 없어 보지 않는다
     assert THEME_RECAP_NOT_SECTOR not in codes(check_warnings(r, with_kinds("theme_recap")))

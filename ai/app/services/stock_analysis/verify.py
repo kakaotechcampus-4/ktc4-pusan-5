@@ -46,21 +46,20 @@ REQUIRED_TOP = (
 SUMMARY_KEYS = ("move", "main_cause", "relative", "counter", "unexplained")
 SUMMARY_NULLABLE = ("relative", "counter")
 # events — 검수용 칸(4부 「events」). 화면에 나가지 않아 REQUIRED_TOP 에 넣지 않고, 판정과
-# 따로 check_events() 가 본다. 아래 값 목록과 reason 조건이 그 기준이다.
-EVENT_PLACEMENTS = ("factors", "background", "summary.move", "dropped")
-EVENT_REASONS = ("no_change", "mechanism_only", "schedule_only", "off_topic", "over_cap",
-                 "quote_verify_fail")
-# 모델이 아니라 러너가 쓰는 사유. quote 를 한 번 고쳐 쓰게 해도 원문에 없어 factor 에서 뺀 사건이다
-# (repair.repair_quotes). 프롬프트 reason 표에는 없다.
+# 따로 check_events() 가 본다. 모델은 factors·background 에 실제로 적은 사건만 적는다.
+# dropped 는 러너만 쓴다 — quote 를 한 번 고쳐 쓰게 해도 원문에 없어 칸에서 뺀 사건이다(repair.repair_quotes).
+EVENT_PLACEMENTS = ("factors", "background", "dropped")
 QUOTE_VERIFY_FAIL = "quote_verify_fail"
-# direct·sector 이슈 — events 의 issue_ids 로 반드시 어딘가에 기록돼야 하는 관련(2부 1단계 1-2).
-RELATED_ISSUE_RELATIONS = ("direct", "sector")
-# 시장 전체(지수·수급·거시 지표) 이슈. 다음 단계로 가져가지만 events 에 꼭 남길 필요는 없어
-# ISSUE_UNREFERENCED 에서 뺀다. 참조되지 않은 수만 issue_trace_stats() 가 따로 센다.
-MARKET_ISSUE_RELATION = "market"
-# reason 을 쓰는 곳. dropped 는 반드시 쓰고, background 는 factors 상한에 밀려 온 것(over_cap)만 쓴다.
-# 나머지 placed 는 reason 칸을 뺀다.
-EVENT_REASON_BY_PLACEMENT = {"dropped": EVENT_REASONS, "background": ("over_cap",)}
+EVENT_REASONS = (QUOTE_VERIFY_FAIL,)
+# reason 을 쓰는 곳. dropped 만 쓰고, 나머지 placed 는 reason 칸을 뺀다.
+EVENT_REASON_BY_PLACEMENT = {"dropped": EVENT_REASONS}
+
+# 모델에 보내는 입력의 세 칸(프롬프트 1부 「세 칸의 용도」). split_messages() 가 kind·after_prev_close 로 가른다.
+#   messages        근거가 되는 메시지(news·news_digest·disclosure·other·theme_recap, kind 없음 포함)
+#   market_context  그날 시장 시황(market_recap)과 전날 장 설명(after_prev_close)
+#   flow            장중 매매 순위 목록(flow_rank)
+MARKET_CONTEXT_KINDS = ("market_recap",)
+FLOW_KINDS = ("flow_rank",)
 
 # --- 규칙 상수 ----------------------------------------------------------------
 
@@ -150,12 +149,9 @@ ASKED_QUESTION = "ASKED_QUESTION"  # 되묻기 금지 위반
 # (한 사건은 factor 하나, 층은 links). 다른 사건을 같은 메시지가 함께 전한 경우도 있어
 # 실패로 두지 않는다. check_warnings() 가 보고 verify_status 에는 넣지 않는다.
 DUPLICATE_SOURCES = "DUPLICATE_SOURCES"
-# issue_trace 의 direct·sector 이슈가 events 어디의 issue_ids 에도 없다. 1-2 를 통과한 이슈가
-# factors·background·dropped 어디에도 기록되지 않고 사라진 것이다. check_issue_trace() 가 본다.
-ISSUE_UNREFERENCED = "ISSUE_UNREFERENCED"
 # events 의 issue_ids 가 issue_trace 에 없는 id 를 가리킨다.
 ISSUE_ID_UNKNOWN = "ISSUE_ID_UNKNOWN"
-# 입력 메시지 url 이 issue_trace 에 없다. 1-1 에서 그 메시지를 건너뛴 것이다(메시지가 많을 때).
+# messages 칸 메시지 url 이 issue_trace 에 없다. 1-1 에서 그 메시지를 건너뛴 것이다(메시지가 많을 때).
 ISSUE_TRACE_MISSING_URL = "ISSUE_TRACE_MISSING_URL"
 # 생성 뒤 처리(quote 고쳐 쓰기 실패로 factor 를 뺌)로 등락 층 근거가 빠졌는데 summary.main_cause 를
 # 다시 쓰지 못했다. main_cause 가 뺀 근거를 아직 말하고 있을 수 있다(repair.rewrite_main_cause).
@@ -1206,23 +1202,43 @@ def _event_issue_ids(report: dict[str, Any]) -> list[tuple[int, Any]]:
                       else [])]
 
 
+def split_messages(payload: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """입력 메시지를 모델에 보낼 세 칸으로 나눈다. 입력 순서는 칸 안에서 그대로다.
+
+    after_prev_close 메시지는 kind 와 상관없이 market_context(전날 장 설명, 참고만)다. kind 가 없는 메시지
+    (v3 이전 입력)는 messages 다. 검증·출처 대조는 나누기 전 입력 전체로 한다 — 모델이 어느 칸의 url 을
+    출처로 달았든 입력에 있던 주소인지는 그대로 확인해야 한다.
+    """
+    out: dict[str, list[dict[str, Any]]] = {"messages": [], "market_context": [], "flow": []}
+    for m in _messages(payload):
+        if m.get("after_prev_close") is True or m.get("kind") in MARKET_CONTEXT_KINDS:
+            out["market_context"].append(m)
+        elif m.get("kind") in FLOW_KINDS:
+            out["flow"].append(m)
+        else:
+            out["messages"].append(m)
+    return out
+
+
 def _missing_message_urls(issue_trace: list[Any], payload: dict[str, Any]) -> tuple[list[str], int, int]:
-    """(issue_trace 에 없는 입력 url — 입력 순서·중복 없이, issue_trace 에 오른 메시지 수, 입력 메시지 수)."""
+    """(issue_trace 에 없는 messages 칸 url — 입력 순서·중복 없이, issue_trace 에 오른 메시지 수, messages 칸 메시지 수).
+
+    issue_trace 는 messages 칸만 나열한다(프롬프트 1-1). market_context·flow 는 세지 않는다.
+    """
     traced = {m.get("url") for m in issue_trace if isinstance(m, dict)}
-    messages = _messages(payload)
+    messages = split_messages(payload)["messages"]
     missing = list(dict.fromkeys(m.get("url") for m in messages if m.get("url") not in traced))
     return missing, sum(m.get("url") in traced for m in messages), len(messages)
 
 
 def check_issue_trace(issue_trace: Any, report: dict[str, Any] | None,
                       payload: dict[str, Any] | None = None) -> list[str]:
-    """issue_trace 가 입력 메시지를 다 훑었는지, direct·sector 이슈가 events 에서 참조되는지.
+    """issue_trace 가 messages 칸을 다 훑었는지, events 의 issue_ids 가 issue_trace 에 있는 id 인지.
     경고만 돌려준다.
 
-    generate() 가 보고서에서 떼어 래퍼에 둔 issue_trace 와 보고서 events 를 맞춰 본다. 관련 이슈가
-    events 어디에도 없으면 factors·background·dropped 어느 칸에도 기록되지 않고 사라진 것이다.
-    market 이슈는 events 에 남기지 않아도 되므로 여기서 보지 않는다(issue_trace_stats 가 센다).
-    payload 를 주면 issue_trace 에 오르지 않은 입력 메시지 url 도 ISSUE_TRACE_MISSING_URL 로 남긴다.
+    events 는 factors·background 에 실제로 적은 사건만 담으므로, 어느 사건에도 들지 않은 이슈는 정상이다
+    (issue_trace 에만 남는다). 쓰인 이슈 수는 issue_trace_stats 의 issues_used 가 센다.
+    payload 를 주면 issue_trace 에 오르지 않은 messages 칸 url 을 ISSUE_TRACE_MISSING_URL 로 남긴다.
     verify_status 에는 넣지 않는다 — 검수 칸이 어긋났다고 멀쩡한 본문을 떨어뜨리지 않는다.
     issue_trace 가 없거나(예전 프롬프트) 보고서를 열지 못했으면 볼 것이 없어 빈 목록이다.
     """
@@ -1232,17 +1248,10 @@ def check_issue_trace(issue_trace: Any, report: dict[str, Any] | None,
     if payload is not None:
         missing, _, _ = _missing_message_urls(issue_trace, payload)
         out += [_p(ISSUE_TRACE_MISSING_URL, f"{url!r} 가 issue_trace 에 없다") for url in missing]
-    issues = _trace_issues(issue_trace)
-    known = {i.get("id") for i in issues}
-    referenced: set[str] = set()
+    known = {i.get("id") for i in _trace_issues(issue_trace)}
     for k, x in _event_issue_ids(report):
-        referenced.add(x)
         if x not in known:
             out.append(_p(ISSUE_ID_UNKNOWN, f"events[{k}].issue_ids 의 {x!r} 가 issue_trace 에 없다"))
-    for i in issues:
-        if i.get("relation") in RELATED_ISSUE_RELATIONS and i.get("id") not in referenced:
-            out.append(_p(ISSUE_UNREFERENCED,
-                          f"{i.get('id')!r} ({i.get('relation')}) {i.get('issue')!r} 가 events 어디에도 없다"))
     return out
 
 
@@ -1250,10 +1259,10 @@ def issue_trace_stats(issue_trace: Any, report: dict[str, Any] | None,
                       payload: dict[str, Any]) -> dict[str, int] | None:
     """issue_trace 의 숫자. 래퍼 issue_trace_stats 칸이다. issue_trace 가 없으면 None.
 
-        messages_traced      issue_trace 에 url 이 오른 입력 메시지 수
-        messages_total       입력 메시지 수
-        relations            관련 유형별 이슈 수. none 은 issues 에 적힌 것과 메시지마다의 none_count 를 더한다
-        market_unreferenced  events 어디에서도 참조되지 않은 market 이슈 수(경고로 남기지 않는다)
+        messages_traced  issue_trace 에 url 이 오른 messages 칸 메시지 수
+        messages_total   messages 칸 메시지 수
+        relations        관련 유형별 이슈 수. none 은 issues 에 적힌 것과 메시지마다의 none_count 를 더한다
+        issues_used      issue_trace 이슈 중 events 의 issue_ids 에 든(factors·background 에 쓰인) 수
     """
     if not isinstance(issue_trace, list):
         return None
@@ -1273,8 +1282,7 @@ def issue_trace_stats(issue_trace: Any, report: dict[str, Any] | None,
         "messages_traced": traced,
         "messages_total": total,
         "relations": relations,
-        "market_unreferenced": sum(i.get("relation") == MARKET_ISSUE_RELATION
-                                   and i.get("id") not in referenced for i in issues),
+        "issues_used": sum(i.get("id") in referenced for i in issues),
     }
 
 
@@ -1314,11 +1322,9 @@ __all__ = [
     "EVENT_REASONS",
     "LAYERS",
     "MAIN_CAUSE_STALE",
-    "MARKET_ISSUE_RELATION",
     "MATCHES",
     "MOVE_CASES",
     "QUOTE_VERIFY_FAIL",
-    "RELATED_ISSUE_RELATIONS",
     "SIZE_FITS",
     "SOURCES_MAX",
     "STANCES",
@@ -1344,6 +1350,7 @@ __all__ = [
     "normalize_report",
     "normalize_ws",
     "quote_in_text",
+    "split_messages",
     "verify",
     "verify_wrapper",
 ]
