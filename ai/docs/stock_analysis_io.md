@@ -68,7 +68,7 @@ runs/<YYYYMMDD-HHMMSS>/
     "peer_median_pct": -0.6,                  // 이 종목을 뺀 비교 대형주 등락률 중간값. 없으면 null
     "peer_up": 5, "peer_down": 13, "peer_total": 19,
     "excess_pct": -3.6                        // change_pct − peer_median_pct. 없으면 null
-    // "move_case" 는 넣지 않아도 된다. 러너가 계산해 덮어쓴다(아래)
+    // "move_case"·"judge_layers"·"common_move" 는 넣지 않아도 된다. 러너가 계산해 덮어쓴다(아래)
   },
   "messages": [                               // 필수. 배열. 이미 종목·시간으로 걸러진 상태
     {
@@ -77,7 +77,10 @@ runs/<YYYYMMDD-HHMMSS>/
       "datetime_kst": "2026-09-18T08:10:00+09:00",
       "views": "1200",
       "text": "솔마루전자, 3분기 영업이익 잠정치 412억원… 시장 예상치 590억원 30% 하회",
-      "match": "direct",                      // direct: 이 종목을 직접 다룸 | indirect: 업황·경쟁사·전방산업만
+      "match": "direct",                      // direct: 이 종목을 직접 다룸(여러 소식 중 한 줄이라도) | indirect: 업황·경쟁사·전방산업만
+      "kind": "news",                         // flow_rank | market_recap | theme_recap | news_digest | disclosure | news | other
+      "after_prev_close": false,              // true 면 직전 거래일 장을 정리한 시황(오늘 원인이 아님)
+      "first_seen_kst": null,                 // 직전 구간에 같은 내용이 처음 나온 시각. 없으면 null
       "dup_channels": 1,                      // 같은 내용으로 묶인 메시지들의 채널 수. 묶인 게 없으면 1
       "link_bodies": [                        // 선택. 메시지 속 뉴스 링크를 cutoff 안에서 미리 연 것
         {
@@ -101,9 +104,26 @@ runs/<YYYYMMDD-HHMMSS>/
 - `stock`, `code`, `target_date`, `cutoff`, `change_pct`, `messages` 가 있어야 한다.
 - `change_pct` 는 숫자(bool 제외), `messages` 는 배열.
 
-### 러너가 입력에 덧붙이는 것 — `market.move_case`
+- `kind`·`after_prev_close`·`first_seen_kst` 는 입력 생성 단계가 붙인다. 러너 `check_input()` 은 보지 않는다.
+  그날 시장 시황·테마 동향 메시지가 종목과 상관없이 `match: indirect` 로 최대 3건 함께 들어온다.
 
-모델에 보내기 직전 `excess_pct` 로 계산해 넣는다(입력에 값이 있어도 덮어쓴다). `inputs/` 사본에는 없다.
+### 러너가 입력에 덧붙이는 것 — `market.move_case`·`judge_layers`·`common_move`
+
+모델에 보내기 직전 계산해 넣는다(입력에 값이 있어도 덮어쓴다). `inputs/` 사본에는 없다.
+`market` 이 null 이면 넣지 않는다. 계산은 `verify.move_case`·`judge_layers`·`common_move` 한 곳이고 검증도 같은 함수를 본다.
+
+`judge_layers` — 층마다 이 입력에서 원인을 판단하는가. `false` 인 층에는 link 를 달지 않고 그 층 판정은 `no_clear_cause`.
+
+| 키 | `true` 조건 |
+| --- | --- |
+| `move` | `abs(change_pct) > 1.00` |
+| `relative` | `excess_pct` 가 있고 `abs(excess_pct) > 1.00` |
+
+`common_move` — 대형주 전반이 같은 방향으로 함께 움직인 날. `change_pct` 와 `peer_median_pct` 부호가 같고
+`abs(peer_median_pct) >= abs(change_pct) × 0.5` 이며 `judge_layers.relative` 가 `false`. `peer_median_pct` 가 null 이면 null.
+`true` 면 `summary.main_cause` 첫 문장에 그 사실을 쓴다.
+
+`move_case` — 참고용 이름표.
 
 | 값 | 조건 |
 | --- | --- |
@@ -113,6 +133,14 @@ runs/<YYYYMMDD-HHMMSS>/
 | `normal` | 그 밖 |
 
 ---
+
+### 직접 언급이 0건이면 — 정형 보고서
+
+`match: "direct"` 메시지가 하나도 없으면(공통 시황처럼 indirect 만 있어도) LLM 을 부르지 않고
+`generate.canned_report()` 로 정형 보고서를 낸다. 두 판정 `no_clear_cause`, `factors`·`background`·`terms`·`events` 는 비고,
+`summary.move` 는 입력 숫자로 채운 문장, `main_cause` 는 "제공된 메시지에서 확인된 원인은 없습니다."(`common_move` 날은
+앞에 "대형주 전반이 함께 오른/내린 날이었습니다."), `unexplained` 는 "이 종목을 직접 다룬 소식이 수집되지 않았습니다."
+래퍼 `skipped_llm: "NO_DIRECT_MESSAGES"`, 비용 0.
 
 ## 2. 모델 출력 (보고서)
 
@@ -128,8 +156,8 @@ runs/<YYYYMMDD-HHMMSS>/
 | `move` (등락 층) | 오늘 왜 올랐나/내렸나 | `change_pct` 부호 | `verdict` | `main_cause` |
 | `relative` (상대 층) | 다른 대형주와 왜 달랐나 | `excess_pct` 부호 | `relative_verdict` | `relative` |
 
-층의 값 절댓값이 1 이하면(상대 층은 `excess_pct` 가 null 일 때도) 그 층 판정은 `no_clear_cause` 이고
-그 층 link 는 없다. **factor 하나 = 사건 하나**이고, 어느 층에 답하는지는 factor 안 `links` 로 단다.
+입력 `market.judge_layers` 가 `false` 인 층(층의 값 절댓값이 1 이하, 상대 층은 `excess_pct` 가 null 일 때도)은
+그 판정이 `no_clear_cause` 이고 그 층 link 는 없다. 어기면 러너가 같은 입력으로 한 번 다시 부른다(`judge_retry`). **factor 하나 = 사건 하나**이고, 어느 층에 답하는지는 factor 안 `links` 로 단다.
 
 ### 전체 형태
 
@@ -164,7 +192,7 @@ runs/<YYYYMMDD-HHMMSS>/
           "datetime_kst": "2026-09-18T08:10:00+09:00",
           "quote": "3분기 영업이익 잠정치 412억원",      // text 또는 link_bodies[].excerpt 글자 그대로, 40자 이내
           "match": "direct",                           // 입력 값 그대로
-          "is_market_recap": false                     // 시황 메시지면 true
+          "is_market_recap": false                     // 입력 kind 가 market_recap·theme_recap 이면 true. 검증은 입력 kind 를 본다
         }
       ],
       "links": [                          // 최소 1개, 층마다 최대 1개
@@ -195,9 +223,10 @@ runs/<YYYYMMDD-HHMMSS>/
       "event": "사건 한 줄",
       "issue_ids": ["i1", "i3"],          // issue_trace 이슈 id
       "factor": 0,                        // placed 가 factors 일 때만
+      "background": { "slot": "bearish", "index": 0 },  // placed 가 background 일 때만(필수). 그 사건을 담은 항목 자리
       "dup_channels": 2,                  // 숫자 | null
       "placed": "factors",                // factors | background | summary.move | dropped
-      "reason": "over_cap"                // dropped 이거나 over_cap 일 때만
+      "reason": "over_cap"                // dropped 이거나 over_cap 일 때만. background 상한에 밀린 사건은 dropped/over_cap
     }
   ]
 }
@@ -217,7 +246,8 @@ runs/<YYYYMMDD-HHMMSS>/
 
 ### `issue_trace` (래퍼로 옮겨짐)
 
-모델 출력의 맨 앞 키. 입력 메시지마다 하나.
+모델 출력의 맨 앞 키. 입력 메시지마다 하나(이슈가 없거나 전부 none 이어도 url 은 남긴다 — 누락 검사용).
+`none` 이슈는 적지 않고 개수만 `none_count` 에 둔다. `issue_trace_stats.relations.none` 은 이 값을 더한 것이다.
 
 ```jsonc
 "issue_trace": [
@@ -225,8 +255,9 @@ runs/<YYYYMMDD-HHMMSS>/
     "url": "https://t.me/sample_channel_a/101",
     "issues": [
       { "id": "i1", "issue": "3분기 영업이익 예상치 하회", "relation": "direct" }
-      // relation: direct | sector | market | none
-    ]
+      // relation: direct | sector | market
+    ],
+    "none_count": 2
   }
 ]
 ```
@@ -255,8 +286,9 @@ runs/<YYYYMMDD-HHMMSS>/
 | `schema_problems` | `check_schema()` 결과 |
 | `is_error` / `error_code` / `error` | 호출 자체 실패. `error_code`: `LLM_ERROR`, `STREAM_INTERRUPTED`, `OUTPUT_TRUNCATED`, `EMPTY_RESPONSE` |
 | `asked_question` | JSON 이 안 열렸고 응답이 `?` 로 끝남 |
+| `skipped_llm` | 정형 보고서일 때만 `"NO_DIRECT_MESSAGES"` (직접 언급 0건). 그 밖에는 칸이 없다 |
 | `issue_trace` | 모델이 낸 이슈 목록 |
-| `move_case` | 입력에 넣은 값과 같음 |
+| `move_case` / `judge_layers` / `common_move` | 입력에 넣은 값과 같음(`market` 이 null 이면 null) |
 
 ### 검증 결과
 
@@ -264,8 +296,8 @@ runs/<YYYYMMDD-HHMMSS>/
 | --- | --- |
 | `verify_status` | `passed` / `failed`. 스키마·규칙·근거 중 하나라도 걸리면 failed |
 | `verify_problems` | `"<코드>: <상세>"` 문자열 배열 (예: `QUOTE_NOT_IN_SOURCE: factors[0].sources[0] ...`) |
-| `events_status` / `events_problems` | `events` 칸 검사. `passed` / `failed` / `missing`. 판정과 별개 |
-| `verify_warnings` | 실패는 아니지만 볼 것 (`DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE` 등) |
+| `events_status` / `events_problems` | `events` 칸 검사. `passed` / `failed` / `missing`. 판정과 별개. 형식(`SCHEMA_*`, `EVENT_REASON_MISMATCH`)과 실제 칸 대조: `EVENT_BACKGROUND_REF_MISSING`·`_REF_DUPLICATE`·`_UNREFERENCED`(background 항목과 사건이 하나씩 짝), `EVENT_FACTOR_COUNT`·`_REF_MISSING`·`_DUPLICATE`, `ISSUE_ID_DUPLICATE` |
+| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`, `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명 제외) |
 | `issue_trace_warnings` / `issue_trace_stats` | 메시지 누락·이슈 미참조 경고와 집계 |
 
 ### 재시도·고쳐 쓰기 기록
@@ -273,8 +305,9 @@ runs/<YYYYMMDD-HHMMSS>/
 | 키 | 뜻 |
 | --- | --- |
 | `json_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {json_status, asked_question, raw_text, usage, cost, duration_ms}}`. 정상 종료인데 JSON 이 깨졌을 때만 1회 재호출 |
+| `judge_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {problems, final_text, json_retry, usage, cost, duration_ms}}`. 열린 보고서가 `judge_layers` 가 false 인 층에 link·판정을 달았을 때(`FLAT_*`) 같은 입력으로 1회 재호출. 비용은 `cost` 에 합친다 |
 | `stream_interruptions` | 끊긴 시도마다 `{partial_chars, error}`. 끊김은 1회 재전송 |
-| `quote_repair` | quote 가 원문에 없던 factor·background 항목마다 `{kind, result: fixed\|dropped, failed, retry_failed, quotes, ...}`. 다시 써도 없으면 항목을 빼고 `events` 에 `dropped`/`quote_verify_fail` |
+| `quote_repair` | quote 가 원문에 없던 factor·background 항목마다 `{kind, result: fixed\|dropped, failed, retry_failed, quotes, ...}`. 다시 써도 없으면 항목을 빼고 그 항목을 가리키던 `events` 사건을 `dropped`/`quote_verify_fail` 로 바꾼다(뒤 항목의 순번은 당긴다) |
 | `main_cause_rewrite` | 뺀 factor 에 `move` link 가 있었을 때 `{result: rewritten\|failed, dropped, before, after, cost, error}` |
 
 ### 운영 지표
@@ -300,10 +333,15 @@ runs/<YYYYMMDD-HHMMSS>/
   "opposite_with_counter": 1,
   "events": { "passed": 8, "failed": 1, "missing": 0 },
   "warned": 2,
+  "warning_counts": { "issue_trace_warnings": 3, "events_problems": 1, "verify_warnings": 4 },  // 경고 건수 합
+  "retried": { "json_retry": 0, "judge_retry": 1 },  // LLM 을 다시 부른 회차 수
+  "skipped_llm": 1,                                  // 정형 보고서 회차 수
   "issue_trace_messages": { "traced": 30, "total": 31 },
   "loaded": null                                     // --load 면 적재 건수
 }
 ```
+
+보고서마다 찍는 줄 끝에 `issue_trace_warnings=… events_problems=… verify_warnings=…` 건수가 붙는다.
 
 종료 코드: 호출 자체가 실패한 건(`errors`)이 있으면 1. 검증 실패는 데이터라 0.
 
