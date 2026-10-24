@@ -67,6 +67,7 @@ from app.services.stock_analysis.verify import (
     check_schema,
     common_move,
     judge_layers,
+    message_ids,
     move_case,
     split_messages,
 )
@@ -115,7 +116,8 @@ def check_input(payload: Any) -> list[str]:
 def model_input(payload: dict[str, Any]) -> dict[str, Any]:
     """모델에 보낼 입력. 원본은 바꾸지 않는다(프롬프트 1부).
 
-    - 메시지를 messages·market_context·flow 세 칸으로 나눈다(verify.split_messages).
+    - 메시지를 messages·market_context·flow 세 칸으로 나눈다(verify.split_messages). messages 칸 메시지에는
+      입력 순서대로 id(m1…mN)를 붙인다(verify.message_ids). issue_trace 는 이 id 로 m1부터 N개를 적는다.
     - market 에 러너가 계산한 judge_layers·common_move 를 넣는다. 입력에 같은 칸이 있어도 다시 계산해
       덮어쓴다 — 계산은 verify 의 함수 한 곳에서만 한다. move_case 는 보내지 않는다(래퍼 집계에만 남긴다).
       market 이 null 이면 넣을 자리가 없어 그대로 둔다.
@@ -123,6 +125,7 @@ def model_input(payload: dict[str, Any]) -> dict[str, Any]:
     """
     out = {k: v for k, v in payload.items() if k != "messages"}
     out.update(split_messages(payload))
+    out["messages"] = [{"id": i, **m} for i, m in message_ids(payload)]
     market = payload.get("market")
     if isinstance(market, dict):
         out["market"] = {**{k: v for k, v in market.items() if k != "move_case"},

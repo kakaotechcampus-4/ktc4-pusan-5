@@ -1110,7 +1110,8 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
             out.append(_p(FACTOR_RESULT_SOURCES_ONLY,
                           f"factors[{i}] 출처가 모두 {'·'.join(RESULT_KINDS)} 메시지다({', '.join(source_kinds)})"))
     if isinstance(issue_trace, list):
-        out += _check_theme_recap_sector(report, kinds, issue_trace)
+        out += _check_theme_recap_sector(report, kinds, issue_trace,
+                                         {i: m.get("url") for i, m in message_ids(payload)})
     out += _check_quote_subjects(factors, str(payload.get("stock") or ""))
     return out
 
@@ -1139,10 +1140,10 @@ def _check_caps(report: dict[str, Any]) -> list[str]:
 
 
 def _check_theme_recap_sector(report: dict[str, Any], kinds: dict[Any, Any],
-                              issue_trace: list[Any]) -> list[str]:
+                              issue_trace: list[Any], id_to_url: dict[str, Any]) -> list[str]:
     """theme_recap 출처를 쓴 factor 마다, 그 factor 를 가리키는 사건의 issue_ids 중 theme_recap 메시지에서 나온
     이슈가 sector 인지 본다. 하나라도 sector 면 통과. 그런 이슈가 없거나 sector 가 아니면 경고."""
-    issue_url = {i.get("id"): m.get("url") for m in issue_trace if isinstance(m, dict)
+    issue_url = {i.get("id"): _trace_entry_url(m, id_to_url) for m in issue_trace if isinstance(m, dict)
                  for i in (m.get("issues") if isinstance(m.get("issues"), list) else []) if isinstance(i, dict)}
     relation = {i.get("id"): i.get("relation") for i in _trace_issues(issue_trace)}
     events = report.get("events") if isinstance(report.get("events"), list) else []
@@ -1220,15 +1221,27 @@ def split_messages(payload: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     return out
 
 
-def _missing_message_urls(issue_trace: list[Any], payload: dict[str, Any]) -> tuple[list[str], int, int]:
-    """(issue_trace 에 없는 messages 칸 url — 입력 순서·중복 없이, issue_trace 에 오른 메시지 수, messages 칸 메시지 수).
+def message_ids(payload: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """messages 칸 메시지마다 (id, 메시지). id 는 입력 순서대로 m1, m2 … 다. 모델 입력(generate.model_input)과
+    issue_trace 검증이 같은 함수를 본다."""
+    return [(f"m{k + 1}", m) for k, m in enumerate(split_messages(payload)["messages"])]
 
-    issue_trace 는 messages 칸만 나열한다(프롬프트 1-1). market_context·flow 는 세지 않는다.
+
+def _trace_entry_url(entry: dict[str, Any], id_to_url: dict[str, Any]) -> Any:
+    """issue_trace 항목이 가리키는 메시지 url. id(m1…) 로 적는 게 지금 형식이고, url 로 적은 예전 형식도 받는다."""
+    return id_to_url.get(entry.get("id"), entry.get("url"))
+
+
+def _missing_message_urls(issue_trace: list[Any], payload: dict[str, Any]) -> tuple[list[str], int, int]:
+    """(issue_trace 에 없는 messages 칸 메시지 "id url" — 입력 순서, issue_trace 에 오른 메시지 수, messages 칸 메시지 수).
+
+    issue_trace 는 messages 칸만 m1부터 순서대로 나열한다(프롬프트 1-1). market_context·flow 는 세지 않는다.
     """
-    traced = {m.get("url") for m in issue_trace if isinstance(m, dict)}
-    messages = split_messages(payload)["messages"]
-    missing = list(dict.fromkeys(m.get("url") for m in messages if m.get("url") not in traced))
-    return missing, sum(m.get("url") in traced for m in messages), len(messages)
+    ids = message_ids(payload)
+    id_to_url = {i: m.get("url") for i, m in ids}
+    traced = {_trace_entry_url(e, id_to_url) for e in issue_trace if isinstance(e, dict)}
+    missing = [f"{i} {m.get('url')}" for i, m in ids if m.get("url") not in traced]
+    return missing, sum(m.get("url") in traced for _, m in ids), len(ids)
 
 
 def check_issue_trace(issue_trace: Any, report: dict[str, Any] | None,
@@ -1247,7 +1260,7 @@ def check_issue_trace(issue_trace: Any, report: dict[str, Any] | None,
     out: list[str] = []
     if payload is not None:
         missing, _, _ = _missing_message_urls(issue_trace, payload)
-        out += [_p(ISSUE_TRACE_MISSING_URL, f"{url!r} 가 issue_trace 에 없다") for url in missing]
+        out += [_p(ISSUE_TRACE_MISSING_URL, f"{x} 가 issue_trace 에 없다") for x in missing]
     known = {i.get("id") for i in _trace_issues(issue_trace)}
     for k, x in _event_issue_ids(report):
         if x not in known:
@@ -1345,6 +1358,7 @@ __all__ = [
     "issue_trace_stats",
     "judge_layers",
     "layer_pct",
+    "message_ids",
     "move_case",
     "normalize_quote",
     "normalize_report",

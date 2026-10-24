@@ -123,6 +123,20 @@ def test_issue_trace_stats_relations_and_used():
     assert issue_trace_stats(None, r, {"messages": []}) is None
 
 
+def test_issue_trace_by_message_id():
+    """issue_trace 는 messages 칸 id(m1…)로 적는다. 빠진 id 는 'id url' 로 경고한다."""
+    payload = {"messages": [{"url": URL, "kind": "news"}, {"url": "https://t.me/ch/2", "kind": "market_recap"},
+                            {"url": "https://t.me/ch/3", "kind": "news"}, {"url": "https://t.me/ch/4", "kind": "other"}]}
+    t = [{"id": "m1", "issues": [{"id": "i1", "issue": "x", "relation": "direct"}], "none_count": 0},
+         {"id": "m3", "issues": [], "none_count": 2}]   # m2 는 ch/3 (시황 ch/2 는 칸 밖이라 번호가 없다)
+    r = {"events": [{"issue_ids": ["i1"]}]}
+    warnings = check_issue_trace(t, r, payload)
+    assert [code_of(w) for w in warnings] == [ISSUE_TRACE_MISSING_URL]
+    assert "m2 https://t.me/ch/3" in warnings[0]
+    stats = issue_trace_stats(t, r, payload)
+    assert (stats["messages_traced"], stats["messages_total"]) == (2, 3)
+
+
 def test_issue_trace_only_covers_messages_column():
     """market_context(시장 시황·전날 장 설명)와 flow(매매 순위)는 issue_trace 대상이 아니라 누락으로 세지 않는다."""
     payload = {"messages": [{"url": URL, "kind": "news"},

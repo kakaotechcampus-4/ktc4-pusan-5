@@ -57,7 +57,8 @@ async def test_prompt_and_input_are_sent(fake_complete):
     # 메시지를 세 칸으로 나누고 market 에 러너가 계산한 칸을 더해 보낸다. move_case 는 보내지 않는다.
     # 원본 dict 는 그대로다
     sent = {k: v for k, v in CAUSE.items() if k != "messages"}
-    assert json.loads(user) == {**sent, "messages": CAUSE["messages"], "market_context": [], "flow": [],
+    numbered = [{"id": f"m{k + 1}", **m} for k, m in enumerate(CAUSE["messages"])]  # 근거 칸에 m1… id
+    assert json.loads(user) == {**sent, "messages": numbered, "market_context": [], "flow": [],
                                 "market": {**CAUSE["market"], "judge_layers": {"move": True, "relative": True},
                                            "common_move": False}}
     assert "judge_layers" not in CAUSE["market"]
@@ -428,6 +429,8 @@ def test_model_input_splits_messages_into_three_columns():
                                                                     "move_case": "normal"}}
     sent = gen.model_input(payload)
     urls = {k: [m["url"][-1] for m in sent[k]] for k in ("messages", "market_context", "flow")}
+    assert [m["id"] for m in sent["messages"]] == ["m1", "m2", "m3", "m4"]  # 근거 칸에만, 칸 안 순서대로
+    assert all("id" not in m for m in sent["market_context"] + sent["flow"])
     # 전날 장 설명(after_prev_close)은 kind 와 상관없이 market_context. kind 가 없으면 messages
     assert urls == {"messages": ["1", "4", "6", "7"], "market_context": ["2", "5"], "flow": ["3"]}
     assert "move_case" not in sent["market"] and sent["market"]["judge_layers"] == {"move": True, "relative": True}

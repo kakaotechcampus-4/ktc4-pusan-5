@@ -120,7 +120,8 @@ runs/<YYYYMMDD-HHMMSS>/
   | `market_context` | `market_recap`, `after_prev_close: true`(kind 무관) | `summary.move` 의 시장 설명에만. 출처 금지. after_prev_close 는 참고만 |
   | `flow` | `flow_rank` | factor `detail`·`background` 보조 근거만 |
 
-  `issue_trace` 는 `messages` 칸만 나열한다. 누락 검사(`ISSUE_TRACE_MISSING_URL`)도 그 칸 기준이다.
+  `messages` 칸 메시지에는 입력 순서대로 `id`(`m1`…`mN`)를 붙인다(`verify.message_ids`). `issue_trace` 는
+  이 칸만 `m1` 부터 순서대로 N개 나열하고, 누락 검사(`ISSUE_TRACE_MISSING_URL`)도 id 기준이다.
 - **`market` 에 계산 칸을 넣는다**(`judge_layers`·`common_move`, 아래). 입력에 값이 있어도 덮어쓴다.
   `market` 이 null 이면 넣지 않는다. 계산은 verify 의 함수 한 곳이고 검증도 같은 함수를 본다.
 - `move_case` 는 모델에 보내지 않는다. 래퍼 `move_case` 와 러너 집계에만 남긴다.
@@ -259,13 +260,14 @@ LLM 을 부른다(`generate.needs_llm`).
 
 ### `issue_trace` (래퍼로 옮겨짐)
 
-모델 출력의 맨 앞 키. `messages` 칸 메시지마다 하나(이슈가 없거나 전부 none 이어도 url 은 남긴다 — 누락 검사용).
+모델 출력의 맨 앞 키. `messages` 칸 메시지마다 하나, `m1` 부터 순서대로(이슈가 없거나 전부 none 이어도 항목은 남긴다 — 누락 검사용).
+예전 형식처럼 `id` 대신 `url` 로 적은 항목도 검증은 받는다.
 `none` 이슈는 적지 않고 개수만 `none_count` 에 둔다. `issue_trace_stats.relations.none` 은 이 값을 더한 것이다.
 
 ```jsonc
 "issue_trace": [
   {
-    "url": "https://t.me/sample_channel_a/101",
+    "id": "m1",
     "issues": [
       { "id": "i1", "issue": "3분기 영업이익 예상치 하회", "relation": "direct" }
       // relation: direct | sector | market
