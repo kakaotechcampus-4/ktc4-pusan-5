@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.llm.client import LLMError, StreamInterrupted
+from app.llm.client import LLMError, LLMTimeout, StreamInterrupted
 from app.repositories.stock_move_analysis import parse_wrapper
 from app.services.stock_analysis import generate as gen
 
@@ -446,3 +446,17 @@ def test_model_input_splits_messages_into_three_columns():
 ])
 def test_needs_llm_counts_only_messages_column(msgs, llm):
     assert gen.needs_llm(_kb(-3.1, -1.57, -1.53, messages=msgs)) is llm
+
+
+async def test_timeout_is_retried_once_and_recorded(fake_complete):
+    fake_complete.side_effect = [LLMTimeout("LLM 호출 실패: TimeoutError (180초 제한)"), (REPORT_TEXT, USAGE)]
+    w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
+    assert fake_complete.await_count == 2 and not w["is_error"]
+    assert len(w["timeouts"]) == 1 and "TimeoutError" in w["timeouts"][0]["error"]
+
+
+async def test_timeout_twice_is_llm_error(fake_complete):
+    fake_complete.side_effect = LLMTimeout("LLM 호출 실패: TimeoutError (180초 제한)")
+    w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
+    assert fake_complete.await_count == 2
+    assert w["is_error"] and w["error_code"] == "LLM_ERROR" and len(w["timeouts"]) == 2

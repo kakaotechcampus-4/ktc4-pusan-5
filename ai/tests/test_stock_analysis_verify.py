@@ -16,6 +16,7 @@ from app.services.stock_analysis.verify import (
     CHANGE_PCT_MISMATCH,
     COMMON_MOVE_WITH_MOVE_LINK,
     COUNT_OVER_CAP,
+    MOVE_COMPARISON_ON_FLAT,
     COUNTER_WITHOUT_BACKGROUND,
     DATE_MISMATCH,
     DIRECTION_MATCH_WRONG,
@@ -1263,3 +1264,18 @@ def test_common_move_day_with_move_link_warns():
     assert check_warnings(cause_report(change_pct=-3.57, verdict="no_clear_cause", factors=[]), common) == []
     # common_move 가 아닌 날은 경고하지 않는다
     assert COMMON_MOVE_WITH_MOVE_LINK not in codes(check_warnings(cause_report(), CAUSE))
+
+
+@pytest.mark.parametrize(("move", "warned"), [
+    ("현대차는 2.5% 내려 대형주 전반보다 더 내렸습니다.", True),       # 10-23 현대차 3회차
+    ("중간값 1.57% 하락보다 덜 내렸고", True),
+    ("대형주 전반보다 더 크게 하락했습니다.", True),
+    ("현대차는 대형주 전반과 비슷하게 움직였습니다.", False),
+    ("여기에 더해 외국인이 순매도했습니다.", False),                 # 더·덜 뒤에 등락 말이 없다
+])
+def test_more_less_comparison_on_flat_day_warns(move, warned):
+    flat = with_market(change=-2.5, peer_median_pct=-1.57, excess_pct=-0.93)   # judge_layers.relative false
+    r = cause_report(change_pct=-2.5, verdict="no_clear_cause", factors=[], summary=summary(move=move))
+    assert (MOVE_COMPARISON_ON_FLAT in codes(check_warnings(r, flat))) is warned
+    # 상대 층을 판단하는 날(차이가 큰 날)은 더·덜 비교가 정상이다
+    assert MOVE_COMPARISON_ON_FLAT not in codes(check_warnings(cause_report(summary=summary(move=move)), CAUSE))

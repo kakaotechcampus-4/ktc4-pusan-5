@@ -49,6 +49,7 @@ from app.core.config import settings
 from app.llm.client import (
     PROMPT_DIR,
     LLMError,
+    LLMTimeout,
     StreamInterrupted,
     complete,
     cost_currency,
@@ -86,8 +87,8 @@ _FENCE = re.compile(r"```[A-Za-z]*[ \t]*\n(.*?)```", re.DOTALL)
 # Windows 파일명에 못 쓰는 글자와 공백. run_id 는 파일명이 된다.
 _UNSAFE = re.compile(r'[<>:"/\\|?*\s]+')
 _HHMM = re.compile(r"(\d{1,2}):(\d{2})")
-# 스트림이 중간에 끊겼을 때 다시 보내는 횟수. 끊김은 대개 일시적인 연결 문제라 한 번은
-# 다시 보내 볼 만하지만, 같은 입력이 거듭 끊기면 입력이나 프록시 쪽 문제라 더 보내도 돈만 쓴다.
+# 스트림이 중간에 끊기거나 시간 제한에 걸렸을 때 다시 보내는 횟수(둘을 합쳐 센다). 대개 일시적인 연결·
+# 서버 지연이라 한 번은 다시 보내 볼 만하지만, 같은 입력이 거듭 그러면 입력이나 프록시 쪽 문제라 더 보내도 돈만 쓴다.
 STREAM_RETRIES = 1
 
 
@@ -320,6 +321,7 @@ def _merge_retry_costs(wrapper: dict[str, Any], first: dict[str, Any]) -> None:
     wrapper["cost"] += first["cost"]
     wrapper["duration_ms"] += first["duration_ms"]
     wrapper["stream_interruptions"] = first["stream_interruptions"] + wrapper["stream_interruptions"]
+    wrapper["timeouts"] = first.get("timeouts", []) + wrapper["timeouts"]
 
 
 async def generate(
@@ -402,6 +404,8 @@ def _base_wrapper(payload: dict[str, Any], *, prompt_hash: str, run_id: str) -> 
         # 스트림이 끊긴 시도마다 {"partial_chars", "error"}. 받은 부분의 본문은 남기지 않는다.
         # 끊긴 시도는 usage 를 못 받아 비용이 cost 에 들어가지 않는다.
         "stream_interruptions": [],
+        # 시간 제한에 걸린 시도마다 {"error", "seconds"}. 받은 부분이 없고 usage 도 없어 비용에 들어가지 않는다.
+        "timeouts": [],
         "usage": {},
         # 입력 토큰 내역(client.input_tokens). usage.prompt_tokens 는 캐시 쓰기 할증이 섞여
         # 첫 호출이 부풀어 보이므로 실제 입력 수는 여기 total 을 본다.
@@ -454,6 +458,13 @@ async def _generate_once(
                 continue
             # 부분 응답은 열어 보지도 저장하지도 않는다. 길이만 stream_interruptions 에 있다.
             wrapper.update(is_error=True, error_code=STREAM_INTERRUPTED, error=str(exc))
+        except LLMTimeout as exc:
+            logger.warning("%s: %s (시도 %d)", run_id, exc, attempt + 1)
+            wrapper["timeouts"].append({"error": str(exc),
+                                        "seconds": round(time.monotonic() - started, 1)})
+            if attempt < STREAM_RETRIES:
+                continue
+            wrapper.update(is_error=True, error_code=LLM_ERROR, error=str(exc))
         except LLMError as exc:
             logger.warning("%s: %s", run_id, exc)
             wrapper.update(is_error=True, error_code=LLM_ERROR, error=str(exc))

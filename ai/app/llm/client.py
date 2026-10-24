@@ -28,6 +28,10 @@ class LLMError(Exception):
     """LLM 호출 실패. 원인 예외는 __cause__ 에 남는다."""
 
 
+class LLMTimeout(LLMError):
+    """호출 전체 시간 제한(settings.summary_timeout_sec)이나 연결 시간 제한에 걸렸다. 받은 부분은 없다."""
+
+
 class StreamInterrupted(LLMError):
     """스트림이 응답을 다 주기 전에 끊겼다. 받은 부분은 길이(글자 수)만 남긴다 —
     잘린 JSON 을 열어 보거나 저장하면 안 되므로 본문은 넘기지 않는다."""
@@ -203,7 +207,11 @@ async def complete(
             f"LLM 호출 실패: HTTP {exc.response.status_code} "
             f"{exc.response.text[:ERROR_BODY_MAX_CHARS]}"
         ) from exc
-    except (httpx.HTTPError, json.JSONDecodeError, TimeoutError) as exc:
+    except (TimeoutError, httpx.TimeoutException) as exc:
+        # 스트림을 읽는 중의 읽기 시간 초과는 _read_stream 이 StreamInterrupted 로 올린다. 여기 오는 것은
+        # 전체 시간 제한(asyncio.timeout)이나 연결 단계의 시간 초과다.
+        raise LLMTimeout(f"LLM 호출 실패: {type(exc).__name__} ({settings.summary_timeout_sec:g}초 제한)") from exc
+    except (httpx.HTTPError, json.JSONDecodeError) as exc:
         raise LLMError(f"LLM 호출 실패: {type(exc).__name__}") from exc
 
     text = text.strip()

@@ -170,6 +170,12 @@ QUOTE_MISSING_SUBJECT = "QUOTE_MISSING_SUBJECT"
 # 입력 common_move 가 true(대형주 전반이 함께 움직인 날)인데 등락 층 link 를 단 factor 가 있다. 그날은 등락 층
 # factor 를 세우지 않는다(프롬프트 7단계). 판정에는 넣지 않는다.
 COMMON_MOVE_WITH_MOVE_LINK = "COMMON_MOVE_WITH_MOVE_LINK"
+# 입력 judge_layers.relative 가 false 이고 excess_pct 가 있는 날(대형주 전반과 비슷하게 움직인 날)인데
+# summary.move 가 "더/덜 내렸다·올랐다" 로 비교했다. 그날은 "대형주 전반과 비슷하게" 로 쓴다(프롬프트 4부 move).
+MOVE_COMPARISON_ON_FLAT = "MOVE_COMPARISON_ON_FLAT"
+# "더 내렸습니다", "덜 올랐고", "더 크게 하락" 처럼 더·덜 뒤에 등락을 말하는 말이 오는 꼴. 앞에 한글이 붙은 "더"(예: "보다더")
+# 는 보지 않고, "여기에 더해" 같은 쓰임은 뒤 말이 달라 걸리지 않는다.
+_MORE_LESS = re.compile(r"(?<![가-힣])(더|덜)\s*(크게\s*|많이\s*|적게\s*)?(내렸|내린|내려|올랐|오른|올라|하락|상승|빠졌|떨어)")
 
 # --- events ↔ 실제 칸 대조 (events_problems, 판정과 분리) ------------------------
 
@@ -1092,6 +1098,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
                                 issue_trace 가 있어야 본다(events → issue_ids → issue_trace relation).
     QUOTE_MISSING_SUBJECT       첫 출처 quote 에 event 의 매매 주체·영문 고유명이 없다.
     COMMON_MOVE_WITH_MOVE_LINK  common_move 가 true 인 날 layer: move link 를 가진 factor 가 있다.
+    MOVE_COMPARISON_ON_FLAT     judge_layers.relative 가 false(excess_pct 있음)인 날 summary.move 에 더·덜 비교가 있다.
     """
     if not isinstance(report, dict):
         return []
@@ -1117,6 +1124,12 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
         out += _check_theme_recap_sector(report, kinds, issue_trace,
                                          {i: m.get("url") for i, m in message_ids(payload)})
     out += _check_quote_subjects(factors, str(payload.get("stock") or ""))
+    market = payload.get("market")
+    summary = report.get("summary")
+    move_text = summary.get("move") if isinstance(summary, dict) else None
+    if (isinstance(market, dict) and market.get("excess_pct") is not None and not judge_layers(payload)["relative"]
+            and isinstance(move_text, str) and (m := _MORE_LESS.search(move_text))):
+        out.append(_p(MOVE_COMPARISON_ON_FLAT, f"대형주 전반과 비슷하게 움직인 날인데 summary.move 에 {m.group(0)!r}"))
     if common_move(payload):
         moved = [i for i, f in enumerate(factors) if _has_layer(f, "move")]
         if moved:
