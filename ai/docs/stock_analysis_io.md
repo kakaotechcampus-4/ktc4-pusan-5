@@ -134,13 +134,14 @@ runs/<YYYYMMDD-HHMMSS>/
 
 ---
 
-### 직접 언급이 0건이면 — 정형 보고서
+### 직접 언급·테마 동향이 0건이면 — 정형 보고서
 
-`match: "direct"` 메시지가 하나도 없으면(공통 시황처럼 indirect 만 있어도) LLM 을 부르지 않고
+`match: "direct"` 메시지와 `kind: "theme_recap"` 메시지가 하나도 없으면(시장 시황만 있어도) LLM 을 부르지 않고
 `generate.canned_report()` 로 정형 보고서를 낸다. 두 판정 `no_clear_cause`, `factors`·`background`·`terms`·`events` 는 비고,
 `summary.move` 는 입력 숫자로 채운 문장, `main_cause` 는 "제공된 메시지에서 확인된 원인은 없습니다."(`common_move` 날은
 앞에 "대형주 전반이 함께 오른/내린 날이었습니다."), `unexplained` 는 "이 종목을 직접 다룬 소식이 수집되지 않았습니다."
-래퍼 `skipped_llm: "NO_DIRECT_MESSAGES"`, 비용 0.
+래퍼 `skipped_llm: "NO_DIRECT_MESSAGES"`, 비용 0. 테마 동향이 있으면 업종 단락이 sector 근거가 될 수 있어
+LLM 을 부른다(`generate.needs_llm`).
 
 ## 2. 모델 출력 (보고서)
 
@@ -286,7 +287,7 @@ runs/<YYYYMMDD-HHMMSS>/
 | `schema_problems` | `check_schema()` 결과 |
 | `is_error` / `error_code` / `error` | 호출 자체 실패. `error_code`: `LLM_ERROR`, `STREAM_INTERRUPTED`, `OUTPUT_TRUNCATED`, `EMPTY_RESPONSE` |
 | `asked_question` | JSON 이 안 열렸고 응답이 `?` 로 끝남 |
-| `skipped_llm` | 정형 보고서일 때만 `"NO_DIRECT_MESSAGES"` (직접 언급 0건). 그 밖에는 칸이 없다 |
+| `skipped_llm` | 정형 보고서일 때만 `"NO_DIRECT_MESSAGES"` (직접 언급·테마 동향 0건). 그 밖에는 칸이 없다 |
 | `issue_trace` | 모델이 낸 이슈 목록 |
 | `move_case` / `judge_layers` / `common_move` | 입력에 넣은 값과 같음(`market` 이 null 이면 null) |
 
@@ -297,7 +298,7 @@ runs/<YYYYMMDD-HHMMSS>/
 | `verify_status` | `passed` / `failed`. 스키마·규칙·근거 중 하나라도 걸리면 failed |
 | `verify_problems` | `"<코드>: <상세>"` 문자열 배열 (예: `QUOTE_NOT_IN_SOURCE: factors[0].sources[0] ...`) |
 | `events_status` / `events_problems` | `events` 칸 검사. `passed` / `failed` / `missing`. 판정과 별개. 형식(`SCHEMA_*`, `EVENT_REASON_MISMATCH`)과 실제 칸 대조: `EVENT_BACKGROUND_REF_MISSING`·`_REF_DUPLICATE`·`_UNREFERENCED`(background 항목과 사건이 하나씩 짝), `EVENT_FACTOR_COUNT`·`_REF_MISSING`·`_DUPLICATE`, `ISSUE_ID_DUPLICATE` |
-| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`, `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명 제외) |
+| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`, `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외) |
 | `issue_trace_warnings` / `issue_trace_stats` | 메시지 누락·이슈 미참조 경고와 집계 |
 
 ### 재시도·고쳐 쓰기 기록

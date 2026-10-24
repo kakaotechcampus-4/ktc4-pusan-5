@@ -27,8 +27,8 @@
 
 ## 직접 언급이 0건이면 LLM 을 부르지 않는다
 
-`match: "direct"` 메시지가 하나도 없으면(공통 시황처럼 indirect 만 있어도) 정형 보고서를 낸다
-(canned_report). 원인 칸은 비우고 "수집된 소식 없음" 을 적는다. 래퍼 skipped_llm 으로 가른다.
+`match: "direct"` 메시지와 `kind: "theme_recap"` 메시지가 하나도 없으면(시장 시황만 있어도) 정형 보고서를
+낸다(canned_report, needs_llm). 테마 동향은 업종 단락이 sector 근거가 될 수 있어 있으면 LLM 을 부른다. 원인 칸은 비우고 "수집된 소식 없음" 을 적는다. 래퍼 skipped_llm 으로 가른다.
 
 ## 실패를 예외로 올리지 않는다
 
@@ -61,6 +61,7 @@ from app.services.stock_analysis.verify import (
     LLM_ERROR,
     OUTPUT_TRUNCATED,
     STREAM_INTERRUPTED,
+    THEME_RECAP_KIND,
     _decimal,
     check_judge_layers,
     check_schema,
@@ -76,7 +77,7 @@ PROMPT_NAME = "stock_analysis_system"
 # 프롬프트 1부 입력 형식에서 러너가 반드시 있어야 하는 칸. market 은 null 이 허용이라
 # 빠져 있다. change_pct 는 ±1% 규칙과 초과분 판단의 기준이라 없으면 검증을 못 한다.
 REQUIRED_INPUT = ("stock", "code", "target_date", "cutoff", "change_pct", "messages")
-# 래퍼 skipped_llm 값. 직접 언급 메시지가 0건이라 LLM 을 부르지 않고 정형 보고서(canned_report)를 냈다.
+# 래퍼 skipped_llm 값. 직접 언급·테마 동향 메시지가 0건이라 LLM 을 부르지 않고 정형 보고서(canned_report)를 냈다.
 NO_DIRECT_MESSAGES = "NO_DIRECT_MESSAGES"
 
 _FENCE = re.compile(r"```[A-Za-z]*[ \t]*\n(.*?)```", re.DOTALL)
@@ -133,6 +134,18 @@ def direct_message_count(payload: dict[str, Any]) -> int:
     messages = payload.get("messages")
     return sum(isinstance(m, dict) and m.get("match") == "direct"
                for m in (messages if isinstance(messages, list) else []))
+
+
+def needs_llm(payload: dict[str, Any]) -> bool:
+    """LLM 을 부를 입력인가. direct 메시지가 있거나 theme_recap 메시지가 있으면 부른다.
+
+    테마 동향은 이 종목 업종 단락이면 sector 근거가 될 수 있어(프롬프트 6단계) 직접 언급이 없어도 부른다.
+    둘 다 없으면(시장 시황뿐이거나 메시지가 없음) 근거가 될 메시지가 없어 정형 보고서를 낸다.
+    """
+    messages = payload.get("messages")
+    return direct_message_count(payload) > 0 or any(
+        isinstance(m, dict) and m.get("kind") == THEME_RECAP_KIND
+        for m in (messages if isinstance(messages, list) else []))
 
 
 def _topic_josa(word: str) -> str:
@@ -200,7 +213,7 @@ def _canned_move(payload: dict[str, Any]) -> str:
 
 
 def canned_report(payload: dict[str, Any]) -> dict[str, Any]:
-    """직접 언급 메시지가 0건인 날의 정형 보고서. LLM 을 부르지 않는다.
+    """직접 언급·테마 동향 메시지가 0건인 날의 정형 보고서. LLM 을 부르지 않는다(needs_llm).
 
     두 판정은 no_clear_cause, 근거·참고 재료는 비운다. 화면은 이 보고서를 "수집된 소식 없음" 으로 보여 줄 수
     있게 래퍼 skipped_llm 칸으로 가른다. 프롬프트 4부와 같게 common_move 날은 main_cause 첫 문장에 그 사실을 쓴다.
@@ -218,7 +231,8 @@ def canned_report(payload: dict[str, Any]) -> dict[str, Any]:
         "summary": {"move": _canned_move(payload), "main_cause": main_cause, "relative": None,
                     "counter": None, "unexplained": "이 종목을 직접 다룬 소식이 수집되지 않았습니다."},
         "factors": [], "terms": [], "background": {"bullish": [], "bearish": [], "neutral": []},
-        "not_found": ["직접 언급(match: direct) 메시지가 0건이라 LLM 을 부르지 않고 정형 보고서를 냈다"],
+        "not_found": ["직접 언급(match: direct)·테마 동향(kind: theme_recap) 메시지가 0건이라 LLM 을 부르지 않고 "
+                      "정형 보고서를 냈다"],
         "events": [],
     }
 
@@ -320,8 +334,8 @@ async def generate(
     {"retried": true, "first": {problems, final_text, json_retry, usage, cost, duration_ms}}.
     다시 불러도 위반이면 그대로 둔다(검증에서 failed).
     """
-    if direct_message_count(payload) == 0:
-        logger.info("%s: 직접 언급 메시지가 없어 LLM 을 부르지 않고 정형 보고서를 낸다", run_id)
+    if not needs_llm(payload):
+        logger.info("%s: 직접 언급·테마 동향 메시지가 없어 LLM 을 부르지 않고 정형 보고서를 낸다", run_id)
         return _canned_wrapper(payload, prompt_hash=prompt_hash, run_id=run_id)
     wrapper = await _generate_with_json_retry(payload, system=system, prompt_hash=prompt_hash,
                                               run_id=run_id)
@@ -504,6 +518,7 @@ __all__ = [
     "canned_report",
     "check_input",
     "direct_message_count",
+    "needs_llm",
     "extract_json",
     "generate",
     "looks_like_question",

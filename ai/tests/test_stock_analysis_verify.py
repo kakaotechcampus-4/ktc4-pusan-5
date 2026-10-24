@@ -1243,6 +1243,7 @@ def test_theme_recap_without_linked_issue_warns_and_needs_trace():
     ("중국 CATL 이 ESS 점유율 50% 를 넘겼습니다.", "중국 업체 점유율 50%", ["CATL", "ESS"]),
     ("HBM4 공급이 시작됐습니다.", "hbm4 공급 시작", []),            # 대소문자는 가리지 않는다
     ("SK하이닉스가 신고가를 썼습니다.", "신고가 경신", []),              # 이 종목명(과 그 일부 SK)은 대상어가 아니다
+    ("젠슨 황 엔비디아 CEO가 공급 과잉 가능성을 낮게 봤습니다.", "공급과잉 가능성", []),  # 직함은 대상어가 아니다
 ])
 def test_quote_missing_subject(event_text, quote, missing):
     r = cause_report(factors=[factor(event=event_text, sources=[source(quote=quote)])])

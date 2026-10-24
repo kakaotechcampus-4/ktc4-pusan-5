@@ -346,7 +346,7 @@ async def test_no_judge_retry_when_layers_are_kept_or_report_unopened(fake_compl
 
 
 def _kb(change, peer, excess, messages=None):
-    """직접 언급이 없는 KB금융 입력. 공통 시황만 indirect 로 들어온다."""
+    """직접 언급이 없는 KB금융 입력. 공통 시장 시황만 indirect 로 들어온다(테마 동향 없음)."""
     return {"stock": "KB금융", "code": "105560", "target_date": "2026-10-23",
             "cutoff": "2026-10-23T15:30:00+09:00", "change_pct": change,
             "market": {"index": "코스피", "change_pct": 0.3, "as_of": "15:30", "url": "",
@@ -354,10 +354,10 @@ def _kb(change, peer, excess, messages=None):
                        "excess_pct": excess},
             "messages": messages if messages is not None else [
                 {"channel": "c", "url": "https://t.me/c/1", "datetime_kst": "2026-10-23T11:00:00+09:00",
-                 "text": "오전장 테마 동향", "match": "indirect", "kind": "theme_recap"}]}
+                 "text": "코스피 마감 시황", "match": "indirect", "kind": "market_recap"}]}
 
 
-async def test_no_direct_message_gives_canned_report_without_llm(fake_complete):
+async def test_no_direct_or_theme_message_gives_canned_report_without_llm(fake_complete):
     from app.services.stock_analysis.verify import verify
 
     payload = _kb(-3.1, -1.57, -1.53)
@@ -390,9 +390,15 @@ async def test_canned_move_relation_and_common_move(fake_complete, change, peer,
     assert report["summary"]["main_cause"].startswith("대형주 전반이 함께 내린 날이었습니다. ") is common
 
 
-async def test_messages_with_direct_still_call_llm(fake_complete):
+@pytest.mark.parametrize("extra", [
+    {"match": "direct", "kind": "news"},
+    # 직접 언급이 없어도 테마 동향이 있으면 부른다. 업종 단락이 sector 근거가 될 수 있다
+    {"match": "indirect", "kind": "theme_recap"},
+])
+async def test_direct_or_theme_recap_message_calls_llm(fake_complete, extra):
     payload = _kb(-3.1, -1.57, -1.53)
-    payload["messages"].append({**payload["messages"][0], "url": "https://t.me/c/2", "match": "direct"})
+    payload["messages"].append({**payload["messages"][0], "url": "https://t.me/c/2", **extra})
+    assert gen.needs_llm(payload)
     fake_complete.side_effect = None
     fake_complete.return_value = (REPORT_TEXT, USAGE)
     w = await gen.generate(payload, system="SYS", prompt_hash="abc", run_id="r1")

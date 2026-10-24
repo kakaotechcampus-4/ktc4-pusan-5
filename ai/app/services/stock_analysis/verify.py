@@ -200,6 +200,8 @@ INVESTOR_SUBJECTS = ("외국인", "기관", "개인", "연기금", "투신", "�
 INSTITUTION_MEMBERS = ("기관", "연기금", "투신", "금융투자", "사모", "보험")
 # 영문 고유명. 대문자로 시작하는 두 글자 이상 영문·숫자 덩어리(CATL, YMTC, HBM4, Meta).
 _LATIN_NAME = re.compile(r"[A-Z][A-Za-z0-9]+")
+# 영문 직함. 대상(누구)이 아니라 그 사람의 자리라 대상어로 보지 않는다.
+TITLE_WORDS = ("CEO", "CFO", "CTO", "COO")
 
 
 def code_of(problem: str) -> str:
@@ -1163,10 +1165,11 @@ def _check_theme_recap_sector(report: dict[str, Any], kinds: dict[Any, Any],
 
 
 def event_subjects(event: str, stock: str) -> list[str]:
-    """event 의 대상어 — 매매 주체와 영문 고유명. 이 종목명과 그 일부(예: SK하이닉스의 SK)는 뺀다."""
+    """event 의 대상어 — 매매 주체와 영문 고유명. 이 종목명과 그 일부(예: SK하이닉스의 SK), 직함(CEO 등)은 뺀다."""
     text = event.replace(stock, " ") if stock else event
     subjects = [w for w in INVESTOR_SUBJECTS if w in text]
-    names = [n for n in dict.fromkeys(_LATIN_NAME.findall(text)) if not (stock and n in stock)]
+    names = [n for n in dict.fromkeys(_LATIN_NAME.findall(text))
+             if n not in TITLE_WORDS and not (stock and n in stock)]
     return subjects + names
 
 
