@@ -29,6 +29,7 @@ from app.services.stock_analysis.verify import (
     QUOTE_NOT_IN_SOURCE,
     QUOTE_VERIFY_FAIL,
     _background_is_empty,
+    _background_ref,
     _check_source,
     _factors,
     _links,
@@ -130,16 +131,26 @@ def _drop(report: dict[str, Any], index: int) -> None:
 
 
 def _drop_background(report: dict[str, Any], slot: str, index: int) -> None:
-    """background[slot][index] 를 빼고 events 에 dropped 사건을 하나 더한다.
+    """background[slot][index] 를 빼고 events 를 맞춘다.
 
-    events 의 background 사건에는 어느 항목인지 가리키는 칸이 없어 원래 사건을 찾아 바꿀 수 없다.
-    원래 사건(placed: background)은 그대로 두고 뺐다는 기록을 덧붙인다.
+    그 항목을 가리키던 사건(placed: background, background: {slot, index})은 dropped 로 바꾸고, 같은 칸
+    뒤 항목을 가리키던 사건의 index 를 하나씩 당긴다. 가리키는 사건이 없으면(예전 형식) 사건을 하나 더한다.
     """
     item = report["background"][slot].pop(index)
     events = _events(report)
-    if events is not None:
-        events.append({"event": item.get("text", ""), "issue_ids": [], "dup_channels": None,
-                       "placed": "dropped", "reason": QUOTE_VERIFY_FAIL})
+    if events is None:
+        return
+    hit = next((e for e in events if isinstance(e, dict) and e.get("placed") == "background"
+                and _background_ref(e) == (slot, index)), None)
+    if hit is None:
+        hit = {"event": item.get("text", ""), "issue_ids": [], "dup_channels": None}
+        events.append(hit)
+    hit.pop("background", None)
+    hit.update(placed="dropped", reason=QUOTE_VERIFY_FAIL)
+    for e in events:
+        ref = _background_ref(e) if isinstance(e, dict) and e.get("placed") == "background" else None
+        if ref is not None and ref[0] == slot and ref[1] > index:
+            e["background"] = {**e["background"], "index": ref[1] - 1}
 
 
 def _targets(report: dict[str, Any]) -> list[tuple[str, str, Any, dict[str, Any]]]:

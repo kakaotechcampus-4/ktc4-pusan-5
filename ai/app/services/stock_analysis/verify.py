@@ -160,6 +160,46 @@ ISSUE_TRACE_MISSING_URL = "ISSUE_TRACE_MISSING_URL"
 # 생성 뒤 처리(quote 고쳐 쓰기 실패로 factor 를 뺌)로 등락 층 근거가 빠졌는데 summary.main_cause 를
 # 다시 쓰지 못했다. main_cause 가 뺀 근거를 아직 말하고 있을 수 있다(repair.rewrite_main_cause).
 MAIN_CAUSE_STALE = "MAIN_CAUSE_STALE"
+# 4부 개수 상한(background 전체 6·칸당 3, watch 전체 3·칸당 1, factors 4, terms 8)을 넘었다.
+# check_schema 는 적재 관측을 끊지 않으려고 상한을 보지 않으므로 경고로만 남긴다.
+COUNT_OVER_CAP = "COUNT_OVER_CAP"
+# factor 출처가 모두 입력 kind 가 flow_rank·market_recap 인 메시지다. 결과(순위·시황)만으로 원인을 세웠다.
+FACTOR_RESULT_SOURCES_ONLY = "FACTOR_RESULT_SOURCES_ONLY"
+# factor 출처에 theme_recap 메시지가 있는데, 그 메시지에서 이 factor 로 묶인 이슈 중 relation 이 sector 인
+# 것이 없다. 이 종목 업종이 아닌 테마 단락을 근거로 썼을 수 있다.
+THEME_RECAP_NOT_SECTOR = "THEME_RECAP_NOT_SECTOR"
+# factor 의 첫 출처 quote 에 event 의 대상어(매매 주체, 영문 고유명)가 없다. quote 가 event 를 뒷받침하는지
+# 글자만으로는 알 수 없어 겹침만 본다. 이 종목명은 대상어로 보지 않는다.
+QUOTE_MISSING_SUBJECT = "QUOTE_MISSING_SUBJECT"
+
+# --- events ↔ 실제 칸 대조 (events_problems, 판정과 분리) ------------------------
+
+# placed=background 의 {slot, index} 가 가리키는 background 항목이 없다.
+EVENT_BACKGROUND_REF_MISSING = "EVENT_BACKGROUND_REF_MISSING"
+# 두 사건이 같은 background 항목을 가리킨다. 항목 하나에 사건 하나다.
+EVENT_BACKGROUND_REF_DUPLICATE = "EVENT_BACKGROUND_REF_DUPLICATE"
+# 어느 사건도 가리키지 않는 background 항목.
+EVENT_BACKGROUND_UNREFERENCED = "EVENT_BACKGROUND_UNREFERENCED"
+# placed=factors 사건 수가 factors 수와 다르다.
+EVENT_FACTOR_COUNT = "EVENT_FACTOR_COUNT"
+# placed=factors 의 factor 순번이 factors 범위 밖이다.
+EVENT_FACTOR_REF_MISSING = "EVENT_FACTOR_REF_MISSING"
+# 두 사건이 같은 factor 를 가리킨다.
+EVENT_FACTOR_DUPLICATE = "EVENT_FACTOR_DUPLICATE"
+# 한 이슈 id 가 두 사건의 issue_ids 에 들어 있다.
+ISSUE_ID_DUPLICATE = "ISSUE_ID_DUPLICATE"
+
+# 4부 개수 상한. 프롬프트 background·watch·factors·terms 절에서 옮겼다.
+CAPS = {"factors": 4, "terms": 8, "background": 6, "background_slot": 3, "watch": 3, "watch_slot": 1}
+# 입력 kind 가 이 값이면 결과(순위·시장 시황)를 적은 메시지다. factor 의 원인 출처가 될 수 없다(6단계).
+RESULT_KINDS = ("flow_rank", "market_recap")
+THEME_RECAP_KIND = "theme_recap"
+SECTOR_RELATION = "sector"
+# 매매 주체. event 에 있으면 첫 출처 quote 에도 있어야 한다. "기관" 은 그 아래 주체가 quote 에 있어도 된다.
+INVESTOR_SUBJECTS = ("외국인", "기관", "개인", "연기금", "투신", "금융투자", "사모", "보험", "기타법인")
+INSTITUTION_MEMBERS = ("기관", "연기금", "투신", "금융투자", "사모", "보험")
+# 영문 고유명. 대문자로 시작하는 두 글자 이상 영문·숫자 덩어리(CATL, YMTC, HBM4, Meta).
+_LATIN_NAME = re.compile(r"[A-Z][A-Za-z0-9]+")
 
 
 def code_of(problem: str) -> str:
@@ -440,7 +480,70 @@ def check_events(report: dict[str, Any] | None) -> tuple[str, list[str]]:
     events = _check_list(report, "events", "", out)
     for i, e in enumerate(events or []):
         _check_event(e, f"events[{i}]", out)
+    if events is not None:
+        out += _check_event_places(report, events)
     return ("failed" if out else "passed"), out
+
+
+def _check_event_places(report: dict[str, Any], events: list[Any]) -> list[str]:
+    """events 가 가리키는 자리가 실제 칸과 맞는가. 형식이 맞는 항목만 본다(형식은 _check_event).
+
+    background 항목과 placed=background 사건은 하나씩 짝이 맞아야 하고, placed=factors 사건 수는 factors
+    수와 같고 한 factor 를 한 사건만 가리켜야 한다. 이슈 id 는 한 사건에만 든다.
+    """
+    out: list[str] = []
+    items = {(slot, i) for slot in BACKGROUND_SLOTS
+             for i, _ in enumerate(report["background"][slot]
+                                   if isinstance(report.get("background"), dict)
+                                   and isinstance(report["background"].get(slot), list) else [])}
+    n_factors = len(report["factors"]) if isinstance(report.get("factors"), list) else 0
+    seen_bg: dict[tuple[str, int], int] = {}
+    seen_factor: dict[int, int] = {}
+    seen_issue: dict[str, int] = {}
+    placed_factors = 0
+    for k, e in enumerate(events):
+        if not isinstance(e, dict):
+            continue
+        if e.get("placed") == "background" and (ref := _background_ref(e)) is not None:
+            if ref not in items:
+                out.append(_p(EVENT_BACKGROUND_REF_MISSING, f"events[{k}] background.{ref[0]}[{ref[1]}] 가 없다"))
+            elif ref in seen_bg:
+                out.append(_p(EVENT_BACKGROUND_REF_DUPLICATE,
+                              f"events[{seen_bg[ref]}] 와 events[{k}] 가 background.{ref[0]}[{ref[1]}] 를 가리킨다"))
+            else:
+                seen_bg[ref] = k
+        if e.get("placed") == "factors":
+            placed_factors += 1
+            f = e.get("factor")
+            if _is_index(f) and f >= n_factors:
+                out.append(_p(EVENT_FACTOR_REF_MISSING, f"events[{k}].factor={f} (factors {n_factors}개)"))
+            elif _is_index(f) and f in seen_factor:
+                out.append(_p(EVENT_FACTOR_DUPLICATE, f"events[{seen_factor[f]}] 와 events[{k}] 가 factors[{f}] 를 가리킨다"))
+            elif _is_index(f):
+                seen_factor[f] = k
+        ids = e.get("issue_ids") if isinstance(e.get("issue_ids"), list) else []
+        for x in dict.fromkeys(i for i in ids if isinstance(i, str)):
+            if x in seen_issue:
+                out.append(_p(ISSUE_ID_DUPLICATE, f"{x!r} 가 events[{seen_issue[x]}] 와 events[{k}] 에 있다"))
+            else:
+                seen_issue[x] = k
+    for slot, i in sorted(items - set(seen_bg)):
+        out.append(_p(EVENT_BACKGROUND_UNREFERENCED, f"background.{slot}[{i}] 를 가리키는 사건이 없다"))
+    if placed_factors != n_factors:
+        out.append(_p(EVENT_FACTOR_COUNT, f"placed=factors 사건 {placed_factors}개, factors {n_factors}개"))
+    return out
+
+
+def _is_index(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _background_ref(e: dict[str, Any]) -> tuple[str, int] | None:
+    """events 항목의 background 칸 → (slot, index). 형식이 틀렸거나 없으면 None."""
+    ref = e.get("background")
+    if not isinstance(ref, dict) or ref.get("slot") not in BACKGROUND_SLOTS or not _is_index(ref.get("index")):
+        return None
+    return ref["slot"], ref["index"]
 
 
 def _check_event(e: Any, path: str, out: list[str]) -> None:
@@ -460,10 +563,16 @@ def _check_event(e: Any, path: str, out: list[str]) -> None:
         out.append(_p(SCHEMA_TYPE, f"{path}.issue_ids 는 문자열 배열이어야 한다: {e['issue_ids']!r}"))
     _check_enum(e, "placed", EVENT_PLACEMENTS, f"{path}.", out)
     placed = e.get("placed")
-    if "factor" in e and (placed != "factors" or isinstance(e["factor"], bool)
-                          or not isinstance(e["factor"], int)):
+    if "factor" in e and (placed != "factors" or not _is_index(e["factor"])):
         out.append(_p(SCHEMA_VALUE, f"{path}.factor 는 placed=factors 일 때 factors 순번(정수)만 쓴다: "
                                     f"{e['factor']!r}"))
+    # placed=background 면 그 사건을 담은 항목 자리 {slot, index} 가 있어야 한다. 그 밖에는 칸을 뺀다.
+    if placed == "background" and "background" not in e:
+        out.append(_p(SCHEMA_MISSING, f"{path}.background (placed=background 의 항목 자리)"))
+    elif "background" in e and (placed != "background" or _background_ref(e) is None):
+        out.append(_p(SCHEMA_VALUE, f"{path}.background 는 placed=background 일 때 "
+                                    f"{{slot: {'|'.join(BACKGROUND_SLOTS)}, index: 정수}} 만 쓴다: "
+                                    f"{e['background']!r}"))
     if placed not in EVENT_PLACEMENTS:
         return  # placed 가 깨졌으면 reason 조건을 따질 기준이 없다.
     allowed = EVENT_REASON_BY_PLACEMENT.get(placed, ())
@@ -586,6 +695,41 @@ def _layer_is_quiet(payload: dict[str, Any], layer: str) -> tuple[bool, Decimal 
     return abs(pct) <= FLAT_EXCESS_PCT, pct
 
 
+def judge_layers(payload: dict[str, Any]) -> dict[str, bool]:
+    """입력 market.judge_layers. 층마다 이 입력에서 원인을 판단하는가(±1% 규칙의 반대).
+
+    러너가 입력에 넣어 모델이 규칙을 다시 계산하지 않게 한다. 검증(check_judge_layers)도 같은
+    _layer_is_quiet 를 보므로 입력에 넣은 값과 검증 기준이 어긋나지 않는다.
+    """
+    return {layer: not _layer_is_quiet(payload, layer)[0] for layer in LAYERS}
+
+
+def _peer_share_half(payload: dict[str, Any]) -> bool | None:
+    """종목 등락 중 다른 대형주와 같은 몫이 절반 이상인가. change_pct 와 peer_median_pct 의 부호가 같고
+    |peer| >= |change| × 0.5 (경계 포함). 2부 5단계 「종목 고유 재료는 sufficient 불가」 의 조건이다.
+    peer_median_pct 나 change_pct 가 숫자가 아니면 알 수 없어 None.
+    """
+    change = layer_pct(payload, "move")
+    market = payload.get("market")
+    peer = _decimal(market.get("peer_median_pct")) if isinstance(market, dict) else None
+    if change is None or peer is None:
+        return None
+    return change * peer > 0 and 2 * abs(peer) >= abs(change)
+
+
+def common_move(payload: dict[str, Any]) -> bool | None:
+    """입력 market.common_move. 대형주 전반이 이 종목과 같은 방향으로 함께 움직인 날인가.
+
+    _peer_share_half(대형주 몫이 절반 이상) 이고 상대 층을 판단하지 않는 날(judge_layers.relative 가 false).
+    차이가 큰 날(예: -0.47% 인데 대형주 -1.77%)은 같은 방향이어도 "함께 움직인 날" 이 아니다.
+    true 면 summary.main_cause 첫 문장에 그 사실을 쓴다(프롬프트 4부). 알 수 없으면 None.
+    """
+    share = _peer_share_half(payload)
+    if share is None:
+        return None
+    return share and not judge_layers(payload)["relative"]
+
+
 # 층마다 ±1% 규칙의 (판정 코드, factor 코드).
 _FLAT_CODES = {"move": (FLAT_MOVE_VERDICT, FLAT_MOVE_FACTORS),
                "relative": (FLAT_RELATIVE_VERDICT, FLAT_RELATIVE_FACTORS)}
@@ -599,23 +743,9 @@ def check_rules(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
     옮겨 적은 것이라, 그걸 기준으로 삼으면 옮기다 틀린 보고서가 규칙을 피해 간다.
     """
     report = normalize_report(report)
-    out: list[str] = []
     factors = _factors(report)
     quiet = {layer: _layer_is_quiet(payload, layer) for layer in LAYERS}
-
-    # 2부 7단계: 층마다 ±1% 이내면 그 층 판정은 no_clear_cause 이고 그 층 link 는 없다.
-    for layer, (is_quiet, pct) in quiet.items():
-        if not is_quiet:
-            continue
-        verdict_code, factors_code = _FLAT_CODES[layer]
-        key = VERDICT_KEYS[layer]
-        why = "excess_pct 가 null" if pct is None else f"±1% 이내({layer} 값 {pct})"
-        if report.get(key) != "no_clear_cause":
-            out.append(_p(verdict_code, f"{why} 인데 {key}={report.get(key)!r}"))
-        # 층마다 센다. 두 층에 link 를 단 factor 는 두 층에 각각 하나로 들어간다.
-        n = sum(_has_layer(f, layer) for f in factors)
-        if n:
-            out.append(_p(factors_code, f"{why} 인데 layer={layer} link 를 가진 factor {n}개"))
+    out = check_judge_layers(report, payload)
 
     for i, f in enumerate(factors):
         sources = _sources(f)
@@ -658,6 +788,31 @@ def check_rules(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
     return out
 
 
+def check_judge_layers(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
+    """2부 7단계: 입력 judge_layers 가 false 인 층(±1% 이내, 상대 층은 excess_pct 가 null 인 날도)은
+    그 층 판정이 no_clear_cause 이고 그 층 link 가 없다. FLAT_* 코드만 낸다.
+
+    check_rules 의 일부이고, generate 가 이 위반만 보고 한 번 다시 부를지 정할 때 따로 부른다.
+    """
+    report = normalize_report(report)
+    factors = _factors(report)
+    out: list[str] = []
+    for layer in LAYERS:
+        is_quiet, pct = _layer_is_quiet(payload, layer)
+        if not is_quiet:
+            continue
+        verdict_code, factors_code = _FLAT_CODES[layer]
+        key = VERDICT_KEYS[layer]
+        why = "excess_pct 가 null" if pct is None else f"±1% 이내({layer} 값 {pct})"
+        if report.get(key) != "no_clear_cause":
+            out.append(_p(verdict_code, f"{why} 인데 {key}={report.get(key)!r}"))
+        # 층마다 센다. 두 층에 link 를 단 factor 는 두 층에 각각 하나로 들어간다.
+        n = sum(_has_layer(f, layer) for f in factors)
+        if n:
+            out.append(_p(factors_code, f"{why} 인데 layer={layer} link 를 가진 factor {n}개"))
+    return out
+
+
 def is_stock_specific(factor: dict[str, Any]) -> bool:
     """종목 고유 재료인가. 출처가 모두 `match: "direct"` 이면 그렇다고 본다.
 
@@ -677,12 +832,10 @@ def _check_market_share(factors: list[dict[str, Any]], payload: dict[str, Any],
 
     ±1% 날은 move link 자체가 FLAT_MOVE_FACTORS 로 떨어지므로 보지 않는다.
     """
-    change = layer_pct(payload, "move")
-    market = payload.get("market")
-    peer = _decimal(market.get("peer_median_pct")) if isinstance(market, dict) else None
-    if move_quiet or change is None or peer is None or change * peer <= 0 \
-            or 2 * abs(peer) < abs(change):
+    if move_quiet or not _peer_share_half(payload):
         return []
+    change = layer_pct(payload, "move")
+    peer = _decimal(payload["market"].get("peer_median_pct"))
     sufficient = [i for i, f in enumerate(factors)
                   if any(x.get("layer") == "move" and x.get("strength") == CAPPED_SIZE_FIT
                          for x in _links(f))]
@@ -925,22 +1078,114 @@ def check_grounding(report: dict[str, Any], payload: dict[str, Any]) -> list[str
 # --- 경고 (판정과 분리) -------------------------------------------------------
 
 
-def check_warnings(report: dict[str, Any] | None) -> list[str]:
+def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None = None,
+                   issue_trace: Any = None) -> list[str]:
     """실패는 아니지만 검수자가 볼 것. verify() 와 따로 돌고 verify_status 에 넣지 않는다.
 
-    DUPLICATE_SOURCES  서로 다른 두 factor 의 출처 url 집합이 같다. 한 사건을 층마다
-                       factor 로 나눈 이전 방식일 수 있다. 출처가 없는 factor 는 보지 않는다.
+    DUPLICATE_SOURCES           서로 다른 두 factor 의 출처 url 집합이 같다. 한 사건을 층마다
+                                factor 로 나눈 이전 방식일 수 있다. 출처가 없는 factor 는 보지 않는다.
+    COUNT_OVER_CAP              4부 개수 상한을 넘었다(CAPS).
+    아래는 payload 가 있어야 본다. kind 는 모델이 적은 is_market_recap 이 아니라 입력 kind 로 정한다.
+    FACTOR_RESULT_SOURCES_ONLY  출처가 모두 flow_rank·market_recap 메시지인 factor.
+    THEME_RECAP_NOT_SECTOR      theme_recap 출처의 이슈 중 이 factor 로 묶인 sector 이슈가 없다.
+                                issue_trace 가 있어야 본다(events → issue_ids → issue_trace relation).
+    QUOTE_MISSING_SUBJECT       첫 출처 quote 에 event 의 매매 주체·영문 고유명이 없다.
     """
     if not isinstance(report, dict):
         return []
-    keys = [frozenset(s["url"] for s in _sources(f) if isinstance(s.get("url"), str))
-            for f in _factors(normalize_report(report))]
+    report = normalize_report(report)
+    factors = _factors(report)
+    keys = [frozenset(s["url"] for s in _sources(f) if isinstance(s.get("url"), str)) for f in factors]
     out: list[str] = []
     for i, a in enumerate(keys):
         for j in range(i + 1, len(keys)):
             if a and a == keys[j]:
                 out.append(_p(DUPLICATE_SOURCES,
                               f"factors[{i}] 와 factors[{j}] 의 출처가 같다. 한 사건이면 factor 하나에 links 로 단다"))
+    out += _check_caps(report)
+    if payload is None:
+        return out
+    kinds = {m.get("url"): m.get("kind") for m in _messages(payload)}
+    for i, f in enumerate(factors):
+        source_kinds = [kinds.get(s.get("url")) for s in _sources(f)]
+        if source_kinds and all(k in RESULT_KINDS for k in source_kinds):
+            out.append(_p(FACTOR_RESULT_SOURCES_ONLY,
+                          f"factors[{i}] 출처가 모두 {'·'.join(RESULT_KINDS)} 메시지다({', '.join(source_kinds)})"))
+    if isinstance(issue_trace, list):
+        out += _check_theme_recap_sector(report, kinds, issue_trace)
+    out += _check_quote_subjects(factors, str(payload.get("stock") or ""))
+    return out
+
+
+def _check_caps(report: dict[str, Any]) -> list[str]:
+    over: list[str] = []
+    for key in ("factors", "terms"):
+        n = len(report[key]) if isinstance(report.get(key), list) else 0
+        if n > CAPS[key]:
+            over.append(f"{key} {n}개(최대 {CAPS[key]})")
+    background = report.get("background") if isinstance(report.get("background"), dict) else {}
+    slots = {slot: [x for x in background.get(slot) or [] if isinstance(x, dict)]
+             if isinstance(background.get(slot), list) else [] for slot in BACKGROUND_SLOTS}
+    total = sum(len(v) for v in slots.values())
+    if total > CAPS["background"]:
+        over.append(f"background 전체 {total}개(최대 {CAPS['background']})")
+    watches = {slot: sum(x.get("watch") is True for x in items) for slot, items in slots.items()}
+    if sum(watches.values()) > CAPS["watch"]:
+        over.append(f"watch 전체 {sum(watches.values())}개(최대 {CAPS['watch']})")
+    for slot in BACKGROUND_SLOTS:
+        if len(slots[slot]) > CAPS["background_slot"]:
+            over.append(f"background.{slot} {len(slots[slot])}개(최대 {CAPS['background_slot']})")
+        if watches[slot] > CAPS["watch_slot"]:
+            over.append(f"background.{slot} watch {watches[slot]}개(최대 {CAPS['watch_slot']})")
+    return [_p(COUNT_OVER_CAP, x) for x in over]
+
+
+def _check_theme_recap_sector(report: dict[str, Any], kinds: dict[Any, Any],
+                              issue_trace: list[Any]) -> list[str]:
+    """theme_recap 출처를 쓴 factor 마다, 그 factor 를 가리키는 사건의 issue_ids 중 theme_recap 메시지에서 나온
+    이슈가 sector 인지 본다. 하나라도 sector 면 통과. 그런 이슈가 없거나 sector 가 아니면 경고."""
+    issue_url = {i.get("id"): m.get("url") for m in issue_trace if isinstance(m, dict)
+                 for i in (m.get("issues") if isinstance(m.get("issues"), list) else []) if isinstance(i, dict)}
+    relation = {i.get("id"): i.get("relation") for i in _trace_issues(issue_trace)}
+    events = report.get("events") if isinstance(report.get("events"), list) else []
+    out: list[str] = []
+    for i, f in enumerate(_factors(report)):
+        theme_urls = {s.get("url") for s in _sources(f) if kinds.get(s.get("url")) == THEME_RECAP_KIND}
+        if not theme_urls:
+            continue
+        ids = [x for e in events if isinstance(e, dict) and e.get("placed") == "factors" and e.get("factor") == i
+               for x in (e.get("issue_ids") if isinstance(e.get("issue_ids"), list) else [])]
+        theme_rel = [relation.get(x) for x in ids if issue_url.get(x) in theme_urls]
+        if SECTOR_RELATION not in theme_rel:
+            seen = ", ".join(str(r) for r in theme_rel) or "연결된 이슈 없음"
+            out.append(_p(THEME_RECAP_NOT_SECTOR, f"factors[{i}] theme_recap 출처의 이슈 relation: {seen}"))
+    return out
+
+
+def event_subjects(event: str, stock: str) -> list[str]:
+    """event 의 대상어 — 매매 주체와 영문 고유명. 이 종목명과 그 일부(예: SK하이닉스의 SK)는 뺀다."""
+    text = event.replace(stock, " ") if stock else event
+    subjects = [w for w in INVESTOR_SUBJECTS if w in text]
+    names = [n for n in dict.fromkeys(_LATIN_NAME.findall(text)) if not (stock and n in stock)]
+    return subjects + names
+
+
+def _subject_in_quote(subject: str, quote: str) -> bool:
+    if subject == "기관":
+        return any(w in quote for w in INSTITUTION_MEMBERS)
+    return subject.lower() in quote.lower()
+
+
+def _check_quote_subjects(factors: list[dict[str, Any]], stock: str) -> list[str]:
+    out: list[str] = []
+    for i, f in enumerate(factors):
+        sources = _sources(f)
+        event, quote = f.get("event"), sources[0].get("quote") if sources else None
+        if not isinstance(event, str) or not isinstance(quote, str):
+            continue
+        missing = [w for w in event_subjects(event, stock) if not _subject_in_quote(w, normalize_ws(quote))]
+        if missing:
+            out.append(_p(QUOTE_MISSING_SUBJECT, f"factors[{i}] 첫 출처 quote 에 {', '.join(missing)} 가 없다"))
     return out
 
 
@@ -1004,7 +1249,7 @@ def issue_trace_stats(issue_trace: Any, report: dict[str, Any] | None,
 
         messages_traced      issue_trace 에 url 이 오른 입력 메시지 수
         messages_total       입력 메시지 수
-        relations            관련 유형별 이슈 수
+        relations            관련 유형별 이슈 수. none 은 issues 에 적힌 것과 메시지마다의 none_count 를 더한다
         market_unreferenced  events 어디에서도 참조되지 않은 market 이슈 수(경고로 남기지 않는다)
     """
     if not isinstance(issue_trace, list):
@@ -1016,6 +1261,11 @@ def issue_trace_stats(issue_trace: Any, report: dict[str, Any] | None,
     for i in issues:
         rel = str(i.get("relation"))
         relations[rel] = relations.get(rel, 0) + 1
+    # none 이슈는 적지 않고 메시지마다 개수(none_count)만 남긴다(출력 형식). 예전 형식은 issues 에 있다.
+    none_counts = sum(m["none_count"] for m in issue_trace
+                      if isinstance(m, dict) and _is_index(m.get("none_count")))
+    if none_counts:
+        relations["none"] = relations.get("none", 0) + none_counts
     return {
         "messages_traced": traced,
         "messages_total": total,
@@ -1074,14 +1324,17 @@ __all__ = [
     "check_events",
     "check_grounding",
     "check_issue_trace",
+    "check_judge_layers",
     "check_rules",
     "check_schema",
     "check_warnings",
     "code_of",
+    "common_move",
     "expected_direction_match",
     "families_of",
     "is_stock_specific",
     "issue_trace_stats",
+    "judge_layers",
     "layer_pct",
     "move_case",
     "normalize_quote",

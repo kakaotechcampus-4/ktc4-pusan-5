@@ -14,13 +14,22 @@ from app.services.stock_analysis.verify import (
     ASKED_QUESTION,
     BACKGROUND_WITHOUT_SOURCE,
     CHANGE_PCT_MISMATCH,
+    COUNT_OVER_CAP,
     COUNTER_WITHOUT_BACKGROUND,
     DATE_MISMATCH,
     DIRECTION_MATCH_WRONG,
     DIRECTION_MISMATCH,
     DUPLICATE_SOURCES,
     EMPTY_RESPONSE,
+    EVENT_BACKGROUND_REF_DUPLICATE,
+    EVENT_BACKGROUND_REF_MISSING,
+    EVENT_BACKGROUND_UNREFERENCED,
+    EVENT_FACTOR_COUNT,
+    EVENT_FACTOR_DUPLICATE,
+    EVENT_FACTOR_REF_MISSING,
+    ISSUE_ID_DUPLICATE,
     EVENT_REASON_MISMATCH,
+    FACTOR_RESULT_SOURCES_ONLY,
     FACTOR_WITHOUT_SOURCE,
     FLAT_MOVE,
     FLAT_MOVE_FACTORS,
@@ -34,6 +43,7 @@ from app.services.stock_analysis.verify import (
     LLM_ERROR,
     MOVE_SUFFICIENT_STOCK_ONLY,
     OUTPUT_TRUNCATED,
+    QUOTE_MISSING_SUBJECT,
     QUOTE_NOT_IN_SOURCE,
     RELATIVE_VERDICT_SIZE_FIT,
     SCHEMA_MISSING,
@@ -41,6 +51,7 @@ from app.services.stock_analysis.verify import (
     SCHEMA_VALUE,
     SIZE_FIT_OVER_CAP,
     SOURCES_OVER_MAX,
+    THEME_RECAP_NOT_SECTOR,
     TICKER_MISMATCH,
     UNCONFIRMED_OVER_CAP,
     URL_IS_LINK_BODY,
@@ -48,12 +59,15 @@ from app.services.stock_analysis.verify import (
     VERDICT_SIZE_FIT,
     check_events,
     check_grounding,
+    check_judge_layers,
     check_rules,
     check_schema,
     check_warnings,
     code_of,
+    common_move,
     families_of,
     is_stock_specific,
+    judge_layers,
     layer_pct,
     move_case,
     normalize_report,
@@ -247,32 +261,77 @@ def test_events_missing_when_absent_or_report_unopened():
     assert check_events(None) == ("missing", [])
 
 
+PLACE_CODES = {EVENT_BACKGROUND_REF_DUPLICATE, EVENT_BACKGROUND_REF_MISSING, EVENT_BACKGROUND_UNREFERENCED,
+               EVENT_FACTOR_COUNT, EVENT_FACTOR_DUPLICATE, EVENT_FACTOR_REF_MISSING, ISSUE_ID_DUPLICATE}
+
+
+def schema_codes(problems):
+    """events 형식 코드만. 칸 대조(EVENT_*_REF·COUNT 등)는 test_events_places 가 본다."""
+    return codes(problems) - PLACE_CODES
+
+
 def test_events_passed():
-    ok = [event(), event("summary.move", dup_channels=None), event("background"),
-          event("background", reason="over_cap"), event("dropped", reason="off_topic"),
+    # cause_report: factor 1개, background.neutral 2개. 사건이 칸과 하나씩 짝이 맞는다
+    ok = [event(factor=0, issue_ids=["i1"]), event("summary.move", dup_channels=None, issue_ids=["i2"]),
+          event("background", background={"slot": "neutral", "index": 0}),
+          event("background", reason="over_cap", background={"slot": "neutral", "index": 1}),
+          event("dropped", reason="off_topic"),
           event("dropped", reason="over_cap")]
     assert check_events(cause_report(events=ok)) == ("passed", [])
-    assert check_events(cause_report(events=[])) == ("passed", [])
+    assert check_events(cause_report(events=[], factors=[],
+                                     background={"bullish": [], "bearish": [], "neutral": []})) == ("passed", [])
+
+
+def test_events_places():
+    """사건이 가리키는 자리와 실제 칸을 맞춰 본다."""
+    r = cause_report(events=[
+        event(factor=0, issue_ids=["i1"]), event(factor=0, issue_ids=["i1", "i2"]),   # factor 중복, 이슈 중복
+        event(factor=3),                                                             # 없는 factor
+        event("background", background={"slot": "neutral", "index": 0}),
+        event("background", background={"slot": "neutral", "index": 0}),             # 같은 항목
+        event("background", background={"slot": "bearish", "index": 0}),            # 없는 항목
+    ])
+    status, problems = check_events(r)
+    assert status == "failed"
+    assert sorted(code_of(p) for p in problems) == sorted([
+        EVENT_FACTOR_DUPLICATE, ISSUE_ID_DUPLICATE, EVENT_FACTOR_REF_MISSING,
+        EVENT_BACKGROUND_REF_DUPLICATE, EVENT_BACKGROUND_REF_MISSING,
+        EVENT_BACKGROUND_UNREFERENCED,   # neutral[1] 을 가리키는 사건이 없다
+        EVENT_FACTOR_COUNT])             # placed=factors 사건 3개, factors 1개
+
+
+@pytest.mark.parametrize("e", [
+    event("background"),                                               # 자리가 없다
+    event("background", background={"slot": "positive", "index": 0}),  # 칸 이름이 목록 밖
+    event("background", background={"slot": "bearish", "index": -1}),
+    event("background", background={"slot": "bearish", "index": True}),
+    event("factors", background={"slot": "bearish", "index": 0}),      # background 가 아닌데 자리를 적었다
+])
+def test_events_background_ref(e):
+    status, problems = check_events(cause_report(events=[e]))
+    assert status == "failed" and schema_codes(problems) <= {SCHEMA_MISSING, SCHEMA_VALUE}
+    assert schema_codes(problems)
 
 
 def test_events_schema_values():
     r = cause_report(events=[event("counter"), event("dropped", reason="single_source"),
                              event(dup_channels="2"), {"placed": "factors", "dup_channels": 1}])
     status, problems = check_events(r)
-    assert status == "failed" and codes(problems) == {SCHEMA_VALUE, SCHEMA_TYPE, SCHEMA_MISSING}
+    assert status == "failed" and schema_codes(problems) == {SCHEMA_VALUE, SCHEMA_TYPE, SCHEMA_MISSING}
     assert codes(check_events(cause_report(events="x"))[1]) == {SCHEMA_TYPE}
-    assert codes(check_events(cause_report(events=[event(dup_channels=True)]))[1]) == {SCHEMA_TYPE}
+    assert schema_codes(check_events(cause_report(events=[event(dup_channels=True)]))[1]) == {SCHEMA_TYPE}
 
 
 @pytest.mark.parametrize("e", [
     event("dropped"),                              # dropped 인데 reason 없음
     event("factors", reason="over_cap"),           # reason 을 쓰지 않는 placed
     event("summary.move", reason="no_change"),
-    event("background", reason="off_topic"),       # background 는 over_cap 만
+    event("background", reason="off_topic",        # background 는 over_cap 만
+          background={"slot": "bullish", "index": 0}),
 ])
 def test_events_reason_condition(e):
     status, problems = check_events(cause_report(events=[e]))
-    assert status == "failed" and codes(problems) == {EVENT_REASON_MISMATCH}
+    assert status == "failed" and schema_codes(problems) == {EVENT_REASON_MISMATCH}
 
 
 @pytest.mark.parametrize("events", [None, "x", [event("dropped")], [event("counter")]])
@@ -329,6 +388,45 @@ def test_move_case_is_none_without_market():
 def test_move_case_ignores_value_already_in_input():
     """입력에 적힌 move_case 를 믿지 않는다. 판정은 한 곳에서만 한다."""
     assert move_case(with_market(FLAT, move_case="normal")) == "flat"
+
+
+@pytest.mark.parametrize(("change", "median", "excess", "layers"), [
+    (0.45, 0.7, -0.25, {"move": False, "relative": False}),
+    (-0.47, -1.77, 1.3, {"move": False, "relative": True}),   # 23일 삼성전자 같은 opposite 날
+    (-2.5, -2.3, -0.2, {"move": True, "relative": False}),
+    (-4.2, -0.6, -3.6, {"move": True, "relative": True}),
+    (1.0, 2.0, -1.0, {"move": False, "relative": False}),     # 경계는 판단하지 않는 쪽
+    (-1.8, None, None, {"move": True, "relative": False}),    # excess_pct 가 null 이면 상대 층을 보지 않는다
+])
+def test_judge_layers(change, median, excess, layers):
+    assert judge_layers(with_market(change=change, peer_median_pct=median, excess_pct=excess)) == layers
+
+
+@pytest.mark.parametrize(("change", "median", "common"), [
+    (1.47, 2.02, True),     # 10-21 현대차: 오른 몫이 대형주 전반과 거의 같다(excess -0.55)
+    (-0.47, -1.77, False),  # 10-23 삼성전자: 같은 방향이지만 차이가 커 상대 층을 판단하는 날(excess +1.30)
+    (-3.57, -2.62, True),   # excess -0.95
+    (-2.0, -1.0, True),     # 경계: |peer| = |change| × 0.5 포함, excess -1.0 도 판단하지 않는 쪽
+    (-2.0, -0.99, False),   # 대형주 몫이 절반 미만
+    (-4.2, -0.6, False),
+    (0.47, -0.4, False),    # 부호가 반대
+    (0, -0.5, False),       # 0 은 부호가 없다
+    (-1.8, None, None),
+])
+def test_common_move(change, median, common):
+    excess = None if median is None else round(change - median, 2)
+    payload = with_market(change=change, peer_median_pct=median, excess_pct=excess)
+    assert common_move(payload) is common
+
+
+def test_common_move_is_none_without_market():
+    assert common_move(with_market(market=None)) is None
+
+
+def test_check_judge_layers_only_returns_flat_codes():
+    r = flat_report(verdict="explained", factors=[factor("partial")])
+    assert codes(check_judge_layers(r, FLAT)) == {FLAT_MOVE_VERDICT, FLAT_MOVE_FACTORS}
+    assert check_judge_layers(cause_report(), CAUSE) == []
 
 
 def test_fixture_cases():
@@ -1072,3 +1170,85 @@ def test_legacy_reports_verify_like_new_ones():
     bad = cause_report(factors=[legacy_factor(size_fit="medium")])
     assert check_schema(bad) == [
         f"{SCHEMA_VALUE}: factors[0].links[0].strength='medium' (허용: sufficient|partial|insufficient)"]
+
+
+# --- 5번 경고: 개수 상한·kind 출처·대상어 (판정과 분리) ---------------------------
+
+
+def with_kinds(direct_kind="news", indirect_kind="news"):
+    """CAUSE 입력의 두 메시지에 kind 를 붙인 사본."""
+    payload = copy.deepcopy(CAUSE)
+    for m in payload["messages"]:
+        m["kind"] = direct_kind if m["url"] == DIRECT_URL else indirect_kind
+    return payload
+
+
+def test_count_over_cap_is_warning_only():
+    many = [bg(f"재료 {i}") for i in range(4)]
+    r = cause_report(factors=[factor()] * 5, terms=[{"plain": f"p{i}", "term": f"t{i}"} for i in range(9)],
+                     background={"bullish": many, "bearish": [bg(watch=True), bg(watch=True)],
+                                 "neutral": [bg(watch=True), bg(watch=True)]})
+    warnings = [w for w in check_warnings(r) if code_of(w) == COUNT_OVER_CAP]
+    details = " / ".join(warnings)
+    for part in ("factors 5개", "terms 9개", "background 전체 8개", "watch 전체 4개",
+                 "background.bullish 4개", "background.bearish watch 2개", "background.neutral watch 2개"):
+        assert part in details
+    assert check_warnings(cause_report()) == []
+
+
+@pytest.mark.parametrize(("kind", "warned"), [
+    ("flow_rank", True), ("market_recap", True),
+    ("theme_recap", False),   # theme_recap 은 sector 이슈면 출처가 될 수 있어 따로 본다
+    ("news", False),
+])
+def test_factor_with_only_result_sources(kind, warned):
+    r = cause_report()
+    assert (FACTOR_RESULT_SOURCES_ONLY in codes(check_warnings(r, with_kinds(kind)))) is warned
+
+
+def test_result_source_with_original_news_is_not_warned():
+    r = cause_report(factors=[factor(sources=[source(), source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")])])
+    assert FACTOR_RESULT_SOURCES_ONLY not in codes(check_warnings(r, with_kinds("flow_rank", "news")))
+
+
+def test_model_is_market_recap_is_not_used():
+    """모델이 적은 is_market_recap 이 아니라 입력 kind 로 본다."""
+    r = cause_report(factors=[factor(sources=[{**source(), "is_market_recap": True}])])
+    assert FACTOR_RESULT_SOURCES_ONLY not in codes(check_warnings(r, with_kinds("news")))
+
+
+def theme_trace(relation):
+    return [{"url": DIRECT_URL, "issues": [{"id": "i1", "issue": "반도체 단락", "relation": relation}],
+             "none_count": 0}]
+
+
+@pytest.mark.parametrize(("relation", "warned"), [("sector", False), ("market", True), ("direct", True)])
+def test_theme_recap_source_needs_sector_issue(relation, warned):
+    r = cause_report(events=[event(factor=0, issue_ids=["i1"])])
+    w = check_warnings(r, with_kinds("theme_recap"), theme_trace(relation))
+    assert (THEME_RECAP_NOT_SECTOR in codes(w)) is warned
+
+
+def test_theme_recap_without_linked_issue_warns_and_needs_trace():
+    r = cause_report(events=[event("dropped", reason="off_topic", issue_ids=["i1"])])
+    assert THEME_RECAP_NOT_SECTOR in codes(check_warnings(r, with_kinds("theme_recap"), theme_trace("sector")))
+    # issue_trace 가 없으면(예전 보고서) relation 을 알 수 없어 보지 않는다
+    assert THEME_RECAP_NOT_SECTOR not in codes(check_warnings(r, with_kinds("theme_recap")))
+
+
+@pytest.mark.parametrize(("event_text", "quote", "missing"), [
+    # 10-21 삼성전자 F3: quote 에는 투신·연기금만 있다. 기관은 그 아래 주체가 있어 통과, 외국인은 경고
+    ("장중 기관과 외국인이 삼성전자를 순매수 상위로 사들였습니다.", "(+7.1%) 삼성전자/ 투신, 연기금 매수", ["외국인"]),
+    ("중국 CATL 이 ESS 점유율 50% 를 넘겼습니다.", "CATL ESS 점유율 50%", []),
+    ("중국 CATL 이 ESS 점유율 50% 를 넘겼습니다.", "중국 업체 점유율 50%", ["CATL", "ESS"]),
+    ("HBM4 공급이 시작됐습니다.", "hbm4 공급 시작", []),            # 대소문자는 가리지 않는다
+    ("SK하이닉스가 신고가를 썼습니다.", "신고가 경신", []),              # 이 종목명(과 그 일부 SK)은 대상어가 아니다
+])
+def test_quote_missing_subject(event_text, quote, missing):
+    r = cause_report(factors=[factor(event=event_text, sources=[source(quote=quote)])])
+    payload = {**with_kinds(), "stock": "SK하이닉스"}
+    warnings = [w for w in check_warnings(r, payload) if code_of(w) == QUOTE_MISSING_SUBJECT]
+    if missing:
+        assert len(warnings) == 1 and all(m in warnings[0] for m in missing)
+    else:
+        assert warnings == []

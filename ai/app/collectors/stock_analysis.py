@@ -57,6 +57,8 @@ CONCURRENCY = 2
 # prompt_version 칼럼이 String(32) 라 sha256 전체(64자)가 안 들어간다. 앞 12자만 넘기고
 # 전체는 래퍼의 prompt_sha256 에 남긴다. 12자면 프롬프트 판 몇십 개 사이에서 겹칠 일이 없다.
 PROMPT_VERSION_CHARS = 12
+# 판정과 따로 남기는 경고 목록. 건수를 보고서마다·실행마다 찍는다.
+WARNING_KEYS = ("issue_trace_warnings", "events_problems", "verify_warnings")
 
 
 def collect_inputs(path: Path) -> list[Path]:
@@ -170,8 +172,9 @@ async def run(
         wrapper["verify_problems"] = problems
         # 검수용 events 칸. 판정(verify_status)과 섞지 않는다(verify.check_events).
         wrapper["events_status"], wrapper["events_problems"] = check_events(report)
+        trace = wrapper.get("issue_trace")
         # 실패는 아니지만 검수자가 볼 것(verify.check_warnings). 판정과 섞지 않는다.
-        wrapper["verify_warnings"] = check_warnings(report)
+        wrapper["verify_warnings"] = check_warnings(report, payload, trace)
         rewrite = wrapper.get("main_cause_rewrite")
         if rewrite is not None and rewrite["result"] != "rewritten":
             wrapper["verify_warnings"].append(
@@ -179,13 +182,13 @@ async def run(
                 f"쓰지 못했다 ({rewrite['error']})")
         # 입력 메시지가 issue_trace 에서 빠졌거나 direct·sector 이슈가 events 어디에도 없으면
         # 경고만 남긴다. 판정과 섞지 않는다. market 이슈는 경고 없이 stats 에서만 센다.
-        trace = wrapper.get("issue_trace")
         wrapper["issue_trace_warnings"] = check_issue_trace(trace, report, payload)
         wrapper["issue_trace_stats"] = issue_trace_stats(trace, report, payload)
         out = run_dir / "parsed" / f"{run_id}.json"
         out.write_text(json.dumps(wrapper, ensure_ascii=False, indent=2), encoding="utf-8")
+        counts = " ".join(f"{key}={len(wrapper[key])}" for key in WARNING_KEYS)
         print(f"  {status:6} {run_id} ({wrapper['json_status']}, "
-              f"{format_cost(wrapper['cost'], wrapper['cost_currency'])})", flush=True)
+              f"{format_cost(wrapper['cost'], wrapper['cost_currency'])}) {counts}", flush=True)
         return wrapper
 
     wrappers = await asyncio.gather(*(
@@ -218,6 +221,13 @@ async def run(
                    for s in ("passed", "failed", "missing")},
         # 경고가 하나라도 붙은 보고서 수. passed·failed 와 따로 센다.
         "warned": sum(bool(w["verify_warnings"]) for w in wrappers),
+        # 판정과 따로 남기는 경고의 건수 합(보고서 수가 아니라 경고 수).
+        "warning_counts": {key: sum(len(w[key]) for w in wrappers) for key in WARNING_KEYS},
+        # LLM 을 다시 부른 회차 수(JSON 이 안 열림 / 판단하지 않는 층에 원인을 닮).
+        "retried": {key: sum(bool((w.get(key) or {}).get("retried")) for w in wrappers)
+                    for key in ("json_retry", "judge_retry")},
+        # 직접 언급 메시지가 0건이라 LLM 을 부르지 않고 정형 보고서를 낸 회차 수(generate.canned_report).
+        "skipped_llm": sum(bool(w.get("skipped_llm")) for w in wrappers),
         # issue_trace 에 오른 메시지 수 / 입력 메시지 수. issue_trace 가 있는 보고서만 더한다.
         "issue_trace_messages": {
             k: sum(w["issue_trace_stats"][f"messages_{k}"] for w in wrappers if w["issue_trace_stats"])
@@ -255,6 +265,10 @@ async def run(
           + ", ".join(f"{s}={n}" for s, n in result["events"].items()))
     traced = result["issue_trace_messages"]
     print(f"issue_trace 에 오른 메시지: {traced['traced']} / 입력 {traced['total']}")
+    print("경고 건수 (판정과 별도): "
+          + ", ".join(f"{k}={n}" for k, n in result["warning_counts"].items()))
+    print("다시 부른 회차: " + ", ".join(f"{k}={n}" for k, n in result["retried"].items())
+          + f" · LLM 없이 정형 보고서: {result['skipped_llm']}")
     return result
 
 

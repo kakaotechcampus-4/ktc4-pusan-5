@@ -54,9 +54,11 @@ async def test_prompt_and_input_are_sent(fake_complete):
     await run(fake_complete, REPORT_TEXT)
     system, user = fake_complete.call_args.args
     assert system == "SYS"
-    # 입력에 move_case 만 더해 보낸다. 원본 dict 는 그대로다
-    assert json.loads(user) == {**CAUSE, "market": {**CAUSE["market"], "move_case": "normal"}}
-    assert "move_case" not in CAUSE["market"]
+    # 입력에 러너가 계산한 market 칸만 더해 보낸다. 원본 dict 는 그대로다
+    assert json.loads(user) == {**CAUSE, "market": {
+        **CAUSE["market"], "move_case": "normal", "judge_layers": {"move": True, "relative": True},
+        "common_move": False}}
+    assert "move_case" not in CAUSE["market"] and "judge_layers" not in CAUSE["market"]
 
 
 async def test_move_case_is_recomputed_and_kept_in_wrapper(fake_complete):
@@ -296,3 +298,109 @@ async def test_no_json_retry_for_clean_empty_or_truncated(fake_complete, text, u
 async def test_llm_error_is_not_json_retried(fake_complete):
     w = await run(fake_complete, exc=LLMError("HTTP 500"))
     assert fake_complete.await_count == 1 and w["json_retry"] == {"retried": False}
+
+
+FLAT = json.loads((FIXTURES / "sample_flat.json").read_text(encoding="utf-8"))
+
+
+def _flat_report(with_move_link):
+    """+0.45% 날 보고서. with_move_link 면 판단하지 않는 등락 층에 원인을 단다."""
+    links = [{"layer": "move", "note": "n", "direction_match": True, "strength": "partial"}]
+    return json.dumps({"ticker": "999980", "verdict": "partially_explained" if with_move_link else "no_clear_cause",
+                       "relative_verdict": "no_clear_cause",
+                       "factors": [{"event": "e", "links": links}] if with_move_link else []},
+                      ensure_ascii=False)
+
+
+async def test_judge_layer_violation_is_retried_once_with_same_input(fake_complete):
+    bad, good = _flat_report(True), _flat_report(False)
+    fake_complete.side_effect = [(bad, USAGE), (good, USAGE)]
+    w = await gen.generate(FLAT, system="SYS", prompt_hash="abc", run_id="r1")
+    assert fake_complete.await_count == 2
+    # 피드백 문구 없이 같은 입력이다
+    assert fake_complete.await_args_list[0].args == fake_complete.await_args_list[1].args
+    assert json.loads(fake_complete.await_args.args[1])["market"]["judge_layers"] == {
+        "move": False, "relative": False}
+    assert w["final_text"] == good
+    assert w["judge_retry"]["retried"] is True
+    assert {p.split(":")[0] for p in w["judge_retry"]["first"]["problems"]} == {
+        "FLAT_MOVE_VERDICT", "FLAT_MOVE_FACTORS"}
+    assert w["judge_retry"]["first"]["final_text"] == bad
+    assert w["cost"] == pytest.approx(0.0123 * 2)
+
+
+async def test_judge_layer_violation_twice_is_left_for_verify(fake_complete):
+    fake_complete.side_effect = None
+    fake_complete.return_value = (_flat_report(True), USAGE)
+    w = await gen.generate(FLAT, system="SYS", prompt_hash="abc", run_id="r1")
+    assert fake_complete.await_count == 2
+    assert w["judge_retry"]["retried"] is True and w["final_text"] == _flat_report(True)
+
+
+async def test_no_judge_retry_when_layers_are_kept_or_report_unopened(fake_complete):
+    fake_complete.side_effect = None
+    fake_complete.return_value = (_flat_report(False), USAGE)
+    w = await gen.generate(FLAT, system="SYS", prompt_hash="abc", run_id="r1")
+    assert fake_complete.await_count == 1 and w["judge_retry"] == {"retried": False}
+    assert w["judge_layers"] == {"move": False, "relative": False} and w["common_move"] is False
+
+
+def _kb(change, peer, excess, messages=None):
+    """직접 언급이 없는 KB금융 입력. 공통 시황만 indirect 로 들어온다."""
+    return {"stock": "KB금융", "code": "105560", "target_date": "2026-10-23",
+            "cutoff": "2026-10-23T15:30:00+09:00", "change_pct": change,
+            "market": {"index": "코스피", "change_pct": 0.3, "as_of": "15:30", "url": "",
+                       "peer_median_pct": peer, "peer_up": 4, "peer_down": 14, "peer_total": 19,
+                       "excess_pct": excess},
+            "messages": messages if messages is not None else [
+                {"channel": "c", "url": "https://t.me/c/1", "datetime_kst": "2026-10-23T11:00:00+09:00",
+                 "text": "오전장 테마 동향", "match": "indirect", "kind": "theme_recap"}]}
+
+
+async def test_no_direct_message_gives_canned_report_without_llm(fake_complete):
+    from app.services.stock_analysis.verify import verify
+
+    payload = _kb(-3.1, -1.57, -1.53)
+    w = await gen.generate(payload, system="SYS", prompt_hash="abc", run_id="r1")
+    fake_complete.assert_not_called()
+    assert w["skipped_llm"] == gen.NO_DIRECT_MESSAGES
+    assert (w["json_status"], w["is_error"], w["cost"], w["schema_problems"]) == ("clean", False, 0.0, [])
+    assert w["json_retry"] == w["judge_retry"] == {"retried": False}
+    report = gen.report_of(w)
+    assert verify(report, payload) == ("passed", [])
+    assert (report["verdict"], report["relative_verdict"], report["factors"], report["events"]) == (
+        "no_clear_cause", "no_clear_cause", [], [])
+    assert report["as_of"] == "15:30"
+    assert report["summary"]["move"] == (
+        "오후 3시 30분 장 마감 기준 KB금융은 3.10% 내렸습니다. "
+        "같은 시각 코스피는 0.30% 올랐고, 대형주 19개 중 14개가 내렸으며 중간값은 1.57% 하락이었습니다. "
+        "KB금융은 대형주 전반보다 더 내렸습니다.")
+    assert report["summary"]["main_cause"] == "제공된 메시지에서 확인된 원인은 없습니다."
+    assert report["summary"]["unexplained"] == "이 종목을 직접 다룬 소식이 수집되지 않았습니다."
+
+
+@pytest.mark.parametrize(("change", "peer", "excess", "relation", "common"), [
+    (-1.68, -3.21, 1.53, "대형주 전반보다 덜 내렸습니다", False),
+    (-0.5, -0.4, -0.1, "대형주 전반과 비슷하게 움직였습니다", True),   # 차이가 작고 대형주 몫이 절반 이상
+    (0.5, -2.0, 2.5, "대형주 전반과 반대로 움직였습니다", False),
+])
+async def test_canned_move_relation_and_common_move(fake_complete, change, peer, excess, relation, common):
+    report = gen.canned_report(_kb(change, peer, excess))
+    assert report["summary"]["move"].endswith(f"KB금융은 {relation}.")
+    assert report["summary"]["main_cause"].startswith("대형주 전반이 함께 내린 날이었습니다. ") is common
+
+
+async def test_messages_with_direct_still_call_llm(fake_complete):
+    payload = _kb(-3.1, -1.57, -1.53)
+    payload["messages"].append({**payload["messages"][0], "url": "https://t.me/c/2", "match": "direct"})
+    fake_complete.side_effect = None
+    fake_complete.return_value = (REPORT_TEXT, USAGE)
+    w = await gen.generate(payload, system="SYS", prompt_hash="abc", run_id="r1")
+    assert fake_complete.await_count == 1 and "skipped_llm" not in w
+
+
+def test_canned_report_without_market_or_messages():
+    payload = {**_kb(0, None, None, messages=[]), "market": None, "cutoff": "2026-10-23T11:00:00+09:00"}
+    report = gen.canned_report(payload)
+    assert report["summary"]["move"] == "오전 11시 기준 KB금융은 등락이 없었습니다."
+    assert report["as_of"] == "11:00"

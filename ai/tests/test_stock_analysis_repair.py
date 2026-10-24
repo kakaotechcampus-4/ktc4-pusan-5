@@ -123,6 +123,16 @@ def test_market_issue_is_not_warned_but_counted_when_unreferenced():
     assert issue_trace_stats(None, r, {"messages": []}) is None
 
 
+def test_none_issues_are_counted_from_none_count():
+    """none 이슈는 issues 에 적지 않고 메시지마다 none_count 만 남긴다. url 은 남아 누락 검사가 그대로 돈다."""
+    payload = {"messages": [{"url": URL}, {"url": "https://t.me/ch/2"}]}
+    t = trace(("i1", "direct")) + [{"url": "https://t.me/ch/2", "issues": [], "none_count": 4}]
+    t[0]["none_count"] = 2
+    r = {"events": [{"issue_ids": ["i1"]}]}
+    assert check_issue_trace(t, r, payload) == []
+    assert issue_trace_stats(t, r, payload)["relations"] == {"direct": 1, "none": 6}
+
+
 def cause_report():
     """factors[0] 은 quote 가 원문에 없는 move factor, factors[1] 은 멀쩡한 move factor."""
     r = report("규제 대상으로 장비로 명시")
@@ -178,7 +188,7 @@ def bg_report(quote, counter="반대 재료가 있었습니다."):
     r["background"] = {"bullish": [], "neutral": [],
                        "bearish": [{"text": "행정명령", "sources": [source(quote)], "watch": True}]}
     r["events"].append({"event": "행정명령 배경", "issue_ids": ["i3"], "dup_channels": None,
-                        "placed": "background"})
+                        "placed": "background", "background": {"slot": "bearish", "index": 0}})
     return r
 
 
@@ -203,7 +213,8 @@ async def test_background_second_failure_drops_item_clears_counter_and_passes(fa
     assert records[0]["result"] == "dropped" and records[0]["counter_cleared"] is True
     assert r["background"]["bearish"] == []
     assert r["summary"]["counter"] is None
-    assert r["events"][-1] == {"event": "행정명령", "issue_ids": [], "dup_channels": None,
+    # 그 항목을 가리키던 사건을 dropped 로 바꾼다. 사건을 새로 더하지 않는다
+    assert r["events"][-1] == {"event": "행정명령 배경", "issue_ids": ["i3"], "dup_channels": None,
                                "placed": "dropped", "reason": QUOTE_VERIFY_FAIL}
     assert check_events(r) == ("passed", [])
     assert check_grounding(r, PAYLOAD) == []
@@ -228,3 +239,21 @@ async def test_background_drops_keep_slot_indexes_right(fake_complete):
     records = await repair.repair_quotes(r, PAYLOAD, stream=True)
     assert [x["path"] for x in records] == ["background.bearish[0]", "background.bearish[2]"]
     assert [x["text"] for x in r["background"]["bearish"]] == ["가운데"]
+
+
+async def test_background_drop_moves_event_indexes(fake_complete):
+    """뺀 항목을 가리키던 사건은 dropped 가 되고, 같은 칸 뒤 항목을 가리키던 사건은 순번이 당겨진다."""
+    r = bg_report("없는 문장 하나")
+    r["background"]["bearish"].append({"text": "끝", "sources": [source("BESS를 규제 대상 장비로")]})
+    r["background"]["neutral"].append({"text": "다른 칸", "sources": [source("BESS를 규제 대상 장비로")]})
+    r["events"] += [{"event": "끝", "issue_ids": [], "dup_channels": None, "placed": "background",
+                     "background": {"slot": "bearish", "index": 1}},
+                    {"event": "다른 칸", "issue_ids": [], "dup_channels": None, "placed": "background",
+                     "background": {"slot": "neutral", "index": 0}}]
+    fake_complete.side_effect = LLMError("HTTP 500")
+    await repair.repair_quotes(r, PAYLOAD, stream=True)
+    by_event = {e["event"]: e for e in r["events"]}
+    assert by_event["행정명령 배경"]["placed"] == "dropped" and "background" not in by_event["행정명령 배경"]
+    assert by_event["끝"]["background"] == {"slot": "bearish", "index": 0}
+    assert by_event["다른 칸"]["background"] == {"slot": "neutral", "index": 0}
+    assert check_events(r) == ("passed", [])
