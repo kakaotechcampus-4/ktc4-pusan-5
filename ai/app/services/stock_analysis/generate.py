@@ -64,12 +64,13 @@ from app.services.stock_analysis.verify import (
     STREAM_INTERRUPTED,
     THEME_RECAP_KIND,
     _decimal,
-    check_judge_layers,
+    check_market_flags,
     check_schema,
     common_move,
     judge_layers,
     message_ids,
     move_case,
+    move_strength_cap,
     split_messages,
 )
 
@@ -130,7 +131,8 @@ def model_input(payload: dict[str, Any]) -> dict[str, Any]:
     market = payload.get("market")
     if isinstance(market, dict):
         out["market"] = {**{k: v for k, v in market.items() if k != "move_case"},
-                         "judge_layers": judge_layers(payload), "common_move": common_move(payload)}
+                         "judge_layers": judge_layers(payload), "common_move": common_move(payload),
+                         "move_strength_cap": move_strength_cap(payload)}
     return out
 
 
@@ -333,8 +335,8 @@ async def generate(
     {"retried": false} 또는 {"retried": true, "first": {json_status, asked_question, raw_text, usage,
     cost, duration_ms}}.
 
-    보고서가 열렸는데 입력 judge_layers 가 false 인 층에 link·판정을 달았으면(verify.check_judge_layers)
-    같은 입력으로 한 번 더 부른다. 피드백 문구는 넣지 않는다. link 를 떼는 결정적 보정은 하지 않는다 —
+    보고서가 열렸는데 입력 market 의 러너 계산 값을 어겼으면(verify.check_market_flags — judge_layers 가 false 인
+    층에 link·판정, move_strength_cap 이 partial 인 날 등락 층 종목 고유 재료가 sufficient) 같은 입력으로 한 번 더 부른다. 피드백 문구는 넣지 않는다. link 를 떼는 결정적 보정은 하지 않는다 —
     summary 문장이 떼어 낸 원인을 그대로 말하게 된다. 래퍼 judge_retry 칸: {"retried": false} 또는
     {"retried": true, "first": {problems, final_text, json_retry, usage, cost, duration_ms}}.
     다시 불러도 위반이면 그대로 둔다(검증에서 failed).
@@ -345,7 +347,7 @@ async def generate(
     wrapper = await _generate_with_json_retry(payload, system=system, prompt_hash=prompt_hash,
                                               run_id=run_id)
     report = report_of(wrapper)
-    problems = check_judge_layers(report, payload) if report is not None else []
+    problems = check_market_flags(report, payload) if report is not None else []
     if not problems:
         wrapper["judge_retry"] = {"retried": False}
         return wrapper
@@ -430,6 +432,7 @@ def _base_wrapper(payload: dict[str, Any], *, prompt_hash: str, run_id: str) -> 
         # 모델에 보낸 market 계산 칸. market 이 null 이면 보내지 않았으므로 null.
         "judge_layers": judge_layers(payload) if isinstance(payload.get("market"), dict) else None,
         "common_move": common_move(payload) if isinstance(payload.get("market"), dict) else None,
+        "move_strength_cap": move_strength_cap(payload) if isinstance(payload.get("market"), dict) else None,
     }
 
 

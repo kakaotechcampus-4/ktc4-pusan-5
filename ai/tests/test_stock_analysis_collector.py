@@ -71,11 +71,12 @@ async def test_runs_folder_of_samples_and_writes_wrappers(fake_llm, tmp_path, ca
 
     # 직접 언급이 0건인 up_no_cause 는 LLM 을 부르지 않고 정형 보고서다(skipped_llm).
     # ±1% 이내 날 나머지 2건은 등락 층 원인을 달아 같은 입력으로 한 번 더 부른다(judge_retry). 다시 불러도 같다
-    assert fake_llm.await_count == 10
+    # 대형주 몫 상한(move_strength_cap)을 어긴 market_driven·market_share_down 도 한 번 더 부른다
+    assert fake_llm.await_count == 12
     assert (result["total"], result["passed"], result["failed"], result["errors"]) == (9, 4, 5, 0)
-    assert result["cost"] == pytest.approx(0.10)
+    assert result["cost"] == pytest.approx(0.12)
     assert result["skipped_llm"] == 1
-    assert result["retried"] == {"json_retry": 0, "judge_retry": 2}
+    assert result["retried"] == {"json_retry": 0, "judge_retry": 4}
     # market_share_down(-3.57, 대형주 -2.62)은 common_move 날인데 등락 층 원인을 달아 경고 1건,
     # opposite(09-23)는 간접 출처만으로 sufficient 라 STRENGTH_MISMATCH 1건(실패 SIZE_FIT_OVER_CAP 와 함께)
     assert result["warning_counts"] == {"issue_trace_warnings": 0, "events_problems": 0, "verify_warnings": 2}
@@ -110,9 +111,11 @@ async def test_runs_folder_of_samples_and_writes_wrappers(fake_llm, tmp_path, ca
     assert cause["judge_retry"] == {"retried": False}
     assert cause["judge_layers"] == {"move": True, "relative": True}
     retried = sorted(k for k, w in wrappers.items() if w["judge_retry"]["retried"])
-    assert len(retried) == 2
+    assert len(retried) == 4
     assert {code_of(p) for k in retried for p in wrappers[k]["judge_retry"]["first"]["problems"]} == {
-        "FLAT_MOVE_VERDICT", "FLAT_MOVE_FACTORS"}
+        "FLAT_MOVE_VERDICT", "FLAT_MOVE_FACTORS", "MOVE_SUFFICIENT_STOCK_ONLY"}
+    assert wrappers["하늬결화학-2026-09-25-1530__r1"]["move_strength_cap"] == "partial"
+    assert cause["move_strength_cap"] is None
 
     flat = wrappers["하늬결화학-2026-09-18-1100__r1"]
     assert flat["verify_status"] == "failed"
@@ -133,14 +136,14 @@ async def test_runs_folder_of_samples_and_writes_wrappers(fake_llm, tmp_path, ca
 
     out = capsys.readouterr().out
     assert ("완료: 보고서 9건 · 검증 통과 4건 · 검증 실패 보고서 5건 (그중 실행 오류 0건)"
-            " · $0.1000") in out
+            " · $0.1200") in out
     # 사유는 보고서 기준이다. 두 숫자를 섞어 출력하면 안 된다.
     assert ("): COUNTER_WITHOUT_BACKGROUND=3, FLAT_MOVE=2, MOVE_SUFFICIENT_STOCK_ONLY=2,"
             " SIZE_FIT_OVER_CAP=1") in out
     # 한 보고서가 여러 사유에 들어 사유 합(8)이 실패 보고서 수(5)보다 크다
     assert result["failed"] == 5 and sum(result["reasons"].values()) == 8
     assert "경고 건수 (판정과 별도): issue_trace_warnings=0, events_problems=0, verify_warnings=2" in out
-    assert "다시 부른 회차: json_retry=0, judge_retry=2 · LLM 없이 정형 보고서: 1" in out
+    assert "다시 부른 회차: json_retry=0, judge_retry=4 · LLM 없이 정형 보고서: 1" in out
     assert "경우별 건수: flat=2, opposite=3 (그중 counter 있음 3), normal=4, null=0" in out
     # 샘플 보고서에는 events 칸이 없다(정형 보고서만 빈 events). 판정과 따로 missing 으로 센다
     assert result["events"] == {"passed": 1, "failed": 0, "missing": 8}
@@ -172,7 +175,7 @@ async def test_elice_cost_is_reported_in_won(fake_llm, tmp_path, capsys, monkeyp
     monkeypatch.setattr(gen.settings, "llm_provider", "elice")
     result = await collector.run(FIXTURES, out_root=tmp_path)
     assert result["currency"] == "KRW"
-    assert "· ₩0.10 ·" in capsys.readouterr().out
+    assert "· ₩0.12 ·" in capsys.readouterr().out
 
 
 async def test_single_file_and_llm_error_does_not_stop_others(monkeypatch, tmp_path, capsys):

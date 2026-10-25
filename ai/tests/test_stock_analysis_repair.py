@@ -221,7 +221,7 @@ def bg_report(quote, counter="반대 재료가 있었습니다."):
 async def test_background_quote_is_rewritten_and_keeps_watch(fake_complete):
     r = bg_report("규제 대상으로 장비로 명시")
     fake_complete.return_value = (json.dumps(
-        {"text": "행정명령이 BESS 를 규제 대상으로 명시했습니다.", "sources": [source("규제 대상 장비로 명시")]}), USAGE)
+        {"text": "행정명령", "sources": [source("규제 대상 장비로 명시")]}), USAGE)
     records = await repair.repair_quotes(r, PAYLOAD, stream=True)
     assert [(x["kind"], x["path"], x["result"]) for x in records] == [
         ("background", "background.bearish[0]", "fixed")]
@@ -283,3 +283,28 @@ async def test_background_drop_moves_event_indexes(fake_complete):
     assert by_event["끝"]["background"] == {"slot": "bearish", "index": 0}
     assert by_event["다른 칸"]["background"] == {"slot": "neutral", "index": 0}
     assert check_events(r) == ("passed", [])
+
+
+async def test_rewrite_that_changes_event_is_rejected_and_dropped(fake_complete):
+    """repair 는 quote 만 고친다. 같은 메시지 안의 다른 소식으로 event 를 바꿔 쓰면 받지 않고 factor 를 뺀다."""
+    r = report("규제 대상으로 장비로 명시")
+    fake_complete.return_value = (json.dumps(
+        {"event": "행정명령이 BESS 를 규제 대상으로 명시했습니다.",   # 한 글자라도 다르면 거절
+         "sources": [source("규제 대상 장비로 명시")]}), USAGE)
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    assert [(x["result"], x.get("rejected")) for x in records] == [("dropped", "event_changed")]
+    assert records[0]["rewritten_event"].startswith("행정명령이")
+    assert [f["event"] for f in r["factors"]] == ["다른 사건"]
+    assert r["events"][0]["placed"] == "dropped" and r["events"][0]["reason"] == QUOTE_VERIFY_FAIL
+
+
+async def test_rewrite_keeps_original_detail_and_links(fake_complete):
+    """고쳐 쓴 응답에 detail 이 달라도 받지 않는다. sources 만 바뀐다."""
+    r = report("규제 대상으로 장비로 명시")
+    r["factors"][0]["detail"] = "원래 부연"
+    fake_complete.return_value = (json.dumps(
+        {"event": "행정명령", "detail": "바뀐 부연", "sources": [source("규제 대상 장비로 명시")]}), USAGE)
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    assert records[0]["result"] == "fixed"
+    assert r["factors"][0]["detail"] == "원래 부연"
+    assert r["factors"][0]["sources"][0]["quote"] == "규제 대상 장비로 명시"

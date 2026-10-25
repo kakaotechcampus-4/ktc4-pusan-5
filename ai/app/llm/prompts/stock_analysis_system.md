@@ -33,7 +33,8 @@ JSON 하나를 받습니다.
               "peer_up": <상승 종목 수>, "peer_down": <하락 종목 수>, "peer_total": <비교 종목 수>,
               "excess_pct": <change_pct − peer_median_pct. 없으면 null>,
               "judge_layers": { "move": <true | false>, "relative": <true | false> },
-              "common_move": <true | false | null> },   // 없으면 null
+              "common_move": <true | false | null>,
+              "move_strength_cap": <"partial" | null> },   // 없으면 null
   "messages":       [ <메시지> ],   // 근거가 되는 메시지
   "market_context": [ <메시지> ],   // 그날 시장 시황
   "flow":           [ <메시지> ]    // 장중 매매 순위 목록
@@ -65,6 +66,7 @@ JSON 하나를 받습니다.
 - `market.peer_*` 는 분석 대상 대형주 가운데 **이 종목을 뺀 나머지**를 같은 시각에 본 값이고,
   `excess_pct` 는 그 중간값과의 차이입니다. 판단 절차 3단계에서 씁니다.
 - **`market.judge_layers` 를 따릅니다.** `false` 인 층에는 link 를 달지 않고 그 층 판정은 `no_clear_cause` 입니다.
+- **`market.move_strength_cap` 을 따릅니다.** 쓰는 곳은 2부 5단계입니다.
 - **`market.common_move` 를 따릅니다.** `true` 면 그날은 등락 층 factor 를 세우지 않습니다(7단계).
 - `market` 이 `null` 이면 상대 층을 판단하지 않습니다.
 
@@ -198,8 +200,8 @@ JSON 하나를 받습니다.
 | `insufficient` | 관련은 있으나 그 층의 움직임에 거의 닿지 않는다 |
 
 - 반대 방향 재료는 `strength` 를 낮추지 않습니다. 그런 재료는 `summary.counter` 와 `background` 로만 보여 줍니다.
-- 상한이 이 정의보다 앞섭니다. 간접·미확인 근거는 `partial` 까지입니다(6단계). 등락 층에서 종목 등락 중
-  `peer_median_pct` 몫이 절반 이상이면 종목 고유 재료는 `partial` 까지입니다.
+- **`market.move_strength_cap` 이 `partial` 이면 등락 층 factor 는 `partial` 까지입니다.**
+- 상한이 이 정의보다 앞섭니다. 간접·미확인 근거는 `partial` 까지입니다(6단계).
 - 비워 두지 않습니다.
 
 ### 6단계 — 근거가 얼마나 단단한지 봅니다

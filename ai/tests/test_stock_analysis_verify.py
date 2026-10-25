@@ -70,6 +70,7 @@ from app.services.stock_analysis.verify import (
     code_of,
     common_move,
     families_of,
+    move_strength_cap,
     is_stock_specific,
     judge_layers,
     layer_pct,
@@ -1323,3 +1324,15 @@ def test_direct_source_missing():
     # 이슈가 간접 메시지에서만 나왔으면 경고하지 않는다
     r = cause_report(factors=indirect_only, events=[event(factor=0, issue_ids=["i2"])])
     assert DIRECT_SOURCE_MISSING not in codes(check_warnings(r, CAUSE, trace))
+
+
+
+@pytest.mark.parametrize(("change", "median", "excess", "cap"), [
+    (-3.57, -2.62, -0.95, "partial"),   # 대형주 몫이 절반 이상
+    (-4.19, -3.1, -1.09, "partial"),    # 10-22 SK하이닉스: 상대 층도 판단하는 날이지만 상한은 걸린다
+    (-4.2, -0.6, -3.6, None),
+    (0.45, 0.7, -0.25, None),           # 등락 층을 판단하지 않는 날은 상한이 의미 없다
+    (-1.8, None, None, None),
+])
+def test_move_strength_cap(change, median, excess, cap):
+    assert move_strength_cap(with_market(change=change, peer_median_pct=median, excess_pct=excess)) == cap

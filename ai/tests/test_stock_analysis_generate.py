@@ -60,7 +60,7 @@ async def test_prompt_and_input_are_sent(fake_complete):
     numbered = [{"id": f"m{k + 1}", **m} for k, m in enumerate(CAUSE["messages"])]  # 근거 칸에 m1… id
     assert json.loads(user) == {**sent, "messages": numbered, "market_context": [], "flow": [],
                                 "market": {**CAUSE["market"], "judge_layers": {"move": True, "relative": True},
-                                           "common_move": False}}
+                                           "common_move": False, "move_strength_cap": None}}
     assert "judge_layers" not in CAUSE["market"]
 
 
@@ -460,3 +460,22 @@ async def test_timeout_twice_is_llm_error(fake_complete):
     w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
     assert fake_complete.await_count == 2
     assert w["is_error"] and w["error_code"] == "LLM_ERROR" and len(w["timeouts"]) == 2
+
+
+
+async def test_move_strength_cap_violation_is_retried(fake_complete):
+    """대형주 몫이 절반 이상인 날 등락 층 종목 고유 재료를 sufficient 로 달면 같은 입력으로 한 번 더 부른다."""
+    share = json.loads((FIXTURES / "sample_market_share_down.json").read_text(encoding="utf-8"))
+    msg = share["messages"][0]
+    assert msg["match"] == "direct"
+    def report(strength):
+        return json.dumps({"ticker": share["code"], "verdict": "explained" if strength == "sufficient" else "partially_explained",
+                           "relative_verdict": "no_clear_cause",
+                           "factors": [{"event": "e", "stance": "bearish", "links": [
+                               {"layer": "move", "note": "n", "direction_match": True, "strength": strength}],
+                               "sources": [{"url": msg["url"], "match": "direct"}]}]}, ensure_ascii=False)
+    fake_complete.side_effect = [(report("sufficient"), USAGE), (report("partial"), USAGE)]
+    w = await gen.generate(share, system="SYS", prompt_hash="abc", run_id="r1")
+    assert fake_complete.await_count == 2 and w["judge_retry"]["retried"] is True
+    assert [p.split(":")[0] for p in w["judge_retry"]["first"]["problems"]] == ["MOVE_SUFFICIENT_STOCK_ONLY"]
+    assert json.loads(fake_complete.await_args.args[1])["market"]["move_strength_cap"] == "partial"

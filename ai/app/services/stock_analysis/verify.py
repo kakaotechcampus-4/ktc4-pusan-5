@@ -732,6 +732,18 @@ def _peer_share_half(payload: dict[str, Any]) -> bool | None:
     return change * peer > 0 and 2 * abs(peer) >= abs(change)
 
 
+def move_strength_cap(payload: dict[str, Any]) -> str | None:
+    """입력 market.move_strength_cap. 등락 층 link strength 의 상한. "partial" 이거나 None(상한 없음).
+
+    종목 등락 중 다른 대형주와 같은 몫이 절반 이상인 날(_peer_share_half)이고 등락 층을 판단하는 날이면 "partial".
+    검증 MOVE_SUFFICIENT_STOCK_ONLY 와 STRENGTH_MISMATCH 의 상한 판단이 같은 함수를 본다. 러너가 입력에 넣어
+    모델이 대형주 몫을 다시 계산하지 않게 한다(judge_layers 와 같은 방식).
+    """
+    if _layer_is_quiet(payload, "move")[0] or not _peer_share_half(payload):
+        return None
+    return "partial"
+
+
 def common_move(payload: dict[str, Any]) -> bool | None:
     """입력 market.common_move. 대형주 전반이 이 종목과 같은 방향으로 함께 움직인 날인가.
 
@@ -790,7 +802,7 @@ def check_rules(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
                               f"{where} layer={layer}, stance={stance}, 값 {pct} 인데 "
                               f"direction_match={match}"))
 
-    out.extend(_check_market_share(factors, payload, quiet["move"][0]))
+    out.extend(_check_market_share(factors, payload))
 
     # 4부 counter: background 에 있는 재료만 언급한다.
     summary = report.get("summary")
@@ -828,6 +840,13 @@ def check_judge_layers(report: dict[str, Any], payload: dict[str, Any]) -> list[
     return out
 
 
+def check_market_flags(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
+    """러너가 입력 market 에 넣은 값(judge_layers·move_strength_cap)을 어긴 문제. generate 가 이 문제가 있으면
+    같은 입력으로 한 번 다시 부른다(judge_retry). check_rules 의 일부다."""
+    report = normalize_report(report)
+    return check_judge_layers(report, payload) + _check_market_share(_factors(report), payload)
+
+
 def is_stock_specific(factor: dict[str, Any]) -> bool:
     """종목 고유 재료인가. 출처가 모두 `match: "direct"` 이면 그렇다고 본다.
 
@@ -840,14 +859,13 @@ def is_stock_specific(factor: dict[str, Any]) -> bool:
     return bool(sources) and all(s.get("match") == "direct" for s in sources)
 
 
-def _check_market_share(factors: list[dict[str, Any]], payload: dict[str, Any],
-                        move_quiet: bool) -> list[str]:
-    """2부 5단계. change_pct 와 peer_median_pct 의 부호가 같고 |peer| >= |change|/2 (경계 포함)
-    인 날, layer: move link 가 sufficient 인 factor 가 있는데 모두 종목 고유 재료면 실패.
+def _check_market_share(factors: list[dict[str, Any]], payload: dict[str, Any]) -> list[str]:
+    """2부 5단계. 입력 move_strength_cap 이 "partial" 인 날(대형주 몫이 절반 이상), layer: move link 가
+    sufficient 인 factor 가 있는데 모두 종목 고유 재료면 실패.
 
-    ±1% 날은 move link 자체가 FLAT_MOVE_FACTORS 로 떨어지므로 보지 않는다.
+    ±1% 날은 move_strength_cap 이 None 이다 — move link 자체가 FLAT_MOVE_FACTORS 로 떨어진다.
     """
-    if move_quiet or not _peer_share_half(payload):
+    if move_strength_cap(payload) is None:
         return []
     change = layer_pct(payload, "move")
     peer = _decimal(payload["market"].get("peer_median_pct"))
@@ -1176,14 +1194,13 @@ def _check_direct_source(report: dict[str, Any], matches: dict[Any, Any], issue_
 
 def _check_strength(factors: list[dict[str, Any]], matches: dict[Any, Any], payload: dict[str, Any]) -> list[str]:
     """5단계 정의로 기대하는 strength 와 비교한다. sufficient ↔ partial 이 어긋난 것만 본다."""
-    share_cap = bool(_peer_share_half(payload)) and not _layer_is_quiet(payload, "move")[0]
+    move_capped = move_strength_cap(payload) == "partial"
     out: list[str] = []
     for i, f in enumerate(factors):
         has_direct = _has_direct_source(f, matches)
-        all_direct = bool(_sources(f)) and all(matches.get(s.get("url")) == "direct" for s in _sources(f))
         for k, link in enumerate(_links(f)):
             strength, layer = link.get("strength"), link.get("layer")
-            capped = f.get("unconfirmed") is True or (layer == "move" and share_cap and all_direct)
+            capped = f.get("unconfirmed") is True or (layer == "move" and move_capped)
             if strength == "partial" and has_direct and not capped:
                 out.append(_p(STRENGTH_MISMATCH, f"factors[{i}].links[{k}] layer={layer} 출처에 direct 가 있는데 partial"))
             elif strength == CAPPED_SIZE_FIT and not has_direct:
@@ -1422,6 +1439,7 @@ __all__ = [
     "check_grounding",
     "check_issue_trace",
     "check_judge_layers",
+    "check_market_flags",
     "check_rules",
     "check_schema",
     "check_warnings",
@@ -1435,6 +1453,7 @@ __all__ = [
     "layer_pct",
     "message_ids",
     "move_case",
+    "move_strength_cap",
     "normalize_quote",
     "normalize_report",
     "normalize_ws",

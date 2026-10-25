@@ -5,9 +5,10 @@
 하나만 다시 쓰게 한다. 다시 써도 원문에 없으면 그 항목을 빼고 events 에 dropped
 (reason: quote_verify_fail) 로 남긴다. 그래서 quote 하나 때문에 보고서 전체가 failed 가 되지 않는다.
 
-고쳐 쓴 결과에서 받는 칸은 factor 는 event·detail·sources, background 는 text·sources 뿐이다.
-stance·unconfirmed·links·watch 는 원래 값을 둔다 — quote 를 고치다가 판정(strength·층)이 바뀌면
-verdict 표 검증과 어긋난다.
+repair 는 **quote 만 고치는 단계**다. 고쳐 쓴 결과에서 받는 칸은 sources 뿐이고 나머지(event·detail·text·
+stance·unconfirmed·links·watch)는 원래 값을 둔다. 고쳐 쓴 결과의 event(background 는 text)가 원래 문장과 한
+글자라도 다르면 고친 것으로 받지 않고 그 항목을 뺀다(record.rejected = "event_changed"). 같은 뉴스 모음 메시지
+안의 다른 항목으로 사건을 갈아 끼우고 strength 는 원래 값으로 남는 일이 있었다(2026-10-25, v6~v8 결과).
 
 background 항목을 빼서 background 가 모두 비면 summary.counter 를 null 로 둔다. counter 는 background 에
 있는 재료만 요약하는 칸이라(COUNTER_WITHOUT_BACKGROUND), 그대로 두면 뺀 재료를 말하는 문장이 남고
@@ -44,9 +45,10 @@ logger = logging.getLogger(__name__)
 REPAIR_MAX_TOKENS = 8000
 
 _QUOTE_RULES = """\
-아래 원문 메시지에서 **글자 그대로 복사한** 40자 이내 quote 로 바꾸세요. 띄어쓰기 말고는 한 글자도
-바꾸면 안 됩니다. 원문에서 그 사건을 뒷받침하는 문장을 찾을 수 없으면 {fields} 칸을 원문에 있는
-내용으로 좁혀 쓰세요. 원문에 없는 내용을 새로 만들지 않습니다.
+**quote 만 고칩니다.** {fields} 은 입력의 문장을 글자 그대로 다시 적고, event·detail·links·strength 는
+바꾸지 않습니다. 같은 메시지 안의 다른 소식으로 바꾸지 마세요.
+아래 원문 메시지에서 그 사건을 뒷받침하는 구절을 **글자 그대로 복사한** 40자 이내 quote 로 바꾸세요. 띄어쓰기
+말고는 한 글자도 바꾸면 안 됩니다. 그 사건을 뒷받침하는 구절을 찾을 수 없으면 sources 를 빈 배열로 둡니다.
 원문에 "인공지능(AI)" 처럼 말 뒤에 괄호 속 영문 약어가 붙어 있으면 quote 에는 "인공지능(AI)",
 "인공지능", "AI" 중 어느 꼴로 옮겨도 됩니다.
 
@@ -61,18 +63,19 @@ REPAIR_SYSTEM = """\
 주가 변동 보고서의 근거(factor) 하나를 고칩니다.
 
 이 factor 의 출처 quote 가 그 url 메시지 원문에 글자 그대로 들어 있지 않아 검증에서 떨어졌습니다.
-""" + _QUOTE_RULES.format(fields="event·detail",
-                          shape='{"event": "...", "detail": "...", "sources": [' + _SOURCE_SHAPE + "]}")
+""" + _QUOTE_RULES.format(fields="event",
+                          shape='{"event": "<입력 factor 의 event 그대로>", "sources": [' + _SOURCE_SHAPE + "]}")
 
 BACKGROUND_REPAIR_SYSTEM = """\
 주가 변동 보고서의 참고 재료(background) 항목 하나를 고칩니다.
 
 이 항목의 출처 quote 가 그 url 메시지 원문에 글자 그대로 들어 있지 않아 검증에서 떨어졌습니다.
-""" + _QUOTE_RULES.format(fields="text", shape='{"text": "...", "sources": [' + _SOURCE_SHAPE + "]}")
+""" + _QUOTE_RULES.format(fields="text",
+                          shape='{"text": "<입력 항목의 text 그대로>", "sources": [' + _SOURCE_SHAPE + "]}")
 
-# 종류마다 (시스템 프롬프트, 고쳐 쓴 응답에서 받는 칸).
-_KINDS = {"factor": (REPAIR_SYSTEM, ("event", "detail")),
-          "background": (BACKGROUND_REPAIR_SYSTEM, ("text",))}
+# 종류마다 (시스템 프롬프트, 바뀌면 안 되는 칸). 고쳐 쓴 응답에서는 sources 만 받는다.
+_KINDS = {"factor": (REPAIR_SYSTEM, "event"),
+          "background": (BACKGROUND_REPAIR_SYSTEM, "text")}
 
 
 def quote_failures(item: dict[str, Any], messages: list[dict[str, Any]], path: str) -> list[str]:
@@ -186,7 +189,7 @@ async def repair_quotes(
         failures = quote_failures(item, messages, path)
         if not failures:
             continue
-        system, fields = _KINDS[kind]
+        system, locked = _KINDS[kind]
         record: dict[str, Any] = {"kind": kind, "path": path}
         if kind == "factor":
             record.update(factor_index=place, event=item.get("event"), layers=_layers(item))
@@ -205,9 +208,13 @@ async def repair_quotes(
         except (LLMError, StreamInterrupted) as exc:
             logger.warning("%s: %s quote 고쳐 쓰기 실패: %s", run_id, path, exc)
             record["error"] = str(exc)
+        if rewritten is not None and rewritten.get(locked) != item.get(locked):
+            # 사건을 바꿔 썼다. quote 만 고치는 단계라 받지 않고 뺀다.
+            record["rejected"] = "event_changed"
+            record["rewritten_" + locked] = rewritten.get(locked)
+            rewritten = None
         if rewritten is not None:
-            candidate = {**item, **{k: rewritten.get(k, item.get(k)) for k in fields},
-                         "sources": rewritten["sources"]}
+            candidate = {**item, "sources": rewritten["sources"]}
             still = quote_failures(candidate, messages, path)
             record["retry_failed"] = still
             if not still:

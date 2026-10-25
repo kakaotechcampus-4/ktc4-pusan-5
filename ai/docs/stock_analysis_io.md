@@ -139,6 +139,10 @@ runs/<YYYYMMDD-HHMMSS>/
 `summary.move`, 종목·업종 재료는 `background` 로 가고, `main_cause` 는 "대형주 전반이 함께 오른(내린) 날이었습니다. 이 종목만의
 원인은 따로 확인되지 않았습니다." 다. 어기면 경고 `COMMON_MOVE_WITH_MOVE_LINK`.
 
+`move_strength_cap` — 등락 층 link strength 상한. 종목 등락 중 대형주 몫이 절반 이상이고 등락 층을 판단하는 날
+`"partial"`, 그 밖 `null`. 검증 `MOVE_SUFFICIENT_STOCK_ONLY` 와 같은 함수(`verify.move_strength_cap`)이고, 어기면
+judge 재시도 대상이다.
+
 `move_case` — 래퍼 집계용 이름표(모델에 보내지 않음).
 
 | 값 | 조건 |
@@ -325,7 +329,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `judge_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {problems, final_text, json_retry, usage, cost, duration_ms}}`. 열린 보고서가 `judge_layers` 가 false 인 층에 link·판정을 달았을 때(`FLAT_*`) 같은 입력으로 1회 재호출. 비용은 `cost` 에 합친다 |
 | `timeouts` | 시간 제한(`SUMMARY_TIMEOUT_SEC`, 기본 300초)에 걸린 시도마다 `{error, seconds}`. 스트림 끊김과 합쳐 1회 재시도하고, 다시 걸리면 `LLM_ERROR` |
 | `stream_interruptions` | 끊긴 시도마다 `{partial_chars, error}`. 끊김은 1회 재전송 |
-| `quote_repair` | quote 가 원문에 없던 factor·background 항목마다 `{kind, result: fixed\|dropped, failed, retry_failed, quotes, ...}`. 다시 써도 없으면 항목을 빼고 그 항목을 가리키던 `events` 사건을 `dropped`/`quote_verify_fail` 로 바꾼다(뒤 항목의 순번은 당긴다) |
+| `quote_repair` | quote 가 원문에 없던 factor·background 항목마다 `{kind, result: fixed\|dropped, failed, retry_failed, quotes, rejected, ...}`. repair 는 quote(sources)만 고친다. 다시 쓴 event(background 는 text)가 원래와 한 글자라도 다르면 `rejected: "event_changed"` 로 받지 않고 뺀다. 다시 써도 없으면 항목을 빼고 그 항목을 가리키던 `events` 사건을 `dropped`/`quote_verify_fail` 로 바꾼다(뒤 항목의 순번은 당긴다) |
 | `main_cause_rewrite` | 뺀 factor 에 `move` link 가 있었을 때 `{result: rewritten\|failed, dropped, before, after, cost, error}` |
 
 ### 운영 지표
