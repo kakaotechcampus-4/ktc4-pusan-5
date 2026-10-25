@@ -16,6 +16,7 @@ from app.services.stock_analysis.verify import (
     CHANGE_PCT_MISMATCH,
     COMMON_MOVE_WITH_MOVE_LINK,
     COUNT_OVER_CAP,
+    MARKET_LED_DIRECT_FACTOR,
     DIRECT_SOURCE_MISSING,
     STRENGTH_MISMATCH,
     MOVE_COMPARISON_ON_FLAT,
@@ -72,6 +73,7 @@ from app.services.stock_analysis.verify import (
     families_of,
     is_market_mover,
     market_led,
+    move_comparison,
     move_strength_cap,
     is_stock_specific,
     judge_layers,
@@ -1365,3 +1367,30 @@ def test_market_led_is_common_move_day_for_market_mover():
     assert market_led(hynix_22) is False            # 상대 층을 판단하는 날(차이 1.09)
     assert market_led(hyundai_22) is False and common_move(hyundai_22) is True
     assert market_led({**samsung_22, "market": None}) is None
+
+
+
+@pytest.mark.parametrize(("change", "median", "excess", "word"), [
+    (-4.03, -3.1, -0.93, "비슷하게"),   # 10-22 삼성전자: 상대 층을 판단하지 않는 날
+    (-4.2, -0.6, -3.6, "더"),
+    (-0.47, -1.77, 1.3, "덜"),           # 10-23 삼성전자
+    (2.35, -1.77, 4.12, "반대로"),       # 10-23 SK하이닉스
+    (8.24, 1.95, 6.29, "더"),
+    (1.8, 3.5, -1.7, "덜"),
+    (-1.8, None, None, None),
+])
+def test_move_comparison(change, median, excess, word):
+    assert move_comparison(with_market(change=change, peer_median_pct=median, excess_pct=excess)) == word
+
+
+def test_market_led_direct_factor_warns():
+    """market_led 날 등락 층 factor 의 이슈가 모두 relation: direct(종목 고유 재료)면 경고."""
+    samsung_22 = {**with_market(change=-4.03, peer_median_pct=-3.1, excess_pct=-0.93), "code": "005930"}
+    trace = [{"url": DIRECT_URL, "issues": [{"id": "i1", "issue": "노조 성과급", "relation": "direct"}]},
+             {"url": INDIRECT_URL, "issues": [{"id": "i2", "issue": "메타 현금흐름", "relation": "market"}]}]
+    direct_only = cause_report(change_pct=-4.03, events=[event(factor=0, issue_ids=["i1"])])
+    assert MARKET_LED_DIRECT_FACTOR in codes(check_warnings(direct_only, samsung_22, trace))
+    market = cause_report(change_pct=-4.03, events=[event(factor=0, issue_ids=["i2"])])
+    assert MARKET_LED_DIRECT_FACTOR not in codes(check_warnings(market, samsung_22, trace))
+    # market_led 가 아닌 날은 보지 않는다
+    assert MARKET_LED_DIRECT_FACTOR not in codes(check_warnings(direct_only, CAUSE, trace))

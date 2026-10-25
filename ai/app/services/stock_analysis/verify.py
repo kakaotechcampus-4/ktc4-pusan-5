@@ -172,6 +172,9 @@ QUOTE_MISSING_SUBJECT = "QUOTE_MISSING_SUBJECT"
 # 입력 common_move 가 true(대형주 전반이 함께 움직인 날)인데 등락 층 link 를 단 factor 가 있다. 그날은 등락 층
 # factor 를 세우지 않는다(프롬프트 7단계). 판정에는 넣지 않는다.
 COMMON_MOVE_WITH_MOVE_LINK = "COMMON_MOVE_WITH_MOVE_LINK"
+# 입력 market_led 가 true 인 날, 등락 층 link 를 가진 factor 의 이슈가 모두 relation: direct 다. 그날 등락 층은 시장·업종
+# 재료(relation: market·sector)만 쓰고 종목 고유 재료는 background 로 간다(프롬프트 7단계). issue_trace 가 있어야 본다.
+MARKET_LED_DIRECT_FACTOR = "MARKET_LED_DIRECT_FACTOR"
 # 입력 judge_layers.relative 가 false 이고 excess_pct 가 있는 날(대형주 전반과 비슷하게 움직인 날)인데
 # summary.move 가 "더/덜 내렸다·올랐다" 로 비교했다. 그날은 "대형주 전반과 비슷하게" 로 쓴다(프롬프트 4부 move).
 MOVE_COMPARISON_ON_FLAT = "MOVE_COMPARISON_ON_FLAT"
@@ -758,6 +761,29 @@ def move_strength_cap(payload: dict[str, Any]) -> str | None:
     return "partial"
 
 
+def move_comparison(payload: dict[str, Any]) -> str | None:
+    """입력 market.move_comparison. summary.move 에서 종목과 대형주 전반을 비교하는 말.
+
+        비슷하게  상대 층을 판단하지 않는 날(judge_layers.relative 가 false)
+        반대로    종목 등락률과 대형주 중간값의 부호가 반대
+        더        excess_pct 가 종목 등락과 같은 방향(더 올랐다·더 내렸다)
+        덜        excess_pct 가 종목 등락과 반대 방향(덜 올랐다·덜 내렸다)
+    excess_pct·peer_median_pct·change_pct 중 하나라도 없으면 None(비교하지 않는다).
+    """
+    market = payload.get("market")
+    if not isinstance(market, dict):
+        return None
+    change, peer, excess = (layer_pct(payload, "move"), _decimal(market.get("peer_median_pct")),
+                            layer_pct(payload, "relative"))
+    if change is None or peer is None or excess is None:
+        return None
+    if not judge_layers(payload)["relative"]:
+        return "비슷하게"
+    if change * peer < 0:
+        return "반대로"
+    return "더" if change * excess > 0 else "덜"
+
+
 def market_led(payload: dict[str, Any]) -> bool | None:
     """입력 market.market_led. 시장을 움직이는 종목이 대형주 전반과 함께 움직인 날인가.
 
@@ -1157,6 +1183,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     DIRECT_SOURCE_MISSING       factor 로 묶인 이슈에 direct 메시지에서 나온 것이 있는데 factor 출처에 direct 가 없다.
                                 issue_trace 가 있어야 본다.
     STRENGTH_MISMATCH           link strength 가 정의(출처 direct 여부)와 어긋난다.
+    MARKET_LED_DIRECT_FACTOR    market_led 날 등락 층 factor 의 이슈가 모두 relation: direct 다. issue_trace 가 있어야 본다.
     """
     if not isinstance(report, dict):
         return []
@@ -1191,12 +1218,30 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     if (isinstance(market, dict) and market.get("excess_pct") is not None and not judge_layers(payload)["relative"]
             and isinstance(move_text, str) and (m := _MORE_LESS.search(move_text))):
         out.append(_p(MOVE_COMPARISON_ON_FLAT, f"대형주 전반과 비슷하게 움직인 날인데 summary.move 에 {m.group(0)!r}"))
+    if market_led(payload) and isinstance(issue_trace, list):
+        out += _check_market_led_factors(report, issue_trace)
     if common_move(payload):
         moved = [i for i, f in enumerate(factors) if _has_layer(f, "move")]
         if moved:
             out.append(_p(COMMON_MOVE_WITH_MOVE_LINK,
                           f"common_move=true 인데 layer=move link 를 가진 factor {len(moved)}개 "
                           f"({', '.join(f'factors[{i}]' for i in moved)}), verdict={report.get('verdict')!r}"))
+    return out
+
+
+def _check_market_led_factors(report: dict[str, Any], issue_trace: list[Any]) -> list[str]:
+    """market_led 날 등락 층 factor 가 가리키는 사건의 issue_ids → relation. 모두 direct 면 경고. 이슈가 없으면 보지 않는다."""
+    relation = {i.get("id"): i.get("relation") for i in _trace_issues(issue_trace)}
+    events = report.get("events") if isinstance(report.get("events"), list) else []
+    out: list[str] = []
+    for i, f in enumerate(_factors(report)):
+        if not _has_layer(f, "move"):
+            continue
+        rels = [relation.get(x) for e in events if isinstance(e, dict) and e.get("placed") == "factors"
+                and e.get("factor") == i for x in (e.get("issue_ids") if isinstance(e.get("issue_ids"), list) else [])]
+        if rels and all(r == "direct" for r in rels):
+            out.append(_p(MARKET_LED_DIRECT_FACTOR,
+                          f"market_led=true 인데 factors[{i}] 등락 층 link 의 이슈가 모두 relation: direct 다(종목 고유 재료)"))
     return out
 
 
@@ -1484,6 +1529,7 @@ __all__ = [
     "layer_pct",
     "message_ids",
     "move_case",
+    "move_comparison",
     "move_strength_cap",
     "normalize_quote",
     "normalize_report",

@@ -72,6 +72,7 @@ from app.services.stock_analysis.verify import (
     market_led,
     message_ids,
     move_case,
+    move_comparison,
     move_strength_cap,
     split_messages,
 )
@@ -137,6 +138,7 @@ def model_input(payload: dict[str, Any]) -> dict[str, Any]:
         out["market"] = {**{k: v for k, v in market.items() if k != "move_case"},
                          "judge_layers": judge_layers(payload), "common_move": common_move(payload),
                          "move_strength_cap": move_strength_cap(payload), "market_led": market_led(payload),
+                         "move_comparison": move_comparison(payload),
                          "universe_weight": universe_weight(payload.get("code"))}
     return out
 

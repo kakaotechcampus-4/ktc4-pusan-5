@@ -150,8 +150,12 @@ runs/<YYYYMMDD-HHMMSS>/
 (예: 「갤럭시 부품주」)은 그 업종 단락으로 보지 않는다(프롬프트 1부).
 
 `market_led` — 시장을 움직이는 종목(`is_market_mover`)이 비중 예외가 없었다면 `common_move` 였을 날(부호 같음 + 대형주 몫 절반 이상 +
-상대 층 판단 안 함). 원인 찾기는 그대로이고 `main_cause` 를 "대형주 전반이 함께 오른(내린) 날" → 시장·업종 사건 → 종목 고유 재료 순서로
-쓴다(최대 4문장). 이날 시장 사건은 `summary.move` 에 쓰지 않는다. `verify.market_led`, `common_move` 와 같은 곳.
+상대 층 판단 안 함). 이날 등락 층 factor 는 시장·업종 재료(relation market·sector)로만 세우고 종목 고유 재료(relation direct)는 background 로 둔다
+(어기면 경고 `MARKET_LED_DIRECT_FACTOR`). `main_cause` 는 "대형주 전반이 함께 오른(내린) 날" → 시장·업종 사건 순서이고, 이날 시장 사건은
+`summary.move` 에 쓰지 않는다. `verify.market_led`, `common_move` 와 같은 곳.
+
+`move_comparison` — `summary.move` 비교 표현. 상대 층을 판단하지 않으면 "비슷하게", 종목·대형주 중간값 부호가 반대면 "반대로",
+excess 가 종목 등락과 같은 방향이면 "더", 반대 방향이면 "덜". 값이 없으면 null(`verify.move_comparison`).
 
 `move_strength_cap` — 등락 층 link strength 상한. 종목 등락 중 대형주 몫이 절반 이상이고 등락 층을 판단하는 날
 `"partial"`, 그 밖 `null`. 검증 `MOVE_SUFFICIENT_STOCK_ONLY` 와 같은 함수(`verify.move_strength_cap`)이고, 어기면

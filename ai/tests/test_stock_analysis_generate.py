@@ -61,6 +61,7 @@ async def test_prompt_and_input_are_sent(fake_complete):
     assert json.loads(user) == {**sent, "sector": None, "messages": numbered, "market_context": [], "flow": [],
                                 "market": {**CAUSE["market"], "judge_layers": {"move": True, "relative": True},
                                            "common_move": False, "move_strength_cap": None, "market_led": False,
+                                           "move_comparison": "더",
                                            "universe_weight": None}}
     assert "judge_layers" not in CAUSE["market"]
 
