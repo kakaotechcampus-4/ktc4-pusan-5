@@ -381,6 +381,87 @@ async def test_stock_only_material_is_capped_on_market_share_day(monkeypatch, tm
     assert wrapper["verdict_recomputed"][0] == {"key": "verdict", "model": verdict, "final": "partially_explained"}
 
 
+def _linked(payload, k, event, layers, quote=None):
+    """links 형식 factor. 출처는 messages[k], quote 를 주면 그 문장(원문에 없게 만들 때)."""
+    f = _factor(payload, k, "move", "sufficient")
+    src = {**f["sources"][0], **({"quote": quote} if quote else {})}
+    return {"event": event, "detail": "", "stance": f["stance"], "unconfirmed": False, "sources": [src],
+            "links": [{"layer": layer, "note": "n", "direction_match": True, "strength": "partial"} for layer in layers]}
+
+
+async def _run_with_dropped_factor(monkeypatch, tmp_path, factors, summary, repair_replies):
+    """+6.5%(중간값 -0.6%) 날. factors[0] 의 quote 가 원문에 없고 고쳐 써도 없어 빠진다. repair 쪽 LLM 응답은
+    repair_replies 순서다(첫 번째는 quote 고쳐 쓰기). 래퍼를 돌려준다."""
+    from app.services.stock_analysis import repair
+
+    path = FIXTURES / "sample_big_up.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    async def fake(system, user, **_):
+        report = report_for(json.loads(user))
+        report.update(factors=factors(payload), relative_verdict="partially_explained")
+        report["summary"].update(summary)
+        return json.dumps(report, ensure_ascii=False), {"cost": 0.01}
+
+    monkeypatch.setattr(gen, "complete", AsyncMock(side_effect=fake))
+    repair_llm = AsyncMock(side_effect=repair_replies)
+    monkeypatch.setattr(repair, "complete", repair_llm)
+    monkeypatch.setattr(collector, "endpoint", MagicMock(return_value=("url", "key")))
+    await collector.run(path, out_root=tmp_path)
+    assert repair_llm.await_count == len(repair_replies)
+    return json.loads(next((only_run_dir(tmp_path) / "parsed").glob("*.json")).read_text(encoding="utf-8"))
+
+
+# quote 고쳐 쓰기 응답. 같은 사건·같은 url 인데 quote 가 여전히 원문에 없어 factor 가 빠진다.
+_BIG_UP_URL = json.loads((FIXTURES / "sample_big_up.json").read_text(encoding="utf-8"))["messages"][0]["url"]
+_STILL_BAD = (json.dumps({"event": "없는 사건", "sources": [{"url": _BIG_UP_URL, "quote": "여전히 없는 문장"}]}),
+              {"cost": 0.01})
+
+
+def _relative_factors(payload):
+    # 빠지는 factor 는 상대 층만, 남는 factor 는 두 층에 답한다
+    return [_linked(payload, 0, "없는 사건", ["relative"], quote="원문에 없는 문장"),
+            _linked(payload, 0, "공급 계약", ["move", "relative"])]
+
+
+async def test_dropped_relative_factor_rewrites_relative_through_collector(monkeypatch, tmp_path):
+    wrapper = await _run_with_dropped_factor(
+        monkeypatch, tmp_path, _relative_factors, {"relative": "없는 사건과 공급 계약으로 더 올랐습니다."},
+        [_STILL_BAD, (json.dumps({"relative": "공급 계약으로 다른 대형주보다 더 올랐습니다."}), {"cost": 0.01})])
+    rewrite = wrapper["relative_rewrite"]
+    assert (rewrite["result"], rewrite["dropped"]) == ("rewritten", ["없는 사건"])
+    assert json.loads(wrapper["final_text"])["summary"]["relative"] == "공급 계약으로 다른 대형주보다 더 올랐습니다."
+    assert "main_cause_rewrite" not in wrapper  # 빠진 factor 에 등락 층 link 가 없었다
+    assert not [w for w in wrapper["verify_warnings"] if w.startswith("RELATIVE_STALE")]
+    assert wrapper["cost"] == pytest.approx(0.03)
+
+
+async def test_failed_relative_rewrite_warns_relative_stale_through_collector(monkeypatch, tmp_path):
+    from app.llm.client import LLMError
+
+    before = "없는 사건과 공급 계약으로 더 올랐습니다."
+    wrapper = await _run_with_dropped_factor(monkeypatch, tmp_path, _relative_factors, {"relative": before},
+                                             [_STILL_BAD, LLMError("HTTP 500")])
+    assert wrapper["relative_rewrite"]["result"] == "failed"
+    assert json.loads(wrapper["final_text"])["summary"]["relative"] == before
+    stale = [w for w in wrapper["verify_warnings"] if w.startswith("RELATIVE_STALE")]
+    assert len(stale) == 1 and "없는 사건" in stale[0] and "HTTP 500" in stale[0]
+
+
+async def test_dropped_move_factor_rewrites_main_cause_through_collector(monkeypatch, tmp_path):
+    def factors(payload):
+        return [_linked(payload, 0, "없는 사건", ["move"], quote="원문에 없는 문장"),
+                _linked(payload, 0, "공급 계약", ["move"])]
+
+    wrapper = await _run_with_dropped_factor(
+        monkeypatch, tmp_path, factors, {"main_cause": "없는 사건과 공급 계약 때문입니다.", "relative": None},
+        [_STILL_BAD, (json.dumps({"main_cause": "공급 계약 때문입니다."}), {"cost": 0.01})])
+    assert wrapper["main_cause_rewrite"]["result"] == "rewritten"
+    assert json.loads(wrapper["final_text"])["summary"]["main_cause"] == "공급 계약 때문입니다."
+    assert "relative_rewrite" not in wrapper
+    assert not [w for w in wrapper["verify_warnings"] if w.startswith("MAIN_CAUSE_STALE")]
+
+
 async def test_dropped_move_factor_without_rewrite_warns_main_cause_stale(monkeypatch, tmp_path):
     """quote 고쳐 쓰기와 main_cause 다시 쓰기가 둘 다 실패하면 factor 는 빠지고 MAIN_CAUSE_STALE 경고가
     붙는다. issue_trace 숫자(오른 메시지 / 입력 메시지)도 래퍼와 집계에 남는다."""
