@@ -69,6 +69,7 @@ from app.services.stock_analysis.verify import (
     check_schema,
     common_move,
     judge_layers,
+    market_led,
     message_ids,
     move_case,
     move_strength_cap,
@@ -135,7 +136,7 @@ def model_input(payload: dict[str, Any]) -> dict[str, Any]:
     if isinstance(market, dict):
         out["market"] = {**{k: v for k, v in market.items() if k != "move_case"},
                          "judge_layers": judge_layers(payload), "common_move": common_move(payload),
-                         "move_strength_cap": move_strength_cap(payload),
+                         "move_strength_cap": move_strength_cap(payload), "market_led": market_led(payload),
                          "universe_weight": universe_weight(payload.get("code"))}
     return out
 
@@ -437,6 +438,7 @@ def _base_wrapper(payload: dict[str, Any], *, prompt_hash: str, run_id: str) -> 
         "judge_layers": judge_layers(payload) if isinstance(payload.get("market"), dict) else None,
         "common_move": common_move(payload) if isinstance(payload.get("market"), dict) else None,
         "move_strength_cap": move_strength_cap(payload) if isinstance(payload.get("market"), dict) else None,
+        "market_led": market_led(payload) if isinstance(payload.get("market"), dict) else None,
         "sector": sector(payload.get("code")),
         "universe_weight": universe_weight(payload.get("code")),
     }

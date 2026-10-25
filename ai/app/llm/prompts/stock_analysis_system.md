@@ -34,7 +34,7 @@ JSON 하나를 받습니다.
               "excess_pct": <change_pct − peer_median_pct. 없으면 null>,
               "judge_layers": { "move": <true | false>, "relative": <true | false> },
               "common_move": <true | false | null>,
-              "move_strength_cap": <"partial" | null>,
+              "move_strength_cap": <"partial" | null>, "market_led": <true | false | null>,
               "universe_weight": <대형주 안 시총 비중 0~1 | null> },   // 없으면 null
   "messages":       [ <메시지> ],   // 근거가 되는 메시지
   "market_context": [ <메시지> ],   // 그날 시장 시황
@@ -69,6 +69,8 @@ JSON 하나를 받습니다.
 - **`market.judge_layers` 를 따릅니다.** `false` 인 층에는 link 를 달지 않고 그 층 판정은 `no_clear_cause` 입니다.
 - **`market.move_strength_cap` 을 따릅니다.** 쓰는 곳은 2부 5단계입니다.
 - **`market.common_move` 를 따릅니다.** `true` 면 그날은 등락 층 factor 를 세우지 않습니다(7단계).
+- **`market.market_led` 를 따릅니다.** 시장을 움직이는 종목이 대형주 전반과 함께 움직인 날이면 `true` 입니다. 원인 찾기는
+  다른 날과 같고, `summary.main_cause` 의 순서만 다릅니다(4부).
 - `sector` 는 이 종목의 업종 라벨 목록입니다(예: `["지주", "반도체"]`). 1-2 의 `relation: "sector"` 와 테마 동향의
   업종 단락을 가르는 기준입니다. 없으면 `null` 이고, 그때는 메시지에서 이 종목의 업종을 판단합니다.
   라벨 업종에 부품·소재를 납품하는 회사들을 묶은 단락(예: 라벨 "스마트폰" 에 대한 「갤럭시 부품주」)은 그 업종 단락이
@@ -398,7 +400,7 @@ JSON 하나를 받습니다.
 **`judge_layers.relative` 가 `false` 이고 `excess_pct` 가 있으면 "더/덜" 대신 "대형주 전반과 비슷하게 움직였습니다" 로 씁니다.**
 **%p 표기는 쓰지 않습니다.**
 `market_context` 에 시장 전체 매매 수치나 그날 시장을 움직인 사건이 있으면 한 문장으로 덧붙일 수 있습니다.
-단 `common_move` 가 `true` 인 날은 시장을 움직인 사건을 여기 쓰지 않고 `main_cause` 에 씁니다(매매 수치는 여기에).
+단 `common_move` 나 `market_led` 가 `true` 인 날은 시장을 움직인 사건을 여기 쓰지 않고 `main_cause` 에 씁니다(매매 수치는 여기에).
 
 **`main_cause`** — `layer: "move"` link 를 가진 `factors` 를 줄글로 요약합니다. 등락 층의 원인만 씁니다.
 - 최대 3문장입니다. 원인이 여럿이면 `partial` 이상인 것 위주로 묶어 3문장 안에 담습니다.
@@ -406,6 +408,9 @@ JSON 하나를 받습니다.
   ② `market_context` 나 `relation: "market"` 이슈에 그날 시장을 움직인 사건이 있으면 그 배경 한 문장
   (예: "AI 투자 수익성 우려와 중동 긴장이 시장 전반을 눌렀습니다."). 없으면 이 문장은 뺍니다.
   ③ "이 종목만의 원인은 따로 확인되지 않았습니다."
+- **`market.market_led` 가 `true` 면 이 순서로 씁니다(최대 4문장).** ① "대형주 전반이 함께 오른(내린) 날이었습니다."
+  ② 그날 시장·업종을 움직인 사건(`market_context`, `relation: "market"`·`"sector"` 인 등락 층 factor) ③ 이 종목 고유 재료
+  (출처가 `direct` 인 등락 층 factor). 원인이 없는 쪽은 뺍니다.
 - 그 층 link 의 `strength` 가 `insufficient` 인 factor 는 넣지 않습니다. "거의 설명되지 않는다" 고 스스로
   표시한 것을 원인이라 부르면 앞뒤가 맞지 않습니다.
 - `partial` 이상인 factor 가 하나도 없으면 그 사실을 적습니다.

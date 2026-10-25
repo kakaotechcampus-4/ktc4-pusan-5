@@ -149,6 +149,10 @@ runs/<YYYYMMDD-HHMMSS>/
 한 종목 라벨은 많아야 3~4개. 이름은 테마 동향에서 실제로 쓰는 업종명에 맞춘다. 라벨 업종의 부품·납품 업체를 묶은 단락
 (예: 「갤럭시 부품주」)은 그 업종 단락으로 보지 않는다(프롬프트 1부).
 
+`market_led` — 시장을 움직이는 종목(`is_market_mover`)이 비중 예외가 없었다면 `common_move` 였을 날(부호 같음 + 대형주 몫 절반 이상 +
+상대 층 판단 안 함). 원인 찾기는 그대로이고 `main_cause` 를 "대형주 전반이 함께 오른(내린) 날" → 시장·업종 사건 → 종목 고유 재료 순서로
+쓴다(최대 4문장). 이날 시장 사건은 `summary.move` 에 쓰지 않는다. `verify.market_led`, `common_move` 와 같은 곳.
+
 `move_strength_cap` — 등락 층 link strength 상한. 종목 등락 중 대형주 몫이 절반 이상이고 등락 층을 판단하는 날
 `"partial"`, 그 밖 `null`. 검증 `MOVE_SUFFICIENT_STOCK_ONLY` 와 같은 함수(`verify.move_strength_cap`)이고, 어기면
 judge 재시도 대상이다.
@@ -337,7 +341,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | --- | --- |
 | `json_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {json_status, asked_question, raw_text, usage, cost, duration_ms}}`. 정상 종료인데 JSON 이 깨졌을 때만 1회 재호출 |
 | `judge_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {problems, final_text, json_retry, usage, cost, duration_ms}}`. 열린 보고서가 `judge_layers` 가 false 인 층에 link·판정을 달았을 때(`FLAT_*`) 같은 입력으로 1회 재호출. 비용은 `cost` 에 합친다 |
-| `timeouts` | 시간 제한(`SUMMARY_TIMEOUT_SEC`, 기본 300초)에 걸린 시도마다 `{error, seconds}`. 스트림 끊김과 합쳐 1회 재시도하고, 다시 걸리면 `LLM_ERROR` |
+| `timeouts` | 시간 제한(`SUMMARY_TIMEOUT_SEC`, 기본 420초)에 걸린 시도마다 `{error, seconds}`. 스트림 끊김과 합쳐 1회 재시도하고, 다시 걸리면 `LLM_ERROR` |
 | `stream_interruptions` | 끊긴 시도마다 `{partial_chars, error}`. 끊김은 1회 재전송 |
 | `quote_repair` | quote 가 원문에 없던 factor·background 항목마다 `{kind, result: fixed\|dropped, failed, retry_failed, quotes, rejected, ...}`. repair 는 quote(sources)만 고친다. 다시 쓴 event(background 는 text)가 원래와 한 글자라도 다르면 `rejected: "event_changed"` 로 받지 않고 뺀다. 다시 써도 없으면 항목을 빼고 그 항목을 가리키던 `events` 사건을 `dropped`/`quote_verify_fail` 로 바꾼다(뒤 항목의 순번은 당긴다) |
 | `main_cause_rewrite` | 뺀 factor 에 `move` link 가 있었을 때 `{result: rewritten\|failed, dropped, before, after, cost, error}` |

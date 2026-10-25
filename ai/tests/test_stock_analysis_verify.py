@@ -71,6 +71,7 @@ from app.services.stock_analysis.verify import (
     common_move,
     families_of,
     is_market_mover,
+    market_led,
     move_strength_cap,
     is_stock_specific,
     judge_layers,
@@ -1350,3 +1351,17 @@ def test_market_mover_is_never_common_move_and_has_no_cap():
     assert move_strength_cap(samsung_22) is None and move_strength_cap(hynix_22) is None
     # 같은 숫자라도 시장을 움직이지 않는 종목이면 상한이 걸린다
     assert move_strength_cap({**hynix_22, "code": "999990"}) == "partial"
+
+
+
+def test_market_led_is_common_move_day_for_market_mover():
+    """시장을 움직이는 종목이 대형주와 함께 움직인 날. common_move 와 같은 조건이고 둘은 동시에 true 가 아니다."""
+    samsung_22 = {**with_market(change=-4.03, peer_median_pct=-3.1, excess_pct=-0.93), "code": "005930"}
+    samsung_21 = {**with_market(change=6.94, peer_median_pct=1.95, excess_pct=4.99), "code": "005930"}
+    hynix_22 = {**with_market(change=-4.19, peer_median_pct=-3.1, excess_pct=-1.09), "code": "000660"}
+    hyundai_22 = {**with_market(change=-3.06, peer_median_pct=-3.21, excess_pct=0.15), "code": "005380"}
+    assert market_led(samsung_22) is True and common_move(samsung_22) is False
+    assert market_led(samsung_21) is False          # 대형주 몫이 절반 미만
+    assert market_led(hynix_22) is False            # 상대 층을 판단하는 날(차이 1.09)
+    assert market_led(hyundai_22) is False and common_move(hyundai_22) is True
+    assert market_led({**samsung_22, "market": None}) is None

@@ -758,6 +758,20 @@ def move_strength_cap(payload: dict[str, Any]) -> str | None:
     return "partial"
 
 
+def market_led(payload: dict[str, Any]) -> bool | None:
+    """입력 market.market_led. 시장을 움직이는 종목이 대형주 전반과 함께 움직인 날인가.
+
+    is_market_mover 이고, 비중 예외가 없었다면 common_move 가 true 였을 날(_peer_share_half 이고 상대 층을 판단하지
+    않는 날)이다. 원인 찾기·factor·strength 규칙은 그대로이고, summary.main_cause 를 「대형주 전반이 함께 움직인 날」
+    과 시장·업종 사건으로 시작한 뒤 종목 고유 재료를 쓰게 하는 데만 쓴다(프롬프트 4부). common_move 와 같은 조건을
+    본다 — 둘은 동시에 true 가 될 수 없다. 알 수 없으면 None.
+    """
+    share = _peer_share_half(payload)
+    if share is None:
+        return None
+    return share and not judge_layers(payload)["relative"] and is_market_mover(payload)
+
+
 def common_move(payload: dict[str, Any]) -> bool | None:
     """입력 market.common_move. 대형주 전반이 이 종목과 같은 방향으로 함께 움직인 날인가.
 
@@ -1463,6 +1477,7 @@ __all__ = [
     "expected_direction_match",
     "families_of",
     "is_market_mover",
+    "market_led",
     "is_stock_specific",
     "issue_trace_stats",
     "judge_layers",

@@ -60,7 +60,7 @@ async def test_prompt_and_input_are_sent(fake_complete):
     numbered = [{"id": f"m{k + 1}", **m} for k, m in enumerate(CAUSE["messages"])]  # 근거 칸에 m1… id
     assert json.loads(user) == {**sent, "sector": None, "messages": numbered, "market_context": [], "flow": [],
                                 "market": {**CAUSE["market"], "judge_layers": {"move": True, "relative": True},
-                                           "common_move": False, "move_strength_cap": None,
+                                           "common_move": False, "move_strength_cap": None, "market_led": False,
                                            "universe_weight": None}}
     assert "judge_layers" not in CAUSE["market"]
 
