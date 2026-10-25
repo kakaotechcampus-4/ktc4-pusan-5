@@ -76,8 +76,9 @@ async def test_runs_folder_of_samples_and_writes_wrappers(fake_llm, tmp_path, ca
     assert result["cost"] == pytest.approx(0.10)
     assert result["skipped_llm"] == 1
     assert result["retried"] == {"json_retry": 0, "judge_retry": 2}
-    # market_share_down(-3.57, 대형주 -2.62)은 common_move 날인데 등락 층 원인을 달아 경고 1건
-    assert result["warning_counts"] == {"issue_trace_warnings": 0, "events_problems": 0, "verify_warnings": 1}
+    # market_share_down(-3.57, 대형주 -2.62)은 common_move 날인데 등락 층 원인을 달아 경고 1건,
+    # opposite(09-23)는 간접 출처만으로 sufficient 라 STRENGTH_MISMATCH 1건(실패 SIZE_FIT_OVER_CAP 와 함께)
+    assert result["warning_counts"] == {"issue_trace_warnings": 0, "events_problems": 0, "verify_warnings": 2}
     # 사유는 계열 단위다. 코드별 상세는 래퍼 verify_problems 에 있다
     assert result["reasons"] == {"COUNTER_WITHOUT_BACKGROUND": 3, "FLAT_MOVE": 2,
                                  "MOVE_SUFFICIENT_STOCK_ONLY": 2, "SIZE_FIT_OVER_CAP": 1}
@@ -138,7 +139,7 @@ async def test_runs_folder_of_samples_and_writes_wrappers(fake_llm, tmp_path, ca
             " SIZE_FIT_OVER_CAP=1") in out
     # 한 보고서가 여러 사유에 들어 사유 합(8)이 실패 보고서 수(5)보다 크다
     assert result["failed"] == 5 and sum(result["reasons"].values()) == 8
-    assert "경고 건수 (판정과 별도): issue_trace_warnings=0, events_problems=0, verify_warnings=1" in out
+    assert "경고 건수 (판정과 별도): issue_trace_warnings=0, events_problems=0, verify_warnings=2" in out
     assert "다시 부른 회차: json_retry=0, judge_retry=2 · LLM 없이 정형 보고서: 1" in out
     assert "경우별 건수: flat=2, opposite=3 (그중 counter 있음 3), normal=4, null=0" in out
     # 샘플 보고서에는 events 칸이 없다(정형 보고서만 빈 events). 판정과 따로 missing 으로 센다

@@ -173,6 +173,14 @@ COMMON_MOVE_WITH_MOVE_LINK = "COMMON_MOVE_WITH_MOVE_LINK"
 # 입력 judge_layers.relative 가 false 이고 excess_pct 가 있는 날(대형주 전반과 비슷하게 움직인 날)인데
 # summary.move 가 "더/덜 내렸다·올랐다" 로 비교했다. 그날은 "대형주 전반과 비슷하게" 로 쓴다(프롬프트 4부 move).
 MOVE_COMPARISON_ON_FLAT = "MOVE_COMPARISON_ON_FLAT"
+# factor 를 가리키는 사건의 이슈 중 입력에서 match: direct 인 메시지에서 나온 것이 있는데, factor 출처에 direct 메시지가
+# 없다. 같은 사건의 direct 메시지가 있으면 반드시 출처에 넣는다(프롬프트 4부 sources). 출처 선택으로 strength 가 바뀌는
+# 길을 막으려는 규칙이다. match 는 모델이 적은 값이 아니라 입력 값으로 본다.
+DIRECT_SOURCE_MISSING = "DIRECT_SOURCE_MISSING"
+# link strength 가 5단계 정의와 어긋난다. 정의: 출처 중 하나라도 direct(입력 match) 이고 방향이 맞으면 sufficient,
+# direct 가 없으면 partial. 상한(미확인, 대형주 몫이 절반 이상인 날 등락 층의 종목 고유 재료)이 걸리면 partial 이 맞다.
+# insufficient 는 판단 몫이라 보지 않는다.
+STRENGTH_MISMATCH = "STRENGTH_MISMATCH"
 # "더 내렸습니다", "덜 올랐고", "더 크게 하락" 처럼 더·덜 뒤에 등락을 말하는 말이 오는 꼴. 앞에 한글이 붙은 "더"(예: "보다더")
 # 는 보지 않고, "여기에 더해" 같은 쓰임은 뒤 말이 달라 걸리지 않는다.
 _MORE_LESS = re.compile(r"(?<![가-힣])(더|덜)\s*(크게\s*|많이\s*|적게\s*)?(내렸|내린|내려|올랐|오른|올라|하락|상승|빠졌|떨어)")
@@ -1099,6 +1107,9 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     QUOTE_MISSING_SUBJECT       첫 출처 quote 에 event 의 매매 주체·영문 고유명이 없다.
     COMMON_MOVE_WITH_MOVE_LINK  common_move 가 true 인 날 layer: move link 를 가진 factor 가 있다.
     MOVE_COMPARISON_ON_FLAT     judge_layers.relative 가 false(excess_pct 있음)인 날 summary.move 에 더·덜 비교가 있다.
+    DIRECT_SOURCE_MISSING       factor 로 묶인 이슈에 direct 메시지에서 나온 것이 있는데 factor 출처에 direct 가 없다.
+                                issue_trace 가 있어야 본다.
+    STRENGTH_MISMATCH           link strength 가 정의(출처 direct 여부)와 어긋난다.
     """
     if not isinstance(report, dict):
         return []
@@ -1120,9 +1131,12 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
         if source_kinds and all(k in RESULT_KINDS for k in source_kinds):
             out.append(_p(FACTOR_RESULT_SOURCES_ONLY,
                           f"factors[{i}] 출처가 모두 {'·'.join(RESULT_KINDS)} 메시지다({', '.join(source_kinds)})"))
+    matches = {m.get("url"): m.get("match") for m in _messages(payload)}
     if isinstance(issue_trace, list):
-        out += _check_theme_recap_sector(report, kinds, issue_trace,
-                                         {i: m.get("url") for i, m in message_ids(payload)})
+        id_to_url = {i: m.get("url") for i, m in message_ids(payload)}
+        out += _check_theme_recap_sector(report, kinds, issue_trace, id_to_url)
+        out += _check_direct_source(report, matches, issue_trace, id_to_url)
+    out += _check_strength(factors, matches, payload)
     out += _check_quote_subjects(factors, str(payload.get("stock") or ""))
     market = payload.get("market")
     summary = report.get("summary")
@@ -1136,6 +1150,44 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
             out.append(_p(COMMON_MOVE_WITH_MOVE_LINK,
                           f"common_move=true 인데 layer=move link 를 가진 factor {len(moved)}개 "
                           f"({', '.join(f'factors[{i}]' for i in moved)}), verdict={report.get('verdict')!r}"))
+    return out
+
+
+def _has_direct_source(factor: dict[str, Any], matches: dict[Any, Any]) -> bool:
+    return any(matches.get(s.get("url")) == "direct" for s in _sources(factor))
+
+
+def _check_direct_source(report: dict[str, Any], matches: dict[Any, Any], issue_trace: list[Any],
+                         id_to_url: dict[str, Any]) -> list[str]:
+    """factor 를 가리키는 사건의 issue_ids → 그 이슈가 나온 메시지 → 입력 match. direct 가 있는데 출처에 없으면 경고."""
+    issue_url = {i.get("id"): _trace_entry_url(m, id_to_url) for m in issue_trace if isinstance(m, dict)
+                 for i in (m.get("issues") if isinstance(m.get("issues"), list) else []) if isinstance(i, dict)}
+    events = report.get("events") if isinstance(report.get("events"), list) else []
+    out: list[str] = []
+    for i, f in enumerate(_factors(report)):
+        ids = [x for e in events if isinstance(e, dict) and e.get("placed") == "factors" and e.get("factor") == i
+               for x in (e.get("issue_ids") if isinstance(e.get("issue_ids"), list) else [])]
+        direct_urls = sorted({issue_url[x] for x in ids if matches.get(issue_url.get(x)) == "direct"})
+        if direct_urls and not _has_direct_source(f, matches):
+            out.append(_p(DIRECT_SOURCE_MISSING,
+                          f"factors[{i}] 이슈가 direct 메시지({', '.join(direct_urls)})에서 나왔는데 출처에 direct 가 없다"))
+    return out
+
+
+def _check_strength(factors: list[dict[str, Any]], matches: dict[Any, Any], payload: dict[str, Any]) -> list[str]:
+    """5단계 정의로 기대하는 strength 와 비교한다. sufficient ↔ partial 이 어긋난 것만 본다."""
+    share_cap = bool(_peer_share_half(payload)) and not _layer_is_quiet(payload, "move")[0]
+    out: list[str] = []
+    for i, f in enumerate(factors):
+        has_direct = _has_direct_source(f, matches)
+        all_direct = bool(_sources(f)) and all(matches.get(s.get("url")) == "direct" for s in _sources(f))
+        for k, link in enumerate(_links(f)):
+            strength, layer = link.get("strength"), link.get("layer")
+            capped = f.get("unconfirmed") is True or (layer == "move" and share_cap and all_direct)
+            if strength == "partial" and has_direct and not capped:
+                out.append(_p(STRENGTH_MISMATCH, f"factors[{i}].links[{k}] layer={layer} 출처에 direct 가 있는데 partial"))
+            elif strength == CAPPED_SIZE_FIT and not has_direct:
+                out.append(_p(STRENGTH_MISMATCH, f"factors[{i}].links[{k}] layer={layer} 출처에 direct 가 없는데 sufficient"))
     return out
 
 

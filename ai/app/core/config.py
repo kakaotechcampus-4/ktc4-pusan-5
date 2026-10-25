@@ -41,7 +41,9 @@ class Settings(BaseSettings):
     summary_max_tokens: int = 8000
     # 기본 모델은 고강도 추론이 기본값이다. 짧은 요약에는 low로 시간을 제한한다.
     summary_reasoning_effort: str | None = "low"
-    summary_timeout_sec: float = 180.0
+    # 호출 전체 시간 제한. 종목 보고서는 입력이 크고(메시지 50~70건) 추론이 길어 180초에서 정상 호출도
+    # 175초까지 걸리고 큰 입력이 연달아 끊겼다(2026-10-24). 300초로 둔다.
+    summary_timeout_sec: float = 300.0
 
     # LLM 을 어디로 보내나. **기본은 openrouter 다** — 이 줄이 없는 .env 는 동작이 안 바뀐다.
     #   openrouter  OPENROUTER_API_KEY 로 보낸다. 비용은 응답의 usage.cost 를 쓴다

@@ -16,6 +16,8 @@ from app.services.stock_analysis.verify import (
     CHANGE_PCT_MISMATCH,
     COMMON_MOVE_WITH_MOVE_LINK,
     COUNT_OVER_CAP,
+    DIRECT_SOURCE_MISSING,
+    STRENGTH_MISMATCH,
     MOVE_COMPARISON_ON_FLAT,
     COUNTER_WITHOUT_BACKGROUND,
     DATE_MISMATCH,
@@ -1279,3 +1281,45 @@ def test_more_less_comparison_on_flat_day_warns(move, warned):
     assert (MOVE_COMPARISON_ON_FLAT in codes(check_warnings(r, flat))) is warned
     # 상대 층을 판단하는 날(차이가 큰 날)은 더·덜 비교가 정상이다
     assert MOVE_COMPARISON_ON_FLAT not in codes(check_warnings(cause_report(summary=summary(move=move)), CAUSE))
+
+
+# --- strength 정의(출처 direct + 방향)와 direct 출처 누락 경고 ------------------------------
+
+
+@pytest.mark.parametrize(("sources", "strength", "warned"), [
+    ([source()], "partial", True),                                         # direct 가 있는데 partial
+    ([source()], "sufficient", False),
+    ([source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")], "sufficient", True),  # direct 가 없는데 sufficient
+    ([source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")], "partial", False),
+    ([source(INDIRECT_URL, INDIRECT_QUOTE, "indirect"), source()], "partial", True),  # 하나라도 direct 면 sufficient
+    ([source()], "insufficient", False),                                   # insufficient 는 판단 몫이라 보지 않는다
+])
+def test_strength_mismatch(sources, strength, warned):
+    r = cause_report(factors=[factor(strength, sources)])
+    assert (STRENGTH_MISMATCH in codes(check_warnings(r, CAUSE))) is warned
+
+
+def test_strength_mismatch_uses_input_match_and_caps():
+    # 모델이 match 를 direct 로 잘못 적어도 입력 값(indirect)으로 본다
+    wrong = [{**source(INDIRECT_URL, INDIRECT_QUOTE, "indirect"), "match": "direct"}]
+    assert STRENGTH_MISMATCH in codes(check_warnings(cause_report(factors=[factor("sufficient", wrong)]), CAUSE))
+    # 미확인 정보는 direct 여도 partial 이 맞다
+    r = cause_report(factors=[factor("partial", unconfirmed=True)])
+    assert STRENGTH_MISMATCH not in codes(check_warnings(r, CAUSE))
+    # 대형주 몫이 절반 이상인 날 등락 층의 종목 고유 재료는 partial 이 맞다(-1.8 / -3.2)
+    r = cause_report(change_pct=-1.8, factors=[factor("partial", [msg_source(MARKET, 0)])])
+    assert MARKET["messages"][0]["match"] == "direct"
+    assert STRENGTH_MISMATCH not in codes(check_warnings(r, MARKET))
+
+
+def test_direct_source_missing():
+    """factor 로 묶인 이슈가 direct 메시지에서 나왔는데 출처에는 간접 메시지만 있다."""
+    trace = [{"id": "m1", "issues": [{"id": "i1", "issue": "실적", "relation": "direct"}], "none_count": 0},
+             {"id": "m2", "issues": [{"id": "i2", "issue": "업황", "relation": "sector"}], "none_count": 0}]
+    assert [m["url"] for m in CAUSE["messages"]] == [DIRECT_URL, INDIRECT_URL]
+    indirect_only = [factor("partial", [source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")])]
+    r = cause_report(factors=indirect_only, events=[event(factor=0, issue_ids=["i1", "i2"])])
+    assert DIRECT_SOURCE_MISSING in codes(check_warnings(r, CAUSE, trace))
+    # 이슈가 간접 메시지에서만 나왔으면 경고하지 않는다
+    r = cause_report(factors=indirect_only, events=[event(factor=0, issue_ids=["i2"])])
+    assert DIRECT_SOURCE_MISSING not in codes(check_warnings(r, CAUSE, trace))

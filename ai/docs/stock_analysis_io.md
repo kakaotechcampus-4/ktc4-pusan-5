@@ -255,7 +255,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verdict`, `relative_verdict` | `explained`, `partially_explained`, `no_clear_cause` | 그 층 link 중 `sufficient` 1개 이상 → `explained`, link 는 있으나 전부 `partial`/`insufficient` → `partially_explained`, link 없음 → `no_clear_cause` |
 | `factors[].stance` | `bullish`, `bearish`, `neutral` | |
 | `links[].layer` | `move`, `relative` | |
-| `links[].strength` | `sufficient`, `partial`, `insufficient` | 간접(`match: indirect`)만 근거이거나 `unconfirmed: true` 면 `partial` 이 상한 |
+| `links[].strength` | `sufficient`, `partial`, `insufficient` | 출처 중 하나라도 direct 이고 방향이 맞으면 `sufficient`, direct 가 없으면 `partial`. 반대 재료는 낮추지 않는다(counter 로). `unconfirmed: true` 와 대형주 몫이 절반 이상인 날 등락 층 종목 고유 재료는 `partial` 이 상한 |
 | `sources[].match` | `direct`, `indirect` | |
 | `events[].placed` | `factors`, `background`, `dropped` | 모델은 `factors`·`background` 만. `dropped` 는 러너가 quote 실패로 뺀 항목 |
 | `events[].reason` | `quote_verify_fail` | `dropped` 일 때만. 러너만 쓴다(repair) |
@@ -314,7 +314,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verify_status` | `passed` / `failed`. 스키마·규칙·근거 중 하나라도 걸리면 failed |
 | `verify_problems` | `"<코드>: <상세>"` 문자열 배열 (예: `QUOTE_NOT_IN_SOURCE: factors[0].sources[0] ...`) |
 | `events_status` / `events_problems` | `events` 칸 검사. `passed` / `failed` / `missing`. 판정과 별개. 형식(`SCHEMA_*`, `EVENT_REASON_MISMATCH`)과 실제 칸 대조: `EVENT_BACKGROUND_REF_MISSING`·`_REF_DUPLICATE`·`_UNREFERENCED`(background 항목과 사건이 하나씩 짝), `EVENT_FACTOR_COUNT`·`_REF_MISSING`·`_DUPLICATE`, `ISSUE_ID_DUPLICATE` |
-| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`, `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교) |
+| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`, `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 direct 메시지에서 나왔는데 출처에 direct 가 없음), `STRENGTH_MISMATCH`(strength 가 정의와 어긋남 — 출처에 direct(입력 match)가 있는데 partial, 없는데 sufficient. 미확인·대형주 몫 상한은 예외) |
 | `issue_trace_warnings` / `issue_trace_stats` | `ISSUE_TRACE_MISSING_URL`(messages 칸 누락)·`ISSUE_ID_UNKNOWN` 경고와 집계(`messages_traced`, `messages_total`, `relations`, `issues_used`) |
 
 ### 재시도·고쳐 쓰기 기록
@@ -323,7 +323,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | --- | --- |
 | `json_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {json_status, asked_question, raw_text, usage, cost, duration_ms}}`. 정상 종료인데 JSON 이 깨졌을 때만 1회 재호출 |
 | `judge_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {problems, final_text, json_retry, usage, cost, duration_ms}}`. 열린 보고서가 `judge_layers` 가 false 인 층에 link·판정을 달았을 때(`FLAT_*`) 같은 입력으로 1회 재호출. 비용은 `cost` 에 합친다 |
-| `timeouts` | 시간 제한(`SUMMARY_TIMEOUT_SEC`, 기본 180초)에 걸린 시도마다 `{error, seconds}`. 스트림 끊김과 합쳐 1회 재시도하고, 다시 걸리면 `LLM_ERROR` |
+| `timeouts` | 시간 제한(`SUMMARY_TIMEOUT_SEC`, 기본 300초)에 걸린 시도마다 `{error, seconds}`. 스트림 끊김과 합쳐 1회 재시도하고, 다시 걸리면 `LLM_ERROR` |
 | `stream_interruptions` | 끊긴 시도마다 `{partial_chars, error}`. 끊김은 1회 재전송 |
 | `quote_repair` | quote 가 원문에 없던 factor·background 항목마다 `{kind, result: fixed\|dropped, failed, retry_failed, quotes, ...}`. 다시 써도 없으면 항목을 빼고 그 항목을 가리키던 `events` 사건을 `dropped`/`quote_verify_fail` 로 바꾼다(뒤 항목의 순번은 당긴다) |
 | `main_cause_rewrite` | 뺀 factor 에 `move` link 가 있었을 때 `{result: rewritten\|failed, dropped, before, after, cost, error}` |
