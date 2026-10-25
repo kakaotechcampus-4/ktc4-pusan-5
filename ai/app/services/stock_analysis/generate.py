@@ -41,7 +41,7 @@ import json
 import logging
 import re
 import time
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -92,6 +92,8 @@ _FENCE = re.compile(r"```[A-Za-z]*[ \t]*\n(.*?)```", re.DOTALL)
 # Windows 파일명에 못 쓰는 글자와 공백. run_id 는 파일명이 된다.
 _UNSAFE = re.compile(r'[<>:"/\\|?*\s]+')
 _HHMM = re.compile(r"(\d{1,2}):(\d{2})")
+# check_input 의 target_date 형식. cutoff 도 이 꼴로 시작해야 한다(날짜만 있거나 시각만 있는 값을 막는다).
+_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 # 스트림이 중간에 끊기거나 시간 제한에 걸렸을 때 다시 보내는 횟수(둘을 합쳐 센다). 대개 일시적인 연결·
 # 서버 지연이라 한 번은 다시 보내 볼 만하지만, 같은 입력이 거듭 그러면 입력이나 프록시 쪽 문제라 더 보내도 돈만 쓴다.
 STREAM_RETRIES = 1
@@ -107,16 +109,44 @@ def prompt_sha256() -> str:
 
 
 def check_input(payload: Any) -> list[str]:
-    """호출 전에 입력을 본다. 돈을 쓰고 나서 입력이 깨져 있었다는 걸 알면 헛돈다."""
+    """호출 전에 입력을 본다. 돈을 쓰고 나서 입력이 깨져 있었다는 걸 알면 헛돈다.
+
+    target_date 는 YYYY-MM-DD, cutoff 는 시간대가 붙은 ISO 8601 시각이어야 한다. target_date 는 run_id 를 거쳐
+    파일 이름이 되므로 형식이 틀린 값(예: "/", "..")이 경로에 들어가기 전에 막는다.
+    """
     if not isinstance(payload, dict):
         return [f"입력이 객체가 아니다: {type(payload).__name__}"]
     problems = [f"{key} 가 없다" for key in REQUIRED_INPUT if key not in payload]
     change = payload.get("change_pct")
     if "change_pct" in payload and (isinstance(change, bool) or not isinstance(change, (int, float))):
         problems.append(f"change_pct 는 숫자여야 한다: {change!r}")
+    if "target_date" in payload and not _is_date(payload["target_date"]):
+        problems.append(f"target_date 는 YYYY-MM-DD 여야 한다: {payload['target_date']!r}")
+    if "cutoff" in payload and not _is_aware_datetime(payload["cutoff"]):
+        problems.append(f"cutoff 는 시간대가 붙은 ISO 8601 시각이어야 한다(예: 2026-10-21T15:30:00+09:00): "
+                        f"{payload['cutoff']!r}")
     if "messages" in payload and not isinstance(payload["messages"], list):
         problems.append("messages 는 배열이어야 한다")
     return problems
+
+
+def _is_date(value: Any) -> bool:
+    if not isinstance(value, str) or not _DATE.fullmatch(value):
+        return False
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _is_aware_datetime(value: Any) -> bool:
+    if not isinstance(value, str) or not _DATE.match(value):
+        return False
+    try:
+        return datetime.fromisoformat(value).tzinfo is not None
+    except ValueError:
+        return False
 
 
 def model_input(payload: dict[str, Any]) -> dict[str, Any]:
@@ -444,6 +474,8 @@ def _base_wrapper(payload: dict[str, Any], *, prompt_hash: str, run_id: str) -> 
         "common_move": common_move(payload) if isinstance(payload.get("market"), dict) else None,
         "move_strength_cap": move_strength_cap(payload) if isinstance(payload.get("market"), dict) else None,
         "market_led": market_led(payload) if isinstance(payload.get("market"), dict) else None,
+        "move_comparison": move_comparison(payload) if isinstance(payload.get("market"), dict) else None,
+        "main_cause_sentences": main_cause_sentences(payload),
         "sector": sector(payload.get("code")),
         "universe_weight": universe_weight(payload.get("code")),
     }

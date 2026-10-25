@@ -258,6 +258,8 @@ def test_make_run_id():
 
 def test_check_input():
     assert gen.check_input(CAUSE) == []
+    assert gen.check_input({**CAUSE, "target_date": "2026-9-18"}) == ["target_date 는 YYYY-MM-DD 여야 한다: '2026-9-18'"]
+    assert [p.split(" ")[0] for p in gen.check_input({**CAUSE, "cutoff": "2026-09-18T15:30:00"})] == ["cutoff"]
     assert gen.check_input([]) == ["입력이 객체가 아니다: list"]
     broken = {k: v for k, v in CAUSE.items() if k != "code"} | {"change_pct": "-4.2"}
     assert gen.check_input(broken) == ["code 가 없다", "change_pct 는 숫자여야 한다: '-4.2'"]

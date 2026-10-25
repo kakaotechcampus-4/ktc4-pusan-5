@@ -10,6 +10,7 @@ import pytest
 
 from app.collectors import stock_analysis as collector
 from app.services.stock_analysis import generate as gen
+from app.services.stock_analysis import repair as collector_repair
 from app.services.stock_analysis.verify import code_of, move_case
 
 FIXTURES = Path(__file__).parent / "fixtures" / "stock_analysis"
@@ -220,6 +221,59 @@ async def test_broken_input_stops_before_any_call(fake_llm, tmp_path):
     with pytest.raises(ValueError, match="b.json"):
         await collector.run(inputs, out_root=tmp_path / "runs")
     fake_llm.assert_not_awaited()
+
+
+@pytest.mark.parametrize("field, value", [
+    ("target_date", "2026/09/18"),
+    ("target_date", "../2026-09-18"),
+    ("target_date", "2026-13-01"),
+    ("cutoff", "2026-09-18T15:30:00"),  # 시간대 없음
+    ("cutoff", "15:30"),
+    ("cutoff", "2026-09-18"),
+])
+async def test_bad_date_or_cutoff_stops_before_llm(fake_llm, tmp_path, field, value):
+    inputs = tmp_path / "in"
+    inputs.mkdir()
+    payload = json.loads((FIXTURES / "sample_cause.json").read_text(encoding="utf-8"))
+    (inputs / "a.json").write_text(json.dumps({**payload, field: value}, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(ValueError, match=field):
+        await collector.run(inputs, out_root=tmp_path / "runs")
+    fake_llm.assert_not_awaited()
+    assert not (tmp_path / "runs").exists()
+
+
+@pytest.mark.parametrize("n_factors, n_background", [(5, 0), (1, 7)])
+async def test_over_cap_report_skips_repair_and_warns(monkeypatch, tmp_path, n_factors, n_background):
+    """factor 5개 또는 background 7개. quote 가 틀린 항목이 있어도 고쳐 쓰지 않고 경고와 repair_limit 을 남긴다."""
+    path = FIXTURES / "sample_cause.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    bad = _factor(payload, 0, "move", "sufficient")
+    bad["sources"][0]["quote"] = "원문에 없는 문장"
+
+    async def fake(system, user, **_):
+        r = report_for(json.loads(user))
+        r["factors"] = [bad] * n_factors
+        r["background"]["bearish"] = [{"text": "t", "sources": bad["sources"]}] * n_background
+        return json.dumps(r, ensure_ascii=False), {"cost": 0.01}
+
+    monkeypatch.setattr(gen, "complete", AsyncMock(side_effect=fake))
+    repair_llm = AsyncMock()
+    monkeypatch.setattr(collector_repair, "complete", repair_llm)
+    monkeypatch.setattr(collector, "endpoint", MagicMock(return_value=("url", "key")))
+    await collector.run(path, out_root=tmp_path)
+    repair_llm.assert_not_awaited()
+    wrapper = json.loads(next((only_run_dir(tmp_path) / "parsed").glob("*.json")).read_text(encoding="utf-8"))
+    assert wrapper["repair_limit"] == {"hit": True, "factors": n_factors, "background": n_background, "max_items": 10}
+    assert "quote_repair" not in wrapper
+    assert [w for w in wrapper["verify_warnings"] if w.startswith("REPAIR_SKIPPED_OVER_CAP")]
+    assert wrapper["verify_status"] == "failed"  # 틀린 quote 가 남아 QUOTE_NOT_IN_SOURCE
+
+
+async def test_run_dir_has_unique_suffix(fake_llm, tmp_path):
+    await collector.run(FIXTURES / "sample_cause.json", out_root=tmp_path)
+    await collector.run(FIXTURES / "sample_cause.json", out_root=tmp_path)
+    names = sorted(p.name for p in tmp_path.iterdir())
+    assert len(names) == 2 and all(len(n.split("-")) == 3 and len(n.split("-")[2]) == 8 for n in names)
 
 
 async def test_same_case_twice_gets_separate_run_ids(fake_llm, tmp_path):

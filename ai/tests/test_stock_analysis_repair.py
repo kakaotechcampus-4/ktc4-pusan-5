@@ -208,6 +208,53 @@ async def test_main_cause_is_left_alone_without_dropped_move_factor(fake_complet
     assert fake_complete.await_count == 1
 
 
+def relative_report():
+    """factors[0] 은 quote 가 원문에 없는 relative factor, factors[1] 은 멀쩡한 move factor."""
+    r = cause_report()
+    r["factors"][0]["links"] = [{"layer": "relative", "strength": "partial"}]
+    r["relative_verdict"] = "partially_explained"
+    r["summary"]["relative"] = "행정명령 때문에 다른 대형주보다 더 올랐습니다."
+    return r
+
+
+async def test_relative_is_rewritten_when_relative_factor_dropped_and_another_remains(fake_complete):
+    r = relative_report()
+    r["factors"][1]["links"].append({"layer": "relative", "strength": "partial", "note": "n"})
+    fake_complete.side_effect = answers(json.dumps({"event": "x", "sources": [source("없는 문장")]}),
+                                        json.dumps({"relative": "다른 사건으로 더 올랐습니다."}))
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    assert await repair.rewrite_summary(r, records, "main_cause", stream=True) is None
+    rewrite = await repair.rewrite_summary(r, records, "relative", stream=True, sentences=3)
+    assert rewrite["result"] == "rewritten"
+    assert r["summary"]["relative"] == "다른 사건으로 더 올랐습니다."
+    assert fake_complete.await_args_list[1].args[0] == repair.RELATIVE_SYSTEM
+    sent = json.loads(fake_complete.await_args_list[1].args[1])
+    assert [f["event"] for f in sent["remaining_factors"]] == ["다른 사건"]
+    assert sent["relative_verdict"] == "partially_explained" and sent["max_sentences"] == 3
+
+
+async def test_relative_is_cleared_without_llm_when_no_relative_factor_remains(fake_complete):
+    r = relative_report()
+    fake_complete.return_value = (json.dumps({"event": "x", "sources": [source("없는 문장")]}), USAGE)
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    rewrite = await repair.rewrite_summary(r, records, "relative", stream=True)
+    assert rewrite["result"] == "cleared" and rewrite["after"] is None
+    assert r["summary"]["relative"] is None
+    assert fake_complete.await_count == 1  # quote 고쳐 쓰기 한 번뿐
+
+
+@pytest.mark.parametrize("factors, background", [(5, 0), (0, 7)])
+async def test_over_cap_report_is_not_repaired(fake_complete, factors, background):
+    r = report("규제 대상으로 장비로 명시")
+    r["factors"] = [dict(r["factors"][0]) for _ in range(factors)]
+    r["background"] = {"bullish": [], "neutral": [],
+                       "bearish": [{"text": "t", "sources": [source("없는 문장")]} for _ in range(background)]}
+    assert repair.repair_limit(r) == {"hit": True, "factors": factors, "background": background, "max_items": 10}
+    assert await repair.repair_quotes(r, PAYLOAD, stream=True) == []
+    fake_complete.assert_not_awaited()
+    assert len(r["factors"]) == factors  # 넘친 항목은 그대로 남는다
+
+
 def bg_report(quote, counter="반대 재료가 있었습니다."):
     r = report("규제 대상 장비로 명시")  # factor 는 둘 다 통과
     r["summary"] = {"main_cause": "c", "counter": counter}
@@ -247,13 +294,28 @@ async def test_background_second_failure_drops_item_clears_counter_and_passes(fa
     assert "COUNTER_WITHOUT_BACKGROUND" not in {code_of(p) for p in check_rules(r, {"change_pct": 2.0})}
 
 
-async def test_counter_is_kept_when_other_background_items_remain(fake_complete):
+@pytest.mark.parametrize("change", [None, -2.0])
+async def test_counter_is_kept_when_dropped_item_is_not_in_counter_slot(fake_complete, change):
+    """하락일 counter 는 bullish 칸을 요약한다. bearish 항목이 빠져도 다른 항목이 남으면 counter 는 그대로다.
+    등락률을 모르면(None) 칸을 가를 수 없어 background 가 모두 빌 때만 비운다."""
     r = bg_report("규제 대상으로 장비로 명시")
     r["background"]["neutral"].append({"text": "다른 재료", "sources": [source("BESS를 규제 대상 장비로")]})
     fake_complete.side_effect = LLMError("HTTP 500")
-    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    records = await repair.repair_quotes(r, {**PAYLOAD, "change_pct": change}, stream=True)
     assert records[0]["result"] == "dropped" and "counter_cleared" not in records[0]
     assert r["summary"]["counter"] == "반대 재료가 있었습니다."
+    assert len(r["background"]["neutral"]) == 1
+
+
+async def test_counter_is_cleared_when_item_in_counter_slot_is_dropped(fake_complete):
+    """상승일(+2.0) counter 는 bearish 칸을 요약한다. 그 칸 항목이 빠지면 다른 칸 항목이 남아도 counter 는 null 이다."""
+    r = bg_report("규제 대상으로 장비로 명시")
+    r["background"]["neutral"].append({"text": "다른 재료", "sources": [source("BESS를 규제 대상 장비로")]})
+    fake_complete.side_effect = LLMError("HTTP 500")
+    records = await repair.repair_quotes(r, {**PAYLOAD, "change_pct": 2.0}, stream=True)
+    assert records[0]["result"] == "dropped" and records[0]["slot"] == "bearish"
+    assert records[0]["counter_cleared"] is True
+    assert r["summary"]["counter"] is None
     assert len(r["background"]["neutral"]) == 1
 
 

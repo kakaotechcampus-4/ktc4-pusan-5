@@ -8,8 +8,10 @@
 | --- | --- |
 | 시스템 프롬프트 (입력·출력 형식의 원본) | [app/llm/prompts/stock_analysis_system.md](../app/llm/prompts/stock_analysis_system.md) |
 | 생성·래핑 | [app/services/stock_analysis/generate.py](../app/services/stock_analysis/generate.py) |
-| quote 고쳐 쓰기·main_cause 재작성 | [app/services/stock_analysis/repair.py](../app/services/stock_analysis/repair.py) |
-| 스키마·규칙·근거 검증 | [app/services/stock_analysis/verify.py](../app/services/stock_analysis/verify.py) |
+| quote 고쳐 쓰기·main_cause·relative 다시 쓰기 | [app/services/stock_analysis/repair.py](../app/services/stock_analysis/repair.py) |
+| 러너가 정하는 칸(strength·판정 재계산, main_cause 고정 문장) | [app/services/stock_analysis/finalize.py](../app/services/stock_analysis/finalize.py) |
+| 스키마·규칙·근거 검증, 러너 계산 칸(judge_layers 등) | [app/services/stock_analysis/verify.py](../app/services/stock_analysis/verify.py) |
+| 종목 표(업종 라벨·유니버스 비중) | [app/services/stock_analysis/stock_meta.json](../app/services/stock_analysis/stock_meta.json) · [stock_meta.py](../app/services/stock_analysis/stock_meta.py) |
 | 러너(CLI) | [app/collectors/stock_analysis.py](../app/collectors/stock_analysis.py) |
 | 샘플 입력 | [tests/fixtures/stock_analysis/](../tests/fixtures/stock_analysis/) |
 
@@ -20,9 +22,11 @@
 ## 전체 흐름
 
 ```
-입력 JSON ──▶ ③ generate ──▶ ④ 래퍼 ──▶ repair ──▶ ⑤ verify ──▶ parsed/<run_id>.json ──▶ (--load) ⑥ DB
-            (LLM 1회,          (실행 기록)  (quote 실패 항목만
-             JSON 깨지면 1회 재시도)          다시 쓰게 함)
+입력 JSON ──▶ check_input ──▶ ③ generate ──▶ ④ 래퍼 ──▶ repair ──▶ finalize ──▶ ⑤ verify ──▶ parsed/<run_id>.json ──▶ (--load) ⑥ DB
+              (형식이 틀리면    (LLM 1회.         (실행 기록) (quote 실패 항목만   (strength·판정
+               한 건도 안 부름)  JSON 깨짐·판단 층               다시 쓰게 함. 빠진    재계산, main_cause
+                                위반이면 1회 재호출)              근거로 main_cause·   고정 문장)
+                                                                relative 다시 쓰기)
 ```
 
 ```bash
@@ -40,7 +44,7 @@ uv run python -m app.collectors.stock_analysis --input case.json --load
 실행 하나가 디렉터리 하나다.
 
 ```
-runs/<YYYYMMDD-HHMMSS>/
+runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해도 겹치지 않는다. 이미 있으면 멈춘다
   inputs/<run_id>.json   받은 입력 바이트 그대로
   parsed/<run_id>.json   실행 기록 래퍼 (아래 「래퍼」)
 ```
@@ -68,7 +72,8 @@ runs/<YYYYMMDD-HHMMSS>/
     "peer_median_pct": -0.6,                  // 이 종목을 뺀 비교 대형주 등락률 중간값. 없으면 null
     "peer_up": 5, "peer_down": 13, "peer_total": 19,
     "excess_pct": -3.6                        // change_pct − peer_median_pct. 없으면 null
-    // "judge_layers"·"common_move" 는 넣지 않아도 된다. 러너가 계산해 덮어쓴다(아래)
+    // judge_layers·common_move·move_strength_cap·market_led·move_comparison·universe_weight 는 넣지 않아도 된다.
+    // 러너가 계산해 덮어쓴다(아래)
   },
   "messages": [                               // 필수. 배열. 이미 종목·시간으로 걸러진 상태
     {
@@ -103,6 +108,8 @@ runs/<YYYYMMDD-HHMMSS>/
 
 - `stock`, `code`, `target_date`, `cutoff`, `change_pct`, `messages` 가 있어야 한다.
 - `change_pct` 는 숫자(bool 제외), `messages` 는 배열.
+- `target_date` 는 `YYYY-MM-DD`(실제 날짜), `cutoff` 는 **시간대가 붙은** ISO 8601 시각(`2026-09-18T15:30:00+09:00`).
+  `target_date` 는 run_id 를 거쳐 파일 이름이 되므로 형식이 틀리면 경로에 들어가기 전에 막는다.
 
 - `kind`·`after_prev_close`·`first_seen_kst` 는 입력 생성 단계가 붙인다. 러너 `check_input()` 은 보지 않는다.
   그날 시장 시황·테마 동향 메시지가 종목과 상관없이 `match: indirect` 로 최대 3건 함께 들어온다.
@@ -122,8 +129,10 @@ runs/<YYYYMMDD-HHMMSS>/
 
   `messages` 칸 메시지에는 입력 순서대로 `id`(`m1`…`mN`)를 붙인다(`verify.message_ids`). `issue_trace` 는
   이 칸만 `m1` 부터 순서대로 N개 나열하고, 누락 검사(`ISSUE_TRACE_MISSING_URL`)도 id 기준이다.
-- **`market` 에 계산 칸을 넣는다**(`judge_layers`·`common_move`, 아래). 입력에 값이 있어도 덮어쓴다.
-  `market` 이 null 이면 넣지 않는다. 계산은 verify 의 함수 한 곳이고 검증도 같은 함수를 본다.
+- **`market` 에 계산 칸을 넣는다**(`judge_layers`·`common_move`·`move_strength_cap`·`market_led`·`move_comparison`·
+  `universe_weight`, 아래). 입력에 값이 있어도 덮어쓴다. `market` 이 null 이면 넣지 않는다. 계산은 verify 의 함수 한 곳이고
+  검증도 같은 함수를 본다.
+- **맨 위에 `sector`·`main_cause_sentences` 를 넣는다**(아래). `market` 과 상관없이 늘 넣는다.
 - `move_case` 는 모델에 보내지 않는다. 래퍼 `move_case` 와 러너 집계에만 남긴다.
 
 `judge_layers` — 층마다 이 입력에서 원인을 판단하는가. `false` 인 층에는 link 를 달지 않고 그 층 판정은 `no_clear_cause`.
@@ -199,7 +208,8 @@ LLM 을 부른다(`generate.needs_llm`).
 | `relative` (상대 층) | 다른 대형주와 왜 달랐나 | `excess_pct` 부호 | `relative_verdict` | `relative` |
 
 입력 `market.judge_layers` 가 `false` 인 층(층의 값 절댓값이 1 이하, 상대 층은 `excess_pct` 가 null 일 때도)은
-그 판정이 `no_clear_cause` 이고 그 층 link 는 없다. 어기면 러너가 같은 입력으로 한 번 다시 부른다(`judge_retry`). **factor 하나 = 사건 하나**이고, 어느 층에 답하는지는 factor 안 `links` 로 단다.
+그 판정이 `no_clear_cause` 이고 그 층 link 는 없다. 어기거나 `move_strength_cap` 을 어기면(`MOVE_SUFFICIENT_STOCK_ONLY`)
+러너가 같은 입력으로 한 번 다시 부른다(`judge_retry`, `verify.check_market_flags`). **factor 하나 = 사건 하나**이고, 어느 층에 답하는지는 factor 안 `links` 로 단다.
 
 ### 전체 형태
 
@@ -215,7 +225,7 @@ LLM 을 부른다(`generate.needs_llm`).
 
   "summary": {
     "move": "오후 3시 30분 장 마감 기준 ...",   // 비울 수 없음
-    "main_cause": "...",                       // 비울 수 없음. 최대 3문장
+    "main_cause": "...",                       // 비울 수 없음. 모델은 main_cause_sentences 문장 이하, 러너 고정 문장을 더해 3문장 이하
     "relative": "... 또는 null",
     "counter": "... 또는 null",               // 방향이 어긋나는 재료. background 에 있는 것만
     "unexplained": "..."                       // 비울 수 없음
@@ -280,7 +290,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verdict`, `relative_verdict` | `explained`, `partially_explained`, `no_clear_cause` | 그 층 link 중 `sufficient` 1개 이상 → `explained`, link 는 있으나 전부 `partial`/`insufficient` → `partially_explained`, link 없음 → `no_clear_cause` |
 | `factors[].stance` | `bullish`, `bearish`, `neutral` | |
 | `links[].layer` | `move`, `relative` | |
-| `links[].strength` | `sufficient`, `partial`, `insufficient` | 출처 중 하나라도 direct 이고 방향이 맞으면 `sufficient`, direct 가 없으면 `partial`. 반대 재료는 낮추지 않는다(counter 로). `unconfirmed: true` 와 대형주 몫이 절반 이상인 날 등락 층 종목 고유 재료는 `partial` 이 상한 |
+| `links[].strength` | `sufficient`, `partial`, `insufficient` | 모델에는 "출처 중 하나라도 direct 이고 방향이 맞으면 `sufficient`, 아니면 `partial`" 로 쓰게 한다. **최종 값은 러너가 다시 정한다** — 사건의 이슈가 direct 메시지에서 나왔는가 기준(아래 「러너가 정하는 칸」 `strength_recomputed`). 반대 재료는 낮추지 않는다(counter 로). `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial` 이 상한 |
 | `sources[].match` | `direct`, `indirect` | |
 | `events[].placed` | `factors`, `background`, `dropped` | 모델은 `factors`·`background` 만. `dropped` 는 러너가 quote 실패로 뺀 항목 |
 | `events[].reason` | `quote_verify_fail` | `dropped` 일 때만. 러너만 쓴다(repair) |
@@ -330,7 +340,8 @@ LLM 을 부른다(`generate.needs_llm`).
 | `asked_question` | JSON 이 안 열렸고 응답이 `?` 로 끝남 |
 | `skipped_llm` | 정형 보고서일 때만 `"NO_DIRECT_MESSAGES"` (직접 언급·테마 동향 0건). 그 밖에는 칸이 없다 |
 | `issue_trace` | 모델이 낸 이슈 목록 |
-| `move_case` / `judge_layers` / `common_move` | 러너가 계산한 값(`market` 이 null 이면 null). `move_case` 는 모델에 보내지 않는다 |
+| `move_case` / `judge_layers` / `common_move` / `move_strength_cap` / `market_led` / `move_comparison` | 러너가 계산한 값(`market` 이 null 이면 null). `move_case` 는 모델에 보내지 않는다 |
+| `main_cause_sentences` / `sector` / `universe_weight` | 모델 입력 맨 위·market 에 넣은 값(종목 표에 없으면 `sector`·`universe_weight` 는 null) |
 
 ### 검증 결과
 
@@ -339,7 +350,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verify_status` | `passed` / `failed`. 스키마·규칙·근거 중 하나라도 걸리면 failed |
 | `verify_problems` | `"<코드>: <상세>"` 문자열 배열 (예: `QUOTE_NOT_IN_SOURCE: factors[0].sources[0] ...`) |
 | `events_status` / `events_problems` | `events` 칸 검사. `passed` / `failed` / `missing`. 판정과 별개. 형식(`SCHEMA_*`, `EVENT_REASON_MISMATCH`)과 실제 칸 대조: `EVENT_BACKGROUND_REF_MISSING`·`_REF_DUPLICATE`·`_UNREFERENCED`(background 항목과 사건이 하나씩 짝), `EVENT_FACTOR_COUNT`·`_REF_MISSING`·`_DUPLICATE`, `ISSUE_ID_DUPLICATE` |
-| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`, `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 direct 메시지에서 나왔는데 출처에 direct 가 없음), `MAIN_CAUSE_TOO_LONG`(최종 main_cause 가 러너 고정 문장 포함 3문장 초과. 자르지 않음), `STRENGTH_MISMATCH`(모델 strength 가 정의와 어긋남 — 사건 이슈가 direct(입력 match) 메시지에서 나왔는데 partial, 아닌데 sufficient. issue_trace 가 없으면 출처로 봄. 미확인·대형주 몫 상한은 예외) |
+| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`·`RELATIVE_STALE`(근거를 뺐는데 그 칸을 다시 쓰지 못함), `REPAIR_SKIPPED_OVER_CAP`(개수 상한을 넘어 quote 고쳐 쓰기를 하지 않음), `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 direct 메시지에서 나왔는데 출처에 direct 가 없음), `MAIN_CAUSE_TOO_LONG`(최종 main_cause 가 러너 고정 문장 포함 3문장 초과. 자르지 않음), `STRENGTH_MISMATCH`(모델 strength 가 정의와 어긋남 — 사건 이슈가 direct(입력 match) 메시지에서 나왔는데 partial, 아닌데 sufficient. issue_trace 가 없으면 출처로 봄. 미확인·대형주 몫 상한은 예외) |
 | `issue_trace_warnings` / `issue_trace_stats` | `ISSUE_TRACE_MISSING_URL`(messages 칸 누락)·`ISSUE_ID_UNKNOWN` 경고와 집계(`messages_traced`, `messages_total`, `relations`, `issues_used`) |
 
 ### 재시도·고쳐 쓰기 기록
@@ -347,11 +358,13 @@ LLM 을 부른다(`generate.needs_llm`).
 | 키 | 뜻 |
 | --- | --- |
 | `json_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {json_status, asked_question, raw_text, usage, cost, duration_ms}}`. 정상 종료인데 JSON 이 깨졌을 때만 1회 재호출 |
-| `judge_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {problems, final_text, json_retry, usage, cost, duration_ms}}`. 열린 보고서가 `judge_layers` 가 false 인 층에 link·판정을 달았을 때(`FLAT_*`) 같은 입력으로 1회 재호출. 비용은 `cost` 에 합친다 |
+| `judge_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {problems, final_text, json_retry, usage, cost, duration_ms}}`. 열린 보고서가 `judge_layers` 가 false 인 층에 link·판정을 달았거나(`FLAT_*`) `move_strength_cap` 을 어겼을 때(`MOVE_SUFFICIENT_STOCK_ONLY`) 같은 입력으로 1회 재호출. 비용은 `cost` 에 합친다 |
 | `timeouts` | 시간 제한(`SUMMARY_TIMEOUT_SEC`, 기본 420초)에 걸린 시도마다 `{error, seconds}`. 스트림 끊김과 합쳐 1회 재시도하고, 다시 걸리면 `LLM_ERROR` |
 | `stream_interruptions` | 끊긴 시도마다 `{partial_chars, error}`. 끊김은 1회 재전송 |
-| `quote_repair` | quote 가 원문에 없던 factor·background 항목마다 `{kind, result: fixed\|dropped, failed, retry_failed, quotes, rejected, ...}`. repair 는 quote(sources)만 고친다. 다시 쓴 event(background 는 text)가 원래와 한 글자라도 다르면 `rejected: "event_changed"` 로 받지 않고 뺀다. 다시 써도 없으면 항목을 빼고 그 항목을 가리키던 `events` 사건을 `dropped`/`quote_verify_fail` 로 바꾼다(뒤 항목의 순번은 당긴다) |
-| `main_cause_rewrite` | 뺀 factor 에 `move` link 가 있었을 때 `{result: rewritten\|failed, dropped, before, after, cost, error}` |
+| `repair_limit` | `{hit, factors, background, max_items}`. factor 가 4개를, background 전체가 6개를 넘으면 `hit: true` 이고 quote 고쳐 쓰기를 하지 않는다(비용 상한). 틀린 quote 는 남아 검증에서 실패하고 경고 `REPAIR_SKIPPED_OVER_CAP` 이 붙는다. 상한 안이면 repair 대상은 많아야 `max_items`(10)개 |
+| `quote_repair` | quote 가 원문에 없던 factor·background 항목마다 `{kind, result: fixed\|dropped, failed, retry_failed, quotes, rejected, ...}`(background 는 `slot` 도). repair 는 quote(sources)만 고친다. 다시 쓴 event(background 는 text)가 원래와 한 글자라도 다르면 `rejected: "event_changed"` 로 받지 않고 뺀다. 다시 써도 없으면 항목을 빼고 그 항목을 가리키던 `events` 사건을 `dropped`/`quote_verify_fail` 로 바꾼다(뒤 항목의 순번은 당긴다). counter 가 요약하는 칸(하락일 `bullish`, 상승일 `bearish`) 항목을 빼거나 background 가 모두 비면 `summary.counter` 를 null 로 두고 `counter_cleared: true` 를 남긴다(다시 쓰지 않는다) |
+| `main_cause_rewrite` | 뺀 factor 에 `move` link 가 있었을 때 `{result: rewritten\|failed, dropped, before, after, cost, error}`. 남은 등락 층 근거만으로 `main_cause_sentences` 문장 이하로 1회 다시 쓴다. 다시 쓴 문장에도 finalize 가 고정 문장을 붙인다. failed 면 경고 `MAIN_CAUSE_STALE` |
+| `relative_rewrite` | 뺀 factor 에 `relative` link 가 있었고 `summary.relative` 가 있을 때 `{result: rewritten\|cleared\|failed, ...}`(같은 형태). 남은 상대 층 근거로 3문장 이하로 1회 다시 쓴다. 남은 상대 층 근거가 없으면 LLM 을 부르지 않고 null 로 둔다(`cleared`). failed 면 경고 `RELATIVE_STALE` |
 
 ### 러너가 정하는 칸 (`finalize`)
 
@@ -360,7 +373,7 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
 | 키 | 뜻 |
 | --- | --- |
 | `strength_recomputed` | link 마다 `{factor, layer, model, final, basis}`. 그 factor 사건의 이슈(`events.issue_ids` → `issue_trace`)가 하나라도 입력 match=direct 메시지에서 나왔으면 `sufficient`, 아니면 `partial`(`basis: "issues"`, DIRECT_SOURCE_MISSING 과 같은 판단 `verify.factor_has_direct`). issue_trace 가 없거나 사건에 issue_ids 가 없으면 출처로 본다(`basis: "sources"`). `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial`. `insufficient`·`direction_match: false` link 는 그대로 둔다. 경고 `STRENGTH_MISMATCH` 는 `model` 값을 같은 정의로 본다 |
-| `verdict_recomputed` | `[{key: verdict\|relative_verdict, model, final}]`. `judge_layers` 가 false 인 층은 `no_clear_cause`, 판단하는 층은 그 층 link 에 `sufficient` 가 있으면 `explained`, link 가 있으면 `partially_explained`, 없으면 `no_clear_cause` |
+| `verdict_recomputed` | `[{key: verdict\|relative_verdict, model, final}]`. 검증 판정표 그대로 — 그 층 link 에 `sufficient` 가 있으면 `explained`, link 가 있으면 `partially_explained`, 없으면 `no_clear_cause`(`finalize.layer_verdict`). `judge_layers` 가 false 인 층은 link 가 없으면 이 표로도 `no_clear_cause` 다. link 가 남아 있으면 판정만 바꾸지 않는다 — 판정만 no_clear_cause 로 두면 검증 사유가 실제 잘못(그 층 link, `FLAT_*`)이 아니라 `VERDICT_SIZE_FIT` 로 바뀌어 가려진다 |
 | `main_cause_fixed` | `common_move`·`market_led` 날 `{before, after}`, 그 밖 null. 앞에 "대형주 전반이 함께 오른(내린) 날이었습니다.", `common_move` 날은 끝에 "이 종목만의 원인은 따로 확인되지 않았습니다." 를 붙인다. 모델이 같은 문장을 썼으면 지우고 한 번만 붙인다 |
 
 ### 운영 지표
@@ -378,7 +391,7 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
 
 ```jsonc
 {
-  "run_dir": "runs/20261015-101500",
+  "run_dir": "runs/20261015-101500-1a2b3c4d",
   "total": 9, "passed": 7, "failed": 2, "errors": 0,
   "cost": 0.42, "currency": "USD",
   "reasons": { "QUOTE_NOT_IN_SOURCE": 1, "FLAT_MOVE": 1 },  // 보고서 기준·계열 단위 건수

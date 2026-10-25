@@ -3,9 +3,10 @@
     uv run python -m app.collectors.stock_analysis --input tests/fixtures/stock_analysis
     uv run python -m app.collectors.stock_analysis --input case.json --load
 
-실행 하나가 디렉터리 하나다.
+실행 하나가 디렉터리 하나다. 이름은 시작 시각 뒤에 uuid 앞 8자를 붙여, 같은 초에 두 러너가 시작해도
+겹치지 않는다. 이미 있으면 덮어쓰지 않고 멈춘다(exist_ok=False).
 
-    runs/<YYYYMMDD-HHMMSS>/
+    runs/<YYYYMMDD-HHMMSS>-<8자>/
       inputs/<run_id>.json   받은 입력 그대로(바이트 복사)
       parsed/<run_id>.json   실행 기록 래퍼. 적재 모듈이 읽는 파일
 
@@ -22,6 +23,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import uuid
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -39,10 +41,18 @@ from app.services.stock_analysis.generate import (
     prompt_sha256,
     report_of,
 )
-from app.services.stock_analysis.repair import repair_quotes, rewrite_main_cause
+from app.services.stock_analysis.repair import (
+    RELATIVE_MAX_SENTENCES,
+    repair_limit,
+    repair_quotes,
+    rewrite_summary,
+)
 from app.services.stock_analysis.verify import (
+    CAPS,
     MAIN_CAUSE_STALE,
     MOVE_CASES,
+    RELATIVE_STALE,
+    REPAIR_SKIPPED_OVER_CAP,
     check_events,
     check_issue_trace,
     check_warnings,
@@ -140,9 +150,10 @@ async def run(
     system = load_prompt(PROMPT_NAME)
     prompt_hash = prompt_sha256()
     started = datetime.now(KST)
-    run_dir = out_root / started.strftime("%Y%m%d-%H%M%S")
-    (run_dir / "inputs").mkdir(parents=True, exist_ok=True)
-    (run_dir / "parsed").mkdir(parents=True, exist_ok=True)
+    run_dir = out_root / f"{started:%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
+    run_dir.mkdir(parents=True, exist_ok=False)
+    (run_dir / "inputs").mkdir()
+    (run_dir / "parsed").mkdir()
 
     run_ids = _assign_run_ids([payload for _, _, payload in items])
     gate = asyncio.Semaphore(concurrency)
@@ -154,14 +165,18 @@ async def run(
             wrapper = await generate(payload, system=system, prompt_hash=prompt_hash, run_id=run_id)
             report = report_of(wrapper)
             # quote 가 원문에 없는 factor 는 검증 전에 한 번 고쳐 쓰게 하고, 그래도 없으면 뺀다.
+            # 개수 상한을 넘은 보고서는 고쳐 쓰지 않는다(repair.repair_limit, 비용 상한).
             if report is not None:
+                wrapper["repair_limit"] = repair_limit(report)
                 repairs = await repair_quotes(report, payload, stream=wrapper["stream"], run_id=run_id)
-                # 등락 층 근거가 빠졌으면 남은 근거로 main_cause 를 한 번 다시 쓰게 한다.
-                rewrite = await rewrite_main_cause(report, repairs, stream=wrapper["stream"], run_id=run_id,
-                                                   sentences=main_cause_sentences(payload))
-                if rewrite is not None:
-                    wrapper["main_cause_rewrite"] = rewrite
-                    wrapper["cost"] += rewrite["cost"]
+                # 등락 층·상대 층 근거가 빠졌으면 남은 근거로 main_cause·relative 를 한 번 다시 쓰게 한다.
+                for field, sentences in (("main_cause", main_cause_sentences(payload)),
+                                         ("relative", RELATIVE_MAX_SENTENCES)):
+                    rewrite = await rewrite_summary(report, repairs, field, stream=wrapper["stream"],
+                                                    run_id=run_id, sentences=sentences)
+                    if rewrite is not None:
+                        wrapper[f"{field}_rewrite"] = rewrite
+                        wrapper["cost"] += rewrite["cost"]
                 if repairs:
                     wrapper["quote_repair"] = repairs
                     wrapper["cost"] += sum(r["cost"] for r in repairs)
@@ -180,13 +195,18 @@ async def run(
         trace = wrapper.get("issue_trace")
         # 실패는 아니지만 검수자가 볼 것(verify.check_warnings). 판정과 섞지 않는다.
         wrapper["verify_warnings"] = check_warnings(report, payload, trace, wrapper.get("strength_recomputed"))
-        rewrite = wrapper.get("main_cause_rewrite")
-        if rewrite is not None and rewrite["result"] != "rewritten":
+        for field, code, layer in (("main_cause", MAIN_CAUSE_STALE, "등락 층"), ("relative", RELATIVE_STALE, "상대 층")):
+            rewrite = wrapper.get(f"{field}_rewrite")
+            if rewrite is not None and rewrite["result"] == "failed":
+                wrapper["verify_warnings"].append(
+                    f"{code}: {layer} 근거 {rewrite['dropped']} 를 뺐는데 {field} 를 다시 쓰지 못했다 ({rewrite['error']})")
+        limit = wrapper.get("repair_limit")
+        if limit is not None and limit["hit"]:
             wrapper["verify_warnings"].append(
-                f"{MAIN_CAUSE_STALE}: 등락 층 근거 {rewrite['dropped']} 를 뺐는데 main_cause 를 다시 "
-                f"쓰지 못했다 ({rewrite['error']})")
-        # 입력 메시지가 issue_trace 에서 빠졌거나 direct·sector 이슈가 events 어디에도 없으면
-        # 경고만 남긴다. 판정과 섞지 않는다. market 이슈는 경고 없이 stats 에서만 센다.
+                f"{REPAIR_SKIPPED_OVER_CAP}: factors {limit['factors']}개(최대 {CAPS['factors']}), background "
+                f"{limit['background']}개(최대 {CAPS['background']}) — quote 고쳐 쓰기를 하지 않았다")
+        # issue_trace 가 messages 칸 메시지를 빠뜨렸거나(ISSUE_TRACE_MISSING_URL) events 가 issue_trace 에 없는 이슈 id 를
+        # 가리키면(ISSUE_ID_UNKNOWN) 경고만 남긴다. 판정과 섞지 않는다. 관련 유형별 수는 stats 에서만 센다.
         wrapper["issue_trace_warnings"] = check_issue_trace(trace, report, payload)
         wrapper["issue_trace_stats"] = issue_trace_stats(trace, report, payload)
         out = run_dir / "parsed" / f"{run_id}.json"

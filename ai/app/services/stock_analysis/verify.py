@@ -156,8 +156,13 @@ ISSUE_ID_UNKNOWN = "ISSUE_ID_UNKNOWN"
 # messages 칸 메시지 url 이 issue_trace 에 없다. 1-1 에서 그 메시지를 건너뛴 것이다(메시지가 많을 때).
 ISSUE_TRACE_MISSING_URL = "ISSUE_TRACE_MISSING_URL"
 # 생성 뒤 처리(quote 고쳐 쓰기 실패로 factor 를 뺌)로 등락 층 근거가 빠졌는데 summary.main_cause 를
-# 다시 쓰지 못했다. main_cause 가 뺀 근거를 아직 말하고 있을 수 있다(repair.rewrite_main_cause).
+# 다시 쓰지 못했다. main_cause 가 뺀 근거를 아직 말하고 있을 수 있다(repair.rewrite_summary).
 MAIN_CAUSE_STALE = "MAIN_CAUSE_STALE"
+# 같은 일이 상대 층에서: 상대 층 근거를 뺐는데 summary.relative 를 다시 쓰지 못했다(repair.rewrite_summary).
+RELATIVE_STALE = "RELATIVE_STALE"
+# factor 나 background 전체가 개수 상한(CAPS)을 넘어 quote 고쳐 쓰기를 하지 않았다(repair.repair_limit). quote 가
+# 틀린 항목은 그대로 남아 검증에서 실패한다. 비용 상한이라 넘친 보고서에는 LLM 을 더 부르지 않는다.
+REPAIR_SKIPPED_OVER_CAP = "REPAIR_SKIPPED_OVER_CAP"
 # 4부 개수 상한(background 전체 6·칸당 3, watch 전체 3·칸당 1, factors 4, terms 8)을 넘었다.
 # check_schema 는 적재 관측을 끊지 않으려고 상한을 보지 않으므로 경고로만 남긴다.
 COUNT_OVER_CAP = "COUNT_OVER_CAP"
@@ -1558,6 +1563,8 @@ __all__ = [
     "EVENT_REASONS",
     "LAYERS",
     "MAIN_CAUSE_STALE",
+    "RELATIVE_STALE",
+    "REPAIR_SKIPPED_OVER_CAP",
     "MATCHES",
     "MOVE_CASES",
     "QUOTE_VERIFY_FAIL",

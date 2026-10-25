@@ -10,14 +10,21 @@ stance·unconfirmed·links·watch)는 원래 값을 둔다. 고쳐 쓴 결과의
 글자라도 다르면 고친 것으로 받지 않고 그 항목을 뺀다(record.rejected = "event_changed"). 같은 뉴스 모음 메시지
 안의 다른 항목으로 사건을 갈아 끼우고 strength 는 원래 값으로 남는 일이 있었다(2026-10-25, v6~v8 결과).
 
-background 항목을 빼서 background 가 모두 비면 summary.counter 를 null 로 둔다. counter 는 background 에
-있는 재료만 요약하는 칸이라(COUNTER_WITHOUT_BACKGROUND), 그대로 두면 뺀 재료를 말하는 문장이 남고
-보고서가 failed 가 된다. 기록에 counter_cleared 로 남긴다.
+counter 는 등락 반대 방향 재료(하락일은 background.bullish, 상승일은 bearish)를 요약하는 칸이다. 그 칸 항목을
+하나라도 빼거나 background 가 모두 비면 summary.counter 를 null 로 둔다 — counter 문장이 뺀 재료를 말하고 있을 수
+있고, 그대로 두면 COUNTER_WITHOUT_BACKGROUND 로 failed 가 될 수도 있다. 다시 쓰지 않는다: counter 는 비워도 되는
+칸이고 남은 재료의 상세는 background 에 그대로 있다. 기록에 counter_cleared 로 남긴다. 등락률을 모르면 칸을 가를 수
+없어 background 가 모두 빌 때만 비운다.
 
-factor 를 빼도 repair_quotes 는 summary 문장을 고치지 않는다. 뺀 factor 에 등락 층(move) link 가
-있었으면 rewrite_main_cause 가 남은 근거만으로 summary.main_cause 를 한 번 다시 쓰게 한다. 다시 쓰지
-못하면 러너가 MAIN_CAUSE_STALE 경고를 남긴다. relative·counter 등 다른 summary 칸은 고치지 않고
-기록(quote_repair[].summary_may_mention)에만 남긴다.
+factor 를 빼도 repair_quotes 는 summary 문장을 고치지 않는다. 뺀 factor 에 등락 층(move) link 가 있었으면
+rewrite_summary("main_cause"), 상대 층(relative) link 가 있었으면 rewrite_summary("relative") 가 남은 근거만으로
+그 칸을 한 번 다시 쓰게 한다. relative 는 남은 상대 층 근거가 없으면 LLM 을 부르지 않고 null 로 둔다(비워도 되는 칸).
+다시 쓰지 못하면 러너가 MAIN_CAUSE_STALE·RELATIVE_STALE 경고를 남긴다.
+
+비용 상한: factor 가 CAPS["factors"] 를, background 전체가 CAPS["background"] 를 넘은 보고서는 repair 하지 않는다
+(repair_limit). 모델이 개수 상한을 어긴 보고서는 이미 형식이 어긋난 것이고, 넘친 항목마다 호출하면 비용이 상한 없이
+는다. quote 가 틀린 항목은 그대로 남아 검증에서 실패하고, 러너가 REPAIR_SKIPPED_OVER_CAP 경고를 남긴다. 상한 안이면
+repair 대상은 많아야 REPAIR_MAX_ITEMS(= 4 + 6)개다.
 """
 
 import json
@@ -27,6 +34,7 @@ from typing import Any
 from app.llm.client import LLMError, StreamInterrupted, complete, cost_detail
 from app.services.stock_analysis.verify import (
     BACKGROUND_SLOTS,
+    CAPS,
     QUOTE_NOT_IN_SOURCE,
     QUOTE_VERIFY_FAIL,
     _background_is_empty,
@@ -36,6 +44,7 @@ from app.services.stock_analysis.verify import (
     _links,
     _messages,
     _sources,
+    layer_pct,
     normalize_report,
 )
 
@@ -43,6 +52,8 @@ logger = logging.getLogger(__name__)
 
 # 고쳐 쓰기 응답은 항목 하나라 짧다. 추론 모델이 생각에 예산을 쓰므로 넉넉히 둔다.
 REPAIR_MAX_TOKENS = 8000
+# 보고서 한 건에서 repair 대상이 될 수 있는 항목 수. 개수 상한(CAPS)을 지킨 보고서의 factor + background 전체다.
+REPAIR_MAX_ITEMS = CAPS["factors"] + CAPS["background"]
 
 _QUOTE_RULES = """\
 **quote 만 고칩니다.** {fields} 은 입력의 문장을 글자 그대로 다시 적고, event·detail·links·strength 는
@@ -173,6 +184,24 @@ def _targets(report: dict[str, Any]) -> list[tuple[str, str, Any, dict[str, Any]
     return out
 
 
+def repair_limit(report: dict[str, Any]) -> dict[str, Any]:
+    """래퍼 repair_limit 칸. hit 이면 repair 하지 않는다(factor 나 background 전체가 개수 상한을 넘었다)."""
+    factors = report.get("factors")
+    background = report.get("background")
+    n_factors = len(factors) if isinstance(factors, list) else 0
+    n_background = sum(len(v) for v in background.values() if isinstance(v, list)) if isinstance(background, dict) else 0
+    return {"hit": n_factors > CAPS["factors"] or n_background > CAPS["background"], "factors": n_factors,
+            "background": n_background, "max_items": REPAIR_MAX_ITEMS}
+
+
+def counter_slot(payload: dict[str, Any]) -> str | None:
+    """summary.counter 가 요약하는 background 칸. 등락 반대 방향이라 하락일 bullish, 상승일 bearish. 모르면 None."""
+    change = layer_pct(payload, "move")
+    if not change:
+        return None
+    return "bullish" if change < 0 else "bearish"
+
+
 async def repair_quotes(
     report: dict[str, Any], payload: dict[str, Any], *, stream: bool, run_id: str = ""
 ) -> list[dict[str, Any]]:
@@ -180,12 +209,15 @@ async def repair_quotes(
 
     한 항목에 한 번만 다시 묻는다. 호출 실패·응답을 못 연 경우도 다시 쓴 quote 가 틀린 것과
     같이 항목을 뺀다 — 근거가 검증되지 않은 채 화면에 나가는 것보다 낫다.
+    repair_limit 이 hit 이면 아무것도 하지 않고 빈 목록이다(모듈 설명 「비용 상한」).
     """
+    if repair_limit(report)["hit"]:
+        return []
     messages = _messages(payload)
     records: list[dict[str, Any]] = []
     factor_drops: list[int] = []
     background_drops: list[tuple[str, int]] = []
-    for kind, path, place, item in _targets(report):
+    for kind, path, place, item in _targets(report)[:REPAIR_MAX_ITEMS]:
         failures = quote_failures(item, messages, path)
         if not failures:
             continue
@@ -194,7 +226,7 @@ async def repair_quotes(
         if kind == "factor":
             record.update(factor_index=place, event=item.get("event"), layers=_layers(item))
         else:
-            record["text"] = item.get("text")
+            record.update(slot=place[0], text=item.get("text"))
         record.update(failed=failures, usage=None, cost=0.0, error=None)
         rewritten = None
         try:
@@ -235,75 +267,105 @@ async def repair_quotes(
     for slot, i in sorted(background_drops, reverse=True):
         _drop_background(report, slot, i)
     summary = report.get("summary")
-    if background_drops and _background_is_empty(report) and isinstance(summary, dict) \
-            and isinstance(summary.get("counter"), str) and summary["counter"].strip():
-        summary["counter"] = None
-        for r in records:
-            if r["kind"] == "background" and r["result"] == "dropped":
+    if background_drops and isinstance(summary, dict) and isinstance(summary.get("counter"), str) \
+            and summary["counter"].strip():
+        slot = counter_slot(payload)
+        emptied = _background_is_empty(report)
+        hit = [r for r in records if r["kind"] == "background" and r["result"] == "dropped"
+               and (emptied or r["slot"] == slot)]
+        if hit:
+            summary["counter"] = None
+            for r in hit:
                 r["counter_cleared"] = True
     return records
 
 
-MAIN_CAUSE_SYSTEM = """\
-주가 변동 보고서의 summary.main_cause 한 칸을 다시 씁니다.
+_SUMMARY_SYSTEM = """\
+주가 변동 보고서의 summary.{field} 한 칸을 다시 씁니다. 이 칸은 {what}입니다.
 
-보고서를 쓴 뒤 근거(factor) 일부가 출처 확인에 실패해 빠졌습니다(dropped). 지금 main_cause 는 빠진
-근거를 아직 말하고 있을 수 있습니다. **남은 근거(remaining_factors)만으로** main_cause 를 다시 쓰세요.
+보고서를 쓴 뒤 근거(factor) 일부가 출처 확인에 실패해 빠졌습니다(dropped). 지금 {field} 는 빠진
+근거를 아직 말하고 있을 수 있습니다. **남은 근거(remaining_factors)만으로** {field} 를 다시 쓰세요.
 
 - 남은 근거에 없는 내용은 쓰지 않습니다. 빠진 근거의 내용은 한 마디도 남기지 않습니다.
-- 최대 main_cause_sentences 문장, 줄글입니다. 등락 층 link(move_link)의 strength 가 높은 것부터 씁니다.
+- 최대 max_sentences 문장, 줄글입니다. {layer_name} link({layer}_link)의 strength 가 높은 것부터 씁니다.
   strength 가 insufficient 인 근거는 넣지 않습니다.
-- partial 이상인 근거가 하나도 없으면 그 사실을 적습니다. 남은 근거가 하나도 없으면
-  "제공된 메시지에서 확인된 원인은 없습니다." 로 적습니다.
+- partial 이상인 근거가 하나도 없으면 그 사실을 적습니다.{empty}
 - 간접 근거(sources 의 match 가 모두 indirect)나 미확인(unconfirmed: true)에서 온 원인은
   추정·미확인임이 드러나게 씁니다("…가 부담이 됐을 수 있습니다").
-- 지금 main_cause 의 문장 중 남은 근거를 말하는 부분은 표현을 되도록 그대로 둡니다.
+- 지금 {field} 의 문장 중 남은 근거를 말하는 부분은 표현을 되도록 그대로 둡니다.
 - 방향이 반대인 재료를 섞지 않습니다.
 
-출력은 JSON 객체 하나입니다. 첫 글자는 `{`, 마지막 글자는 `}` 입니다. 코드펜스·설명 금지.
-{"main_cause": "..."}
+출력은 JSON 객체 하나입니다. 첫 글자는 `{{`, 마지막 글자는 `}}` 입니다. 코드펜스·설명 금지.
+{{"{field}": "..."}}
 """
 
+MAIN_CAUSE_SYSTEM = _SUMMARY_SYSTEM.format(
+    field="main_cause", what="오늘 등락의 원인 요약", layer_name="등락 층", layer="move",
+    empty=' 남은 근거가 하나도 없으면\n  "제공된 메시지에서 확인된 원인은 없습니다." 로 적습니다.')
+RELATIVE_SYSTEM = _SUMMARY_SYSTEM.format(
+    field="relative", what="다른 대형주와 달랐던 이유", layer_name="상대 층", layer="relative", empty="")
 
-def _main_cause_user(report: dict[str, Any], dropped: list[dict[str, Any]], sentences: int = 3) -> str:
-    remaining = []
-    for f in _factors(normalize_report(report)):
-        move = next((x for x in _links(f) if x.get("layer") == "move"), None)
-        if move is None:
-            continue
-        remaining.append({"event": f.get("event"), "detail": f.get("detail"),
-                          "stance": f.get("stance"), "unconfirmed": f.get("unconfirmed"),
-                          "source_matches": [s.get("match") for s in _sources(f)],
-                          "move_link": {"note": move.get("note"), "strength": move.get("strength")}})
-    return json.dumps({"verdict": report.get("verdict"), "main_cause_sentences": sentences,
-                       "main_cause": report["summary"]["main_cause"],
-                       "dropped": [r.get("event") for r in dropped],
+# 칸마다 (그 칸이 요약하는 층, 판정 칸, 시스템 프롬프트). relative 는 비워도 되는 칸이다(남은 근거가 없으면 null).
+_SUMMARY_FIELDS = {"main_cause": ("move", "verdict", MAIN_CAUSE_SYSTEM),
+                   "relative": ("relative", "relative_verdict", RELATIVE_SYSTEM)}
+# relative 칸의 문장 수 상한(프롬프트 4부 summary 표).
+RELATIVE_MAX_SENTENCES = 3
+
+
+def _summary_user(report: dict[str, Any], field: str, dropped: list[dict[str, Any]], sentences: int,
+                  remaining: list[dict[str, Any]]) -> str:
+    _, verdict_key, _ = _SUMMARY_FIELDS[field]
+    return json.dumps({verdict_key: report.get(verdict_key), "max_sentences": sentences,
+                       field: report["summary"][field], "dropped": [r.get("event") for r in dropped],
                        "remaining_factors": remaining}, ensure_ascii=False, indent=2)
 
 
-async def rewrite_main_cause(
-    report: dict[str, Any], records: list[dict[str, Any]], *, stream: bool, run_id: str = "", sentences: int = 3
-) -> dict[str, Any] | None:
-    """repair_quotes 가 등락 층 link 를 가진 factor 를 뺐으면 main_cause 를 한 번 다시 쓰게 한다.
+def _remaining(report: dict[str, Any], layer: str) -> list[dict[str, Any]]:
+    out = []
+    for f in _factors(normalize_report(report)):
+        link = next((x for x in _links(f) if x.get("layer") == layer), None)
+        if link is not None:
+            out.append({"event": f.get("event"), "detail": f.get("detail"),
+                        "stance": f.get("stance"), "unconfirmed": f.get("unconfirmed"),
+                        "source_matches": [s.get("match") for s in _sources(f)],
+                        f"{layer}_link": {"note": link.get("note"), "strength": link.get("strength")}})
+    return out
 
-    report 를 제자리에서 고친다. 할 일이 없으면 None, 있으면 기록(래퍼 main_cause_rewrite 칸)을
-    돌려준다. result 가 rewritten 이 아니면 main_cause 는 그대로이고 러너가 MAIN_CAUSE_STALE 을 단다.
+
+async def rewrite_summary(
+    report: dict[str, Any], records: list[dict[str, Any]], field: str, *, stream: bool, run_id: str = "",
+    sentences: int = 3,
+) -> dict[str, Any] | None:
+    """repair_quotes 가 그 칸의 층(main_cause 는 move, relative 는 relative) link 를 가진 factor 를 뺐으면 그 칸을
+    한 번 다시 쓰게 한다.
+
+    report 를 제자리에서 고친다. 할 일이 없으면 None, 있으면 기록(래퍼 main_cause_rewrite·relative_rewrite 칸)을
+    돌려준다. result 는 rewritten | cleared(relative 인데 남은 상대 층 근거가 없어 LLM 없이 null) | failed.
+    failed 면 칸은 그대로이고 러너가 MAIN_CAUSE_STALE·RELATIVE_STALE 경고를 단다. relative 가 이미 null 이면 할 일이 없다.
     """
-    dropped = [r for r in records if r.get("result") == "dropped" and "move" in (r.get("layers") or [])]
+    layer, _, system = _SUMMARY_FIELDS[field]
+    dropped = [r for r in records if r.get("result") == "dropped" and layer in (r.get("layers") or [])]
     if not dropped:
+        return None
+    summary = report.get("summary")
+    if field == "relative" and isinstance(summary, dict) and summary.get("relative") is None:
         return None
     record: dict[str, Any] = {"result": "failed", "dropped": [r.get("event") for r in dropped],
                               "before": None, "after": None, "usage": None, "cost": 0.0, "error": None}
-    summary = report.get("summary")
-    if not isinstance(summary, dict) or not isinstance(summary.get("main_cause"), str):
-        record["error"] = "summary.main_cause 가 없다"
+    if not isinstance(summary, dict) or not isinstance(summary.get(field), str):
+        record["error"] = f"summary.{field} 가 없다"
         return record
-    record["before"] = summary["main_cause"]
+    record["before"] = summary[field]
+    remaining = _remaining(report, layer)
+    if field == "relative" and not remaining:
+        summary["relative"] = None
+        record.update(result="cleared")
+        return record
     try:
-        text, usage = await complete(MAIN_CAUSE_SYSTEM, _main_cause_user(report, dropped, sentences),
+        text, usage = await complete(system, _summary_user(report, field, dropped, sentences, remaining),
                                      max_tokens=REPAIR_MAX_TOKENS, stream=stream)
     except (LLMError, StreamInterrupted) as exc:
-        logger.warning("%s: main_cause 다시 쓰기 실패: %s", run_id, exc)
+        logger.warning("%s: %s 다시 쓰기 실패: %s", run_id, field, exc)
         record["error"] = str(exc)
         return record
     record["usage"] = usage
@@ -311,13 +373,22 @@ async def rewrite_main_cause(
     from app.services.stock_analysis.generate import extract_json  # 순환 import 를 피한다
 
     _, parsed, _ = extract_json(text)
-    after = parsed.get("main_cause") if isinstance(parsed, dict) else None
+    after = parsed.get(field) if isinstance(parsed, dict) else None
     if not isinstance(after, str) or not after.strip():
-        record["error"] = "다시 쓴 응답에서 main_cause 를 읽지 못함"
+        record["error"] = f"다시 쓴 응답에서 {field} 를 읽지 못함"
         return record
-    summary["main_cause"] = after
+    summary[field] = after
     record.update(result="rewritten", after=after)
     return record
 
 
-__all__ = ["BACKGROUND_REPAIR_SYSTEM", "MAIN_CAUSE_SYSTEM", "REPAIR_SYSTEM", "quote_failures", "repair_quotes", "rewrite_main_cause"]
+async def rewrite_main_cause(
+    report: dict[str, Any], records: list[dict[str, Any]], *, stream: bool, run_id: str = "", sentences: int = 3
+) -> dict[str, Any] | None:
+    """rewrite_summary(field="main_cause")."""
+    return await rewrite_summary(report, records, "main_cause", stream=stream, run_id=run_id, sentences=sentences)
+
+
+__all__ = ["BACKGROUND_REPAIR_SYSTEM", "MAIN_CAUSE_SYSTEM", "RELATIVE_MAX_SENTENCES", "RELATIVE_SYSTEM", "REPAIR_MAX_ITEMS",
+           "REPAIR_SYSTEM", "counter_slot", "quote_failures", "repair_limit", "repair_quotes", "rewrite_main_cause",
+           "rewrite_summary"]
