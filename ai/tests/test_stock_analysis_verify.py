@@ -70,6 +70,7 @@ from app.services.stock_analysis.verify import (
     code_of,
     common_move,
     families_of,
+    is_market_mover,
     move_strength_cap,
     is_stock_specific,
     judge_layers,
@@ -1336,3 +1337,16 @@ def test_direct_source_missing():
 ])
 def test_move_strength_cap(change, median, excess, cap):
     assert move_strength_cap(with_market(change=change, peer_median_pct=median, excess_pct=excess)) == cap
+
+
+
+def test_market_mover_is_never_common_move_and_has_no_cap():
+    """시총 비중 10% 이상 종목(삼성전자·SK하이닉스)은 대형주 몫으로 원인 찾기를 막지 않는다."""
+    samsung_22 = {**with_market(change=-4.03, peer_median_pct=-3.1, excess_pct=-0.93), "code": "005930"}
+    hynix_22 = {**with_market(change=-4.19, peer_median_pct=-3.1, excess_pct=-1.09), "code": "000660"}
+    hyundai_22 = {**with_market(change=-3.06, peer_median_pct=-3.21, excess_pct=0.15), "code": "005380"}
+    assert is_market_mover(samsung_22) and is_market_mover(hynix_22) and not is_market_mover(hyundai_22)
+    assert common_move(samsung_22) is False and common_move(hyundai_22) is True
+    assert move_strength_cap(samsung_22) is None and move_strength_cap(hynix_22) is None
+    # 같은 숫자라도 시장을 움직이지 않는 종목이면 상한이 걸린다
+    assert move_strength_cap({**hynix_22, "code": "999990"}) == "partial"

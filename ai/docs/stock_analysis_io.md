@@ -136,8 +136,14 @@ runs/<YYYYMMDD-HHMMSS>/
 `common_move` — 대형주 전반이 같은 방향으로 함께 움직인 날. `change_pct` 와 `peer_median_pct` 부호가 같고
 `abs(peer_median_pct) >= abs(change_pct) × 0.5` 이며 `judge_layers.relative` 가 `false`. `peer_median_pct` 가 null 이면 null.
 `true` 면 그날은 등락 층 factor 를 세우지 않는다(`verdict` 는 `no_clear_cause`). 시장 사건(`relation: market`)은
-`summary.move`, 종목·업종 재료는 `background` 로 가고, `main_cause` 는 "대형주 전반이 함께 오른(내린) 날이었습니다. 이 종목만의
-원인은 따로 확인되지 않았습니다." 다. 어기면 경고 `COMMON_MOVE_WITH_MOVE_LINK`.
+`summary.main_cause` 의 배경 문장, 종목·업종 재료는 `background` 로 간다. `main_cause` 는 "대형주 전반이 함께 오른(내린) 날이었습니다."
++ (시장을 움직인 사건이 있으면) 배경 한 문장 + "이 종목만의 원인은 따로 확인되지 않았습니다." 다. 이날 시장 사건은 `summary.move` 에 쓰지 않는다. 어기면 경고 `COMMON_MOVE_WITH_MOVE_LINK`.
+
+`universe_weight` — 대형주 유니버스 안 시총 비중(러너 종목 표 `stock_meta.json`, 스냅숏). **0.10 이상이면 시장을 움직이는
+종목**으로 보고 `common_move` 를 false, `move_strength_cap` 을 null 로 둔다(`verify.is_market_mover`, 상수 `MARKET_MOVER_WEIGHT`).
+
+모델 입력 맨 위 `sector` — 종목 업종 라벨 목록(`stock_meta.json`, 예: SK스퀘어 `["지주", "반도체"]`). 테마 동향의 업종 단락과
+`relation: sector`("라벨 업종과 그 전방산업")를 가르는 기준이다. 표에 없는 종목은 null. 사업 설명 문장은 넣지 않는다.
 
 `move_strength_cap` — 등락 층 link strength 상한. 종목 등락 중 대형주 몫이 절반 이상이고 등락 층을 판단하는 날
 `"partial"`, 그 밖 `null`. 검증 `MOVE_SUFFICIENT_STOCK_ONLY` 와 같은 함수(`verify.move_strength_cap`)이고, 어기면

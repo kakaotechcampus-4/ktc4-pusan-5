@@ -57,6 +57,7 @@ from app.llm.client import (
     input_tokens,
 )
 from app.repositories.stock_move_analysis import KST
+from app.services.stock_analysis.stock_meta import sector, universe_weight
 from app.services.stock_analysis.verify import (
     EMPTY_RESPONSE,
     LLM_ERROR,
@@ -126,13 +127,16 @@ def model_input(payload: dict[str, Any]) -> dict[str, Any]:
     러너가 남기는 입력 사본(inputs/)은 받은 바이트 그대로다. 같은 함수로 언제든 다시 만들 수 있다.
     """
     out = {k: v for k, v in payload.items() if k != "messages"}
+    # 업종 라벨(러너 종목 표). 테마 동향의 업종 단락과 relation: sector 판단에 쓴다(프롬프트 1부).
+    out["sector"] = sector(payload.get("code"))
     out.update(split_messages(payload))
     out["messages"] = [{"id": i, **m} for i, m in message_ids(payload)]
     market = payload.get("market")
     if isinstance(market, dict):
         out["market"] = {**{k: v for k, v in market.items() if k != "move_case"},
                          "judge_layers": judge_layers(payload), "common_move": common_move(payload),
-                         "move_strength_cap": move_strength_cap(payload)}
+                         "move_strength_cap": move_strength_cap(payload),
+                         "universe_weight": universe_weight(payload.get("code"))}
     return out
 
 
@@ -433,6 +437,8 @@ def _base_wrapper(payload: dict[str, Any], *, prompt_hash: str, run_id: str) -> 
         "judge_layers": judge_layers(payload) if isinstance(payload.get("market"), dict) else None,
         "common_move": common_move(payload) if isinstance(payload.get("market"), dict) else None,
         "move_strength_cap": move_strength_cap(payload) if isinstance(payload.get("market"), dict) else None,
+        "sector": sector(payload.get("code")),
+        "universe_weight": universe_weight(payload.get("code")),
     }
 
 

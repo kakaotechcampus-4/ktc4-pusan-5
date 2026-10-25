@@ -58,9 +58,10 @@ async def test_prompt_and_input_are_sent(fake_complete):
     # 원본 dict 는 그대로다
     sent = {k: v for k, v in CAUSE.items() if k != "messages"}
     numbered = [{"id": f"m{k + 1}", **m} for k, m in enumerate(CAUSE["messages"])]  # 근거 칸에 m1… id
-    assert json.loads(user) == {**sent, "messages": numbered, "market_context": [], "flow": [],
+    assert json.loads(user) == {**sent, "sector": None, "messages": numbered, "market_context": [], "flow": [],
                                 "market": {**CAUSE["market"], "judge_layers": {"move": True, "relative": True},
-                                           "common_move": False, "move_strength_cap": None}}
+                                           "common_move": False, "move_strength_cap": None,
+                                           "universe_weight": None}}
     assert "judge_layers" not in CAUSE["market"]
 
 
@@ -479,3 +480,11 @@ async def test_move_strength_cap_violation_is_retried(fake_complete):
     assert fake_complete.await_count == 2 and w["judge_retry"]["retried"] is True
     assert [p.split(":")[0] for p in w["judge_retry"]["first"]["problems"]] == ["MOVE_SUFFICIENT_STOCK_ONLY"]
     assert json.loads(fake_complete.await_args.args[1])["market"]["move_strength_cap"] == "partial"
+
+
+
+def test_model_input_has_sector_and_universe_weight_from_stock_table():
+    payload = {**CAUSE, "code": "402340", "stock": "SK스퀘어"}
+    sent = gen.model_input(payload)
+    assert sent["sector"] == ["지주", "반도체"]
+    assert sent["market"]["universe_weight"] == pytest.approx(0.0326)

@@ -24,7 +24,7 @@ JSON 하나를 받습니다.
 
 ```
 {
-  "stock": "<종목명>", "code": "<6자리>",
+  "stock": "<종목명>", "code": "<6자리>", "sector": ["<업종 라벨>", …] | null,
   "target_date": "<YYYY-MM-DD>", "cutoff": "<기준 시각. 이 시각까지의 메시지만 들어 있다>",
   "change_pct": <기준 시각 기준 등락률, 하락은 음수>,
   "market": { "index": "코스피", "change_pct": <지수 등락률>,
@@ -34,7 +34,8 @@ JSON 하나를 받습니다.
               "excess_pct": <change_pct − peer_median_pct. 없으면 null>,
               "judge_layers": { "move": <true | false>, "relative": <true | false> },
               "common_move": <true | false | null>,
-              "move_strength_cap": <"partial" | null> },   // 없으면 null
+              "move_strength_cap": <"partial" | null>,
+              "universe_weight": <대형주 안 시총 비중 0~1 | null> },   // 없으면 null
   "messages":       [ <메시지> ],   // 근거가 되는 메시지
   "market_context": [ <메시지> ],   // 그날 시장 시황
   "flow":           [ <메시지> ]    // 장중 매매 순위 목록
@@ -50,8 +51,8 @@ JSON 하나를 받습니다.
 
 | 칸 | 쓰는 곳 |
 | --- | --- |
-| `messages` | 근거. `kind: "theme_recap"`(테마·업종별 동향)은 **이 종목 업종을 다룬 단락만** `sector` 근거로 쓰고 다른 업종 단락은 쓰지 않는다 |
-| `market_context` | `summary.move` 의 시장 설명에만 쓴다. 출처(`sources`)로 쓰지 않는다. `after_prev_close: true` 인 항목은 전날 장 설명이라 어디에도 쓰지 않는다(참고만) |
+| `messages` | 근거. `kind: "theme_recap"`(테마·업종별 동향)은 **입력 `sector` 라벨 업종을 다룬 단락만** `sector` 근거로 쓰고 다른 업종 단락은 쓰지 않는다 |
+| `market_context` | `summary.move` 의 시장 설명에만 쓴다(`common_move` 가 `true` 인 날은 `summary.main_cause` 의 배경 문장). 출처(`sources`)로 쓰지 않는다. `after_prev_close: true` 인 항목은 전날 장 설명이라 어디에도 쓰지 않는다(참고만) |
 | `flow` | 같은 사건 factor 의 `detail` 이나 `background` 의 보조 근거로만 쓴다. 순위만으로 factor 를 만들지 않는다 |
 
 - 메시지는 이미 종목·시간으로 걸러진 상태입니다. `cutoff` 이후 메시지는 들어오지 않습니다.
@@ -68,6 +69,8 @@ JSON 하나를 받습니다.
 - **`market.judge_layers` 를 따릅니다.** `false` 인 층에는 link 를 달지 않고 그 층 판정은 `no_clear_cause` 입니다.
 - **`market.move_strength_cap` 을 따릅니다.** 쓰는 곳은 2부 5단계입니다.
 - **`market.common_move` 를 따릅니다.** `true` 면 그날은 등락 층 factor 를 세우지 않습니다(7단계).
+- `sector` 는 이 종목의 업종 라벨 목록입니다(예: `["지주", "반도체"]`). 1-2 의 `relation: "sector"` 와 테마 동향의
+  업종 단락을 가르는 기준입니다. 없으면 `null` 이고, 그때는 메시지에서 이 종목의 업종을 판단합니다.
 - `market` 이 `null` 이면 상대 층을 판단하지 않습니다.
 
 ---
@@ -91,7 +94,7 @@ JSON 하나를 받습니다.
 | `relation` | 뜻 |
 | --- | --- |
 | `direct` | 이슈를 다룬 문장·단락에 이 종목명이 나온다 |
-| `sector` | 종목명은 없지만 이 종목의 업종·산업·전방산업을 다룬다(예: "K-배터리" → 배터리 종목). 같은 테마 단락 묶음 끝에 "이 같은 소식에 … 이 종목 … 상승" 처럼 종목이 함께 나열된 경우도 여기에 듭니다. **시장 전체를 다룬 이슈는 `sector` 가 아닙니다**(`market`) |
+| `sector` | 종목명은 없지만 **입력 `sector` 라벨 업종과 그 전방산업**을 다룬다(예: 라벨 "2차전지" → "K-배터리", "전력저장장치 수요"). 같은 테마 단락 묶음 끝에 "이 같은 소식에 … 이 종목 … 상승" 처럼 종목이 함께 나열된 경우도 여기에 듭니다. **시장 전체를 다룬 이슈는 `sector` 가 아닙니다**(`market`) |
 | `market` | 이 종목·업종이 아니라 그날 시장 전체를 다룬다 — 지수(코스피 등락, 사이드카), 시장 전체 수급(외국인·기관 순매수/순매도), 거시 지표(금리, 물가, 환율) |
 | `none` | 이 종목, 이 종목의 업종, 그날 시장 전체 등락 중 어디와도 이어지지 않는다 |
 
@@ -239,7 +242,7 @@ JSON 하나를 받습니다.
 
 **결과를 적은 메시지.** 시황·테마 동향·매매 순위는 주가가 **어떻게 됐는지(결과)** 를 적은 것입니다.
 "OO 급등", "반도체 강세" 같은 제목 자체를 근거로 삼으면 순환 논리입니다. 그 안에 인용된 사건만
-1부 「세 칸의 용도」에 따라 씁니다. **테마 동향(`kind: "theme_recap"`)의 이 종목 업종 단락에 인용된 구체적 사건**
+1부 「세 칸의 용도」에 따라 씁니다. **테마 동향(`kind: "theme_recap"`)의 `sector` 라벨 업종 단락에 인용된 구체적 사건**
 (예: 경쟁사의 사업 계획 발표)**은 원인이 될 수 있습니다.** 단락의 등락 결과("2차전지 약세", "OO +5%") 자체는
 원인이 아닙니다.
 
@@ -302,7 +305,8 @@ JSON 하나를 받습니다.
 
 **`market.common_move` 가 `true` 인 날은 등락 층 factor 를 세우지 않습니다.** `verdict` 는 `no_clear_cause` 이고
 `layer: "move"` link 는 없습니다. 대형주 전반이 함께 움직인 날이라, 그날 재료는 이렇게 나눠 씁니다.
-- 시장 사건(출처 `kind` 와 상관없이 `relation: "market"` 인 이슈) → `summary.move`
+- 시장 사건(`market_context` 의 사건, 출처 `kind` 와 상관없이 `relation: "market"` 인 이슈) → `summary.main_cause` 의
+  배경 문장(4부). 이날은 `summary.move` 에 쓰지 않습니다.
 - 종목·업종 재료(경쟁사 실적 포함) → `background`
 
 다른 재료가 그 영향을 상쇄했다고 쓰지 마세요. 메시지만으로는 각 재료가 얼마나 반영됐는지 알 수 없습니다.
@@ -324,7 +328,7 @@ JSON 하나를 받습니다.
 | 원인은 아니지만 그날 있었던 재료 | `background` | 쓰지 않음 |
 | 그중 다음에 확인할 사건 | `background` 항목에 `watch` 표시 | 쓰지 않음 |
 | 시장 전체 등락 수치 (지수·종목 수·중간값·시장 전체 매매 수치) | `summary.move` | **다른 칸에 쓰지 않음** |
-| 시장·업종 전체를 움직인 사건 (금리, 지정학, 업황 등) — `messages` 의 테마 동향(`kind: "theme_recap"`)이 아닌 메시지에 출처가 있을 때 | `factors` (`layer: "move"` link). `common_move` 가 `true` 인 날은 `summary.move` | 쓰지 않음 |
+| 시장·업종 전체를 움직인 사건 (금리, 지정학, 업황 등) — `messages` 의 테마 동향(`kind: "theme_recap"`)이 아닌 메시지에 출처가 있을 때 | `factors` (`layer: "move"` link). `common_move` 가 `true` 인 날은 `summary.main_cause` 배경 문장 | 쓰지 않음 |
 | 이 종목의 매매 규모가 금액·수량으로 나온 소식 | 해당 factor 의 `detail` 또는 독립 factor | 쓰지 않음 |
 | 이 보고서에만 해당하는 한계 | `summary.unexplained` | 검수용 상세는 `not_found` |
 
@@ -392,12 +396,14 @@ JSON 하나를 받습니다.
 **`judge_layers.relative` 가 `false` 이고 `excess_pct` 가 있으면 "더/덜" 대신 "대형주 전반과 비슷하게 움직였습니다" 로 씁니다.**
 **%p 표기는 쓰지 않습니다.**
 `market_context` 에 시장 전체 매매 수치나 그날 시장을 움직인 사건이 있으면 한 문장으로 덧붙일 수 있습니다.
-`common_move` 가 `true` 인 날은 `messages` 의 시장 사건(`relation: "market"`)도 여기에 한 문장으로 씁니다.
+단 `common_move` 가 `true` 인 날은 시장을 움직인 사건을 여기 쓰지 않고 `main_cause` 에 씁니다(매매 수치는 여기에).
 
 **`main_cause`** — `layer: "move"` link 를 가진 `factors` 를 줄글로 요약합니다. 등락 층의 원인만 씁니다.
 - 최대 3문장입니다. 원인이 여럿이면 `partial` 이상인 것 위주로 묶어 3문장 안에 담습니다.
-- **`market.common_move` 가 `true` 면 "대형주 전반이 함께 오른(내린) 날이었습니다. 이 종목만의 원인은 따로
-  확인되지 않았습니다." 로 씁니다.** 그날 시장을 움직인 사건은 `move` 에 있으므로 되풀이하지 않습니다.
+- **`market.common_move` 가 `true` 면 세 문장 꼴입니다.** ① "대형주 전반이 함께 오른(내린) 날이었습니다."
+  ② `market_context` 나 `relation: "market"` 이슈에 그날 시장을 움직인 사건이 있으면 그 배경 한 문장
+  (예: "AI 투자 수익성 우려와 중동 긴장이 시장 전반을 눌렀습니다."). 없으면 이 문장은 뺍니다.
+  ③ "이 종목만의 원인은 따로 확인되지 않았습니다."
 - 그 층 link 의 `strength` 가 `insufficient` 인 factor 는 넣지 않습니다. "거의 설명되지 않는다" 고 스스로
   표시한 것을 원인이라 부르면 앞뒤가 맞지 않습니다.
 - `partial` 이상인 factor 가 하나도 없으면 그 사실을 적습니다.

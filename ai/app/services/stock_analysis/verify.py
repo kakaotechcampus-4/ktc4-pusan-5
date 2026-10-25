@@ -23,6 +23,8 @@ import re
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from app.services.stock_analysis.stock_meta import universe_weight
+
 # --- 프롬프트 「출력 형식」 에서 옮긴 값 목록 ------------------------------------
 
 VERDICTS = ("explained", "partially_explained", "no_clear_cause")
@@ -732,14 +734,26 @@ def _peer_share_half(payload: dict[str, Any]) -> bool | None:
     return change * peer > 0 and 2 * abs(peer) >= abs(change)
 
 
+# 대형주 유니버스 안 시총 비중이 이 값 이상이면 시장을 움직이는 종목으로 본다. 그런 종목은 "대형주가 다 같이
+# 움직였다" 가 설명이 아니라 그 종목 움직임의 결과이기도 해서, 대형주 몫으로 원인 찾기를 막지 않는다
+# (common_move·move_strength_cap). 2026-10-21~23 유니버스에서 삼성전자 40%·SK하이닉스 30%, 다음이 3.3% 다.
+MARKET_MOVER_WEIGHT = 0.10
+
+
+def is_market_mover(payload: dict[str, Any]) -> bool:
+    """시장을 움직이는 종목인가. 러너 종목 표(stock_meta)의 universe_weight 가 MARKET_MOVER_WEIGHT 이상."""
+    weight = universe_weight(payload.get("code"))
+    return weight is not None and weight >= MARKET_MOVER_WEIGHT
+
+
 def move_strength_cap(payload: dict[str, Any]) -> str | None:
     """입력 market.move_strength_cap. 등락 층 link strength 의 상한. "partial" 이거나 None(상한 없음).
 
     종목 등락 중 다른 대형주와 같은 몫이 절반 이상인 날(_peer_share_half)이고 등락 층을 판단하는 날이면 "partial".
-    검증 MOVE_SUFFICIENT_STOCK_ONLY 와 STRENGTH_MISMATCH 의 상한 판단이 같은 함수를 본다. 러너가 입력에 넣어
-    모델이 대형주 몫을 다시 계산하지 않게 한다(judge_layers 와 같은 방식).
+    시장을 움직이는 종목(is_market_mover)은 상한을 두지 않는다. 검증 MOVE_SUFFICIENT_STOCK_ONLY 와 STRENGTH_MISMATCH 의
+    상한 판단이 같은 함수를 본다. 러너가 입력에 넣어 모델이 대형주 몫을 다시 계산하지 않게 한다.
     """
-    if _layer_is_quiet(payload, "move")[0] or not _peer_share_half(payload):
+    if _layer_is_quiet(payload, "move")[0] or not _peer_share_half(payload) or is_market_mover(payload):
         return None
     return "partial"
 
@@ -749,12 +763,13 @@ def common_move(payload: dict[str, Any]) -> bool | None:
 
     _peer_share_half(대형주 몫이 절반 이상) 이고 상대 층을 판단하지 않는 날(judge_layers.relative 가 false).
     차이가 큰 날(예: -0.47% 인데 대형주 -1.77%)은 같은 방향이어도 "함께 움직인 날" 이 아니다.
-    true 면 summary.main_cause 첫 문장에 그 사실을 쓴다(프롬프트 4부). 알 수 없으면 None.
+    시장을 움직이는 종목(is_market_mover)은 언제나 false 다 — 그 종목에는 원인 찾기를 막지 않는다.
+    true 면 등락 층 factor 를 세우지 않고 summary.main_cause 를 정해진 꼴로 쓴다(프롬프트 4부·7단계). 알 수 없으면 None.
     """
     share = _peer_share_half(payload)
     if share is None:
         return None
-    return share and not judge_layers(payload)["relative"]
+    return share and not judge_layers(payload)["relative"] and not is_market_mover(payload)
 
 
 # 층마다 ±1% 규칙의 (판정 코드, factor 코드).
@@ -1447,6 +1462,7 @@ __all__ = [
     "common_move",
     "expected_direction_match",
     "families_of",
+    "is_market_mover",
     "is_stock_specific",
     "issue_trace_stats",
     "judge_layers",
