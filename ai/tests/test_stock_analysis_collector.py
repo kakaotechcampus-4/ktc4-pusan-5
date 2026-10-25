@@ -116,7 +116,9 @@ async def test_runs_folder_of_samples_and_writes_wrappers(fake_llm, tmp_path, ca
         "FLAT_MOVE_VERDICT", "FLAT_MOVE_FACTORS", "MOVE_SUFFICIENT_STOCK_ONLY"}
     assert wrappers["하늬결화학-2026-09-25-1530__r1"]["move_strength_cap"] == "partial"
     assert cause["move_strength_cap"] is None
-    assert cause["strength_recomputed"] == [{"factor": 0, "layer": "move", "model": "sufficient", "final": "sufficient"}]
+    # 샘플 보고서에는 events·issue_trace 가 없어 출처로 본다
+    assert cause["strength_recomputed"] == [{"factor": 0, "layer": "move", "model": "sufficient", "final": "sufficient",
+                                             "basis": "sources"}]
     assert cause["main_cause_fixed"] is None
     common = wrappers["하늬결화학-2026-09-25-1530__r1"]
     assert common["strength_recomputed"][0]["final"] == "partial"
@@ -320,7 +322,8 @@ async def test_stock_only_material_is_capped_on_market_share_day(monkeypatch, tm
     result = await collector.run(path, out_root=tmp_path)
     assert result["reasons"] == {}
     wrapper = json.loads(next((only_run_dir(tmp_path) / "parsed").glob("*.json")).read_text(encoding="utf-8"))
-    assert wrapper["strength_recomputed"] == [{"factor": 0, "layer": "move", "model": size_fit, "final": "partial"}]
+    assert wrapper["strength_recomputed"] == [{"factor": 0, "layer": "move", "model": size_fit, "final": "partial",
+                                               "basis": "sources"}]
     assert wrapper["verdict_recomputed"][0] == {"key": "verdict", "model": verdict, "final": "partially_explained"}
 
 

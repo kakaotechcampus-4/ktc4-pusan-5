@@ -143,6 +143,8 @@ runs/<YYYYMMDD-HHMMSS>/
 `universe_weight` — 대형주 유니버스 안 시총 비중(러너 종목 표 `stock_meta.json`, 스냅숏). **0.10 이상이면 시장을 움직이는
 종목**으로 보고 `common_move` 를 false, `move_strength_cap` 을 null 로 둔다(`verify.is_market_mover`, 상수 `MARKET_MOVER_WEIGHT`).
 
+모델 입력 맨 위 `main_cause_sentences` — `summary.main_cause` 에서 모델이 쓸 문장 수. common_move 날 1, market_led 날 2, 그 밖 3(`verify.main_cause_sentences`). 러너 고정 문장을 더해도 3문장 이하가 되게 한다. 넘으면 경고 `MAIN_CAUSE_TOO_LONG`.
+
 모델 입력 맨 위 `sector` — 종목 업종 라벨 목록(`stock_meta.json`, 예: SK스퀘어 `["지주", "반도체"]`). 테마 동향의 업종 단락과
 `relation: sector`("라벨 업종과 그 전방산업")를 가르는 기준이다. 표에 없는 종목은 null. 사업 설명 문장은 넣지 않는다.
 
@@ -337,7 +339,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verify_status` | `passed` / `failed`. 스키마·규칙·근거 중 하나라도 걸리면 failed |
 | `verify_problems` | `"<코드>: <상세>"` 문자열 배열 (예: `QUOTE_NOT_IN_SOURCE: factors[0].sources[0] ...`) |
 | `events_status` / `events_problems` | `events` 칸 검사. `passed` / `failed` / `missing`. 판정과 별개. 형식(`SCHEMA_*`, `EVENT_REASON_MISMATCH`)과 실제 칸 대조: `EVENT_BACKGROUND_REF_MISSING`·`_REF_DUPLICATE`·`_UNREFERENCED`(background 항목과 사건이 하나씩 짝), `EVENT_FACTOR_COUNT`·`_REF_MISSING`·`_DUPLICATE`, `ISSUE_ID_DUPLICATE` |
-| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`, `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 direct 메시지에서 나왔는데 출처에 direct 가 없음), `STRENGTH_MISMATCH`(strength 가 정의와 어긋남 — 출처에 direct(입력 match)가 있는데 partial, 없는데 sufficient. 미확인·대형주 몫 상한은 예외) |
+| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`, `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 direct 메시지에서 나왔는데 출처에 direct 가 없음), `MAIN_CAUSE_TOO_LONG`(최종 main_cause 가 러너 고정 문장 포함 3문장 초과. 자르지 않음), `STRENGTH_MISMATCH`(모델 strength 가 정의와 어긋남 — 사건 이슈가 direct(입력 match) 메시지에서 나왔는데 partial, 아닌데 sufficient. issue_trace 가 없으면 출처로 봄. 미확인·대형주 몫 상한은 예외) |
 | `issue_trace_warnings` / `issue_trace_stats` | `ISSUE_TRACE_MISSING_URL`(messages 칸 누락)·`ISSUE_ID_UNKNOWN` 경고와 집계(`messages_traced`, `messages_total`, `relations`, `issues_used`) |
 
 ### 재시도·고쳐 쓰기 기록
@@ -357,7 +359,7 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
 
 | 키 | 뜻 |
 | --- | --- |
-| `strength_recomputed` | link 마다 `{factor, layer, model, final}`. 출처에 입력 match=direct 가 하나라도 있으면 `sufficient`, 없으면 `partial`. `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial`. `insufficient`·`direction_match: false` link 는 그대로 둔다. 경고 `STRENGTH_MISMATCH` 는 `model` 값으로 센다 |
+| `strength_recomputed` | link 마다 `{factor, layer, model, final, basis}`. 그 factor 사건의 이슈(`events.issue_ids` → `issue_trace`)가 하나라도 입력 match=direct 메시지에서 나왔으면 `sufficient`, 아니면 `partial`(`basis: "issues"`, DIRECT_SOURCE_MISSING 과 같은 판단 `verify.factor_has_direct`). issue_trace 가 없거나 사건에 issue_ids 가 없으면 출처로 본다(`basis: "sources"`). `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial`. `insufficient`·`direction_match: false` link 는 그대로 둔다. 경고 `STRENGTH_MISMATCH` 는 `model` 값을 같은 정의로 본다 |
 | `verdict_recomputed` | `[{key: verdict\|relative_verdict, model, final}]`. `judge_layers` 가 false 인 층은 `no_clear_cause`, 판단하는 층은 그 층 link 에 `sufficient` 가 있으면 `explained`, link 가 있으면 `partially_explained`, 없으면 `no_clear_cause` |
 | `main_cause_fixed` | `common_move`·`market_led` 날 `{before, after}`, 그 밖 null. 앞에 "대형주 전반이 함께 오른(내린) 날이었습니다.", `common_move` 날은 끝에 "이 종목만의 원인은 따로 확인되지 않았습니다." 를 붙인다. 모델이 같은 문장을 썼으면 지우고 한 번만 붙인다 |
 

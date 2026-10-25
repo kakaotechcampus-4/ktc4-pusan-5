@@ -48,6 +48,7 @@ from app.services.stock_analysis.verify import (
     check_warnings,
     families_of,
     issue_trace_stats,
+    main_cause_sentences,
     verify_wrapper,
 )
 
@@ -156,8 +157,8 @@ async def run(
             if report is not None:
                 repairs = await repair_quotes(report, payload, stream=wrapper["stream"], run_id=run_id)
                 # 등락 층 근거가 빠졌으면 남은 근거로 main_cause 를 한 번 다시 쓰게 한다.
-                rewrite = await rewrite_main_cause(report, repairs, stream=wrapper["stream"],
-                                                   run_id=run_id)
+                rewrite = await rewrite_main_cause(report, repairs, stream=wrapper["stream"], run_id=run_id,
+                                                   sentences=main_cause_sentences(payload))
                 if rewrite is not None:
                     wrapper["main_cause_rewrite"] = rewrite
                     wrapper["cost"] += rewrite["cost"]
@@ -166,7 +167,7 @@ async def run(
                     wrapper["cost"] += sum(r["cost"] for r in repairs)
                 # strength·판정·main_cause 고정 문장은 러너가 정한다. 정형 보고서는 이미 러너가 정했다.
                 if not wrapper.get("skipped_llm"):
-                    wrapper.update(finalize(report, payload))
+                    wrapper.update(finalize(report, payload, wrapper.get("issue_trace")))
                 wrapper["final_text"] = json.dumps(report, ensure_ascii=False)
         wrapper["input_path"] = copied.relative_to(run_dir).as_posix()
         wrapper["input_original_path"] = source.as_posix()

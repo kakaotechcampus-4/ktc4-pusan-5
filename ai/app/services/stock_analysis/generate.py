@@ -69,6 +69,7 @@ from app.services.stock_analysis.verify import (
     check_schema,
     common_move,
     judge_layers,
+    main_cause_sentences,
     market_led,
     message_ids,
     move_case,
@@ -131,6 +132,8 @@ def model_input(payload: dict[str, Any]) -> dict[str, Any]:
     out = {k: v for k, v in payload.items() if k != "messages"}
     # 업종 라벨(러너 종목 표). 테마 동향의 업종 단락과 relation: sector 판단에 쓴다(프롬프트 1부).
     out["sector"] = sector(payload.get("code"))
+    # main_cause 에서 모델이 쓸 문장 수. 러너 고정 문장(finalize)을 더해도 3문장 이하가 되게 한다(프롬프트 4부).
+    out["main_cause_sentences"] = main_cause_sentences(payload)
     out.update(split_messages(payload))
     out["messages"] = [{"id": i, **m} for i, m in message_ids(payload)]
     market = payload.get("market")

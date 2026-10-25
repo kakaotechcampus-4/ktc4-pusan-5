@@ -8,7 +8,7 @@ from app.services.stock_analysis.finalize import (
     recompute_strength,
     recompute_verdicts,
 )
-from app.services.stock_analysis.verify import check_warnings
+from app.services.stock_analysis.verify import check_warnings, main_cause_sentences
 
 DIRECT, INDIRECT = "https://t.me/a/1", "https://t.me/a/2"
 
@@ -95,6 +95,36 @@ def test_other_days_are_untouched():
     r = report([], main_cause="원인입니다.")
     assert fix_main_cause(r, payload(change=-3.0, peer=-0.5, excess=-2.5)) is None
     assert r["summary"]["main_cause"] == "원인입니다."
+
+
+def test_strength_follows_issue_messages_not_sources():
+    """사건의 이슈가 direct 메시지에서 나왔으면 출처에 indirect 만 달아도 sufficient. issue_trace 가 없으면 출처로 본다."""
+    p = payload(change=-3.0, peer=-0.5, excess=-2.5)
+    trace = [{"id": "m1", "issues": [{"id": "i1", "relation": "direct", "issue": "x"}]},
+             {"id": "m2", "issues": [{"id": "i2", "relation": "sector", "issue": "y"}]}]
+    r = report([factor([INDIRECT], ("move", "partial", True)), factor([DIRECT], ("move", "sufficient", True))])
+    r["events"] = [{"event": "a", "issue_ids": ["i1"], "placed": "factors", "factor": 0},
+                   {"event": "b", "issue_ids": ["i2"], "placed": "factors", "factor": 1}]
+    rec = recompute_strength(r, p, trace)
+    assert [(x["final"], x["basis"]) for x in rec] == [("sufficient", "issues"), ("partial", "issues")]
+    assert [x["final"] for x in recompute_strength(r, p)] == ["partial", "sufficient"]
+
+
+@pytest.mark.parametrize("code, change, peer, excess, expected", [
+    ("999999", -1.5, -1.4, -0.1, 1),   # common_move
+    ("005930", -1.5, -1.4, -0.1, 2),   # market_led
+    ("999999", -3.0, -0.5, -2.5, 3),
+])
+def test_main_cause_sentences(code, change, peer, excess, expected):
+    assert main_cause_sentences(payload(code=code, change=change, peer=peer, excess=excess)) == expected
+
+
+def test_main_cause_too_long_counts_runner_sentences():
+    r = report([], main_cause="대형주 전반이 함께 내린 날이었습니다. 금리 우려가 컸습니다. 유가도 1.28% 올랐습니다. "
+                              "이 종목만의 원인은 따로 확인되지 않았습니다.")
+    assert [w.split(":")[0] for w in check_warnings(r, payload())] == ["MAIN_CAUSE_TOO_LONG"]
+    r["summary"]["main_cause"] = "대형주 전반이 함께 내린 날이었습니다. 금리 우려가 컸습니다. 이 종목만의 원인은 따로 확인되지 않았습니다."
+    assert check_warnings(r, payload()) == []
 
 
 def test_finalize_normalizes_legacy_factor_and_strength_warning_uses_model_value():

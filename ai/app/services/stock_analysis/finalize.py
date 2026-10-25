@@ -20,10 +20,9 @@ from app.services.stock_analysis.verify import (
     LAYERS,
     VERDICT_KEYS,
     _factors,
-    _has_direct_source,
     _links,
-    _messages,
     common_move,
+    factor_has_direct,
     layer_pct,
     market_led,
     move_strength_cap,
@@ -38,31 +37,36 @@ _HEAD_RE = re.compile(r"대형주 전반이 함께 (?:오른|내린) 날이었�
 _TAIL_RE = re.compile(re.escape(TAIL_SENTENCE[:-1]) + r"\.?")
 
 
-def defined_strength(factor: dict[str, Any], layer: str, matches: dict[Any, Any], move_capped: bool) -> str:
-    """5단계 정의의 strength. 출처에 입력 match=direct 가 하나라도 있으면 sufficient, 없으면 partial.
-    미확인(unconfirmed) factor 와, move_strength_cap 이 partial 인 날의 등락 층은 partial 까지다."""
+def defined_strength(factor: dict[str, Any], layer: str, has_direct: bool, move_capped: bool) -> str:
+    """5단계 정의의 strength. 사건이 입력 match=direct 메시지에서 나왔으면(verify.factor_has_direct) sufficient, 아니면
+    partial. 미확인(unconfirmed) factor 와, move_strength_cap 이 partial 인 날의 등락 층은 partial 까지다."""
     capped = factor.get("unconfirmed") is True or (layer == "move" and move_capped)
-    return CAPPED_SIZE_FIT if _has_direct_source(factor, matches) and not capped else "partial"
+    return CAPPED_SIZE_FIT if has_direct and not capped else "partial"
 
 
-def recompute_strength(report: dict[str, Any], payload: dict[str, Any]) -> list[dict[str, Any]]:
-    """link 마다 strength 를 정의대로 고친다. report 를 제자리에서 고치고 [{factor, layer, model, final}] 을 돌려준다.
+def recompute_strength(report: dict[str, Any], payload: dict[str, Any],
+                       issue_trace: Any = None) -> list[dict[str, Any]]:
+    """link 마다 strength 를 정의대로 고친다. report 를 제자리에서 고치고 [{factor, layer, model, final, basis}] 를 돌려준다.
+
+    direct 여부는 출처 목록이 아니라 그 factor 사건의 이슈(events.issue_ids → issue_trace)가 나온 메시지로 본다 —
+    같은 사건에 어느 출처를 달았는지로 판정이 갈리지 않게 한다(2026-10-25, runner_v13 삼성전자 21일). issue_trace 가
+    없거나 사건에 issue_ids 가 없으면 출처로 본다. basis 가 그 기준("issues" | "sources")이다.
 
     모든 link 를 적는다(바뀌지 않은 것도) — 모델이 적은 값을 래퍼에서 다시 볼 수 있게 한다. 건드리지 않는 link:
     direction_match 가 false(counter 로 갈 재료라 검증이 실패로 잡는다), strength 가 insufficient(출처로 정할 수 없는
     "거의 닿지 않음" 판단), layer 나 strength 가 목록 밖(스키마 실패).
     """
-    matches = {m.get("url"): m.get("match") for m in _messages(payload)}
     move_capped = move_strength_cap(payload) == "partial"
     out: list[dict[str, Any]] = []
-    for i, f in enumerate(_factors(report)):
+    for i, (f, (has_direct, basis)) in enumerate(zip(_factors(report), factor_has_direct(report, payload, issue_trace),
+                                                     strict=True)):
         for link in _links(f):
             layer, model = link.get("layer"), link.get("strength")
             final = model
             if layer in LAYERS and model in (CAPPED_SIZE_FIT, "partial") and link.get("direction_match") is not False:
-                final = defined_strength(f, layer, matches, move_capped)
+                final = defined_strength(f, layer, has_direct, move_capped)
                 link["strength"] = final
-            out.append({"factor": i, "layer": layer, "model": model, "final": final})
+            out.append({"factor": i, "layer": layer, "model": model, "final": final, "basis": basis})
     return out
 
 
@@ -112,12 +116,12 @@ def fix_main_cause(report: dict[str, Any], payload: dict[str, Any]) -> dict[str,
     return {"before": before, "after": after}
 
 
-def finalize(report: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+def finalize(report: dict[str, Any], payload: dict[str, Any], issue_trace: Any = None) -> dict[str, Any]:
     """세 가지를 차례로 한다. strength 를 먼저 고쳐야 판정이 고친 strength 를 본다. 래퍼에 넣을 칸을 돌려준다.
     이전 형식 factor(layer·size_fit)는 links 형식으로 펴서 고친다 — 그대로 두면 link 가 없어 판정을 잘못 낸다."""
     if isinstance(report.get("factors"), list):
         report["factors"] = normalize_report(report)["factors"]
-    return {"strength_recomputed": recompute_strength(report, payload),
+    return {"strength_recomputed": recompute_strength(report, payload, issue_trace),
             "verdict_recomputed": recompute_verdicts(report, payload),
             "main_cause_fixed": fix_main_cause(report, payload)}
 

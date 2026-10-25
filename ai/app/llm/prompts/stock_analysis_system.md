@@ -24,7 +24,7 @@ JSON 하나를 받습니다.
 
 ```
 {
-  "stock": "<종목명>", "code": "<6자리>", "sector": ["<업종 라벨>", …] | null,
+  "stock": "<종목명>", "code": "<6자리>", "sector": ["<업종 라벨>", …] | null, "main_cause_sentences": <1 | 2 | 3>,
   "target_date": "<YYYY-MM-DD>", "cutoff": "<기준 시각. 이 시각까지의 메시지만 들어 있다>",
   "change_pct": <기준 시각 기준 등락률, 하락은 음수>,
   "market": { "index": "코스피", "change_pct": <지수 등락률>,
@@ -390,7 +390,7 @@ JSON 하나를 받습니다.
 | 키 | 내용 | 분량 | 비움 |
 | --- | --- | --- | --- |
 | `move` | 기준 시각, 종목 등락률, 코스피 등락률, 다른 대형주들의 움직임(상승·하락 종목 수와 중간값) | 1~2문장 (시장 전체 매매 수치나 그날 시장을 움직인 사건을 덧붙이면 최대 3문장) | 불가 |
-| `main_cause` | 등락 층의 원인 요약. `strength` 가 높은 것부터 | **최대 3문장** | 불가 |
+| `main_cause` | 등락 층의 원인 요약. `strength` 가 높은 것부터 | **`main_cause_sentences` 이하** | 불가 |
 | `relative` | 상대 층 — 다른 대형주와 달랐던 이유 | 최대 3문장 | **없으면 `null`** |
 | `counter` | 방향이 어긋나는 재료 | 최대 3문장 | **없으면 `null`** |
 | `unexplained` | 설명되지 않는 폭과 **이 보고서에만 해당하는** 이유 | 1~2문장 | 불가 |
@@ -407,13 +407,13 @@ JSON 하나를 받습니다.
 단 `common_move` 나 `market_led` 가 `true` 인 날은 시장을 움직인 사건을 여기 쓰지 않고 `main_cause` 에 씁니다(매매 수치는 여기에).
 
 **`main_cause`** — `layer: "move"` link 를 가진 `factors` 를 줄글로 요약합니다. 등락 층의 원인만 씁니다.
-- 최대 3문장입니다. 원인이 여럿이면 `partial` 이상인 것 위주로 묶어 3문장 안에 담습니다.
+- **`main_cause` 는 입력 `main_cause_sentences` 개 이하의 문장으로 씁니다.** 원인이 여럿이면 `partial` 이상인 것 위주로 묶습니다.
 - **`market.common_move`·`market_led` 가 `true` 인 날은 러너가 앞뒤 문장을 붙이니 그 사이 내용만 씁니다.**
   러너는 맨 앞에 "대형주 전반이 함께 오른(내린) 날이었습니다." 를, `common_move` 날은 맨 끝에 "이 종목만의 원인은
   따로 확인되지 않았습니다." 를 붙입니다. 이 문장들은 쓰지 않습니다.
-  - `common_move` 날: `market_context` 나 `relation: "market"` 이슈에 그날 시장을 움직인 사건이 있으면 그 배경 한 문장
+  - `common_move` 날: `market_context` 나 `relation: "market"` 이슈에 그날 시장을 움직인 사건이 있으면 그 배경
     (예: "AI 투자 수익성 우려와 중동 긴장이 시장 전반을 눌렀습니다."). 없으면 빈 문자열 `""` 입니다.
-  - `market_led` 날: 그날 시장·업종을 움직인 사건(`market_context`, 등락 층 factor), 최대 2문장. 종목 고유 재료는
+  - `market_led` 날: 그날 시장·업종을 움직인 사건(`market_context`, 등락 층 factor). 종목 고유 재료는
     이날 원인이 아니라 쓰지 않습니다(7단계).
 - 그 층 link 의 `strength` 가 `insufficient` 인 factor 는 넣지 않습니다. "거의 설명되지 않는다" 고 스스로
   표시한 것을 원인이라 부르면 앞뒤가 맞지 않습니다.

@@ -251,7 +251,7 @@ MAIN_CAUSE_SYSTEM = """\
 근거를 아직 말하고 있을 수 있습니다. **남은 근거(remaining_factors)만으로** main_cause 를 다시 쓰세요.
 
 - 남은 근거에 없는 내용은 쓰지 않습니다. 빠진 근거의 내용은 한 마디도 남기지 않습니다.
-- 최대 3문장, 줄글입니다. 등락 층 link(move_link)의 strength 가 높은 것부터 씁니다.
+- 최대 main_cause_sentences 문장, 줄글입니다. 등락 층 link(move_link)의 strength 가 높은 것부터 씁니다.
   strength 가 insufficient 인 근거는 넣지 않습니다.
 - partial 이상인 근거가 하나도 없으면 그 사실을 적습니다. 남은 근거가 하나도 없으면
   "제공된 메시지에서 확인된 원인은 없습니다." 로 적습니다.
@@ -265,7 +265,7 @@ MAIN_CAUSE_SYSTEM = """\
 """
 
 
-def _main_cause_user(report: dict[str, Any], dropped: list[dict[str, Any]]) -> str:
+def _main_cause_user(report: dict[str, Any], dropped: list[dict[str, Any]], sentences: int = 3) -> str:
     remaining = []
     for f in _factors(normalize_report(report)):
         move = next((x for x in _links(f) if x.get("layer") == "move"), None)
@@ -275,14 +275,14 @@ def _main_cause_user(report: dict[str, Any], dropped: list[dict[str, Any]]) -> s
                           "stance": f.get("stance"), "unconfirmed": f.get("unconfirmed"),
                           "source_matches": [s.get("match") for s in _sources(f)],
                           "move_link": {"note": move.get("note"), "strength": move.get("strength")}})
-    return json.dumps({"verdict": report.get("verdict"),
+    return json.dumps({"verdict": report.get("verdict"), "main_cause_sentences": sentences,
                        "main_cause": report["summary"]["main_cause"],
                        "dropped": [r.get("event") for r in dropped],
                        "remaining_factors": remaining}, ensure_ascii=False, indent=2)
 
 
 async def rewrite_main_cause(
-    report: dict[str, Any], records: list[dict[str, Any]], *, stream: bool, run_id: str = ""
+    report: dict[str, Any], records: list[dict[str, Any]], *, stream: bool, run_id: str = "", sentences: int = 3
 ) -> dict[str, Any] | None:
     """repair_quotes 가 등락 층 link 를 가진 factor 를 뺐으면 main_cause 를 한 번 다시 쓰게 한다.
 
@@ -300,7 +300,7 @@ async def rewrite_main_cause(
         return record
     record["before"] = summary["main_cause"]
     try:
-        text, usage = await complete(MAIN_CAUSE_SYSTEM, _main_cause_user(report, dropped),
+        text, usage = await complete(MAIN_CAUSE_SYSTEM, _main_cause_user(report, dropped, sentences),
                                      max_tokens=REPAIR_MAX_TOKENS, stream=stream)
     except (LLMError, StreamInterrupted) as exc:
         logger.warning("%s: main_cause 다시 쓰기 실패: %s", run_id, exc)

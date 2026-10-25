@@ -58,7 +58,7 @@ async def test_prompt_and_input_are_sent(fake_complete):
     # 원본 dict 는 그대로다
     sent = {k: v for k, v in CAUSE.items() if k != "messages"}
     numbered = [{"id": f"m{k + 1}", **m} for k, m in enumerate(CAUSE["messages"])]  # 근거 칸에 m1… id
-    assert json.loads(user) == {**sent, "sector": None, "messages": numbered, "market_context": [], "flow": [],
+    assert json.loads(user) == {**sent, "sector": None, "main_cause_sentences": 3, "messages": numbered, "market_context": [], "flow": [],
                                 "market": {**CAUSE["market"], "judge_layers": {"move": True, "relative": True},
                                            "common_move": False, "move_strength_cap": None, "market_led": False,
                                            "move_comparison": "더",
