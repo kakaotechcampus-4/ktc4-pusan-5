@@ -30,6 +30,7 @@ from typing import Any
 from app.core.database import SessionLocal
 from app.llm.client import cost_currency, endpoint, format_cost, load_prompt
 from app.repositories.stock_move_analysis import KST, insert_analysis_files
+from app.services.stock_analysis.finalize import finalize
 from app.services.stock_analysis.generate import (
     PROMPT_NAME,
     check_input,
@@ -163,7 +164,10 @@ async def run(
                 if repairs:
                     wrapper["quote_repair"] = repairs
                     wrapper["cost"] += sum(r["cost"] for r in repairs)
-                    wrapper["final_text"] = json.dumps(report, ensure_ascii=False)
+                # strength·판정·main_cause 고정 문장은 러너가 정한다. 정형 보고서는 이미 러너가 정했다.
+                if not wrapper.get("skipped_llm"):
+                    wrapper.update(finalize(report, payload))
+                wrapper["final_text"] = json.dumps(report, ensure_ascii=False)
         wrapper["input_path"] = copied.relative_to(run_dir).as_posix()
         wrapper["input_original_path"] = source.as_posix()
         wrapper["input_sha256"] = hashlib.sha256(data).hexdigest()
@@ -174,7 +178,7 @@ async def run(
         wrapper["events_status"], wrapper["events_problems"] = check_events(report)
         trace = wrapper.get("issue_trace")
         # 실패는 아니지만 검수자가 볼 것(verify.check_warnings). 판정과 섞지 않는다.
-        wrapper["verify_warnings"] = check_warnings(report, payload, trace)
+        wrapper["verify_warnings"] = check_warnings(report, payload, trace, wrapper.get("strength_recomputed"))
         rewrite = wrapper.get("main_cause_rewrite")
         if rewrite is not None and rewrite["result"] != "rewritten":
             wrapper["verify_warnings"].append(

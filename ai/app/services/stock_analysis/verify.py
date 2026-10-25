@@ -1167,7 +1167,7 @@ def check_grounding(report: dict[str, Any], payload: dict[str, Any]) -> list[str
 
 
 def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None = None,
-                   issue_trace: Any = None) -> list[str]:
+                   issue_trace: Any = None, model_strength: list[dict[str, Any]] | None = None) -> list[str]:
     """실패는 아니지만 검수자가 볼 것. verify() 와 따로 돌고 verify_status 에 넣지 않는다.
 
     DUPLICATE_SOURCES           서로 다른 두 factor 의 출처 url 집합이 같다. 한 사건을 층마다
@@ -1182,7 +1182,8 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     MOVE_COMPARISON_ON_FLAT     judge_layers.relative 가 false(excess_pct 있음)인 날 summary.move 에 더·덜 비교가 있다.
     DIRECT_SOURCE_MISSING       factor 로 묶인 이슈에 direct 메시지에서 나온 것이 있는데 factor 출처에 direct 가 없다.
                                 issue_trace 가 있어야 본다.
-    STRENGTH_MISMATCH           link strength 가 정의(출처 direct 여부)와 어긋난다.
+    STRENGTH_MISMATCH           link strength 가 정의(출처 direct 여부)와 어긋난다. 러너가 strength 를 다시 계산한
+                                뒤라면 model_strength(래퍼 strength_recomputed)의 모델 값으로 본다(finalize).
     MARKET_LED_DIRECT_FACTOR    market_led 날 등락 층 factor 의 이슈가 모두 relation: direct 다. issue_trace 가 있어야 본다.
     """
     if not isinstance(report, dict):
@@ -1210,7 +1211,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
         id_to_url = {i: m.get("url") for i, m in message_ids(payload)}
         out += _check_theme_recap_sector(report, kinds, issue_trace, id_to_url)
         out += _check_direct_source(report, matches, issue_trace, id_to_url)
-    out += _check_strength(factors, matches, payload)
+    out += _check_strength(factors, matches, payload, model_strength)
     out += _check_quote_subjects(factors, str(payload.get("stock") or ""))
     market = payload.get("market")
     summary = report.get("summary")
@@ -1266,14 +1267,18 @@ def _check_direct_source(report: dict[str, Any], matches: dict[Any, Any], issue_
     return out
 
 
-def _check_strength(factors: list[dict[str, Any]], matches: dict[Any, Any], payload: dict[str, Any]) -> list[str]:
-    """5단계 정의로 기대하는 strength 와 비교한다. sufficient ↔ partial 이 어긋난 것만 본다."""
+def _check_strength(factors: list[dict[str, Any]], matches: dict[Any, Any], payload: dict[str, Any],
+                    model_strength: list[dict[str, Any]] | None = None) -> list[str]:
+    """5단계 정의로 기대하는 strength 와 비교한다. sufficient ↔ partial 이 어긋난 것만 본다.
+    model_strength 가 있으면 (factor, layer) 마다 모델이 적은 값으로 본다 — 러너가 고치기 전 값이다."""
+    model = {(r.get("factor"), r.get("layer")): r.get("model") for r in model_strength or []}
     move_capped = move_strength_cap(payload) == "partial"
     out: list[str] = []
     for i, f in enumerate(factors):
         has_direct = _has_direct_source(f, matches)
         for k, link in enumerate(_links(f)):
-            strength, layer = link.get("strength"), link.get("layer")
+            layer = link.get("layer")
+            strength = model.get((i, layer), link.get("strength"))
             capped = f.get("unconfirmed") is True or (layer == "move" and move_capped)
             if strength == "partial" and has_direct and not capped:
                 out.append(_p(STRENGTH_MISMATCH, f"factors[{i}].links[{k}] layer={layer} 출처에 direct 가 있는데 partial"))

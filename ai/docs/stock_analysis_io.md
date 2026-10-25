@@ -137,7 +137,8 @@ runs/<YYYYMMDD-HHMMSS>/
 `abs(peer_median_pct) >= abs(change_pct) × 0.5` 이며 `judge_layers.relative` 가 `false`. `peer_median_pct` 가 null 이면 null.
 `true` 면 그날은 등락 층 factor 를 세우지 않는다(`verdict` 는 `no_clear_cause`). 시장 사건(`relation: market`)은
 `summary.main_cause` 의 배경 문장, 종목·업종 재료는 `background` 로 간다. `main_cause` 는 "대형주 전반이 함께 오른(내린) 날이었습니다."
-+ (시장을 움직인 사건이 있으면) 배경 한 문장 + "이 종목만의 원인은 따로 확인되지 않았습니다." 다. 이날 시장 사건은 `summary.move` 에 쓰지 않는다. 어기면 경고 `COMMON_MOVE_WITH_MOVE_LINK`.
++ (시장을 움직인 사건이 있으면) 배경 한 문장 + "이 종목만의 원인은 따로 확인되지 않았습니다." 다. 앞뒤 문장은 러너가 붙이고 모델은
+배경 문장만 쓴다(`finalize.fix_main_cause`). 이날 시장 사건은 `summary.move` 에 쓰지 않는다. 어기면 경고 `COMMON_MOVE_WITH_MOVE_LINK`.
 
 `universe_weight` — 대형주 유니버스 안 시총 비중(러너 종목 표 `stock_meta.json`, 스냅숏). **0.10 이상이면 시장을 움직이는
 종목**으로 보고 `common_move` 를 false, `move_strength_cap` 을 null 로 둔다(`verify.is_market_mover`, 상수 `MARKET_MOVER_WEIGHT`).
@@ -151,7 +152,7 @@ runs/<YYYYMMDD-HHMMSS>/
 
 `market_led` — 시장을 움직이는 종목(`is_market_mover`)이 비중 예외가 없었다면 `common_move` 였을 날(부호 같음 + 대형주 몫 절반 이상 +
 상대 층 판단 안 함). 이날 등락 층 factor 는 시장·업종 재료(relation market·sector)로만 세우고 종목 고유 재료(relation direct)는 background 로 둔다
-(어기면 경고 `MARKET_LED_DIRECT_FACTOR`). `main_cause` 는 "대형주 전반이 함께 오른(내린) 날" → 시장·업종 사건 순서이고, 이날 시장 사건은
+(어기면 경고 `MARKET_LED_DIRECT_FACTOR`). `main_cause` 는 "대형주 전반이 함께 오른(내린) 날이었습니다."(러너가 붙임) → 시장·업종 사건(모델) 순서이고, 이날 시장 사건은
 `summary.move` 에 쓰지 않는다. `verify.market_led`, `common_move` 와 같은 곳.
 
 `move_comparison` — `summary.move` 비교 표현. 상대 층을 판단하지 않으면 "비슷하게", 종목·대형주 중간값 부호가 반대면 "반대로",
@@ -349,6 +350,16 @@ LLM 을 부른다(`generate.needs_llm`).
 | `stream_interruptions` | 끊긴 시도마다 `{partial_chars, error}`. 끊김은 1회 재전송 |
 | `quote_repair` | quote 가 원문에 없던 factor·background 항목마다 `{kind, result: fixed\|dropped, failed, retry_failed, quotes, rejected, ...}`. repair 는 quote(sources)만 고친다. 다시 쓴 event(background 는 text)가 원래와 한 글자라도 다르면 `rejected: "event_changed"` 로 받지 않고 뺀다. 다시 써도 없으면 항목을 빼고 그 항목을 가리키던 `events` 사건을 `dropped`/`quote_verify_fail` 로 바꾼다(뒤 항목의 순번은 당긴다) |
 | `main_cause_rewrite` | 뺀 factor 에 `move` link 가 있었을 때 `{result: rewritten\|failed, dropped, before, after, cost, error}` |
+
+### 러너가 정하는 칸 (`finalize`)
+
+quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보고서(`skipped_llm`)는 하지 않는다. 검증·`final_text` 는 고친 값이다.
+
+| 키 | 뜻 |
+| --- | --- |
+| `strength_recomputed` | link 마다 `{factor, layer, model, final}`. 출처에 입력 match=direct 가 하나라도 있으면 `sufficient`, 없으면 `partial`. `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial`. `insufficient`·`direction_match: false` link 는 그대로 둔다. 경고 `STRENGTH_MISMATCH` 는 `model` 값으로 센다 |
+| `verdict_recomputed` | `[{key: verdict\|relative_verdict, model, final}]`. `judge_layers` 가 false 인 층은 `no_clear_cause`, 판단하는 층은 그 층 link 에 `sufficient` 가 있으면 `explained`, link 가 있으면 `partially_explained`, 없으면 `no_clear_cause` |
+| `main_cause_fixed` | `common_move`·`market_led` 날 `{before, after}`, 그 밖 null. 앞에 "대형주 전반이 함께 오른(내린) 날이었습니다.", `common_move` 날은 끝에 "이 종목만의 원인은 따로 확인되지 않았습니다." 를 붙인다. 모델이 같은 문장을 썼으면 지우고 한 번만 붙인다 |
 
 ### 운영 지표
 

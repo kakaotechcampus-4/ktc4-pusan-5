@@ -73,16 +73,16 @@ async def test_runs_folder_of_samples_and_writes_wrappers(fake_llm, tmp_path, ca
     # ±1% 이내 날 나머지 2건은 등락 층 원인을 달아 같은 입력으로 한 번 더 부른다(judge_retry). 다시 불러도 같다
     # 대형주 몫 상한(move_strength_cap)을 어긴 market_driven·market_share_down 도 한 번 더 부른다
     assert fake_llm.await_count == 12
-    assert (result["total"], result["passed"], result["failed"], result["errors"]) == (9, 4, 5, 0)
+    # 대형주 몫 상한·간접 출처로 sufficient 를 단 보고서는 러너가 strength·판정을 다시 정해(finalize) 그 실패가 없다
+    assert (result["total"], result["passed"], result["failed"], result["errors"]) == (9, 5, 4, 0)
     assert result["cost"] == pytest.approx(0.12)
     assert result["skipped_llm"] == 1
     assert result["retried"] == {"json_retry": 0, "judge_retry": 4}
     # market_share_down(-3.57, 대형주 -2.62)은 common_move 날인데 등락 층 원인을 달아 경고 1건,
-    # opposite(09-23)는 간접 출처만으로 sufficient 라 STRENGTH_MISMATCH 1건(실패 SIZE_FIT_OVER_CAP 와 함께)
+    # opposite(09-23)는 간접 출처만으로 sufficient 라 STRENGTH_MISMATCH 1건. 경고는 고치기 전 모델 값으로 센다
     assert result["warning_counts"] == {"issue_trace_warnings": 0, "events_problems": 0, "verify_warnings": 2}
     # 사유는 계열 단위다. 코드별 상세는 래퍼 verify_problems 에 있다
-    assert result["reasons"] == {"COUNTER_WITHOUT_BACKGROUND": 3, "FLAT_MOVE": 2,
-                                 "MOVE_SUFFICIENT_STOCK_ONLY": 2, "SIZE_FIT_OVER_CAP": 1}
+    assert result["reasons"] == {"COUNTER_WITHOUT_BACKGROUND": 3, "FLAT_MOVE": 2}
     assert result["loaded"] is None
     assert result["move_cases"] == {"flat": 2, "opposite": 3, "normal": 4, "null": 0}
     assert result["opposite_with_counter"] == 3
@@ -116,15 +116,23 @@ async def test_runs_folder_of_samples_and_writes_wrappers(fake_llm, tmp_path, ca
         "FLAT_MOVE_VERDICT", "FLAT_MOVE_FACTORS", "MOVE_SUFFICIENT_STOCK_ONLY"}
     assert wrappers["하늬결화학-2026-09-25-1530__r1"]["move_strength_cap"] == "partial"
     assert cause["move_strength_cap"] is None
+    assert cause["strength_recomputed"] == [{"factor": 0, "layer": "move", "model": "sufficient", "final": "sufficient"}]
+    assert cause["main_cause_fixed"] is None
+    common = wrappers["하늬결화학-2026-09-25-1530__r1"]
+    assert common["strength_recomputed"][0]["final"] == "partial"
+    assert common["verdict_recomputed"][0] == {"key": "verdict", "model": "explained", "final": "partially_explained"}
+    assert json.loads(common["final_text"])["summary"]["main_cause"] == (
+        "대형주 전반이 함께 내린 날이었습니다. c 이 종목만의 원인은 따로 확인되지 않았습니다.")
+    # 정형 보고서는 러너가 이미 정했다
+    assert "strength_recomputed" not in wrappers["하늬결화학-2026-09-22-1530__r1"]
 
     flat = wrappers["하늬결화학-2026-09-18-1100__r1"]
     assert flat["verify_status"] == "failed"
-    # 덜 내린 날 악재를 등락 층 원인으로 댄 방향은 맞다. 다만 중간값(-3.2%)이 등락 전부라
-    # 종목 고유 재료를 sufficient 로 둘 수 없고, counter 를 출처 없이 적어 떨어진다
+    # 덜 내린 날 악재를 등락 층 원인으로 댄 방향은 맞다. 중간값(-3.2%)이 등락 전부라 러너가 종목 고유 재료를
+    # partial 로 낮추고, counter 를 출처 없이 적어 떨어진다
     market = wrappers["솔마루전자-2026-09-21-1530__r1"]
     assert market["verify_status"] == "failed"
-    assert {p.split(":")[0] for p in market["verify_problems"]} == {
-        "COUNTER_WITHOUT_BACKGROUND", "MOVE_SUFFICIENT_STOCK_ONLY"}
+    assert {p.split(":")[0] for p in market["verify_problems"]} == {"COUNTER_WITHOUT_BACKGROUND"}
     # 더 내린 날 고객사 악재(직접)를 등락 층 원인으로 댄 보고서는 통과한다
     assert wrappers["솔마루전자-2026-09-24-1530__r1"]["verify_status"] == "passed"
     assert {w["move_case"] for w in wrappers.values()} == {"normal", "flat", "opposite"}
@@ -135,13 +143,12 @@ async def test_runs_folder_of_samples_and_writes_wrappers(fake_llm, tmp_path, ca
     assert wrappers["솔마루전자-2026-09-24-1530__r1"]["move_case"] == "normal"
 
     out = capsys.readouterr().out
-    assert ("완료: 보고서 9건 · 검증 통과 4건 · 검증 실패 보고서 5건 (그중 실행 오류 0건)"
+    assert ("완료: 보고서 9건 · 검증 통과 5건 · 검증 실패 보고서 4건 (그중 실행 오류 0건)"
             " · $0.1200") in out
     # 사유는 보고서 기준이다. 두 숫자를 섞어 출력하면 안 된다.
-    assert ("): COUNTER_WITHOUT_BACKGROUND=3, FLAT_MOVE=2, MOVE_SUFFICIENT_STOCK_ONLY=2,"
-            " SIZE_FIT_OVER_CAP=1") in out
-    # 한 보고서가 여러 사유에 들어 사유 합(8)이 실패 보고서 수(5)보다 크다
-    assert result["failed"] == 5 and sum(result["reasons"].values()) == 8
+    assert "): COUNTER_WITHOUT_BACKGROUND=3, FLAT_MOVE=2" in out
+    # 한 보고서가 여러 사유에 들어 사유 합(5)이 실패 보고서 수(4)보다 크다
+    assert result["failed"] == 4 and sum(result["reasons"].values()) == 5
     assert "경고 건수 (판정과 별도): issue_trace_warnings=0, events_problems=0, verify_warnings=2" in out
     assert "다시 부른 회차: json_retry=0, judge_retry=4 · LLM 없이 정형 보고서: 1" in out
     assert "경우별 건수: flat=2, opposite=3 (그중 counter 있음 3), normal=4, null=0" in out
@@ -298,20 +305,23 @@ async def test_same_event_in_both_layers_passes_on_big_up_day(monkeypatch, tmp_p
     assert (result["passed"], result["failed"]) == (1, 0)
 
 
-@pytest.mark.parametrize("size_fit, verdict, reasons", [
-    ("sufficient", "explained", {"MOVE_SUFFICIENT_STOCK_ONLY": 1}),
-    ("partial", "partially_explained", {}),
+@pytest.mark.parametrize("size_fit, verdict", [
+    ("sufficient", "explained"),
+    ("partial", "partially_explained"),
 ])
-async def test_stock_only_material_is_capped_on_market_share_day(monkeypatch, tmp_path, size_fit,
-                                                                 verdict, reasons):
-    """-3.57% 중 -2.62% 가 대형주와 같은 몫. 공장 보수(직접) 하나로는 partial 까지다."""
+async def test_stock_only_material_is_capped_on_market_share_day(monkeypatch, tmp_path, size_fit, verdict):
+    """-3.57% 중 -2.62% 가 대형주와 같은 몫. 공장 보수(직접) 하나로는 partial 까지다. 모델이 sufficient 로 적어도
+    러너가 partial·partially_explained 로 고친다(finalize). 경고 STRENGTH_MISMATCH 는 상한 예외라 없다."""
     path = FIXTURES / "sample_market_share_down.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
     monkeypatch.setattr(gen, "complete", AsyncMock(side_effect=_fixed_report(
         [_factor(payload, 0, "move", size_fit)], verdict, "no_clear_cause")))
     monkeypatch.setattr(collector, "endpoint", MagicMock(return_value=("url", "key")))
     result = await collector.run(path, out_root=tmp_path)
-    assert result["reasons"] == reasons
+    assert result["reasons"] == {}
+    wrapper = json.loads(next((only_run_dir(tmp_path) / "parsed").glob("*.json")).read_text(encoding="utf-8"))
+    assert wrapper["strength_recomputed"] == [{"factor": 0, "layer": "move", "model": size_fit, "final": "partial"}]
+    assert wrapper["verdict_recomputed"][0] == {"key": "verdict", "model": verdict, "final": "partially_explained"}
 
 
 async def test_dropped_move_factor_without_rewrite_warns_main_cause_stale(monkeypatch, tmp_path):
