@@ -34,6 +34,7 @@ function overview(
     change: 1,
     changeAmount: 1,
     volume: 10,
+    volumeChange: null,
     tradingValue: 1000,
     marketCap: 10000,
   }),
