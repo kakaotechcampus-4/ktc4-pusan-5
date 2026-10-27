@@ -148,6 +148,37 @@ async def test_complete_empty_price_range_does_not_requeue(stock_db):
         assert not result.refreshing
 
 
+async def test_overview_returns_saved_volume_change_and_null_when_missing(stock_db):
+    from app.collectors.stocks import StockWorker
+
+    now = datetime.now(UTC)
+    quote = {
+        "price": 100,
+        "change": 0,
+        "change_amount": 0,
+        "volume": 1,
+        "trading_value": 100,
+        "market_cap": 1000,
+        "source_as_of": None,
+    }
+    async with stock_db() as session:
+        await repo.save_snapshot(session, "TST001", {**quote, "volume_change": 18.76}, {}, now)
+        await StockWorker._state(session, "TST001", "quote", None, True, now)
+        await session.commit()
+    async with stock_db() as session:
+        result = await stock_detail.overview(session, "TST001")
+        assert result.quote.data.volume_change == 18.76
+    async with stock_db() as session:
+        await repo.save_snapshot(
+            session, "TST001", {**quote, "volume_change": None}, {}, now + timedelta(seconds=1)
+        )
+        await session.commit()
+    async with stock_db() as session:
+        result = await stock_detail.overview(session, "TST001")
+        assert result.quote.data.volume_change is None
+        assert result.model_dump(by_alias=True)["quote"]["data"]["volumeChange"] is None
+
+
 @pytest.mark.parametrize("incoming", ["older", "unknown"])
 async def test_snapshot_old_source_timestamp_cannot_overwrite(stock_db, incoming):
     now = datetime.now(UTC)
