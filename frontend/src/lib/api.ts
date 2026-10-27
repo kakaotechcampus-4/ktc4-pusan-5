@@ -7,11 +7,14 @@
 import type {
   ApiErrorBody,
   MarketOverview,
+  StockListResponse,
   StockOverview,
   StockPriceResource,
   StockFinancials,
   PricePeriod,
+  SearchResponse,
   User,
+  WatchlistResponse,
 } from './types';
 import type { Concept, ConceptListResponse } from '@/features/concepts/types';
 
@@ -81,6 +84,11 @@ export function getConcept(slug: string): Promise<Concept> {
   return request<Concept>(`/api/concepts/${encodeURIComponent(slug)}`);
 }
 
+/** MVP 서비스 종목 목록, 시가총액 순위 순으로 옴 */
+export function listStocks(): Promise<StockListResponse> {
+  return request<StockListResponse>('/api/stocks');
+}
+
 /** 개념 목록, slug 순 정렬로 옴 */
 export function listConcepts(): Promise<ConceptListResponse> {
   return request<ConceptListResponse>('/api/concepts');
@@ -97,8 +105,42 @@ export function loginWithKakao(code: string): Promise<User> {
   });
 }
 
+/** 로컬 개발 전용. 백엔드의 ENABLE_TEST_LOGIN이 꺼져 있으면 404 ApiError */
+export function loginAsTestAccount(): Promise<User> {
+  return request<User>('/api/auth/test-login', { method: 'POST' });
+}
+
 export function logout(): Promise<void> {
   return request<void>('/api/auth/logout', { method: 'POST' });
+}
+
+/** 종목과 개념을 함께 검색한다. limit 은 종류별 최대 개수다. */
+export function searchAll(
+  query: string,
+  signal?: AbortSignal,
+  limit?: number,
+): Promise<SearchResponse> {
+  const params = new URLSearchParams({ q: query });
+  if (limit) params.set('limit', String(limit));
+  return request<SearchResponse>(`/api/search?${params}`, { signal });
+}
+
+/** 로그인한 사용자의 관심 종목. 비로그인이면 401 UNAUTHORIZED ApiError */
+export function getWatchlist(signal?: AbortSignal): Promise<WatchlistResponse> {
+  return request<WatchlistResponse>('/api/watchlist', { signal });
+}
+
+/** 이미 담긴 종목을 다시 담아도 에러 없이 성공한다. 없는 종목이면 404 STOCK_NOT_FOUND */
+export function addToWatchlist(code: string): Promise<void> {
+  return request<void>('/api/watchlist', {
+    method: 'POST',
+    body: JSON.stringify({ stockCode: code }),
+  });
+}
+
+/** 담겨 있지 않은 종목을 빼도 에러 없이 성공한다. */
+export function removeFromWatchlist(code: string): Promise<void> {
+  return request<void>(`/api/watchlist/${encodeURIComponent(code)}`, { method: 'DELETE' });
 }
 
 export function getMarketOverview(signal?: AbortSignal): Promise<MarketOverview> {

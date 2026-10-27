@@ -1,0 +1,52 @@
+{
+  "slug": "kospi-kosdaq",
+  "name": "코스피·코스닥",
+  "aliases": [
+    "종합주가지수",
+    "KOSPI",
+    "KOSDAQ"
+  ],
+  "category": "market-structure/market-segment",
+  "extraCategories": [
+    "market-structure/index"
+  ],
+  "summary": "유가증권시장·코스닥시장은 실제 거래되는 시장이고, 코스피·코스닥은 그 시장의 시가총액을 지수로 나타낸 수치입니다.",
+  "body": "유가증권시장(코스피시장)과 코스닥시장은 실제로 주식이 거래되는 곳이고, 코스피와 코스닥은 그 시장에 상장된 종목들의 [시가총액](market-cap)을 합쳐 지수로 나타낸 수치입니다. 유가증권시장은 대형 기업 중심이고, 코스닥시장은 중소·벤처기업 중심이라는 차이가 있습니다.\n\n지수가 오르내린다는 건 개별 종목이 아니라 시장 전체 시가총액의 합이 움직인다는 뜻입니다. 코스피200·코스닥150처럼 대표 종목만 추려 만든 하위 지수도 있는데, 지수 연동 [ETF](etf)나 선물 거래의 기준으로 쓰입니다.\n\n지수가 올랐다고 내 종목도 올랐으리라는 보장은 없습니다. 지수는 시가총액이 큰 종목의 영향을 크게 받는 가중평균이라, 대형주 몇 종목이 지수를 끌어올리는 동안 다른 종목은 반대로 움직일 수 있습니다.",
+  "related": [
+    {
+      "slug": "market-cap",
+      "reason": "지수를 만드는 기준"
+    },
+    {
+      "slug": "price-limit",
+      "reason": "시장별로 적용되는 규칙"
+    },
+    {
+      "slug": "investor-flow",
+      "reason": "지수를 움직이는 수급"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "코스피가 오르면 내가 가진 종목도 항상 함께 오른다.",
+      "answer": false,
+      "explanation": "지수는 시가총액 가중평균이라 개별 종목은 다르게 움직일 수 있습니다."
+    },
+    {
+      "question": "코스닥시장은 유가증권시장보다 중소·벤처기업 비중이 높다.",
+      "answer": true,
+      "explanation": "코스닥은 중소·벤처기업 중심 시장으로 운영됩니다."
+    },
+    {
+      "question": "코스피200은 유가증권시장 상장 종목 전체를 포함한 지수다.",
+      "answer": false,
+      "explanation": "시가총액·거래대금 등을 고려해 대표 종목 200개를 선정한 지수입니다."
+    }
+  ],
+  "sources": [
+    "법제처 찾기쉬운 생활법령정보 「주식투자자-주식거래 방법 이해하기(매매거래일·거래시간 및 거래 원칙 등)」 https://easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=1701&ccfNo=2&cciNo=1&cnpClsNo=2",
+    "한국은행 「경제금융용어 800선」(2026) '주식시장' 항목 https://www.bok.or.kr/portal/bbs/B0000249/view.do?nttId=10096081&menuNo=200765",
+    "금융위원회 「금융용어설명」 '코스피200 및 코스닥150 지수' 항목 https://www.fsc.go.kr/in090301/view?dicId=1711",
+    "기획재정부 「시사경제용어사전」 '코스닥' 항목 https://www.data.go.kr/data/15006052/fileData.do"
+  ]
+}

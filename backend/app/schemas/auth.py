@@ -8,4 +8,3 @@ class KakaoLoginRequest(CamelModel):
 class UserResponse(CamelModel):
     id: int
     nickname: str
-    email: str

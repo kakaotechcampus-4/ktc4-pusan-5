@@ -1,0 +1,10 @@
+# .gitignore와 별개. git이 아니라 docker build 컨텍스트 전송 대상을 걸러낸다.
+.venv
+__pycache__
+**/__pycache__
+.env
+.env.*
+!.env.example
+.pytest_cache
+tests
+.git

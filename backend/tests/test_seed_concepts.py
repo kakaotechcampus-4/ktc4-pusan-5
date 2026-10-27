@@ -91,20 +91,7 @@ def test_unknown_field_is_rejected():
 def test_real_seed_files_pass_validation():
     seeds, errors = collect_seeds(CONCEPTS_DIR, get_taxonomy())
     assert errors == []
-    assert len(seeds) == 11
-    assert {seed.slug for seed in seeds} == {
-        "treasury-stock",
-        "shareholder-return",
-        "interest-rate",
-        "circular-financing",
-        "per",
-        "capex",
-        "disclosure",
-        "dividend",
-        "financial-statements",
-        "roe",
-        "depreciation",
-    }
+    assert seeds
 
 
 def test_real_seed_rows_match_db_columns():

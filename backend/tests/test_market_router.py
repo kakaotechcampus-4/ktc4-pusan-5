@@ -24,6 +24,7 @@ async def test_overview_keeps_six_slots_and_isolates_failures(monkeypatch):
         return {
             "kospi": snapshot(Decimal("1234.5")),
             "kosdaq": snapshot(Decimal(800), "UPSTREAM_ERROR"),
+            "gold": snapshot(Decimal(182770)),
             "sp500": snapshot(None, "MISSING_KEY"),
             "usdkrw": snapshot(Decimal(1300), age=1000),
         }
@@ -48,7 +49,7 @@ async def test_overview_keeps_six_slots_and_isolates_failures(monkeypatch):
     assert [item["status"] for item in items] == [
         "ready",
         "stale",
-        "notConfigured",
+        "ready",
         "unavailable",
         "pending",
         "stale",
@@ -56,4 +57,5 @@ async def test_overview_keeps_six_slots_and_isolates_failures(monkeypatch):
     assert items[0]["value"] == 1234.5
     assert items[0]["asOf"] == "2026-09-18"
     assert "collectedAt" in items[0]
-    assert items[2]["value"] is None and items[2]["asOf"] is None
+    assert items[2]["unit"] == "KRW/g"
+    assert items[2]["value"] == 182770 and items[2]["asOf"] == "2026-09-18"

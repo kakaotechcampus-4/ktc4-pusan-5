@@ -1,0 +1,48 @@
+{
+  "slug": "pbr",
+  "name": "PBR",
+  "aliases": [
+    "주가순자산비율",
+    "Price to Book Ratio",
+    "P/B"
+  ],
+  "category": "valuation/relative-value",
+  "extraCategories": null,
+  "summary": "주가를 주당순자산(BPS)으로 나눈 값. 지금 주가가 장부상 순자산에 비해 몇 배인지 보여주는 지표입니다.",
+  "body": "PBR은 주가를 주당순자산(BPS)으로 나눈 값입니다. BPS는 총자산에서 총부채를 뺀 순자산을 발행주식수로 나눈 것이므로, PBR 1배는 주가가 장부상 순자산과 같다는 뜻입니다.\n\n[PER](per)이 이익을 기준으로 주가를 판단한다면, PBR은 회사가 가진 자산을 기준으로 판단하는 지표입니다. PBR이 1배보다 높으면 시장이 장부상 순자산보다 높게 평가한다는 뜻으로, 수익성이나 성장에 대한 기대가 반영된 경우가 많습니다. 1배보다 낮으면 장부가치에도 못 미치게 평가받는다는 뜻으로, 기대 수익성이 낮거나 자산의 질이 의심될 때 나타날 수 있습니다. 그래서 PBR이 낮은 종목은 가치주, 높은 종목은 성장주로 분류하기도 합니다.\n\nPBR이 낮다고 곧 싸다는 뜻은 아닙니다. 장부상 순자산에는 회수가 불확실한 자산이 섞여 있을 수 있어, 실제 값어치가 장부보다 낮을 수도 있습니다. [ROE](roe)와 함께 보면 그 자산이 얼마나 효율적으로 이익을 만들어내는지 가늠됩니다.",
+  "related": [
+    {
+      "slug": "per",
+      "reason": "이익 기준으로 보는 짝"
+    },
+    {
+      "slug": "roe",
+      "reason": "자산의 효율성 확인"
+    },
+    {
+      "slug": "market-cap",
+      "reason": "순자산과 비교하는 값"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "PBR 1배는 주가와 장부상 순자산이 같다는 뜻이다.",
+      "answer": true,
+      "explanation": "BPS와 주가를 비교한 값입니다."
+    },
+    {
+      "question": "PBR이 1보다 낮으면 항상 저평가된 주식이다.",
+      "answer": false,
+      "explanation": "자산의 질을 함께 봐야 합니다."
+    },
+    {
+      "question": "PBR이 1배보다 높으면 시장이 장부상 순자산보다 높게 평가한다는 뜻이다.",
+      "answer": true,
+      "explanation": "주가가 주당순자산(BPS)보다 높다는 의미이며, 기대가 반영됐을 수 있습니다."
+    }
+  ],
+  "sources": [
+    "한국은행 「경제금융용어 800선」(2026) '주가순자산비율(PBR)' 항목 https://www.bok.or.kr/portal/bbs/B0000249/view.do?nttId=10096081&menuNo=200765",
+    "기획재정부 「시사경제용어사전」 'PBR/PER' 항목 https://www.data.go.kr/data/15006052/fileData.do"
+  ]
+}

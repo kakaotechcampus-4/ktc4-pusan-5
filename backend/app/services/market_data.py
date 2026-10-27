@@ -18,7 +18,8 @@ class Indicator:
 INDICATORS = (
     Indicator("kospi", "코스피", "KRX", "kospi_dd_trd", "points", 3600),
     Indicator("kosdaq", "코스닥", "KRX", "kosdaq_dd_trd", "points", 3600),
-    Indicator("gold", "금현물", None, "", None, 0),
+    # KRX 금시장 금 99.99_1Kg. 가격은 원/g 이다.
+    Indicator("gold", "금현물", "KIS", "M04020000", "KRW/g", 60),
     Indicator("sp500", "S&P 500", "FRED", "SP500", "points", 3600),
     Indicator("nasdaq", "나스닥 종합", "FRED", "NASDAQCOM", "points", 3600),
     Indicator("usdkrw", "원/달러", "KIS", "FX@KRW", "KRW/USD", 60),

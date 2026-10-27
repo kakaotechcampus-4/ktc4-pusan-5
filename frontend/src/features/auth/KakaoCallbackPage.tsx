@@ -7,7 +7,6 @@ import { buildKakaoAuthUrl, clearStoredState, peekStoredState } from './kakaoAut
 
 const ERROR_MESSAGES: Record<string, string> = {
   KAKAO_AUTH_FAILED: '카카오 인증에 실패했습니다',
-  KAKAO_EMAIL_REQUIRED: '이메일 제공에 동의해야 로그인할 수 있습니다',
 };
 
 function retryLogin() {

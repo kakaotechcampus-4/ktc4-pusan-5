@@ -1,19 +1,15 @@
-import { ErrorBox, InfoTip, Skeleton, Stat, StatGrid, Tag } from '@/components/ui';
+import type { ReactNode } from 'react';
+import { ErrorBox, InfoTip, SkeletonText, StatList, StatListItem, Tag } from '@/components/ui';
 import { formatFiscalPeriod, formatRatio } from '@/lib/format';
 import type { FinancialHealthData, Resource } from '@/lib/types';
+import { NO_VALUE } from '../financialUtils';
 
-function display(value: number | null): string {
-  return value === null ? '—' : formatRatio(value);
+function display(value: number | null): ReactNode {
+  return value === null ? NO_VALUE : formatRatio(value);
 }
 
-function StatSkeleton() {
-  return (
-    <StatGrid>
-      {[1, 2, 3, 4].map((key) => (
-        <Skeleton key={key} className="h-16" />
-      ))}
-    </StatGrid>
-  );
+function num(value: ReactNode) {
+  return <span className="num text-sm font-semibold">{value}</span>;
 }
 
 export function FinancialHealthSummary({
@@ -27,11 +23,11 @@ export function FinancialHealthSummary({
 }) {
   if (error && !health?.data)
     return <ErrorBox title="재무 건전성을 불러오지 못했습니다" onRetry={onRetry} />;
-  if (!health) return <StatSkeleton />;
+  if (!health) return <SkeletonText lines={4} />;
   const data = health.data;
   const collecting = !data && (health.status === 'pending' || health.refreshing);
   const unavailable = !data && (health.status === 'empty' || health.status === 'unavailable');
-  if (collecting) return <StatSkeleton />;
+  if (collecting) return <SkeletonText lines={4} />;
   const periodHelp = data
     ? `기준 결산연월 ${formatFiscalPeriod(data.fiscalPeriod)}`
     : '결산연월 기준';
@@ -45,40 +41,40 @@ export function FinancialHealthSummary({
           {error && data && <Tag>조회 실패</Tag>}
         </div>
       )}
-      <StatGrid>
-        <Stat
+      <StatList>
+        <StatListItem
           label={
             <>
               부채비율 <InfoTip description={`자기자본 대비 부채 비율입니다. ${periodHelp}`} />
             </>
           }
-          value={display(data?.debtRatio ?? null)}
+          value={num(display(data?.debtRatio ?? null))}
         />
-        <Stat
+        <StatListItem
           label={
             <>
               ROE <InfoTip description={`자기자본이익률입니다. ${periodHelp}`} />
             </>
           }
-          value={display(data?.roe ?? null)}
+          value={num(display(data?.roe ?? null))}
         />
-        <Stat
+        <StatListItem
           label={
             <>
               영업이익률 <InfoTip description={`매출액 대비 영업이익 비율입니다. ${periodHelp}`} />
             </>
           }
-          value={display(data?.operatingMargin ?? null)}
+          value={num(display(data?.operatingMargin ?? null))}
         />
-        <Stat
+        <StatListItem
           label={
             <>
               유동비율 <InfoTip description={`유동부채 대비 유동자산 비율입니다. ${periodHelp}`} />
             </>
           }
-          value={display(data?.currentRatio ?? null)}
+          value={num(display(data?.currentRatio ?? null))}
         />
-      </StatGrid>
+      </StatList>
     </div>
   );
 }

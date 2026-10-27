@@ -2,18 +2,20 @@ import { cn } from '@/lib/cn';
 
 type FilterChip<T extends string> = { value: T; label: string };
 
-
 // 전체 개념 목록을 대분류 조건으로 필터링(현재 단일)
 export function FilterChips<T extends string>({
   label,
   chips,
   value,
   onChange,
+  tone = 'default',
 }: {
   label: string;
   chips: FilterChip<T>[];
   value: T;
   onChange: (value: T) => void;
+  /** muted: 선택되지 않은 칩의 글자를 회색으로 */
+  tone?: 'default' | 'muted';
 }) {
   return (
     <div role="group" aria-label={label} className="flex flex-wrap gap-2">
@@ -26,8 +28,11 @@ export function FilterChips<T extends string>({
           className={cn(
             'rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap',
             chip.value === value
-              ? 'bg-brand text-white hover:bg-brand-500 active:bg-brand-700'
-              : 'bg-canvas text-ink border border-divider hover:border-brand hover:bg-brand-100 hover:text-brand',
+              ? 'bg-brand hover:bg-brand-500 active:bg-brand-700 text-white'
+              : cn(
+                  'bg-canvas border-divider hover:border-brand hover:bg-brand-100 hover:text-brand border',
+                  tone === 'muted' ? 'text-neutral-600' : 'text-ink',
+                ),
           )}
         >
           {chip.label}

@@ -18,7 +18,9 @@ from app.core.errors import (
 from app.routers import concepts
 from app.routers.auth import router as auth_router
 from app.routers.market import router as market_router
+from app.routers.search import router as search_router
 from app.routers.stocks import router as stock_router
+from app.routers.watchlist import router as watchlist_router
 
 
 @asynccontextmanager
@@ -45,7 +47,9 @@ app.add_exception_handler(Exception, unhandled_exception_handler)
 
 app.include_router(concepts.router)
 app.include_router(market_router)
+app.include_router(search_router)
 app.include_router(stock_router)
+app.include_router(watchlist_router)
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
 

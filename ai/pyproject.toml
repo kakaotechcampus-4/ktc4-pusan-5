@@ -6,6 +6,9 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.16.0",
     "asyncpg>=0.31.0",
+    # 뉴스 링크 본문 추출. 기사 영역 선택자를 직접 쥐려고 bs4 를 쓴다
+    # (backend 는 같은 일을 trafilatura 로 한다 — services/news_link/extract.py 참고).
+    "beautifulsoup4>=4.12.0",
     "httpx>=0.28.1",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
@@ -32,6 +35,11 @@ package = false
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# network 는 실제 사이트를 연다. 기본 실행에서 빼는 이유는 남의 서버 사정에 따라
+# 결과가 흔들리기 때문이다. CI 가 빨갛다고 우리 코드가 틀린 게 아닌 테스트는
+# 기본 실행에 두면 안 된다. 돌리려면 `uv run pytest -m network -s`.
+markers = ["network: 실제 사이트를 연다 (기본 실행에서 제외)"]
+addopts = "-m 'not network'"
 
 [tool.ruff]
 target-version = "py312"

@@ -88,6 +88,10 @@ async def collect(client: httpx.AsyncClient, kis: KisClient) -> float:
 
                     async def fetch(indicator=indicator):
                         return await krx.fetch_market(client, indicator)
+                elif indicator.code == "gold":
+
+                    async def fetch(indicator=indicator):
+                        return await kis.fetch_gold_quote(indicator.symbol)
                 else:
                     fetch = kis.fetch_quote
                 jobs.append((indicator.code, fetch, indicator.interval))
