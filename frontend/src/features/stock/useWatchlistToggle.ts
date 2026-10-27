@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/features/auth/useAuth';
 import { addToWatchlist, getWatchlist, removeFromWatchlist } from '@/lib/api';
 
@@ -12,6 +12,11 @@ export function useWatchlistToggle(code: string | undefined, onLoginRequired: ()
   const { status: authStatus } = useAuth();
   const [watched, setWatched] = useState<boolean | null>(null);
   const [pending, setPending] = useState(false);
+  // 요청이 끝났을 때 사용자가 아직 같은 종목을 보고 있는지 확인하는 용도.
+  const currentCode = useRef(code);
+  useEffect(() => {
+    currentCode.current = code;
+  }, [code]);
 
   useEffect(() => {
     if (!code || authStatus !== 'authenticated') return;
@@ -26,6 +31,7 @@ export function useWatchlistToggle(code: string | undefined, onLoginRequired: ()
     return () => {
       controller.abort();
       setWatched(null);
+      setPending(false);
     };
   }, [code, authStatus]);
 
@@ -37,15 +43,17 @@ export function useWatchlistToggle(code: string | undefined, onLoginRequired: ()
     }
     if (watched === null || pending) return;
 
+    const target = code;
     const next = !watched;
     setWatched(next);
     setPending(true);
     try {
-      await (next ? addToWatchlist(code) : removeFromWatchlist(code));
+      await (next ? addToWatchlist(target) : removeFromWatchlist(target));
     } catch {
-      setWatched(!next);
+      // 그 사이 다른 종목으로 이동했다면 이전 종목의 실패로 현재 종목 상태를 덮지 않는다.
+      if (currentCode.current === target) setWatched(!next);
     } finally {
-      setPending(false);
+      if (currentCode.current === target) setPending(false);
     }
   }
 

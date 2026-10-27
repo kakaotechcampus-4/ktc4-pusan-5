@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { listStocks } from '@/lib/api';
-import type { StockListItem } from '@/lib/types';
-import { mockStockList } from './mockStockList';
+import type { StockListItem, StockListResponse } from '@/lib/types';
+import { mockStockList, mockStockListAsOf } from './mockStockList';
 import { ALL_SECTOR, buildSectorChips, filterBySector } from './stockSectorFilter';
 
 /**
@@ -15,14 +15,17 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 const MOCK_DELAY_MS = 500;
 
-function loadMockStockList(): Promise<StockListItem[]> {
+function loadMockStockList(): Promise<StockListResponse> {
   return new Promise((resolve) => {
-    setTimeout(() => resolve(mockStockList), MOCK_DELAY_MS);
+    setTimeout(
+      () => resolve({ items: mockStockList, complete: true, asOf: mockStockListAsOf }),
+      MOCK_DELAY_MS,
+    );
   });
 }
 
-function loadStockList(): Promise<StockListItem[]> {
-  return USE_MOCK ? loadMockStockList() : listStocks().then((response) => response.items);
+function loadStockList(): Promise<StockListResponse> {
+  return USE_MOCK ? loadMockStockList() : listStocks();
 }
 
 /** 가나다순은 한글 로케일 비교, 시가총액순은 백엔드가 준 순위(1이 가장 큼) 오름차순 */
@@ -34,9 +37,9 @@ function sortStockList(items: StockListItem[], sortKey: StockSortKey): StockList
   return sorted.sort((a, b) => a.rank - b.rank);
 }
 
-type StockListState = { status: StockListStatus; items: StockListItem[] };
+type StockListState = { status: StockListStatus; items: StockListItem[]; asOf: string | null };
 
-const LOADING_STATE: StockListState = { status: 'loading', items: [] };
+const LOADING_STATE: StockListState = { status: 'loading', items: [], asOf: null };
 
 export function useStockList() {
   const [state, setState] = useState<StockListState>(LOADING_STATE);
@@ -49,11 +52,17 @@ export function useStockList() {
     let cancelled = false;
 
     loadStockList()
-      .then((items) => {
-        if (!cancelled) setState({ status: 'success', items });
+      .then(({ items, complete, asOf }) => {
+        if (cancelled) return;
+        setState({ status: 'success', items, asOf });
+        if (!complete) {
+          alert(
+            '일부 종목 정보가 아직 준비되지 않았습니다. 새로고침 후에도 계속 보이지 않으면 운영팀에 문의해주세요.',
+          );
+        }
       })
       .catch(() => {
-        if (!cancelled) setState({ status: 'error', items: [] });
+        if (!cancelled) setState({ status: 'error', items: [], asOf: null });
       });
 
     return () => {
@@ -82,6 +91,7 @@ export function useStockList() {
   return {
     status: state.status,
     items: visibleItems,
+    asOf: state.asOf,
     sortKey,
     setSortKey,
     sectorChips,
