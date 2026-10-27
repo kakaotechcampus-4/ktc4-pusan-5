@@ -1,7 +1,7 @@
 # 데이터 수집 DB 스키마
 
-- 기준 브랜치: `feature/data-collection` (`aace1f5` + 0024 작업분), 비교 대상: `develop`
-- 작성일: 2026-10-08
+- 기준 브랜치: `feature/source-index-dart` (0024~0026), 비교 대상: `develop`
+- 작성일: 2026-10-08 (2026-10-27 공시 카드 연결 `0026` 반영)
 - 범위: 이 브랜치에서 새로 만들거나 바꾼 표와, 그 표가 FK 로 잇는 표
 
 설계 근거의 원본은 각 모델 파일의 주석(`ai/app/models/*.py`)이다. 이 문서는 그걸 한곳에
@@ -23,6 +23,8 @@
 | 칼럼 추가 | `source_card` | 공개 시각 `available_at` 추가. `event_date` 를 원문 카드에도 채움 | `0024` |
 | 신규 | `source_card_stocks` | 자료 ↔ 종목 연결 (자료 하나가 여러 종목) | `0024` |
 | 칼럼 추가 | `stock_move_analysis_factor_sources` | 보고서 출처를 공통 자료 ID 로 잇는 `source_card_id` | `0024` |
+| 신규 | `dart_disclosures` | DART 공시 목록(본문 없음) | `0025` |
+| 칼럼 추가 | `source_card` | 공시를 가리키는 FK `dart_disclosure_id`, 제약에 `disclosure` 종류 추가 | `0026` |
 | 변경 없음(참조만) | `channel` | backend 소유. FK 대상으로만 쓰고, 처음 보는 채널 행을 등록만 한다 | — |
 | 변경 없음 | `stock_move_analyses`, `_factors`, `_reviews` | 이전 리비전(`0019`) 그대로 | — |
 
@@ -40,7 +42,7 @@ backend 쪽 변경:
 | | backend | ai |
 | --- | --- | --- |
 | 이력 표 | `alembic_version` | `alembic_version_ai` |
-| 관리하는 표 | `channel`, `concepts`, `users`, `report`, `report_block`, `report_citation`, 주식 시세 표들 | `analyst_reports`, `news`, `source_card`, `source_card_stocks`, `telegram_messages`, `telegram_message_links`, `stock_move_analyses` 외 3개 |
+| 관리하는 표 | `channel`, `concepts`, `users`, `report`, `report_block`, `report_citation`, 주식 시세 표들 | `analyst_reports`, `news`, `source_card`, `source_card_stocks`, `telegram_messages`, `telegram_message_links`, `dart_disclosures`, `stock_move_analyses` 외 3개 |
 | 설정 위치 | `backend/migrations/env.py` 의 `AI_MANAGED_TABLES` (비교 제외 목록) | `ai/alembic/env.py` 의 `MANAGED_TABLES` / `EXTERNAL_TABLES` |
 
 `news`·`source_card` 는 **표 생성은 여전히 backend 첫 리비전(`99dbfe02fd98`)** 이 하고, 그 이후
@@ -68,12 +70,13 @@ backend 쪽 변경:
 └────────────────────────┘──────┴────────► └────────┘ └─────────────────┘
                           analyst_report_id
 
+source_card ──► dart_disclosures                            (dart_disclosure_id, 공시 카드)
 source_card ◄── report_citation.source_card_id                (backend 의 브리핑 인용)
 source_card ◄── stock_move_analysis_factor_sources.source_card_id   (ai 보고서의 출처)
 source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 종목, CASCADE)
 ```
 
-- 원문은 종류별 표(`news` / `analyst_reports` / `telegram_messages`)에 한 번만 저장한다.
+- 원문은 종류별 표(`news` / `analyst_reports` / `telegram_messages` / `dart_disclosures`)에 한 번만 저장한다.
 - `source_card` 는 원문을 복제하지 않고 FK 로 가리키는 **공통 자료 ID** 다. 브리핑이 인용할 때는 이 ID 를 쓴다.
 - 어떤 메시지에서 어떤 주소로 기사·PDF 를 발견했는지는 `telegram_message_links` 에 남는다.
 - 종목 브리핑은 `source_card_stocks`(종목)와 `source_card.available_at`(공개 시각)으로 "이 종목의 자료 중 기준 시각 이전 것" 을 찾는다.
@@ -156,7 +159,6 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 | `forwarded_from` | text | NULL | 다른 채널 글을 전달했으면 원래 채널 이름 |
 | `forwarded_from_url` | text | NULL | 전달한 원글 주소 |
 | `hidden_links` | jsonb | NN, 기본 `[]` | 보이는 글자와 실제 주소가 달라 쓰지 않은 링크 |
-| `views` | varchar(32) | NULL | 마지막으로 본 조회수. `"1.2K"` 그대로 |
 | `edited` | boolean | NN, 기본 false | 채널에 '수정됨' 표시가 있었는지 |
 | `edit_detected_at` | timestamptz | NULL | 재수집 때 본문이 달라진 걸 처음 발견한 시각. 본문은 바꾸지 않는다 |
 | `purged_at` | timestamptz | NULL | 보관 정책으로 본문을 지운 시각 |
@@ -216,23 +218,24 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 ### 2-4. `source_card` — 공통 자료 ID (`0022`)
 
 backend 가 "모든 근거 카드가 들어오는 단일 테이블" 로 만든 표를, ai 가 **원문을 가리키는 공통 목록** 으로 쓰도록 확장했다.
-기존 칼럼은 그대로 두고 FK 3개와 제약만 더했다.
+기존 칼럼은 그대로 두고 FK 4개(`0022` 에 3개, `0026` 에 공시 1개)와 제약만 더했다.
 
 | card_type | 가리키는 원문 | 채우는 FK |
 | --- | --- | --- |
 | `news` | `news` | `news_id` |
 | `pdf` | `analyst_reports` | `analyst_report_id` |
 | `message` | `telegram_messages` | `telegram_message_id` |
-| 그 밖(시세·공시 등 backend 용) | — | 셋 다 NULL |
+| `disclosure` | `dart_disclosures` | `dart_disclosure_id` |
+| 그 밖(시세 등 backend 용) | — | 넷 다 NULL |
 
 | 칼럼 | 타입 | NULL | 설명 | 변경 |
 | --- | --- | --- | --- | --- |
 | `id` | bigint | NN | PK. **공통 자료 ID** | |
 | `card_type` | varchar(50) | NN | 자료 형태 | |
 | `stock_code` | varchar(12) | NULL | backend 용 종목코드 칸. 종목을 하나만 담을 수 있어 원문 카드는 비우고 `source_card_stocks` 를 쓴다 | |
-| `event_date` | date | NULL | 원문 카드는 `available_at` 의 날짜(KST). 시각을 모르는 네이버 리포트는 작성일 | ✏️ 원문 카드에도 채움 |
+| `event_date` | date | NULL | 원문 카드는 `available_at` 의 날짜(KST). 시각을 모르는 네이버 리포트는 작성일, 공시는 접수일 | ✏️ 원문 카드에도 채움 |
 | `channel_id` | integer | NULL | FK → `channel.id`. 텔레그램 메시지·텔레그램 첨부 PDF 만 | |
-| `source_name` | varchar(100) | NULL | 원 발행처. news=`publisher`, pdf=`broker`, message=`forwarded_from` 또는 채널명 | |
+| `source_name` | varchar(100) | NULL | 원 발행처. news=`publisher`, pdf=`broker`, message=`forwarded_from` 또는 채널명, disclosure=제출인(`flr_nm`) | |
 | `source_url` | varchar(500) | NULL | backend 직접 입력 카드용. 원문 카드는 비움 | |
 | `raw_text` | text | NULL | 〃 | |
 | `cleaned_text` | text | NULL | 〃 | |
@@ -245,16 +248,18 @@ backend 가 "모든 근거 카드가 들어오는 단일 테이블" 로 만든 �
 | `analyst_report_id` | bigint | NULL, UNIQUE | FK → `analyst_reports.id` | 🆕 |
 | `telegram_message_id` | bigint | NULL, UNIQUE | FK → `telegram_messages.id` | 🆕 |
 | `available_at` | timestamptz | NULL | 공개돼 있었다고 확인된 가장 이른 시각. 아래 표 참고 | 🆕 (0024) |
+| `dart_disclosure_id` | bigint | NULL, UNIQUE | FK → `dart_disclosures.id` | 🆕 (0026) |
 
 제약·인덱스
 
-- `fk_source_card_news_id`, `fk_source_card_analyst_report_id`, `fk_source_card_telegram_message_id` 🆕
-- `uq_source_card_news_id`, `uq_source_card_analyst_report_id`, `uq_source_card_telegram_message_id` 🆕 — 원문 한 행에 카드 하나. 등록을 여러 번 돌려도 늘지 않는다
-- `ck_source_card_raw_source` 🆕
+- `fk_source_card_news_id`, `fk_source_card_analyst_report_id`, `fk_source_card_telegram_message_id`, `fk_source_card_dart_disclosure_id` 🆕
+- `uq_source_card_news_id`, `uq_source_card_analyst_report_id`, `uq_source_card_telegram_message_id`, `uq_source_card_dart_disclosure_id` 🆕 — 원문 한 행에 카드 하나. 등록을 여러 번 돌려도 늘지 않는다
+- `ck_source_card_raw_source` 🆕 (`0026` 에서 `disclosure` 줄을 더해 다시 만듦)
   ```sql
   (card_type = 'news')    = (news_id IS NOT NULL)
   AND (card_type = 'pdf')     = (analyst_report_id IS NOT NULL)
   AND (card_type = 'message') = (telegram_message_id IS NOT NULL)
+  AND (card_type = 'disclosure') = (dart_disclosure_id IS NOT NULL)
   ```
 - `ix_source_card_available_at` (`available_at`) 🆕 (0024)
 - 기존: `idx_source_card_type`, `idx_source_card_stock_date`, `idx_source_card_tags_gin`, `idx_source_card_payload_gin`
@@ -266,6 +271,7 @@ backend 가 "모든 근거 카드가 들어오는 단일 테이블" 로 만든 �
 | `news` | `news.published_at` 과, 이 기사를 건 텔레그램 메시지들의 `posted_at` 중 가장 이른 것 |
 | `pdf` | 이 PDF 를 올린 텔레그램 메시지의 `posted_at`. 네이버 리포트는 작성일만 있어 NULL |
 | `message` | `telegram_messages.posted_at` |
+| `disclosure` | `dart_disclosures.first_seen_at`. 단 접수일(KST) 안에 처음 봤을 때만. 지난 날짜를 나중에 받았으면 그 시각은 실제 공시보다 한참 늦으므로 NULL 로 두고 접수일(`event_date`)로 판단한다 |
 
 모르면 NULL 이고 수집 시각으로 대신 채우지 않는다. 더 이른 메시지를 나중에 수집하면 값이 앞당겨진다.
 본문을 언제 받았는지(기준 시각 이후 수정이 섞였는지)는 원문 표의 `body_fetched_at` 이 따로 말한다.
@@ -286,7 +292,7 @@ backend 가 "모든 근거 카드가 들어오는 단일 테이블" 로 만든 �
 | `id` | bigint | NN | PK |
 | `source_card_id` | bigint | NN | FK → `source_card.id` (ON DELETE CASCADE) |
 | `stock_code` | varchar(6) | NN | 종목코드. backend `stock` 표를 FK 로 가리키지 않는다(마스터에 없는 종목이어도 저장이 막히지 않게) |
-| `tagged_by` | varchar(32) | NN | 누가 이 연결을 정했나. 지금은 `report_item_code`(종목분석 리포트의 `item_code`)만 |
+| `tagged_by` | varchar(32) | NN | 누가 이 연결을 정했나. `report_item_code`(종목분석 리포트의 `item_code`), `dart_stock_code`(공시 목록의 `stock_code`) |
 | `created_at` | timestamptz | NN, 기본 `now()` | |
 
 제약·인덱스: `uq_source_card_stock` UNIQUE(`source_card_id`, `stock_code`), `ix_source_card_stocks_stock_code`
@@ -296,6 +302,31 @@ backend 가 "모든 근거 카드가 들어오는 단일 테이블" 로 만든 �
 
 조회: `repositories/source_card.py` 의 `stock_card_ids(session, "005930", until=기준시각, since=...)` 가
 공통 ID 를 오래된 순서로 준다. 공개 시각을 모르는 자료는 기준 시각의 **전날까지** 날짜인 것만 넣는다.
+
+### 2-4-2. `dart_disclosures` — DART 공시 목록 (`0025`, 🆕 신규)
+
+한 행 = 공시 한 건(접수번호). 목록만 저장하고 본문은 받지 않는다. 상세는 `app/models/dart_disclosure.py`.
+
+| 칼럼 | 타입 | NULL | 설명 |
+| --- | --- | --- | --- |
+| `id` | bigint | NN | PK |
+| `rcept_no` | varchar(14) | NN, UNIQUE | 접수번호. 뷰어 주소 `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=<접수번호>` |
+| `corp_code` | varchar(8) | NN | DART 고유번호 |
+| `corp_name` | varchar(200) | NN | 회사명 |
+| `stock_code` | varchar(6) | NN | 종목코드 |
+| `report_nm` | text | NN | 보고서명 |
+| `flr_nm` | varchar(200) | NN | 제출인 |
+| `rcept_dt` | date | NN | 접수일. **시각이 없다** |
+| `rm` | varchar(20) | NULL | 비고 |
+| `first_seen_at` | timestamptz | NN, 기본 `now()` | 수집기가 처음 본 시각. 그 전에 공시가 나와 있었다는 것만 확실하다 |
+
+제약·인덱스: `uq_dart_disclosure_rcept_no` UNIQUE(`rcept_no`), `ix_dart_disclosures_stock_date` (`stock_code`, `rcept_dt`)
+
+- 처음 저장한 행을 바꾸지 않는다. 정정 공시는 DART 가 새 접수번호를 주므로 별도 행이다.
+- 수집기(`collectors/disclosure.py`)가 저장을 커밋한 뒤 공통 자료 ID 카드를 만든다(`0026`).
+  카드에는 공개 시각·접수일·종목(`tagged_by = dart_stock_code`)이 적힌다.
+- 보고서 출처 주소가 DART 뷰어 주소면 `card_ids_for_urls` 가 접수번호로 공시 카드를 찾아 잇는다.
+- 본문이 없으므로 보관 정책 삭제(`purge`) 대상이 아니다.
 
 ### 2-5. `analyst_reports` — 증권사 리포트 (`0023`)
 
@@ -413,6 +444,8 @@ backend 의 `report`/`report_block`/`report_citation` 과 이 표들 중 어느 
 0023  analyst_reports.purged_at / purge_reason      🆕
 0024  source_card.available_at, source_card_stocks,
       factor_sources.source_card_id                 🆕
+0025  dart_disclosures                              🆕
+0026  source_card.dart_disclosure_id + 제약 갱신      🆕
 ```
 
 ### 4-2. 설치 순서
@@ -438,3 +471,5 @@ uv run python -m app.collectors.sources register   # 기존 데이터의 canonic
 | `0022` | `source_card` 가 없음 / 원문 FK 없는 `news`·`pdf`·`message` 카드가 이미 있음 | 원문을 가리키는 카드가 있음 |
 | `0023` | — | 본문을 지운 PDF 가 있음 |
 | `0024` | — | 막지 않는다. 지금 들어가는 값은 모두 원문에서 다시 계산할 수 있다(`sources register`) |
+| `0025` | — | 공시 행이 있음(`first_seen_at` 은 다시 만들 수 없다) |
+| `0026` | 원문 FK 없는 `disclosure` 카드가 이미 있음 | 공시를 가리키는 카드가 있음 |

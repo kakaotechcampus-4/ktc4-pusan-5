@@ -462,7 +462,7 @@ async def save_to_db(
         async with session_factory() as session:
             stats.cards = await register_missing_sources(
                 session, news_ids=list({*news.ids, *(a.id for a in existing.values())}),
-                report_ids=[], message_ids=[m.id for m in saved],
+                report_ids=[], message_ids=[m.id for m in saved], disclosure_ids=[],
             )
             await session.commit()
     except Exception as exc:  # noqa: BLE001 — 원문은 이미 커밋됐다. 실패만 알리고 다시 돌리게 한다

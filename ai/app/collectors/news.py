@@ -112,7 +112,7 @@ async def _save(items: list[NewsItem], result: CollectResult) -> CollectResult:
     try:
         async with SessionLocal() as session:
             result.cards = await register_missing_sources(
-                session, news_ids=saved.ids, report_ids=[], message_ids=[],
+                session, news_ids=saved.ids, report_ids=[], message_ids=[], disclosure_ids=[],
             )
             await session.commit()
     except Exception as exc:  # noqa: BLE001

@@ -157,7 +157,7 @@ def test_save_to_db_keeps_one_article_and_every_discovery(database):
     stats = run(messages, NOW)
 
     assert (stats.messages_new, stats.no_msg_id, stats.news_new) == (3, 1, 1)
-    assert stats.cards == {"news": 1, "pdf": 0, "message": 3}
+    assert stats.cards == {"news": 1, "pdf": 0, "message": 3, "disclosure": 0}
     assert stats.register_error is None
     [news] = query(database, "SELECT * FROM news")
     assert news["cleaned_text"] == article.text, "발췌가 아니라 본문 전체다"
@@ -184,7 +184,7 @@ def test_save_to_db_keeps_one_article_and_every_discovery(database):
     again = run(messages, NOW + timedelta(days=1))
     assert (again.messages_new, again.messages_known, again.news_new) == (0, 3, 0)
     assert (again.links_new, again.links_updated) == (0, 0)
-    assert again.cards == {"news": 0, "pdf": 0, "message": 0}
+    assert again.cards == {"news": 0, "pdf": 0, "message": 0, "disclosure": 0}
     assert len(query(database, "SELECT * FROM telegram_message_links")) == 4
     assert query(database, "SELECT count(*) FROM source_card")[0][0] == 4
 

@@ -14,18 +14,20 @@ collection_scope.toml 의 dart.stock_codes 다. 수집 기간 밖의 날은 부�
 **장중에 여러 번 돌려도 된다.** 이미 있는 공시는 건너뛰므로 결과가 같다. 접수 시각을 API 가
 주지 않아 처음 본 시각(first_seen_at)을 대신 남기는데, 자주 돌릴수록 실제 시각에 가까워진다.
 
-공통 자료 ID(source_card)에는 아직 등록하지 않는다. 보고서 입력에 공시를 넣을 때 정한다.
+새 공시는 저장을 커밋한 뒤 공통 자료 ID(source_card)에 등록한다. 등록이 실패해도 공시는 남고,
+`uv run python -m app.collectors.sources register` 로 다시 등록하면 된다.
 """
 
 import argparse
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from app.core.database import SessionLocal
 from app.core.scope import KST, CollectionScope, ScopeError, SourceScope, load_scope
 from app.repositories.dart_disclosure import known_rcept_nos, save_disclosures
 from app.repositories.scope import collection_locks, count_collected
+from app.repositories.source_card import register_missing_sources
 from app.services.dart import client as dart
 from app.services.dart.client import DartError
 from app.services.dart.schema import Disclosure
@@ -38,6 +40,8 @@ class CollectResult:
     held: int = 0  # 수집량 상한 때문에 넣지 않은 새 공시
     inserted: int = 0
     out_of_period: bool = False  # 날짜가 수집 기간 밖이라 부르지 않았다
+    cards: dict[str, int] = field(default_factory=dict)  # 새로 만든 공통 자료 ID 수
+    register_error: str | None = None  # 공시는 저장했지만 공통 자료 ID 등록에 실패한 사유
 
 
 def select_items(
@@ -80,8 +84,18 @@ async def collect(day: date, *, scope: CollectionScope | None = None) -> Collect
             collected = await count_collected(session, "dart")
             kept = select_items(items, source=source, known=known, collected=collected,
                                 result=result)
-            result.inserted = await save_disclosures(session, kept)
+            saved_ids = await save_disclosures(session, kept)
             await session.commit()
+        result.inserted = len(saved_ids)
+        try:
+            async with SessionLocal() as session:
+                result.cards = await register_missing_sources(
+                    session, news_ids=[], report_ids=[], message_ids=[],
+                    disclosure_ids=saved_ids,
+                )
+                await session.commit()
+        except Exception as exc:  # noqa: BLE001
+            result.register_error = f"{type(exc).__name__}: {str(exc)[:200]}"
     return result
 
 
@@ -102,6 +116,9 @@ async def _collect_days(days: list[date]) -> None:
         if result.held:
             line += f" / 수집량 상한으로 받지 않음 {result.held}건"
         print(line)
+        if result.register_error:
+            print(f"  공통 자료 ID 등록 실패 ({result.register_error}) — "
+                  "`uv run python -m app.collectors.sources register` 로 다시 등록한다")
 
 
 def main() -> None:

@@ -224,8 +224,8 @@ def test_card_registration_is_scoped_and_bodyless_read_defers_body(database, mon
         mock_news("https://example.com/a"), mock_news("https://example.com/b"),
     ])).ids
     assert in_session(database, lambda s: register_missing_sources(
-        s, news_ids=mock_ids[:1], report_ids=[], message_ids=[],
-    )) == {"news": 1, "pdf": 0, "message": 0}
+        s, news_ids=mock_ids[:1], report_ids=[], message_ids=[], disclosure_ids=[],
+    )) == {"news": 1, "pdf": 0, "message": 0, "disclosure": 0}
     [mock_card] = query(database, "SELECT id FROM source_card")
 
     async def work(factory):

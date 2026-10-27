@@ -24,7 +24,7 @@ from tests.backend_schema import BACKEND_HEAD, backend_statements
 
 AI_DIR = Path(__file__).resolve().parents[1]
 # 체인 끝이 바뀌면 여기도 바꾼다. stamp·버전 확인이 전부 이 값을 쓴다.
-HEAD = "0025_dart_disclosures"
+HEAD = "0026_source_card_disclosures"
 # AI 가 backend 에게서 넘겨받기 직전 리비전
 BEFORE_TAKEOVER = "0019_stock_move_analysis"
 
@@ -140,6 +140,7 @@ def test_offline_sql_and_single_head():
     assert "ALTER TABLE source_card ADD COLUMN available_at" in sql
     assert "CREATE TABLE source_card_stocks (" in sql
     assert "CREATE TABLE dart_disclosures (" in sql
+    assert "ALTER TABLE source_card ADD COLUMN dart_disclosure_id" in sql
     assert alembic(url, "heads").strip() == f"{HEAD} (head)"
 
 

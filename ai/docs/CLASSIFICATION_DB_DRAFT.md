@@ -314,7 +314,7 @@ classification_events.id
 
 ## 8. 구현·마이그레이션 메모
 
-- 다음 ai 리비전으로 한 번에 만든다. `0025` 는 `dart_disclosures` 가 쓰므로 그 뒤 번호다. 정확한 번호는 구현할 때 develop 기준으로 정한다.
+- 다음 ai 리비전으로 한 번에 만든다. `0025` 는 `dart_disclosures`, `0026` 은 공시 카드 연결이 쓰므로 그 뒤 번호다. 정확한 번호는 구현할 때 develop 기준으로 정한다.
 - 기존 표의 칼럼은 바꾸지 않는다.
 - `classification_runs` 에 행이 있으면 downgrade 를 막는다. 분류 결과는 다시 만들려면 LLM 비용이 들고, 원문이 지워졌으면 다시 만들 수 없다(전제 P9). 기준표는 JSON 에서 다시 넣으면 되므로 막지 않는다.
 - 문장 분리 코드(`app/services/news_link/sentence.py`)에는 지금 버전 값이 없다. 분리 규칙을 **버전별 함수로 남긴다.**
@@ -323,7 +323,7 @@ classification_events.id
   - **한 번 배포한 버전의 함수는 고치지 않는다.** 고쳐야 하면 새 버전을 만든다. 버전마다 고정 입력·기대 출력 테스트를 둬서 실수로 바뀌면 깨지게 한다.
   - `classification_runs` 에 그 버전의 회차가 남아 있는 동안은 함수를 지우지 않는다.
 - `raw_response`·`reason` 에 원문 일부가 들어갈 수 있다. 보관 정책 삭제(`python -m app.collectors.sources purge`) 범위에 넣을지 정한다 → 11절.
-- `dart_disclosures` 는 아직 `source_card` 에 연결되지 않았다. 공시를 분류 대상에 넣을지는 별도로 정한다.
+- `dart_disclosures` 는 `0026` 부터 `source_card` 에 연결된다(`card_type = 'disclosure'`). 본문이 없어 제목만으로 분류할지, 분류 대상에 넣을지는 별도로 정한다.
 
 ---
 
@@ -391,7 +391,7 @@ classification_events.id
 | 7 | `role` 최종안, `analyst_view` 를 원인으로 볼지 | 전제 P10 | 실험 E2 결과 보고 결정 |
 | 8 | 전망(`outlook`) 사건을 후보로 넘길지 | 넘김 / 뺌 | 넘기되 role 로 구분 |
 | 9 | `raw_response`·`reason` 을 보관 정책 삭제 범위에 넣을지 | 넣음 / 안 넣음 | 넣음(원문 일부가 섞일 수 있다) |
-| 10 | 공시(`dart_disclosures`)를 분류 대상에 넣을지 | — | 공시를 `source_card` 에 연결할지 먼저 정한다 |
+| 10 | 공시(`dart_disclosures`)를 분류 대상에 넣을지 | 넣음(제목만) / 안 넣음 | 공시 카드는 `0026` 에서 연결됐다. 본문이 없어 제목만 있다. 종목은 이미 `source_card_stocks`(`dart_stock_code`)로 이어져 `stock_card_ids()` 에는 분류 없이도 나온다 |
 | 11 | 마이그레이션 시점 | 지금 / 실험 E3 채택 뒤 | E3 채택 뒤(전제 P10). 사건 형식이 바뀔 수 있다 |
 
 ---
