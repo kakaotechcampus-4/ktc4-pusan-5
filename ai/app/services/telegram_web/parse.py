@@ -6,7 +6,6 @@
       div.tgme_widget_message_text             본문. 줄바꿈은 <br>
       time[datetime]                           게시 시각 (ISO 8601, UTC)
       span.tgme_widget_message_from_author     채널 안 서명
-      span.tgme_widget_message_views           조회수
       div.tgme_widget_message_document_title   첨부 파일 이름
       span.tgme_widget_message_meta            서명·게시 시각 줄. 고친 글이면 "edited" 가 붙는다
                                                (2026-10-05 확인: "<서명>, edited 23:43")
@@ -164,7 +163,6 @@ def parse_page(html: str, channel: str) -> list[ChannelMessage]:
                 url=f"https://t.me/{channel}/{msg_id}" if msg_id is not None else None,
                 posted_at=_posted_at(box),
                 author=_plain(box, "span.tgme_widget_message_from_author"),
-                views=_plain(box, "span.tgme_widget_message_views"),
                 links=links,
                 hidden_links=hidden,
                 text=_text(text_node) if text_node else "",

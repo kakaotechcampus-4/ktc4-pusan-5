@@ -30,7 +30,7 @@ JSON 하나를 받습니다.
   "market": { "index": "코스피", "change_pct": <지수 등락률>,
               "as_of": "<그 수치의 시각 HH:MM. cutoff 와 같으면 종가>", "url": "" },   // 없으면 null
   "messages": [
-    { "channel": "", "url": "", "datetime_kst": "", "views": "", "text": "", "match": "direct|indirect",
+    { "channel": "", "url": "", "datetime_kst": "", "text": "", "match": "direct|indirect",
       // 메시지에 뉴스 링크가 있으면 붙습니다. 없는 메시지가 더 많습니다.
       "link_bodies": [
         { "url": "<메시지에 적힌 주소>", "final_url": "<단축 URL 을 푼 실제 주소>",

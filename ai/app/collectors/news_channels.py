@@ -87,9 +87,8 @@ _NO_TIME = datetime.min.replace(tzinfo=KST)
 # news 로 저장하지 않는 링크 결과. PDF·이미지는 기사가 아니고, blocked 는 가지 않은 주소다.
 # 이런 링크는 telegram_message_links 에만 남는다.
 NOT_ARTICLE = frozenset({"pdf", "not_html", "blocked"})
-# 칼럼 길이(telegram_messages.author·views, news.publisher). 넘으면 저장이 통째로 실패하므로 자른다.
+# 칼럼 길이(telegram_messages.author, news.publisher). 넘으면 저장이 통째로 실패하므로 자른다.
 AUTHOR_MAX_CHARS = 200
-VIEWS_MAX_CHARS = 32
 PUBLISHER_MAX_CHARS = 100
 
 
@@ -374,7 +373,6 @@ def message_row(message: ChannelMessage, channel_id: int) -> dict:
         "forwarded_from": message.forwarded_from,
         "forwarded_from_url": message.forwarded_from_url,
         "hidden_links": message.hidden_links,
-        "views": message.views[:VIEWS_MAX_CHARS] if message.views else None,
         "edited": message.edited,
         "collected_via": "web",
     }

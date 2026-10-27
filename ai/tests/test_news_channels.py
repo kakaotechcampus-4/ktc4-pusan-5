@@ -219,7 +219,7 @@ def test_failed_article_is_kept_for_retry_but_non_articles_are_not() -> None:
 
 def test_message_row_keeps_text_as_shown_and_unknown_time_as_none() -> None:
     message = ChannelMessage(channel="ch", msg_id=7, posted_at=None, text="  글  ",
-                             attachment="r.pdf", edited=True, views="1.2K")
+                             attachment="r.pdf", edited=True)
     row = message_row(message, channel_id=3)
     assert (row["text"], row["posted_at"], row["url"]) == ("  글  ", None, "https://t.me/ch/7")
     assert (row["attachment_name"], row["edited"], row["collected_via"]) == ("r.pdf", True, "web")

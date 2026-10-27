@@ -1,7 +1,13 @@
-"""코스피 시가총액 기준 상위 100개 종목을 코드로 고정"""
+"""코스피 시가총액 기준 상위 100개 종목을 코드로 고정
 
+MVP_STOCKS 의 순위를 고치면 MVP_STOCKS_AS_OF 도 그 조회 시각으로 같이 갱신한다.
+"""
+
+from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
+# MVP_STOCKS 의 순위 조회한 시각
+MVP_STOCKS_AS_OF = datetime(2026, 10, 4, 12, 0, tzinfo=timezone(timedelta(hours=9)))
 
 # sector 는 KIS inquire-price 의 bstp_kor_isnm 을 2026-10-06 에 종목별로 조회한 값
 # 표기는 KRX 업종지수를 따름

@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import UTC, date, datetime
 
@@ -72,7 +73,9 @@ async def test_list_is_ordered_by_rank_and_camel_case(list_db):
     assert response.status_code == 200
     body = response.json()
     StockList.model_validate(body)
-    assert set(body) == {"items"}
+    assert set(body) == {"items", "complete", "asOf"}
+    assert body["complete"] is False
+    assert body["asOf"] == "2026-10-04T12:00:00+09:00"
     assert body["items"] == [
         {"rank": 1, "code": "TST002", "name": "DB이름1", "market": "KOSPI", "sector": "전기전자"},
         {"rank": 2, "code": "TST001", "name": "DB이름2", "market": "KOSDAQ", "sector": "금융"},
@@ -87,6 +90,34 @@ async def test_list_excludes_inactive_unknown_and_non_mvp(list_db):
     assert "TST004" not in codes  # inactive
     assert "TST005" not in codes  # stock 테이블에 없음
     assert codes == ["TST002", "TST001"]
+
+
+async def test_list_marks_complete_false_when_some_mvp_codes_missing(list_db):
+    async with list_db() as session:
+        result = await stock_list.stock_list(session)
+    assert result.complete is False
+
+
+async def test_list_logs_missing_codes_split_by_db_presence(list_db, caplog):
+    async with list_db() as session:
+        with caplog.at_level(logging.WARNING, logger="app.services.stock_list"):
+            await stock_list.stock_list(session)
+    [record] = [r for r in caplog.records if "mvp stock catalog incomplete" in r.message]
+    message = record.getMessage()
+    assert "not_in_db=['TST005']" in message  # stock 테이블에 아예 없음
+    assert "inactive=['TST004']" in message  # DB엔 있지만 listing_status != listed
+
+
+async def test_list_marks_complete_true_when_all_mvp_codes_present(monkeypatch, list_db):
+    mvp = (
+        MvpStock(1, "TST002", "순위1", "전기전자"),
+        MvpStock(2, "TST001", "순위2", "금융"),
+    )
+    monkeypatch.setattr(stock_list, "MVP_STOCKS", mvp)
+    monkeypatch.setattr(stock_list, "MVP_CODES", frozenset(m.code for m in mvp))
+    async with list_db() as session:
+        result = await stock_list.stock_list(session)
+    assert result.complete is True
 
 
 async def test_list_does_not_enqueue_collection(list_db):
@@ -110,7 +141,7 @@ async def test_list_returns_503_when_catalog_is_not_ready(monkeypatch):
     async def override():
         yield None
 
-    monkeypatch.setattr(repo, "listed_by_codes", empty)
+    monkeypatch.setattr(repo, "by_codes", empty)
     monkeypatch.setattr(repo, "catalog_checked_at", never_synced)
     app.dependency_overrides[get_session] = override
     try:

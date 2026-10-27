@@ -4,7 +4,6 @@ import { SectionHead } from '@/components/layout/PageShell';
 import { cn } from '@/lib/cn';
 import { formatAsOf } from '@/lib/format';
 import type { StockListItem } from '@/lib/types';
-import { mockStockListAsOf } from './mockStockList';
 import { useStockList, type StockSortKey } from './useStockList';
 
 /**
@@ -32,7 +31,7 @@ const ITEM_CLASS = cn(
 );
 
 export function StockListPage() {
-  const { status, items, sortKey, setSortKey, sectorChips, sector, setSector, retry } =
+  const { status, items, asOf, sortKey, setSortKey, sectorChips, sector, setSector, retry } =
     useStockList();
 
   if (status === 'error') {
@@ -71,9 +70,9 @@ export function StockListPage() {
           tone="muted"
         />
       )}
-      {status === 'success' && sortKey === 'marketCap' && (
+      {status === 'success' && sortKey === 'marketCap' && asOf && (
         <p className="num text-sm text-neutral-600">
-          {formatAsOf(new Date(mockStockListAsOf), '시가총액 기준')}
+          {formatAsOf(new Date(asOf), '시가총액 기준')}
         </p>
       )}
       {status === 'loading' && <StockListSkeleton />}

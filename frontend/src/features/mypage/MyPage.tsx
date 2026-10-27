@@ -103,7 +103,7 @@ export function MyPage() {
         ) : (
           <WatchlistTab
             status={watchlist.status}
-            watchlist={watchlist.watchlist}
+            items={watchlist.items}
             removedIds={watchlist.removedIds}
             onToggleRemoved={watchlist.toggleRemoved}
             onRetry={watchlist.retry}

@@ -172,6 +172,24 @@ export type MarketBoard<T, K extends string> = {
 };
 export type FlowBoard = MarketBoard<FlowItem, 'flowBuy' | 'flowSell'>;
 export type SectorBoard = MarketBoard<SectorItem, 'sectorKospi' | 'sectorKosdaq'>;
+export type SearchStockItem = {
+  code: string;
+  name: string;
+  market: 'KOSPI' | 'KOSDAQ';
+};
+
+export type SearchConceptItem = {
+  slug: string;
+  name: string;
+  summary: string;
+};
+
+export type SearchResponse = {
+  query: string;
+  stocks: SearchStockItem[];
+  concepts: SearchConceptItem[];
+};
+
 export type MarketOverview = {
   items: MarketItem[];
   rankings: RankingBoard[];
@@ -211,6 +229,10 @@ export type StockListItem = {
   sector: string;
 };
 
+/** asOf: 시가총액 순위를 조회한 시각 */
 export type StockListResponse = {
   items: StockListItem[];
+  /** 고정 100개 중 일부가 DB에 없으면 false */
+  complete: boolean;
+  asOf: string;
 };

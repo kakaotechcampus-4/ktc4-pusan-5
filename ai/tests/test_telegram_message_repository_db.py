@@ -42,7 +42,7 @@ def message_row(channel_id: int, msg_id: int = 1, **values) -> dict:
     return {
         "channel_id": channel_id, "msg_id": msg_id, "url": f"https://t.me/skitteam/{msg_id}",
         "posted_at": NOW, "author": None, "text": "원래 글", "attachment_name": None,
-        "hidden_links": [], "views": "1.2K", "edited": False, "collected_via": "web", **values,
+        "hidden_links": [], "edited": False, "collected_via": "web", **values,
     }
 
 
@@ -62,9 +62,9 @@ def test_message_is_stored_once_and_the_first_text_survives_an_edit(database):
 
     [first] = in_session(database, lambda s: save_messages(s, [message_row(cid)]))
     [edited] = in_session(database, lambda s: save_messages(s, [
-        message_row(cid, text="고친 글", edited=True, views="2K")
+        message_row(cid, text="고친 글", edited=True)
     ]))
-    [again] = in_session(database, lambda s: save_messages(s, [message_row(cid, views="3K")]))
+    [again] = in_session(database, lambda s: save_messages(s, [message_row(cid)]))
 
     assert first.inserted and not edited.inserted
     assert edited.text_changed and not again.text_changed
@@ -72,7 +72,6 @@ def test_message_is_stored_once_and_the_first_text_survives_an_edit(database):
     assert message["text"] == "원래 글", "처음 저장한 본문은 바꾸지 않는다"
     assert message["edited"] is True, "한 번 본 수정 표시는 남는다"
     assert message["edit_detected_at"] is not None
-    assert message["views"] == "3K", "조회수는 마지막으로 본 값이다"
 
 
 def test_undated_and_attachment_only_messages_keep_their_state(database):
@@ -215,7 +214,7 @@ def test_edited_message_keeps_its_first_links(database):
 
 def _found(msg_id: int, sha: str | None, *, excluded: bool = False) -> FoundPdf:
     return FoundPdf(msg_id=msg_id, posted_at=datetime(2026, 10, 5, 0, 0, tzinfo=UTC),
-                    text="리포트 공유", author=None, views="10", edited=False,
+                    text="리포트 공유", author=None, edited=False,
                     filename=f"report-{msg_id}.pdf", pdf_sha256=sha, excluded=excluded)
 
 

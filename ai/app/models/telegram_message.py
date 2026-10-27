@@ -79,7 +79,6 @@ class TelegramMessage(Base):
     hidden_links: Mapped[list[str]] = mapped_column(
         JSONB, server_default=sql_text("'[]'::jsonb")
     )
-    views: Mapped[str | None] = mapped_column(String(32))  # 마지막으로 본 조회수. "1.2K" 그대로
     # 채널에 '수정됨' 표시가 있었다. 처음 수집하기 전에 고쳤어도 참이다.
     edited: Mapped[bool] = mapped_column(Boolean, server_default=sql_text("false"))
     # 다시 수집했을 때 본문이 처음 저장한 것과 달랐던 첫 시각. 본문은 바꾸지 않았다.

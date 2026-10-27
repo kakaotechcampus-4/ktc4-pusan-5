@@ -8,15 +8,11 @@
   "category": "financial-statements/cash-flow-statement",
   "extraCategories": null,
   "summary": "공장·장비·기술처럼 미래를 위한 자산에 쓰는 지출. 오늘의 현금을 내주고 내일의 경쟁력을 사는 결정입니다.",
-  "body": "CAPEX는 손익계산서에 한 번에 비용으로 잡히지 않습니다. 자산으로 올린 뒤 사용 기간에 걸쳐 [감가상각](depreciation)으로 나눠 비용화합니다. 그래서 CAPEX가 큰 해에는 이익이 멀쩡해 보이지만 현금은 크게 빠져나갑니다. 투자활동현금흐름을 함께 봐야 하는 이유입니다.\n\n반도체·조선처럼 설비가 경쟁력인 산업에서는 CAPEX 규모가 곧 미래 점유율입니다. 반대로 수요가 꺾이는 국면의 대규모 투자는 고정비 부담으로 돌아옵니다. 그래서 같은 투자 발표가 호재로도 악재로도 읽힙니다.\n\n최근에는 AI 인프라 투자가 CAPEX 논쟁의 중심입니다. 빅테크의 자체 CAPEX가 계속 늘어나는지 여부가 [순환금융](circular-financing) 논란에서 \"수요가 실재하는가\"를 판정하는 기준으로 쓰입니다.",
+  "body": "CAPEX는 손익계산서에 한 번에 비용으로 잡히지 않습니다. 자산으로 올린 뒤 사용 기간에 걸쳐 [감가상각](depreciation)으로 나눠 비용화합니다. 그래서 CAPEX가 큰 해에는 이익이 멀쩡해 보이지만 현금은 크게 빠져나갑니다. 투자활동현금흐름을 함께 봐야 하는 이유입니다.\n\n반도체·조선처럼 설비가 경쟁력인 산업에서는 CAPEX 규모가 곧 미래 점유율입니다. 반대로 수요가 꺾이는 국면의 대규모 투자는 고정비 부담으로 돌아옵니다. 그래서 같은 투자 발표가 호재로도 악재로도 읽힙니다.",
   "related": [
     {
       "slug": "depreciation",
       "reason": "CAPEX가 비용으로 바뀌는 경로"
-    },
-    {
-      "slug": "circular-financing",
-      "reason": "AI 수요 실재 판단 기준"
     },
     {
       "slug": "financial-statements",
@@ -40,5 +36,10 @@
       "explanation": "가동률이 낮아지면 원가 부담이 커집니다."
     }
   ],
-  "sources": []
+  "sources": [
+    "기획재정부 「시사경제용어사전」 'CAPEX(Capital Expenditures)' 항목 https://www.data.go.kr/data/15006052/fileData.do",
+    "기획재정부 「시사경제용어사전」 '감가상각비' 항목 https://www.data.go.kr/data/15006052/fileData.do",
+    "한국은행 「경제금융용어 800선」(2026) '자본적지출' 항목 https://www.bok.or.kr/portal/bbs/B0000249/view.do?nttId=10096081&menuNo=200765",
+    "국가법령정보센터 「법인세법 시행령」 제31조 https://www.law.go.kr/법령/법인세법시행령/제31조"
+  ]
 }
