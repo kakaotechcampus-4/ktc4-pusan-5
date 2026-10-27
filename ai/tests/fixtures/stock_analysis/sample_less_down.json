@@ -1,0 +1,28 @@
+{
+  "stock": "솔마루전자",
+  "code": "999990",
+  "target_date": "2026-09-22",
+  "cutoff": "2026-09-22T15:30:00+09:00",
+  "change_pct": -0.39,
+  "market": {
+    "index": "코스피",
+    "change_pct": -2.2,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": -2.41,
+    "peer_up": 1,
+    "peer_down": 18,
+    "peer_total": 19,
+    "excess_pct": 2.02
+  },
+  "messages": [
+    {
+      "channel": "sample_channel_a",
+      "url": "https://t.me/sample_channel_a/601",
+      "datetime_kst": "2026-09-22T10:20:00+09:00",
+      "views": "1100",
+      "text": "[샘플] 솔마루전자, 해외 고객사와 1,200억원 규모 부품 공급 계약 체결 공시",
+      "match": "direct"
+    }
+  ]
+}
