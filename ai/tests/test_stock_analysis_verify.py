@@ -16,12 +16,9 @@ from app.services.stock_analysis.verify import (
     CHANGE_PCT_MISMATCH,
     COMMON_MOVE_WITH_MOVE_LINK,
     COUNT_OVER_CAP,
-    MARKET_LED_DIRECT_FACTOR,
-    DIRECT_SOURCE_MISSING,
-    STRENGTH_MISMATCH,
-    MOVE_COMPARISON_ON_FLAT,
     COUNTER_WITHOUT_BACKGROUND,
     DATE_MISMATCH,
+    DIRECT_SOURCE_MISSING,
     DIRECTION_MATCH_WRONG,
     DIRECTION_MISMATCH,
     DUPLICATE_SOURCES,
@@ -32,7 +29,6 @@ from app.services.stock_analysis.verify import (
     EVENT_FACTOR_COUNT,
     EVENT_FACTOR_DUPLICATE,
     EVENT_FACTOR_REF_MISSING,
-    ISSUE_ID_DUPLICATE,
     EVENT_REASON_MISMATCH,
     FACTOR_RESULT_SOURCES_ONLY,
     FACTOR_WITHOUT_SOURCE,
@@ -42,10 +38,13 @@ from app.services.stock_analysis.verify import (
     FLAT_RELATIVE,
     FLAT_RELATIVE_FACTORS,
     FLAT_RELATIVE_VERDICT,
+    ISSUE_ID_DUPLICATE,
     JSON_INVALID,
     LINK_LAYER_DUPLICATE,
     LINKS_EMPTY,
     LLM_ERROR,
+    MARKET_LED_DIRECT_FACTOR,
+    MOVE_COMPARISON_ON_FLAT,
     MOVE_SUFFICIENT_STOCK_ONLY,
     OUTPUT_TRUNCATED,
     QUOTE_MISSING_SUBJECT,
@@ -56,6 +55,7 @@ from app.services.stock_analysis.verify import (
     SCHEMA_VALUE,
     SIZE_FIT_OVER_CAP,
     SOURCES_OVER_MAX,
+    STRENGTH_MISMATCH,
     THEME_RECAP_NOT_SECTOR,
     TICKER_MISMATCH,
     UNCONFIRMED_OVER_CAP,
@@ -72,13 +72,13 @@ from app.services.stock_analysis.verify import (
     common_move,
     families_of,
     is_market_mover,
-    market_led,
-    move_comparison,
-    move_strength_cap,
     is_stock_specific,
     judge_layers,
     layer_pct,
+    market_led,
     move_case,
+    move_comparison,
+    move_strength_cap,
     normalize_report,
     verify,
     verify_wrapper,
@@ -1112,8 +1112,8 @@ def test_direction_is_checked_per_link_with_factor_stance():
                      factors=[factor(sources=[src], links=[link("move", "partial"),
                                                            link("relative", "partial")])])
     assert check_rules(r, MARKET) == [
-        f"{DIRECTION_MATCH_WRONG}: factors[0].links[1] layer=relative, stance=bearish, "
-        f"값 1.4 인데 direction_match=True"]
+        (f"{DIRECTION_MATCH_WRONG}: factors[0].links[1] layer=relative, stance=bearish, "
+         f"값 1.4 인데 direction_match=True")]
 
 
 def test_caps_apply_to_every_link():
