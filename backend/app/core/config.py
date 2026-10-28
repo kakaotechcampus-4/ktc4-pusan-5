@@ -18,12 +18,19 @@ class Settings(BaseSettings):
     kis_app_secret: str = ""
     kis_env: str = "real"
     kis_api_base_url: str = "https://openapi.koreainvestment.com:9443"
+    # KIS 요청 사이 간격(초). 공식 한도는 계좌(앱키)당 초당 18건이지만 신규 신청 후 3일은 초당 3건이고,
+    # 실측으로는 1초 간격에서만 안정적이었다. 신규 제한이 풀리면 다시 측정해 줄인다.
+    kis_request_interval_seconds: float = Field(default=1.0, gt=0)
     fred_api_key: str = ""
     fred_api_base_url: str = "https://api.stlouisfed.org/fred"
     krx_auth_key: str = ""
     krx_api_base_url: str = "https://data-dbg.krx.co.kr/svc/apis"
     dart_api_key: str = ""
     ecos_api_key: str = ""
+
+    # 수집기가 고정 목록 종목의 현재가를 다시 받는 장중 주기(초). 장외에는 마감 후 한 번만 받는다.
+    # 종목 수 × kis_request_interval_seconds 가 이 값의 절반을 넘으면 차트·재무 작업이 밀린다.
+    stock_quote_interval_seconds: int = Field(default=60, ge=15)
 
     # 카카오 로그인
     kakao_client_id: str = ""
