@@ -136,7 +136,7 @@ async def collect(
         # 공통 자료 ID 는 리포트를 다 커밋한 뒤 따로 등록한다. 실패해도 리포트는 남는다.
         try:
             cards = await register_missing_sources(
-                session, news_ids=[], message_ids=[], report_keys=report_keys,
+                session, news_ids=[], message_ids=[], report_keys=report_keys, disclosure_ids=[],
             )
             await session.commit()
         except Exception as exc:

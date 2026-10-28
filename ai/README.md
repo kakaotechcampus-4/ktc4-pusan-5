@@ -144,11 +144,15 @@ backend 조회는 `verify_status = 'passed'` 를 전제한다.
 
 ```bash
 uv run python -m app.collectors.news 삼성전자 --display 50
-uv run python -m app.collectors.news --retry-failed            # 본문을 못 얻은 네이버 기사만 다시 연다
+uv run python -m app.collectors.news --retry-failed            # 본문을 못 얻은 네이버 기사만 다시 연다 (404 등 영구 실패 제외)
 uv run python -m app.collectors.news_channels                  # 어제 0시부터. 범위의 채널을 DB 에 쓴다
 uv run python -m app.collectors.news_channels --dry-run        # DB 에 쓰지 않고 범위 확인·요약만
 uv run python -m app.collectors.news_channels --jsonl          # JSONL 파일 사본도 쓴다 (data/telegram/)
 ```
+
+실패 판정은 `app/services/news/failure.py`에서 공유한다. 404·410 같은 영구 실패는 다시
+열지 않는다. 429는 따로 분류만 하고 일시 실패처럼 다음 실행에서 다시 연다(대기·백오프 없음).
+DNS 조회 장애는 일시 실패로 남겨 재시도를 허용한다.
 
 모두 `collection_scope.toml` 의 범위 안에서만 돈다(아래 "데이터 이용 제한"). 범위 밖의
 검색어·채널은 거부하고, 기간 밖의 자료와 수집량 상한을 넘는 새 자료는 받지 않는다.
@@ -232,6 +236,24 @@ uv run python -m app.collectors.sources show 12 --body   # 본문 앞부분까�
 
 코드에서는 `app.repositories.source_card.get_sources(session, ids)` 가 같은 조회를 한다.
 기사·PDF 는 그것을 공유한 메시지들을, 메시지는 그 메시지가 건 링크를 `discoveries` 로 준다.
+
+### 종목·기준 시각으로 찾기
+
+종목 브리핑은 "이 종목에 관한 자료 중 기준 시각 이전에 나온 것" 을 찾는다. 등록 처리가
+카드마다 두 가지를 적는다.
+
+| 칸 | 뜻 | 채우는 값 |
+|---|---|---|
+| `source_card.available_at` | 공개돼 있었다고 확인된 가장 이른 시각 | 기사: 발행 시각과 그 기사를 건 메시지 게시 시각 중 가장 이른 것. PDF: 그 PDF 를 올린 메시지 게시 시각(네이버 리포트는 NULL). 메시지: 게시 시각 |
+| `source_card.event_date` | 같은 시각의 날짜(KST) | 시각을 모르는 네이버 리포트는 작성일 |
+| `source_card_stocks` | 자료 ↔ 종목 (여러 종목 가능) | 지금은 종목분석 리포트의 `item_code` 만(`tagged_by = report_item_code`). 뉴스·메시지 종목 판단은 필터·태깅 단계가 들어오면 채운다 |
+
+`stock_card_ids(session, "005930", until=기준시각)` 가 공통 ID 를 오래된 순서로 준다.
+시각을 모르는 자료는 기준 시각의 **전날까지** 작성된 것만 넣는다(같은 날이면 기준 시각 전인지 모른다).
+
+종목 변동 요인 보고서의 출처(`stock_move_analysis_factor_sources`)도 `source_card_id` 로
+공통 ID 를 가리킨다. 적재할 때 출처 주소로 원문을 찾아 채우고, 못 찾으면 비워 둔다.
+보고서를 넣은 뒤 원문을 수집했으면 `sources register` 가 다시 찾아 채운다.
 
 **본문은 요청할 때만 준다.** `get_sources(..., include_body=True)` 일 때만 `body` 가 채워진다.
 원문을 읽는 코드를 찾을 수 있게 하려는 것이다. 본문이 있는지(`has_body`)와 없으면 그 사유
@@ -322,10 +344,11 @@ AI 표를 추가할 때 `alembic/env.py`의 `MANAGED_TABLES`에도 추가한다.
 
 | 표 | 만든 곳 | 구조 변경 | 비고 |
 |---|---|---|---|
-| `analyst_reports`, `stock_move_analysis*` | ai | ai | 0023: 보관 정책상 삭제 기록 칼럼 |
+| `analyst_reports`, `stock_move_analysis*` | ai | ai | 0023: 보관 정책상 삭제 기록 칼럼. 0024: 출처 → 공통 ID |
 | `telegram_messages`, `telegram_message_links` | ai (0021) | ai | |
+| `source_card_stocks` | ai (0024) | ai | 자료 ↔ 종목 |
 | `news` | backend 첫 리비전 | **ai (0020~)** | 기존 행·id 그대로 넘겨받음 |
-| `source_card` | backend 첫 리비전 | **ai (0022~)** | backend `report_citation` 이 FK 로 가리킨다 |
+| `source_card` | backend 첫 리비전 | **ai (0022~)** | backend `report_citation` 이 FK 로 가리킨다. 0024: `available_at` |
 | `channel` | backend 첫 리비전 | backend | ai 는 FK 로 가리키고 처음 보는 채널 행만 넣는다 |
 
 ai 쪽은 `alembic/env.py` 의 `MANAGED_TABLES`·`EXTERNAL_TABLES`, backend 쪽은
@@ -360,6 +383,7 @@ backend 가 쓰던 DB 에 그대로 올린다. 표를 새로 만들지 않고 �
 4. `uv run alembic check`
 5. `uv run python -m app.collectors.sources register`
    - 기존 뉴스의 `canonical_url` 을 채우고 기존 뉴스·PDF 에 공통 자료 ID 를 만든다.
+   - 카드마다 공개 시각·날짜·종목(0024)을 적고, 보고서 출처를 공통 ID 에 잇는다.
    - 정규화 주소가 겹치는 기존 행(같은 기사가 두 행으로 들어가 있던 것)은 비워 두고 목록을
      보여준다. 합치지 않는다 — 사람이 확인한다.
 
@@ -476,7 +500,6 @@ MIGRATION_TEST_ADMIN_URL=postgresql://USER:PASSWORD@HOST:PORT/postgres uv run py
 
 `.github/workflows/ai-check.yml`은 PR에서 PostgreSQL과 Poppler를 준비하고 Ruff 및 전체
 비네트워크 테스트를 실행한다. 로컬에서 DB 주소를 생략하면 DB 검증은 수행되지 않는다.
-회귀 항목과 실제 실행 결과는 [REVIEW_FIXES.md](REVIEW_FIXES.md)에 기록한다.
 
 ### 텔레그램 PDF 요약
 

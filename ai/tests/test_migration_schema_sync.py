@@ -38,7 +38,9 @@ DIALECT = postgresql.dialect()
 
 # 이 파일이 보는 표. 마이그레이션 하나가 CREATE TABLE 로 통째로 만든 표들이다.
 # 접두사로 고르므로 같은 무리의 표가 늘어나도 자동으로 포함된다.
-PREFIXES = ("stock_move_analysis", "telegram_message")
+PREFIXES = (
+    "stock_move_analysis", "telegram_message", "source_card_stock", "dart_disclosure",
+)
 
 
 def managed_tables() -> dict:
@@ -136,6 +138,12 @@ def test_every_model_table_is_created_by_a_migration(migration_sql: str) -> None
         for stmt in _statements(migration_sql)
         if _squash(stmt).startswith("create table ")
     }
+    # 뒤 리비전이 ALTER 로 더한 칼럼·제약도 그 표의 절로 합친다. 0024 가 출처 표에 칼럼과 FK 를
+    # 더했다. 모델은 처음부터 있던 것처럼 CREATE TABLE 한 문장에 담는다.
+    for stmt in _statements(migration_sql):
+        m = re.match(r"alter table (\S+) add (?:column )?(.*)$", _squash(stmt), re.DOTALL)
+        if m and m.group(1) in emitted:
+            emitted[m.group(1)].add(m.group(2))
     for name, table in managed_tables().items():
         assert name in emitted, f"{name} 을 만드는 마이그레이션이 없다"
         want = _table_shape(str(CreateTable(table).compile(dialect=DIALECT)))[1]

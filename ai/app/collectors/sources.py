@@ -10,6 +10,10 @@ register 는 **몇 번을 돌려도 결과가 같다.** 이미 카드가 있는 
 카드 하나라는 고유 제약이 있다. 수집기도 끝날 때 같은 등록을 부르므로, 이 명령은 처음 넘겨받은
 기존 뉴스·PDF 를 등록하거나 수집기의 등록이 실패했을 때 쓴다.
 
+register 는 카드마다 공개 시각·날짜·종목도 다시 적고, 공통 자료 ID 가 비어 있는 보고서 출처
+(stock_move_analysis_factor_sources)를 주소로 다시 찾아 잇는다. 마이그레이션 0024 를 올린 뒤
+한 번 돌려 기존 카드를 채운다.
+
 이관 전 news 행의 canonical_url(중복 판정용 주소)도 여기서 채운다. 이미 다른 행이 같은 주소를
 가지고 있으면 비워 두고 목록을 보여준다. 같은 기사가 두 행으로 들어가 있던 것이다 — 합치지
 않으니 사람이 확인한다.
@@ -34,19 +38,23 @@ from app.repositories.source_card import (
     get_sources,
     register_missing_sources,
 )
+from app.repositories.stock_move_analysis import link_analysis_sources
 
 PREVIEW_CHARS = 200
 
 
-async def register() -> tuple[dict[str, int], list[tuple[int, str]]]:
-    """(종류별 새 카드 수, canonical_url 을 채우지 못한 news 행)."""
+async def register() -> tuple[dict[str, int], list[tuple[int, str]], int]:
+    """(종류별 새 카드 수, canonical_url 을 채우지 못한 news 행, 새로 이은 보고서 출처 수)."""
     async with SessionLocal() as session:
         backfill = await backfill_canonical_urls(session)
         await session.commit()
     async with SessionLocal() as session:
         cards = await register_missing_sources(session)
         await session.commit()
-    return cards, backfill.collisions
+    async with SessionLocal() as session:
+        linked = await link_analysis_sources(session)
+        await session.commit()
+    return cards, backfill.collisions, linked
 
 
 async def show(card_ids: list[int], *, include_body: bool) -> list[SourceRecord]:
@@ -118,8 +126,9 @@ def main() -> None:
     args = p.parse_args()
 
     if args.command == "register":
-        cards, collisions = asyncio.run(register())
+        cards, collisions, linked = asyncio.run(register())
         print("공통 자료 ID 새로 " + " · ".join(f"{k} {n}" for k, n in cards.items()))
+        print(f"보고서 출처를 공통 자료 ID 에 새로 이음 {linked}건")
         if collisions:
             print(f"canonical_url 을 채우지 못한 news {len(collisions)}건 — 같은 주소의 행이 이미 있다:")
             for news_id, key in collisions:

@@ -56,6 +56,7 @@ from app.repositories.telegram_message import (
     save_message_links,
     save_messages,
 )
+from app.services.news.failure import http_error, is_retryable
 from app.services.news.url import canonical_url
 from app.services.news_link import LinkBody, fetch_link_bodies, is_fetchable
 from app.services.news_link.fetch import DEFAULT_TIMEOUT_SEC as LINK_TIMEOUT_SEC
@@ -159,6 +160,7 @@ async def attach_link_bodies(
 
     messages 와 stats 를 직접 고친다. 채널별 집계(stale·opened·skipped·junk)도 여기서 채운다.
     max_links 는 신규 주소만 제한한다. 기존 실패 기사는 재시도하고 성공·삭제한 기사는 열지 않는다.
+    404·410 같은 영구 실패(services/news/failure.py)는 재시도하지 않는다.
     재시도 주소가 다른 기사로 바뀌면 신규 수량 제한을 우회하지 않도록 결과를 저장하지 않는다.
     고르고도 상한 때문에
     열지 않은 주소 수를 돌려준다. 그 링크는 link_bodies 에 없고 DB 에는 out_of_scope 로 남는다.
@@ -185,7 +187,7 @@ async def attach_link_bodies(
     for url in urls:
         article = existing.get(url)
         if article:
-            if article.status == "failed":
+            if article.status == "failed" and is_retryable(article.error):
                 targets.append(url)
         elif remaining is None or remaining > 0:
             targets.append(url)
@@ -329,7 +331,7 @@ def link_plan(
 def _body_error(body: LinkBody) -> str:
     """news.body_error 에 남길 사유. 링크 결과 종류를 앞에 붙인다."""
     if body.status == "http_error":
-        return f"http_error: {body.http_status}"
+        return http_error(body.http_status)
     if body.status == "ok":
         return "ok: 본문 전체(text)가 넘어오지 않음"
     return f"{body.status}: {body.error}" if body.error else body.status
@@ -441,6 +443,9 @@ async def save_to_db(
                 article = existing.get(url)
                 if body is None and article and article.status == "ok":
                     status = "ok"  # 이미 확보한 원문을 가리킨다. 다시 다운로드하지 않는다.
+                elif (body is None and status == unopened and article
+                      and article.status == "failed" and not is_retryable(article.error)):
+                    status = "permanent_fail"  # 영구 실패로 확인된 기사라 다시 열지 않았다.
                 link_rows.append({
                     "message_id": result.id,
                     "kind": "url",
@@ -462,7 +467,7 @@ async def save_to_db(
         async with session_factory() as session:
             stats.cards = await register_missing_sources(
                 session, news_ids=list({*news.ids, *(a.id for a in existing.values())}),
-                report_ids=[], message_ids=[m.id for m in saved],
+                report_ids=[], message_ids=[m.id for m in saved], disclosure_ids=[],
             )
             await session.commit()
     except Exception as exc:  # noqa: BLE001 — 원문은 이미 커밋됐다. 실패만 알리고 다시 돌리게 한다

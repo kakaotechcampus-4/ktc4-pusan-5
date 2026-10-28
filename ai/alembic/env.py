@@ -27,8 +27,10 @@ target_metadata = Base.metadata
 # 칼럼을 지우라는 마이그레이션을 만든다.
 MANAGED_TABLES = {
     "analyst_reports",
+    "dart_disclosures",
     "news",
     "source_card",
+    "source_card_stocks",
     "stock_move_analyses",
     "stock_move_analysis_factors",
     "stock_move_analysis_factor_sources",

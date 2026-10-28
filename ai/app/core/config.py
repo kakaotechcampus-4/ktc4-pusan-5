@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     naver_client_id: str = ""
     naver_client_secret: str = ""
 
+    # DART 공시(opendart.fss.or.kr). 인증키는 오픈다트 > 인증키 신청·관리에서 받는다.
+    # backend 의 DART_API_KEY 와 같은 키를 써도 된다. 하루 호출 한도(약 2만 건)를 함께 쓴다.
+    dart_api_key: str = ""
+
     # 수집 범위 파일(core/scope.py). 비워 두면 ai/collection_scope.toml 을 읽는다.
     collection_scope_file: str | None = None
 
@@ -124,6 +128,11 @@ class Settings(BaseSettings):
                 + "\n  단가는 모델 페이지의 1M 토큰당 원화 금액이다. 예전 LLM_*_USD_PER_M 은 더 읽지 않는다."
             )
         return self.llm_base_url.strip().rstrip("/"), self.llm_api_key.strip()
+
+    def require_dart(self) -> str:
+        if not self.dart_api_key.strip():
+            raise RuntimeError("공시 수집에 DART_API_KEY 가 필요하다. ai/.env 에 넣는다.")
+        return self.dart_api_key.strip()
 
     def token_rates(self) -> dict[str, float]:
         """지금 프로바이더의 1M 토큰당 단가. 통화는 client.cost_currency() 다.

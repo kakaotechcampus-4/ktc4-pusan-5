@@ -1,10 +1,14 @@
 """공통 자료 ID(source_card) 등록과 조회.
 
-    register_missing_sources   카드가 없는 원문(news·analyst_reports·telegram_messages)에 카드를
+    register_missing_sources   카드가 없는 원문(news·analyst_reports·telegram_messages·
+                               dart_disclosures)에 카드를
                                만든다. 몇 번을 돌려도 결과가 같다 — 원문 하나에 카드 하나라는
-                               고유 제약이 있고, 이미 카드가 있는 원문은 고르지 않는다
+                               고유 제약이 있고, 이미 카드가 있는 원문은 고르지 않는다.
+                               이번 원문의 카드에 공개 시각·날짜·종목(index_cards)도 다시 적는다
     backfill_canonical_urls    이관 전 news 행의 canonical_url 을 채운다
     get_sources                공통 ID 로 원문·메타데이터·발견 경로를 읽는다
+    stock_card_ids             종목 하나의 자료 중 기준 시각 이전에 나온 것의 공통 ID
+    card_ids_for_urls          출처 주소 → 공통 ID (보고서 출처를 원문에 이을 때)
 
 카드에는 원문을 복제하지 않는다. 원 발행처(source_name)와 채널만 적고 본문은 FK 로 읽는다.
 
@@ -15,17 +19,35 @@
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from urllib.parse import parse_qs, urlsplit
 
-from sqlalchemy import and_, exists, func, literal, null, select, tuple_
+from sqlalchemy import (
+    Date,
+    and_,
+    case,
+    cast,
+    exists,
+    func,
+    literal,
+    null,
+    or_,
+    select,
+    tuple_,
+    union_all,
+    update,
+)
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
+from app.core.scope import KST
 from app.models import (
     AnalystReport,
     Channel,
+    DartDisclosure,
     News,
     SourceCard,
+    SourceCardStock,
     TelegramMessage,
     TelegramMessageLink,
 )
@@ -44,6 +66,7 @@ COLLECTION_PATHS = {
     ("pdf", "telegram"): "telegram_attachment",
     ("message", "web"): "telegram_web",
     ("message", "telethon"): "telegram_client",
+    ("disclosure", "dart"): "dart_list",
 }
 
 
@@ -75,6 +98,7 @@ async def register_missing_sources(
     session: AsyncSession, *, news_ids: list[int] | None = None,
     report_ids: list[int] | None = None, message_ids: list[int] | None = None,
     report_keys: list[tuple[str, str, str]] | None = None,
+    disclosure_ids: list[int] | None = None,
 ) -> dict[str, int]:
     """카드가 없는 원문을 등록한다. None은 전체 복구, 빈 목록은 해당 종류 제외.
 
@@ -111,6 +135,14 @@ async def register_missing_sources(
         .where(~exists().where(SourceCard.telegram_message_id == TelegramMessage.id))
         .order_by(TelegramMessage.id)
     )
+
+    # 공시의 원 발행처는 제출인이다. 대개 회사 자신이고, 대량보유 보고 등은 다른 주체다.
+    disclosure = select(
+        *_card_values("disclosure", DartDisclosure.flr_nm, None, DartDisclosure.first_seen_at),
+        DartDisclosure.id,
+    ).where(
+        ~exists().where(SourceCard.dart_disclosure_id == DartDisclosure.id)
+    ).order_by(DartDisclosure.id)
     if report_keys is not None:
         pdf = pdf.where(tuple_(
             AnalystReport.source, AnalystReport.source_category, AnalystReport.source_id,
@@ -120,11 +152,205 @@ async def register_missing_sources(
         ("news", "news_id", news, News.id, news_ids),
         ("pdf", "analyst_report_id", pdf, AnalystReport.id, report_ids),
         ("message", "telegram_message_id", message, TelegramMessage.id, message_ids),
+        ("disclosure", "dart_disclosure_id", disclosure, DartDisclosure.id, disclosure_ids),
     ):
         counts[kind] = 0 if ids == [] else await _register(
             session, fk, query if ids is None else query.where(column.in_(ids)),
         )
+    targets = _target_cards(news_ids, report_ids, message_ids, report_keys, disclosure_ids)
+    if targets is not None:
+        await index_cards(session, targets)
     return counts
+
+
+def _target_cards(news_ids, report_ids, message_ids, report_keys, disclosure_ids):
+    """register_missing_sources 가 받은 원문 범위의 카드를 고르는 조건. 고를 것이 없으면 None."""
+    conditions = []
+    for column, ids in (
+        (SourceCard.news_id, news_ids),
+        (SourceCard.analyst_report_id, report_ids),
+        (SourceCard.telegram_message_id, message_ids),
+        (SourceCard.dart_disclosure_id, disclosure_ids),
+    ):
+        if ids == []:
+            continue
+        condition = column.is_not(None) if ids is None else column.in_(ids)
+        if column is SourceCard.analyst_report_id and report_keys is not None:
+            # correlate(None): analyst_reports 를 FROM 에 둔 쿼리 안에서도 따로 도는 하위 쿼리다
+            keyed = select(AnalystReport.id).where(tuple_(
+                AnalystReport.source, AnalystReport.source_category, AnalystReport.source_id,
+            ).in_(report_keys)).correlate(None)
+            condition = and_(condition, column.in_(keyed))
+        conditions.append(condition)
+    return or_(*conditions) if conditions else None
+
+
+async def index_cards(session: AsyncSession, condition) -> None:
+    """고른 카드의 공개 시각(available_at)·날짜(event_date)·종목(source_card_stocks)을 적는다.
+
+    매번 원문에서 다시 계산한다. 같은 기사를 더 이른 메시지가 건 것을 나중에 수집하면
+    공개 시각이 앞당겨진다. 종목은 더하기만 한다 — 다른 방식으로 정한 종목을 지우지 않는다.
+    """
+    # 자료가 공개돼 있었다는 증거가 되는 시각들. 그중 가장 이른 것을 쓴다.
+    def posted_via(link_column, card_column):
+        """이 자료를 건 텔레그램 메시지들의 게시 시각."""
+        return (
+            select(SourceCard.id.label("card_id"), TelegramMessage.posted_at.label("seen_at"))
+            .join(TelegramMessageLink, link_column == card_column)
+            .join(TelegramMessage, TelegramMessage.id == TelegramMessageLink.message_id)
+            .where(condition)
+        )
+
+    seen = union_all(
+        select(SourceCard.id.label("card_id"), News.published_at.label("seen_at"))
+        .join(News, News.id == SourceCard.news_id).where(condition),
+        posted_via(TelegramMessageLink.news_id, SourceCard.news_id),
+        posted_via(TelegramMessageLink.analyst_report_id, SourceCard.analyst_report_id),
+        select(SourceCard.id.label("card_id"), TelegramMessage.posted_at.label("seen_at"))
+        .join(TelegramMessage, TelegramMessage.id == SourceCard.telegram_message_id)
+        .where(condition),
+        # 공시는 처음 본 시각을 접수일 안에 봤을 때만 쓴다. 지난 날짜를 나중에 받았으면 그 시각은
+        # 실제 공시보다 한참 늦으므로 NULL 로 두고 아래 event_date(접수일)로 판단하게 한다.
+        select(SourceCard.id.label("card_id"), case(
+            (cast(func.timezone("Asia/Seoul", DartDisclosure.first_seen_at), Date)
+             <= DartDisclosure.rcept_dt, DartDisclosure.first_seen_at),
+        ).label("seen_at"))
+        .join(DartDisclosure, DartDisclosure.id == SourceCard.dart_disclosure_id)
+        .where(condition),
+    ).subquery()
+    earliest = (
+        select(seen.c.card_id, func.min(seen.c.seen_at).label("seen_at"))
+        .group_by(seen.c.card_id)
+        .subquery()
+    )
+    await session.execute(
+        update(SourceCard)
+        .where(SourceCard.id == earliest.c.card_id,
+               SourceCard.available_at.is_distinct_from(earliest.c.seen_at))
+        .values(available_at=earliest.c.seen_at)
+    )
+
+    # 날짜는 KST. 시각을 모르는 네이버 리포트는 작성일, 공시는 접수일이다.
+    write_date = select(AnalystReport.write_date).where(
+        AnalystReport.id == SourceCard.analyst_report_id
+    ).scalar_subquery()
+    rcept_dt = select(DartDisclosure.rcept_dt).where(
+        DartDisclosure.id == SourceCard.dart_disclosure_id
+    ).scalar_subquery()
+    event_date = func.coalesce(
+        cast(func.timezone("Asia/Seoul", SourceCard.available_at), Date), write_date, rcept_dt,
+    )
+    await session.execute(
+        update(SourceCard)
+        .where(condition, SourceCard.event_date.is_distinct_from(event_date))
+        .values(event_date=event_date)
+    )
+
+    # 증권사 종목분석 리포트는 리포트가 준 종목코드로 잇는다.
+    await session.execute(
+        insert(SourceCardStock)
+        .from_select(
+            ["source_card_id", "stock_code", "tagged_by"],
+            select(SourceCard.id, AnalystReport.item_code, literal("report_item_code"))
+            .join(AnalystReport, AnalystReport.id == SourceCard.analyst_report_id)
+            .where(condition, AnalystReport.item_code.is_not(None), AnalystReport.item_code != ""),
+        )
+        .on_conflict_do_nothing()
+    )
+    await session.execute(
+        insert(SourceCardStock)
+        .from_select(
+            ["source_card_id", "stock_code", "tagged_by"],
+            select(SourceCard.id, DartDisclosure.stock_code, literal("dart_stock_code"))
+            .join(DartDisclosure, DartDisclosure.id == SourceCard.dart_disclosure_id)
+            .where(condition, DartDisclosure.stock_code != ""),
+        )
+        .on_conflict_do_nothing()
+    )
+
+
+async def stock_card_ids(
+    session: AsyncSession, stock_code: str, *, until: datetime, since: datetime | None = None,
+) -> list[int]:
+    """종목 하나의 자료 중 기준 시각(until) 이전에 공개된 것의 공통 ID. 오래된 순서다.
+
+    공개 시각을 모르는 자료(시각 없이 작성일만 있는 네이버 리포트)는 날짜로 판단한다.
+    기준 시각의 날짜(KST)보다 **앞선 날** 것만 넣는다 — 같은 날이면 기준 시각 전인지 알 수 없다.
+    공개 시각도 날짜도 모르는 자료는 넣지 않는다.
+    """
+    # (카드, 종목)이 고유하므로 종목 하나로 조인하면 카드가 겹치지 않는다.
+    query = (
+        select(SourceCard.id)
+        .join(SourceCardStock, SourceCardStock.source_card_id == SourceCard.id)
+        .where(
+            SourceCardStock.stock_code == stock_code,
+            or_(SourceCard.available_at <= until, and_(
+                SourceCard.available_at.is_(None),
+                SourceCard.event_date < until.astimezone(KST).date(),
+            )),
+        )
+        .order_by(SourceCard.event_date, SourceCard.available_at.nulls_first(), SourceCard.id)
+    )
+    if since is not None:
+        query = query.where(or_(SourceCard.available_at >= since, and_(
+            SourceCard.available_at.is_(None),
+            SourceCard.event_date >= since.astimezone(KST).date(),
+        )))
+    return list((await session.execute(query)).scalars().all())
+
+
+async def card_ids_for_urls(session: AsyncSession, urls: list[str]) -> dict[str, int]:
+    """출처 주소 → 공통 ID. DB 에 원문이 없거나 아직 카드가 없는 주소는 빠진다.
+
+    텔레그램 메시지는 저장한 주소(telegram_messages.url)와 글자가 같아야 하고, 기사는 정규화
+    주소(news.canonical_url)로 찾는다. 둘 다 맞으면 메시지가 먼저다. 공시는 DART 뷰어 주소의
+    접수번호(rcpNo)로 찾는다.
+    """
+    wanted = {url for url in urls if url}
+    if not wanted:
+        return {}
+    found: dict[str, int] = {}
+    keys: dict[str, list[str]] = {}
+    for url in wanted:
+        keys.setdefault(canonical_url(url), []).append(url)
+    for key, card_id in (await session.execute(
+        select(News.canonical_url, SourceCard.id)
+        .join(SourceCard, SourceCard.news_id == News.id)
+        .where(News.canonical_url.in_(keys))
+    )).all():
+        found.update(dict.fromkeys(keys[key], card_id))
+    for url, card_id in (await session.execute(
+        select(TelegramMessage.url, SourceCard.id)
+        .join(SourceCard, SourceCard.telegram_message_id == TelegramMessage.id)
+        .where(TelegramMessage.url.in_(wanted))
+    )).all():
+        found[url] = card_id
+    receipts: dict[str, list[str]] = {}
+    for url in wanted:
+        if rcept_no := _dart_rcept_no(url):
+            receipts.setdefault(rcept_no, []).append(url)
+    if receipts:
+        for rcept_no, card_id in (await session.execute(
+            select(DartDisclosure.rcept_no, SourceCard.id)
+            .join(SourceCard, SourceCard.dart_disclosure_id == DartDisclosure.id)
+            .where(DartDisclosure.rcept_no.in_(receipts))
+        )).all():
+            found.update(dict.fromkeys(receipts[rcept_no], card_id))
+    return found
+
+
+def _dart_rcept_no(url: str) -> str | None:
+    """DART 공시 뷰어 주소(…/dsaf001/main.do?rcpNo=…)의 접수번호. 공시 주소가 아니면 None."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None
+    host = parts.hostname or ""
+    if (parts.scheme not in {"http", "https"}
+            or not (host == "dart.fss.or.kr" or host.endswith(".dart.fss.or.kr"))
+            or parts.path != "/dsaf001/main.do"):
+        return None
+    return (parse_qs(parts.query).get("rcpNo") or [None])[0]
 
 
 @dataclass
@@ -182,22 +408,26 @@ class SourceRecord:
     """공통 ID 하나로 읽은 원문. 형태·발행처·수집 경로를 따로 둔다."""
 
     id: int  # 공통 자료 ID (source_card.id)
-    kind: str  # 자료 형태: news | pdf | message
+    kind: str  # 자료 형태: news | pdf | message | disclosure
     raw_id: int  # 원문 표의 id
     title: str | None
     url: str | None  # 원문 주소
-    # 원 발행처: 기사는 도메인, PDF 는 증권사, 메시지는 채널 이름(전달된 글이면 원래 채널)
+    # 원 발행처: 기사는 도메인, PDF 는 증권사, 메시지는 채널 이름(전달된 글이면 원래 채널),
+    # 공시는 제출인
     publisher: str | None
     collection_path: str  # 수집 경로 (COLLECTION_PATHS)
     channel: str | None  # 텔레그램에서 온 자료의 채널
     published_at: datetime | None  # 기사 발행 시각·메시지 게시 시각. 모르면 None
-    write_date: date | None  # PDF 작성일 (시각이 없다)
+    write_date: date | None  # PDF 작성일·공시 접수일 (시각이 없다)
     collected_at: datetime | None
+    # 공개돼 있었다고 확인된 가장 이른 시각(source_card.available_at). 기준 시각 판단에 쓴다
+    available_at: datetime | None
     has_body: bool  # 본문이 있는가 (include_body 와 상관없이 알려준다)
     # 본문이 없으면 그 사유. 있으면 None.
     #   failed: <사유>   열었지만 본문을 못 얻었다 (기사)
     #   empty·unusable·pending·skipped·failed  PDF 본문 상태 그대로 (analyst_reports)
     #   empty            글자 없이 첨부만 올린 메시지
+    #   not_collected    본문을 받지 않는 자료 (공시는 목록만 저장한다)
     #   purged: ...      보관 정책으로 지웠다. 재분류·과거 결과 검증에 쓸 수 없다
     body_missing_reason: str | None
     body_status: str | None  # 원문 표의 상태 값 그대로 (기사 ok|failed|purged, PDF ok|empty|...)
@@ -225,7 +455,8 @@ def _news_record(card: SourceCard, news: News, has_body: bool, include_body: boo
         publisher=news.publisher,
         collection_path=COLLECTION_PATHS.get(("news", news.source), news.source),
         channel=None, published_at=news.published_at, write_date=None,
-        collected_at=news.collected_at, has_body=has_body, body_missing_reason=missing,
+        collected_at=news.collected_at, available_at=card.available_at, has_body=has_body,
+        body_missing_reason=missing,
         body_status=news.body_status, body_error=news.body_error,
         body_fetched_at=news.body_fetched_at, summary=news.summary or None,
         body=news.cleaned_text if include_body else None,
@@ -244,7 +475,8 @@ def _pdf_record(
         url=report.end_url or report.attach_url, publisher=report.broker,
         collection_path=COLLECTION_PATHS.get(("pdf", report.source), report.source),
         channel=report.source_category if telegram else None, published_at=None,
-        write_date=report.write_date, collected_at=report.collected_at, has_body=has_body,
+        write_date=report.write_date, collected_at=report.collected_at,
+        available_at=card.available_at, has_body=has_body,
         body_missing_reason=missing, body_status=report.body_status,
         body_error=report.body_error, body_fetched_at=report.body_fetched_at,
         summary=report.summary_text, body=report.body_text if include_body else None,
@@ -265,11 +497,24 @@ def _message_record(
         collection_path=COLLECTION_PATHS.get(("message", message.collected_via),
                                              message.collected_via),
         channel=channel.telegram_handle, published_at=message.posted_at, write_date=None,
-        collected_at=message.collected_at, has_body=has_body, body_missing_reason=missing,
+        collected_at=message.collected_at, available_at=card.available_at, has_body=has_body,
+        body_missing_reason=missing,
         body_status=status, body_error=None, body_fetched_at=message.collected_at, summary=None,
         body=message.text if include_body else None, edited=message.edited,
         edit_detected_at=message.edit_detected_at,
         forwarded_from_url=message.forwarded_from_url,
+    )
+
+
+def _disclosure_record(card: SourceCard, disclosure: DartDisclosure) -> SourceRecord:
+    return SourceRecord(
+        id=card.id, kind="disclosure", raw_id=disclosure.id, title=disclosure.report_nm,
+        url=disclosure.url, publisher=disclosure.flr_nm,
+        collection_path=COLLECTION_PATHS[("disclosure", "dart")], channel=None,
+        published_at=None, write_date=disclosure.rcept_dt, collected_at=disclosure.first_seen_at,
+        available_at=card.available_at, has_body=False,
+        body_missing_reason="not_collected: 공시는 목록(제목·제출인·접수일)만 저장한다",
+        body_status=None, body_error=None, body_fetched_at=None, summary=None,
     )
 
 
@@ -325,6 +570,9 @@ async def get_sources(
     message_ids = [
         c.telegram_message_id for c in cards.values() if c.telegram_message_id is not None
     ]
+    disclosure_ids = [
+        c.dart_disclosure_id for c in cards.values() if c.dart_disclosure_id is not None
+    ]
 
     # 유무만 DB에서 계산한다. 본문 미요청 시 큰 문자열을 Python으로 전송하지 않는다.
     news_query = select(News, func.coalesce(News.cleaned_text != "", False))
@@ -349,6 +597,9 @@ async def get_sources(
             .where(TelegramMessage.id.in_(message_ids))
         )
     ).all()}
+    disclosures = {d.id: d for d in (
+        await session.execute(select(DartDisclosure).where(DartDisclosure.id.in_(disclosure_ids)))
+    ).scalars()}
 
     found: dict[tuple[str, int], list[Discovery]] = {}
     for row in await _discoveries(session, TelegramMessageLink.news_id.in_(news_ids)
@@ -374,6 +625,8 @@ async def get_sources(
             record = _pdf_record(card, *reports[card.analyst_report_id], include_body)
         elif card.telegram_message_id in messages:
             record = _message_record(card, *messages[card.telegram_message_id], include_body)
+        elif card.dart_disclosure_id in disclosures:
+            record = _disclosure_record(card, disclosures[card.dart_disclosure_id])
         else:
             continue  # 원문 표를 가리키지 않는 카드(backend 의 다른 종류)
         record.discoveries = found.get((record.kind, record.raw_id), [])
