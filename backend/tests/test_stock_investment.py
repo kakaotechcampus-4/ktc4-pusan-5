@@ -8,7 +8,7 @@ from app.collectors.stocks import StockWorker
 from app.models.stock import StockCollectionJob
 from app.repositories.stock_financials import save_periods
 from app.schemas.stock import Resource
-from app.schemas.stock_financials import AnnualEps, AnnualIncome
+from app.schemas.stock_financials import AnnualIncome, QuarterlyRatio
 from app.schemas.stock_investment import QuarterlyIncome
 from app.services.stock_financial_detail import financials
 from app.services.stock_investment import growth, investment_summary, single_quarter
@@ -41,13 +41,14 @@ def test_cumulative_to_single_quarter_and_yoy():
                 income("2025-09", 300, 50, 22),
             ]
         ),
-        resource([AnnualEps(fiscal_period="2025-09", eps=20, roe=12, debt_ratio=30)]),
+        resource([QuarterlyRatio(fiscal_period="2025-09", eps=20, roe=12, debt_ratio=30, bps=500)]),
         resource([AnnualIncome(fiscal_period="2023-12"), AnnualIncome(fiscal_period="2024-12")]),
     )
     latest = result.data[-1]
     assert latest.operating_profit == 30
     assert latest.net_income == 12
     assert latest.revenue_growth.value == 100
+    assert latest.bps == 500
     assert latest.operating_profit_growth.value == 200
     assert latest.net_income_growth.value == 200
     assert latest.eps_cumulative == 20
@@ -91,11 +92,12 @@ def test_growth_states(current, previous, status, value):
 def test_partial_failure_retains_ratios_and_never_subtracts_eps():
     result = investment_summary(
         resource(None, "unavailable"),
-        resource([AnnualEps(fiscal_period="2025-09", eps=-4)]),
+        resource([QuarterlyRatio(fiscal_period="2025-09", eps=-4)]),
         resource([], "empty"),
     )
     assert result.status == "stale"
     assert result.data[0].eps_cumulative == -4
+    assert result.data[0].bps is None  # 값이 없으면 0 이 아니라 null
     assert result.data[0].operating_profit is None
 
 
@@ -149,6 +151,7 @@ async def test_quarterly_jobs_deduplicate_and_stored_contract_is_reused(stock_db
                         "eps": Decimal(3),
                         "roe": Decimal(5),
                         "debt_ratio": None,
+                        "bps": Decimal(1234),
                     }
                 ],
             ),
@@ -164,3 +167,4 @@ async def test_quarterly_jobs_deduplicate_and_stored_contract_is_reused(stock_db
         assert result.investment.refreshing  # 과거 시총/RS는 별도 lazy 작업이다.
         assert result.investment.data[-1].operating_profit == 7
         assert result.investment.data[-1].eps_cumulative == 3
+        assert result.investment.data[-1].bps == 1234
