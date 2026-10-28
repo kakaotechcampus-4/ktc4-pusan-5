@@ -12,6 +12,7 @@ from app.services.market_data import (
     KrxAuthError,
     KrxError,
     ParseError,
+    compute_excess,
     fetch_kospi,
     fetch_kospi_index_daily,
     fetch_stock,
@@ -19,7 +20,7 @@ from app.services.market_data import (
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "market_data"
-DAY = date(2026, 9, 10)
+DAY = date(2026, 10, 27)  # fixture 는 이날의 실제 응답이다
 
 
 def fixture(name: str) -> dict:
@@ -59,7 +60,7 @@ async def test_request_follows_krx_contract() -> None:
     assert str(request.url) == "https://data-dbg.krx.co.kr/svc/apis/idx/kospi_dd_trd"
     assert request.headers["AUTH_KEY"] == "test-krx-key"
     assert request.headers["Content-Type"] == "application/json"
-    assert json.loads(request.content) == {"basDd": "20260910"}
+    assert json.loads(request.content) == {"basDd": "20261027"}
 
 
 async def test_kospi_picks_composite_row_with_numbers() -> None:
@@ -69,21 +70,28 @@ async def test_kospi_picks_composite_row_with_numbers() -> None:
     assert kospi is not None
     assert kospi.name == "코스피"  # "코스피 (외국주포함)" 행이 아니다
     assert kospi.bas_dd == DAY
-    assert kospi.close == 7033.92
-    assert kospi.change == -17.72
-    assert kospi.change_rate == -0.25
-    assert kospi.trade_value == 28927397176014
-    assert kospi.market_cap == 5802329384905229
+    assert kospi.close == 5638.34
+    assert kospi.change == 168.87
+    assert kospi.change_rate == 3.09
+    assert kospi.trade_value == 16416359815240
+    assert kospi.market_cap == 4654473109127871
 
 
 async def test_index_rows_keep_blank_prices_as_none() -> None:
     async with _client(_serve("krx_kospi_dd_trd.json")) as client:
         rows = await fetch_kospi_index_daily(client, DAY)
 
-    assert [r.name for r in rows] == ["코스피 (외국주포함)", "코스피", "전기전자"]
-    foreign = rows[0]
+    assert [r.name for r in rows] == [
+        "코스피 (외국주포함)", "코스피", "전기전자", "코스피 200 25/50 NTR 지수"]
+    foreign, _, electronics, ntr = rows
     assert foreign.close is None and foreign.change_rate is None
-    assert foreign.volume == 422301120
+    assert foreign.volume == 196172034
+    # 1000 이 넘는 전일대비는 쉼표가 붙어 온다("3,868.34"). 다른 칸은 붙지 않았다
+    assert electronics.change == 3868.34
+    assert electronics.close == 90296.15
+    # NTR 지수는 거래량·거래대금·시가총액 칸이 비어 온다
+    assert ntr.change_rate == 3.06
+    assert ntr.volume is None and ntr.trade_value is None and ntr.market_cap is None
 
 
 async def test_stock_row_numbers() -> None:
@@ -92,13 +100,24 @@ async def test_stock_row_numbers() -> None:
 
     assert stock is not None
     assert stock.name == "AJ네트웍스"
-    assert stock.close == 4180
-    assert stock.change == 10
-    assert stock.change_rate == 0.24
-    assert stock.volume == 52491  # 주 단위
-    assert stock.trade_value == 218465470  # 원 단위
-    assert stock.market_cap == 189156532620
+    assert stock.close == 4010
+    assert stock.change == 30
+    assert stock.change_rate == 0.75
+    assert stock.volume == 73450  # 주 단위
+    assert stock.trade_value == 294179909  # 원 단위
+    assert stock.market_cap == 181463563590
     assert stock.market_cap == stock.listed_shares * stock.close  # 조사 문서에서 확인한 관계
+
+
+async def test_excess_from_real_rows() -> None:
+    """2026-10-27 실제 응답: 삼성전자 +4.23%, 코스피 +3.09% → 시장보다 1.14%p 더 올랐다."""
+    async with _client(_serve("krx_kospi_dd_trd.json")) as client:
+        kospi = await fetch_kospi(client, DAY)
+    async with _client(_serve("krx_stk_bydd_trd.json")) as client:
+        stock = await fetch_stock(client, DAY, "005930")
+
+    move = compute_excess(stock, kospi)
+    assert (move.stock_change_rate, move.index_change_rate, move.excess_rate) == (4.23, 3.09, 1.14)
 
 
 async def test_stock_not_listed_is_none() -> None:

@@ -56,16 +56,16 @@ async def test_usd_krw_request_path_and_values() -> None:
         return httpx.Response(200, json=fixture("ecos_usd_krw.json"))
 
     async with _client(handler) as client:
-        points = await fetch_usd_krw(client, date(2026, 9, 8), date(2026, 9, 10))
+        points = await fetch_usd_krw(client, date(2026, 10, 21), date(2026, 10, 23))
 
     [request] = seen
     assert request.method == "GET"
     assert str(request.url) == (
         f"https://ecos.bok.or.kr/api/StatisticSearch/{KEY}/json/kr/1/1000/"
-        "731Y001/D/20260908/20260910/0000001"
+        "731Y001/D/20261021/20261023/0000001"
     )
-    assert [p.value for p in points] == [1388.5, 1391.2, 1385.2]  # 쉼표 섞인 값도 읽는다
-    assert [p.period_start for p in points] == [date(2026, 9, 8), date(2026, 9, 9), date(2026, 9, 10)]
+    assert [p.value for p in points] == [1328.0, 1325.5, 1324.6]  # "1328" 처럼 소수점 없이도 온다
+    assert [p.period_start for p in points] == [date(2026, 10, 21), date(2026, 10, 22), date(2026, 10, 23)]
     assert points[0].unit == "원"
     assert points[0].item_name == "원/미국달러(매매기준율)"
 
@@ -78,12 +78,13 @@ async def test_base_rate_is_monthly() -> None:
         return httpx.Response(200, json=fixture("ecos_base_rate.json"))
 
     async with _client(handler) as client:
-        points = await fetch_base_rate(client, date(2026, 8, 15), date(2026, 9, 30))
+        points = await fetch_base_rate(client, date(2026, 6, 15), date(2026, 8, 31))
 
-    assert seen[0].endswith("/722Y001/M/202608/202609/0101000"), "월 주기는 YYYYMM 으로 보낸다"
+    assert seen[0].endswith("/722Y001/M/202606/202608/0101000"), "월 주기는 YYYYMM 으로 보낸다"
     assert [(p.time, p.period_start, p.value) for p in points] == [
-        ("202608", date(2026, 8, 1), 2.5),
-        ("202609", date(2026, 9, 1), 2.25),
+        ("202606", date(2026, 6, 1), 2.5),
+        ("202607", date(2026, 7, 1), 2.75),
+        ("202608", date(2026, 8, 1), 3.0),  # "3" 처럼 정수 모양으로 온다
     ]
     assert points[0].unit == "연%"
 

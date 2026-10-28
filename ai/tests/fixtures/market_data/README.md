@@ -1,10 +1,23 @@
 # market_data fixture
 
-KRX·ECOS 응답 **모양**을 본뜬 것이다. 테스트는 이 파일을 MockTransport 로 돌려준다.
+테스트는 이 파일을 MockTransport 로 돌려준다. **전부 2026-10-28 에 실제로 호출한 응답에서 행만 골랐다.**
+행 안의 필드는 손대지 않았다.
 
-- `krx_kospi_dd_trd.json` 의 "코스피" 행과 `krx_stk_bydd_trd.json` 의 AJ네트웍스 행은
-  팀 조사(backend/docs/api-research/krx.md, 2026-09-10 실응답)에 실린 원문 그대로다.
-  "코스피 (외국주포함)" 행의 빈 가격 칸도 조사 문서의 실제 모양이다.
-- 나머지 행(전기전자, 삼성전자)과 ECOS 값은 형식만 맞춘 가짜 숫자다. 시세로 쓰지 않는다.
-- ECOS `1,391.2` 는 쉼표가 섞여 와도 읽는지 보려고 일부러 넣었다.
-- 실제 응답과 모양이 어긋나는지는 `uv run pytest -m network -s tests/test_market_data_live.py` 로 본다.
+## KRX (기준일 2026-10-27)
+
+- `krx_kospi_dd_trd.json`: 54행 중 4행.
+  - "코스피 (외국주포함)": 가격 칸이 `""` 로 온다. 이 행을 쓰면 안 되는 이유다.
+  - "코스피": 종합지수. fetch_kospi 가 고르는 행이다.
+  - "전기전자": 전일대비가 `"3,868.34"` 처럼 쉼표가 붙어 왔다. 54행 중 이것 하나였다.
+  - "코스피 200 25/50 NTR 지수": 거래량·거래대금·시가총액이 `""` 로 온다.
+- `krx_stk_bydd_trd.json`: 940행 중 AJ네트웍스, 삼성전자.
+- `krx_empty.json`: 일요일(2026-10-25) 응답. 당일(10-28)도 같은 모양이었다.
+- `krx_unauthorized_*.json`: 401 응답. "Unauthorized API Call" 은 이용신청 승인 전 실제 응답과 같다.
+
+## ECOS
+
+- `ecos_usd_krw.json`, `ecos_base_rate.json`: 자른 만큼 `list_total_count` 도 줄였다(원래 7건, 9건).
+- `ecos_no_data.json`(INFO-200, 주말 구간), `ecos_invalid_key.json`(INFO-100, 가짜 키)은 응답 그대로다.
+- 값은 `"1328"`, `"3"` 처럼 소수점 없이도 온다. ECOS 응답에는 쉼표가 없었다.
+
+실제 응답과 모양이 어긋나는지는 `uv run pytest -m network -s tests/test_market_data_live.py` 로 본다.
