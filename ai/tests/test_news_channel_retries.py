@@ -10,8 +10,9 @@ from tests.test_news_channels import NOW
 from tests.test_news_channels import _message as mock_message
 
 
-def mock_article(url, status):
-    return KnownArticle(id=1, url=url, canonical_url=url, status=status, fetched_at=NOW)
+def mock_article(url, status, error=None):
+    return KnownArticle(id=1, url=url, canonical_url=url, status=status, fetched_at=NOW,
+                        error=error)
 
 
 async def test_known_success_and_failure_do_not_consume_new_article_budget():
@@ -69,3 +70,23 @@ async def test_purged_article_is_not_downloaded_again():
         transport=httpx.MockTransport(mock_handler),
     ) == 0
     assert mock_msg.link_bodies == []
+
+
+async def test_permanent_failure_is_not_retried_but_rate_limit_is():
+    mock_gone, mock_busy = "https://example.com/gone", "https://example.com/busy"
+    mock_msg = mock_message([mock_gone, mock_busy])
+    mock_stats = [ChannelStats(channel=Channel("ch", "mock", "mock", "A"))]
+    mock_opened = []
+
+    def mock_handler(request):
+        mock_opened.append(str(request.url))
+        return httpx.Response(200, html=MOCK_ARTICLE_HTML)
+
+    await attach_link_bodies(
+        [mock_msg], mock_stats, now=NOW, per_message=0, max_links=0,
+        existing={mock_gone: mock_article(mock_gone, "failed", "http_error: 404"),
+                  mock_busy: mock_article(mock_busy, "failed", "http_error: 429")},
+        transport=httpx.MockTransport(mock_handler),
+    )
+    assert mock_opened == [mock_busy]
+    assert mock_stats[0].opened == 1

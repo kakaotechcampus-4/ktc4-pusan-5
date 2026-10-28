@@ -21,6 +21,7 @@ from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import News, TelegramMessageLink
+from app.services.news.failure import is_retryable
 from app.services.news.url import canonical_url
 
 # 본문 칼럼. 성공한 본문을 채울 때 함께 바뀐다.
@@ -144,28 +145,30 @@ class KnownArticle:
     canonical_url: str
     status: str
     fetched_at: datetime | None
+    error: str | None = None  # body_error. 실패 기사를 재시도할지 정할 때 쓴다
 
 
 async def known_articles(session: AsyncSession, urls: list[str]) -> dict[str, KnownArticle]:
     """원문 주소 또는 과거 발견 주소로 기존 기사를 찾는다. 본문은 읽지 않는다."""
     if not urls:
         return {}
-    columns = (News.id, News.url, News.canonical_url, News.body_status, News.body_fetched_at)
+    columns = (News.id, News.url, News.canonical_url, News.body_status, News.body_fetched_at,
+               News.body_error)
     result: dict[str, KnownArticle] = {}
     rows = await session.execute(
         select(TelegramMessageLink.discovered_url, *columns)
         .join(News, News.id == TelegramMessageLink.news_id)
         .where(TelegramMessageLink.discovered_url.in_(urls)).order_by(News.id)
     )
-    for discovered, news_id, url, key, status, fetched in rows:
+    for discovered, news_id, url, key, status, fetched, error in rows:
         result.setdefault(discovered, KnownArticle(news_id, url, key or canonical_url(url),
-                                                  status, fetched))
+                                                  status, fetched, error))
     keys = {canonical_url(url) for url in urls}
     rows = await session.execute(select(*columns).where(
         or_(News.canonical_url.in_(keys), News.url.in_(urls))))
     by_key = {key or canonical_url(url): KnownArticle(
-        news_id, url, key or canonical_url(url), status, fetched
-    ) for news_id, url, key, status, fetched in rows}
+        news_id, url, key or canonical_url(url), status, fetched, error
+    ) for news_id, url, key, status, fetched, error in rows}
     for url in urls:
         if canonical_url(url) in by_key:
             result.setdefault(url, by_key[canonical_url(url)])
@@ -175,7 +178,11 @@ async def known_articles(session: AsyncSession, urls: list[str]) -> dict[str, Kn
 async def failed_news(
     session: AsyncSession, *, source: str, since: datetime, limit: int
 ) -> list[News]:
-    """본문을 못 얻은 기사 중 발행(모르면 수집)이 since 이후인 것. 재시도 대상이다."""
+    """본문을 못 얻은 기사 중 발행(모르면 수집)이 since 이후인 것. 재시도 대상이다.
+
+    404·410 같은 영구 실패는 뺀다. 판별은 body_error 를 읽는 is_retryable 한 곳에서 하므로
+    SQL 로 옮기지 않고 가져온 뒤 거른다. since 로 범위가 좁아 행이 많지 않다.
+    """
     rows = await session.execute(
         select(News)
         .where(
@@ -184,6 +191,5 @@ async def failed_news(
             func.coalesce(News.published_at, News.collected_at) >= since,
         )
         .order_by(News.id)
-        .limit(limit)
     )
-    return list(rows.scalars().all())
+    return [news for news in rows.scalars() if is_retryable(news.body_error)][:limit]

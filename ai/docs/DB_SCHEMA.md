@@ -109,7 +109,7 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 | `summary` | text | NN | 네이버가 준 요약. 본문 아님 | |
 | `cleaned_text` | text | NULL | 정제한 본문 전체. 보관 정책으로 지우면 NULL | |
 | `body_status` | varchar(16) | NN, CHECK | `ok` \| `failed` \| `purged` | 🆕 |
-| `body_error` | text | NULL | 실패 사유(`http_404`, `extract_empty`, `no_body` …). 이관 전 실패 행은 `unrecorded` | 🆕 |
+| `body_error` | text | NULL | 실패 사유(`http_error: 404`, `extract_empty`, `no_body` …). 이관 전 실패 행은 `unrecorded`. 예전 네이버 행의 `http_404` 도 같은 뜻으로 읽는다 | 🆕 |
 | `body_fetched_at` | timestamptz | NULL | 본문을 받으러 마지막으로 연 시각. 기준 시각 이후 본문을 거를 때 쓴다 | 🆕 |
 | `body_extractor` | varchar(32) | NULL | `trafilatura` \| `news_link` | 🆕 |
 | `purged_at` | timestamptz | NULL | 보관 정책으로 본문을 지운 시각 | 🆕 |
@@ -124,7 +124,7 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 
 규칙
 
-- **본문은 한 번 확보하면 덮어쓰지 않는다.** 브리핑이 인용한 문장과 원문이 어긋나거나 기준 시각 이후 수정이 섞이는 걸 막는다. `failed` 인 본문만 다음 수집에서 채운다.
+- **본문은 한 번 확보하면 덮어쓰지 않는다.** 브리핑이 인용한 문장과 원문이 어긋나거나 기준 시각 이후 수정이 섞이는 걸 막는다. `failed` 인 본문만 다음 수집에서 채운다. 단, 404·410 같은 영구 실패는 다시 열지 않는다. 판별은 `body_error` 로 한다(`services/news/failure.py`).
 - `purged` 행은 다시 수집해도 본문을 되살리지 않는다.
 
 기존 행 이관(0020 실행 시 자동)
@@ -212,7 +212,7 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 | kind | 상황 | status |
 | --- | --- | --- |
 | `url` | 열었음 | `ok` · `no_body` · `pdf` · `not_html` · `too_large` · `http_error` · `blocked` · `error` |
-| `url` | 안 열었음 | `stale`(게시 24시간 경과·게시 시각 모름) · `over_limit`(메시지당 상한) · `not_fetchable`(티커 문자열 등) · `not_opened`(`--no-links`) · `out_of_scope`(수집 범위 밖·수집량 상한) |
+| `url` | 안 열었음 | `stale`(게시 24시간 경과·게시 시각 모름) · `over_limit`(메시지당 상한) · `not_fetchable`(티커 문자열 등) · `not_opened`(`--no-links`) · `out_of_scope`(수집 범위 밖·수집량 상한) · `permanent_fail`(이미 영구 실패로 확인된 기사) |
 | `attachment` | | `saved`(이 메시지의 PDF 를 저장) · `duplicate`(같은 네이버 PDF 에 연결) · `excluded`(수집 대상 아님) · `not_saved`(저장 행도 같은 PDF 도 없음) |
 
 ### 2-4. `source_card` — 공통 자료 ID (`0022`)

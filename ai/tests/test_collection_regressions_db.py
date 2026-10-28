@@ -9,7 +9,7 @@ from sqlalchemy import text
 from app.collectors import news as news_collector
 from app.collectors.news_channels import run, save_to_db
 from app.models import News
-from app.repositories.news import save_news
+from app.repositories.news import KnownArticle, save_news
 from app.repositories.retention import PurgeTargets, purge
 from app.repositories.source_card import (
     backfill_canonical_urls,
@@ -249,3 +249,57 @@ def test_card_registration_is_scoped_and_bodyless_read_defers_body(database, mon
             event.remove(News, "load", mock_on_load)
 
     run_db(database, work)
+
+
+def test_permanent_failure_is_recorded_as_such_not_out_of_scope(database):
+    """다시 열지 않은 영구 실패 기사를 발견 기록에 수집 범위 밖(out_of_scope)으로 남기지 않는다."""
+    alembic(database, "upgrade", "head")
+    mock_url = "https://example.com/gone"
+    [news_id] = in_session(database, lambda session: save_news(
+        session, [mock_failed(mock_url, body_error="http_error: 404")])).ids
+    mock_message = ChannelMessage(
+        channel=SKITTEAM.id, msg_id=1, url="https://t.me/skitteam/1", posted_at=NOW,
+        text="gone", links=[mock_url], link_bodies=[],
+    )
+    mock_article = KnownArticle(id=news_id, url=mock_url, canonical_url=mock_url,
+                                status="failed", fetched_at=NOW, error="http_error: 404")
+    run_db(database, lambda factory: save_to_db(
+        [mock_message], (SKITTEAM,), now=NOW, per_message=3,
+        existing={mock_url: mock_article}, session_factory=factory,
+    ))
+    assert [tuple(r) for r in query(database, "SELECT status, news_id FROM telegram_message_links")] \
+        == [("permanent_fail", news_id)]
+
+
+def test_naver_search_does_not_refetch_secured_or_permanently_failed_articles(
+    database, monkeypatch
+):
+    alembic(database, "upgrade", "head")
+    mock_urls = {key: f"https://example.com/{key}" for key in ("ok", "gone", "busy", "new")}
+    in_session(database, lambda session: save_news(session, [
+        mock_news(mock_urls["ok"]),
+        mock_failed(mock_urls["gone"], body_error="http_error: 404"),
+        mock_failed(mock_urls["busy"], body_error="http_error: 503"),
+    ]))
+    mock_fetched = []
+
+    async def mock_search(*args, **kwargs):
+        return [mock_item(url=url, title="") for url in mock_urls.values()]
+
+    async def mock_attach(items):
+        mock_fetched.extend(str(item.url) for item in items)
+        return items
+
+    async def work(factory):
+        monkeypatch.setattr(news_collector, "SessionLocal", factory)
+        monkeypatch.setattr(news_collector.naver, "search", mock_search)
+        monkeypatch.setattr(news_collector, "attach_bodies", mock_attach)
+        mock_scope = mock_news_scope(max_items=10)
+        mock_query = next(iter(mock_scope.require("naver_news").allowed))
+        return await news_collector.collect(mock_query, scope=mock_scope)
+
+    result = run_db(database, work)
+    assert mock_fetched == [mock_urls["busy"], mock_urls["new"]]
+    assert (result.reused, result.inserted) == (2, 1)
+    gone = query(database, "SELECT body_error FROM news WHERE url = $1", mock_urls["gone"])
+    assert gone[0][0] == "http_error: 404", "열지 않았으니 사유도 그대로다"

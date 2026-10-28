@@ -14,7 +14,7 @@ async def test_fetch_body_reports_http_error_without_raising():
     async with httpx.AsyncClient() as client:
         body, err = await fetch_body(client, "https://example.com/gone")
     assert body is None
-    assert err == "http_404"
+    assert err == "http_error: 404"
 
 
 @respx.mock

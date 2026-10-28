@@ -144,7 +144,7 @@ backend 조회는 `verify_status = 'passed'` 를 전제한다.
 
 ```bash
 uv run python -m app.collectors.news 삼성전자 --display 50
-uv run python -m app.collectors.news --retry-failed            # 본문을 못 얻은 네이버 기사만 다시 연다
+uv run python -m app.collectors.news --retry-failed            # 본문을 못 얻은 네이버 기사만 다시 연다 (404 등 영구 실패 제외)
 uv run python -m app.collectors.news_channels                  # 어제 0시부터. 범위의 채널을 DB 에 쓴다
 uv run python -m app.collectors.news_channels --dry-run        # DB 에 쓰지 않고 범위 확인·요약만
 uv run python -m app.collectors.news_channels --jsonl          # JSONL 파일 사본도 쓴다 (data/telegram/)

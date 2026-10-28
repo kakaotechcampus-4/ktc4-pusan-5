@@ -15,6 +15,7 @@ import httpx
 import trafilatura
 
 from app.services.news.clean import clean_text
+from app.services.news.failure import http_error
 from app.services.news.schema import NewsItem
 from app.services.news_link.fetch import (
     BlockedAddressError,
@@ -43,7 +44,7 @@ async def fetch_body(client: httpx.AsyncClient, url: str) -> tuple[str | None, s
     try:
         async with asyncio.timeout(BODY_TIMEOUT_SEC), open_public(client, url) as resp:
             if resp.status_code != 200:
-                return None, f"http_{resp.status_code}"
+                return None, http_error(resp.status_code)
             content_type = resp.headers.get("content-type", "")
             if content_type and content_type.split(";", 1)[0].strip().lower() not in (
                 "text/html", "application/xhtml+xml",

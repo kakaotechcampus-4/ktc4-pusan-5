@@ -61,8 +61,9 @@ class News(Base):
     cleaned_text: Mapped[str | None] = mapped_column(Text)  # 정제한 본문 전체
 
     body_status: Mapped[str] = mapped_column(String(16))
-    # 실패 사유. 네이버는 http_404·extract_empty, 텔레그램은 LinkStatus(no_body·http_error...)
+    # 실패 사유. 네이버는 http_error: 404·extract_empty, 텔레그램은 LinkStatus(no_body·http_error...)
     # 를 앞에 붙인다. 이관 전 행은 사유가 기록되지 않아 unrecorded 다.
+    # 영구 실패인지(재시도할지)는 services/news/failure.py 가 이 값으로 가른다.
     body_error: Mapped[str | None] = mapped_column(Text)
     # 본문을 받으러 마지막으로 연 시각. ok 면 그 본문을 받은 시각이다. 기준 시각보다 늦게
     # 받은 본문을 걸러낼 때 쓴다. 이관 전 행은 collected_at(상한값)으로 채웠다.
