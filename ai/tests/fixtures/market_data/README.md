@@ -18,7 +18,8 @@
 
 ## ECOS
 
-- `ecos_usd_krw.json`, `ecos_base_rate.json`: 자른 만큼 `list_total_count` 도 줄였다(원래 7건, 9건).
+- `ecos_usd_krw.json`: 2026-10-20~28 응답 7건 중 3건. 자른 만큼 `list_total_count` 도 줄였다.
+- `ecos_base_rate.json`: 일 주기(D) 2026-07-01~08-31 응답 62건 중 3건. 7월 16일에 2.5 → 2.75 로 바뀐다.
 - `ecos_no_data.json`(INFO-200, 주말 구간), `ecos_invalid_key.json`(INFO-100, 가짜 키)은 응답 그대로다.
 - 값은 `"1328"`, `"3"` 처럼 소수점 없이도 온다. ECOS 응답에는 쉼표가 없었다.
 

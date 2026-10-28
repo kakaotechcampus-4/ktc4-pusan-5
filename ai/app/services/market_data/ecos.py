@@ -54,8 +54,10 @@ class EcosSeries:
 # 통계표 코드는 backend 의 ecos_client.py(feature/dart-ecos-api-client)에서 쓰던 값이다.
 # 3.1.1.1 주요국 통화의 대원화환율 > 원/미국달러(매매기준율). 영업일마다 하나.
 USD_KRW = EcosSeries("731Y001", "D", "0000001", "원/달러 환율")
-# 1.3.1 한국은행 기준금리 및 여수신금리 > 한국은행 기준금리. 월 주기는 그 달 말 값이다.
-BASE_RATE = EcosSeries("722Y001", "M", "0101000", "한국은행 기준금리")
+# 1.3.1 한국은행 기준금리 및 여수신금리 > 한국은행 기준금리. 보고서에는 현재 금리가 필요해서 일 주기다.
+# 월 주기는 그 달이 끝나야 값이 생겨서 이번 달 변경이 다음 달에야 보인다(2026-10-28 에 202609 까지만 있었다).
+# 일 주기는 주말 포함 매일 값이 있고 이틀쯤 늦다(같은 날 20261026 까지 있었다).
+BASE_RATE = EcosSeries("722Y001", "D", "0101000", "한국은행 기준금리")
 
 
 def mask_key(text: str, key: str | None) -> str:
@@ -68,7 +70,7 @@ async def fetch_usd_krw(client: httpx.AsyncClient, start: date, end: date) -> li
 
 
 async def fetch_base_rate(client: httpx.AsyncClient, start: date, end: date) -> list[EcosPoint]:
-    """기준금리. 월 주기라 start·end 는 달만 본다(일은 버린다)."""
+    """기준금리. 일 주기라 바뀐 날을 그대로 알 수 있다. 최근 이틀쯤은 아직 값이 없을 수 있다."""
     return await fetch_series(client, BASE_RATE, start, end)
 
 

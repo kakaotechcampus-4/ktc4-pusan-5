@@ -70,7 +70,8 @@ async def test_usd_krw_request_path_and_values() -> None:
     assert points[0].item_name == "원/미국달러(매매기준율)"
 
 
-async def test_base_rate_is_monthly() -> None:
+async def test_base_rate_is_daily() -> None:
+    """보고서에는 현재 금리가 필요하다. 월 주기는 이번 달 변경을 다음 달에야 보여준다."""
     seen: list[str] = []
 
     async def handler(request: httpx.Request) -> httpx.Response:
@@ -78,13 +79,13 @@ async def test_base_rate_is_monthly() -> None:
         return httpx.Response(200, json=fixture("ecos_base_rate.json"))
 
     async with _client(handler) as client:
-        points = await fetch_base_rate(client, date(2026, 6, 15), date(2026, 8, 31))
+        points = await fetch_base_rate(client, date(2026, 7, 14), date(2026, 7, 16))
 
-    assert seen[0].endswith("/722Y001/M/202606/202608/0101000"), "월 주기는 YYYYMM 으로 보낸다"
+    assert seen[0].endswith("/722Y001/D/20260714/20260716/0101000"), "일 주기는 YYYYMMDD 로 보낸다"
     assert [(p.time, p.period_start, p.value) for p in points] == [
-        ("202606", date(2026, 6, 1), 2.5),
-        ("202607", date(2026, 7, 1), 2.75),
-        ("202608", date(2026, 8, 1), 3.0),  # "3" 처럼 정수 모양으로 온다
+        ("20260714", date(2026, 7, 14), 2.5),
+        ("20260715", date(2026, 7, 15), 2.5),
+        ("20260716", date(2026, 7, 16), 2.75),  # 바뀐 날을 그대로 안다
     ]
     assert points[0].unit == "연%"
 
