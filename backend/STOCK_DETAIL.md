@@ -50,12 +50,12 @@ collectedAt은 수집 시각이며 실제 체결 시각이라고 표시하지 �
 
 ## API 계약
 
-- `GET /api/stocks`: MVP 고정 목록 100개. `items[]`는 rank, code, name, market, sector만 포함하며 시총 순위 순이다.
+- `GET /api/stocks`: MVP 고정 목록 30개. `items[]`는 rank, code, name, market, sector만 포함하며 시총 순위 순이다.
 - `GET /api/stocks/{code}/financials`: 독립된 income/eps Resource, source=KIS, basis=provider
 - `GET /api/stocks/{code}/overview`: stock, quote, metrics
 - `GET /api/stocks/{code}/prices?period=1Y`: 1M/3M/1Y/5Y/ALL
 
-MVP 범위에서는 `app/core/mvp_stocks.py`의 고정 목록(시총 순위 100개) 종목만 노출한다.
+MVP 범위에서는 `app/core/mvp_stocks.py`의 고정 목록(시총 순위 30개) 종목만 노출한다.
 목록 API는 시세를 포함하지 않으며 수집 작업도 등록하지 않는다. 
 sector는 KRX 업종지수 표기(`services/krx.py`의 `SECTOR_NAMES`, 예: 전기전자)이며 홈 업종 순위의 이름과 같다.
 값은 KIS 주식현재가 시세의 `bstp_kor_isnm`을 종목별로 조회해 `mvp_stocks.py`에 고정했고, 거래소 분류를 그대로 쓰므로 지주회사(SK, LG, GS 등)는 금융으로 나온다.
