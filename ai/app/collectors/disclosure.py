@@ -32,6 +32,13 @@ from app.services.dart import client as dart
 from app.services.dart.client import DartError
 from app.services.dart.schema import Disclosure
 
+# 실패 종류(services/news/failure.py)별로 다시 돌려도 되는지 알려 준다. 자동 재시도는 하지 않는다.
+FAILURE_HINTS = {
+    "permanent": "다시 돌려도 같은 결과다. DART_API_KEY·접근 IP·요청 값을 확인한다.",
+    "rate_limited": "DART 요청 한도를 넘었다. 한도가 풀린 뒤 다시 돌린다.",
+    "unknown": "일시 실패일 수 있다. 잠시 뒤 다시 돌린다.",
+}
+
 
 @dataclass
 class CollectResult:
@@ -135,7 +142,9 @@ def main() -> None:
         asyncio.run(_collect_days(days))
     except ScopeError as exc:
         p.exit(1, f"{exc}\n")
-    except (DartError, RuntimeError) as exc:
+    except DartError as exc:
+        p.exit(1, f"공시 수집 실패: {exc}\n  {FAILURE_HINTS.get(exc.kind, FAILURE_HINTS['unknown'])}\n")
+    except RuntimeError as exc:
         p.exit(1, f"공시 수집 실패: {exc}\n")
 
 

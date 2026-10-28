@@ -21,7 +21,6 @@ from app.models import AnalystReport, Channel, TelegramMessage, TelegramMessageL
 # 링크를 열지 않은 이유. 이전에 열어 둔 결과를 이 값으로 덮지 않는다.
 NOT_OPENED = frozenset({
     "stale", "over_limit", "not_fetchable", "not_opened", "out_of_scope", "permanent_fail",
-    "retry_wait",
 })
 # 더 나아질 게 없는 결과. 다시 수집해도 바꾸지 않는다.
 SETTLED = frozenset({"ok", "saved", "duplicate"})

@@ -1,6 +1,6 @@
 """네이버 뉴스 수집기의 행 변환. backend tests/test_collector.py 에서 옮겨 왔다."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from app.collectors.news import _to_row
 from app.models import News
@@ -109,14 +109,3 @@ def test_only_new_or_retryable_articles_need_a_body():
     assert not needs_body(known("failed", "http_error: 404"))
     assert not needs_body(known("ok"))
     assert not needs_body(known("purged"))
-
-
-def test_naver_search_respects_rate_limit_cooldown():
-    from app.collectors.news import needs_body
-    from app.repositories.news import KnownArticle
-
-    mock_now = datetime(2026, 10, 28, tzinfo=UTC)
-    mock_article = KnownArticle(id=1, url="u", canonical_url="u", status="failed",
-                                fetched_at=mock_now, error="http_error: 429")
-    assert not needs_body(mock_article, now=mock_now)
-    assert needs_body(mock_article, now=mock_now + timedelta(hours=1))

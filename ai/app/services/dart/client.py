@@ -21,6 +21,7 @@ import httpx
 
 from app.core.config import settings
 from app.services.dart.schema import Disclosure
+from app.services.news.failure import FailureKind, dart_status, failure_kind, http_error
 
 LIST_URL = "https://opendart.fss.or.kr/api/list.json"
 PAGE_COUNT = 100  # 쪽당 최대 건수
@@ -31,7 +32,19 @@ _STATUS_EMPTY = "013"  # 조회된 데이터가 없음
 
 
 class DartError(Exception):
-    """DART 호출 실패. 원인 예외는 __cause__ 에 남는다."""
+    """DART 호출 실패. 원인 예외는 __cause__ 에 남는다.
+
+    reason 은 news.body_error 와 같은 형식(`http_error: 503`, `dart_status: 020` …)이고,
+    kind 로 영구·요청 과다·일시 실패를 가른다(services/news/failure.py). 재시도는 하지 않는다.
+    """
+
+    def __init__(self, message: str, *, reason: str | None = None) -> None:
+        super().__init__(message)
+        self.reason = reason
+
+    @property
+    def kind(self) -> FailureKind:
+        return failure_kind(self.reason)
 
 
 def parse_list(rows: list[dict]) -> list[Disclosure]:
@@ -71,16 +84,19 @@ async def _page(client: httpx.AsyncClient, key: str, day: date, page_no: int) ->
         resp = await client.get(LIST_URL, params=params)
         resp.raise_for_status()
     except httpx.HTTPStatusError as e:
-        raise DartError(f"{ymd} p{page_no}: HTTP {e.response.status_code}") from e
+        reason = http_error(e.response.status_code)
+        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason) from e
     except httpx.HTTPError as e:
-        raise DartError(f"{ymd} p{page_no}: {type(e).__name__}") from e
+        reason = f"request_failed: {type(e).__name__}"
+        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason) from e
     body = resp.json()
     status = body.get("status")
     if status == _STATUS_EMPTY:
         return {"list": [], "total_page": 0}
     if status != _STATUS_OK:
         # 키를 메시지에 남기지 않는다
-        raise DartError(f"{ymd} p{page_no}: DART status {status} ({body.get('message')})")
+        reason = f"{dart_status(status)} ({body.get('message')})"
+        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
     return body
 
 

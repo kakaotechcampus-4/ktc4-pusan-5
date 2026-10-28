@@ -1,21 +1,8 @@
 """본문 실패 사유를 종류로 나누는 규칙. 재시도 대상 선정이 이 판별 하나에 기댄다."""
 
-from datetime import UTC, datetime, timedelta
-
 import pytest
 
-from app.services.news.failure import failure_kind, http_error, is_retryable, retry_due
-
-
-@pytest.mark.parametrize("error", ["http_error: 429", "http_429"])
-def test_rate_limit_waits_one_hour(error):
-    mock_now = datetime(2026, 10, 28, tzinfo=UTC)
-    assert not retry_due(error, mock_now, now=mock_now)
-    assert not retry_due(error, mock_now - timedelta(minutes=59), now=mock_now)
-    assert retry_due(error, mock_now - timedelta(hours=1), now=mock_now)
-    assert retry_due(error, None, now=mock_now)
-    assert retry_due("http_error: 503", mock_now, now=mock_now)
-    assert not retry_due("http_error: 404", None, now=mock_now)
+from app.services.news.failure import failure_kind, http_error, is_retryable
 
 
 @pytest.mark.parametrize(("body_error", "kind"), [
@@ -40,6 +27,10 @@ def test_rate_limit_waits_one_hour(error):
     ("unrecorded", "unknown"),
     (None, "unknown"),
     ("http_error: None", "unknown"),
+    ("dart_status: 020 (요청 제한을 초과하였습니다.)", "rate_limited"),
+    ("dart_status: 011", "permanent"),
+    ("dart_status: 800", "transient"),
+    ("dart_status: 900", "unknown"),
 ])
 def test_failure_kind(body_error, kind):
     assert failure_kind(body_error) == kind

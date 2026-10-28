@@ -12,16 +12,16 @@ body_status 는 ok·failed·purged 만 둔다. 실패의 종류는 body_error �
     unknown       사유가 없거나(이관 전 행 unrecorded) 처음 보는 사유. 재시도한다
 
 HTTP 오류는 `http_error: 404` 로 적는다. 예전 네이버 행의 `http_404` 도 같은 뜻으로 읽는다.
+
+DART 공시 목록 호출(services/dart/client.py)도 같은 형식·같은 종류를 쓴다. DART 는 HTTP 200
+안에 자기 상태 코드를 주므로 `dart_status: 020` 으로 적고 아래 표로 가른다. 재시도·대기는 아직
+어느 경로에도 없다. 종류는 다시 돌려도 되는지 판단하는 데만 쓴다.
 """
 
 import re
-from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 FailureKind = Literal["permanent", "rate_limited", "transient", "extract", "unknown"]
-
-# 429는 다음 실행에서도 바로 재요청하지 않는다. 기존 수집 시각을 사용하므로 스키마 변경은 없다.
-RATE_LIMIT_COOLDOWN = timedelta(hours=1)
 
 # 4xx 중 다시 요청하면 될 수 있는 것. 408 요청 시간 초과, 425 너무 이른 요청. 429 는 따로 본다.
 _RETRYABLE_4XX = frozenset({408, 425})
@@ -31,10 +31,32 @@ _TRANSIENT = frozenset({"request_failed", "error"})
 _EXTRACT = frozenset({"extract_failed", "extract_empty", "clean_empty", "no_body", "ok"})
 _LEGACY_HTTP = re.compile(r"http_(\d{3})")
 
+# DART 상태 코드(opendart 개발가이드). 013(조회된 데이터 없음)은 실패가 아니라 빈 결과라 없다.
+#   010·011·901 키 문제, 012 접근할 수 없는 IP, 014 파일 없음, 021 조회 회사 수 초과,
+#   100·101 요청 값·접근 방식 오류. 900(정의되지 않은 오류)은 알 수 없어 unknown 으로 둔다.
+_DART_PERMANENT = frozenset({"010", "011", "012", "014", "021", "100", "101", "901"})
+_DART_RATE_LIMITED = "020"  # 요청 제한 초과. 사실상 429 다
+_DART_TRANSIENT = frozenset({"800"})  # 시스템 점검
+
 
 def http_error(status_code: int) -> str:
     """HTTP 오류의 body_error. 두 경로가 같은 형식을 쓴다."""
     return f"http_error: {status_code}"
+
+
+def dart_status(code: str) -> str:
+    """DART 가 정상(000)·빈 결과(013)가 아닌 상태 코드를 줬을 때의 실패 사유."""
+    return f"dart_status: {code}"
+
+
+def dart_failure_kind(code: str) -> FailureKind:
+    if code in _DART_PERMANENT:
+        return "permanent"
+    if code == _DART_RATE_LIMITED:
+        return "rate_limited"
+    if code in _DART_TRANSIENT:
+        return "transient"
+    return "unknown"
 
 
 def http_failure_kind(status_code: int) -> FailureKind:
@@ -54,6 +76,9 @@ def failure_kind(body_error: str | None) -> FailureKind:
     if head == "http_error" or legacy:
         code = legacy.group(1) if legacy else detail
         return http_failure_kind(int(code)) if code.isdigit() else "unknown"
+    if head == "dart_status":
+        # 뒤에 DART 가 준 안내 문구가 붙을 수 있다: "dart_status: 020 (요청 제한을 초과하였습니다.)"
+        return dart_failure_kind(detail.split(" ", 1)[0])
     if head in _PERMANENT or (head == "request_failed" and detail == "invalid_address"):
         return "permanent"
     if head in _TRANSIENT:
@@ -66,19 +91,3 @@ def failure_kind(body_error: str | None) -> FailureKind:
 def is_retryable(body_error: str | None) -> bool:
     """다시 열어 볼 만한 실패인가. 영구 실패만 뺀다."""
     return failure_kind(body_error) != "permanent"
-
-
-def retry_due(
-    body_error: str | None, fetched_at: datetime | None, *, now: datetime | None = None,
-) -> bool:
-    """재시도 가능한 실패 중 지금 요청할 것. 시각 없는 기존 행은 한 번 더 확인한다.
-
-    429는 마지막 시도에서 최소 한 시간을 기다린다. Retry-After 헤더를 저장하지 않는
-    현재 구조의 기본 대기 정책이며, 호스트 전체의 요청량 제한을 대신하지 않는다.
-    """
-    kind = failure_kind(body_error)
-    if kind == "permanent":
-        return False
-    if kind == "rate_limited" and fetched_at is not None:
-        return (now or datetime.now(UTC)) - fetched_at >= RATE_LIMIT_COOLDOWN
-    return True

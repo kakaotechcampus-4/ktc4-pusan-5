@@ -1,8 +1,5 @@
 """기존 기사의 재시도가 신규 수량을 소비하거나 다른 기사를 덮지 않는지 검사한다."""
 
-from dataclasses import replace
-from datetime import timedelta
-
 import httpx
 
 from app.collectors.news_channels import ChannelStats, attach_link_bodies
@@ -88,25 +85,8 @@ async def test_permanent_failure_is_not_retried_but_rate_limit_is():
     await attach_link_bodies(
         [mock_msg], mock_stats, now=NOW, per_message=0, max_links=0,
         existing={mock_gone: mock_article(mock_gone, "failed", "http_error: 404"),
-                  mock_busy: replace(mock_article(mock_busy, "failed", "http_error: 429"),
-                                     fetched_at=NOW - timedelta(hours=1))},
+                  mock_busy: mock_article(mock_busy, "failed", "http_error: 429")},
         transport=httpx.MockTransport(mock_handler),
     )
     assert mock_opened == [mock_busy]
     assert mock_stats[0].opened == 1
-
-
-async def test_rate_limited_article_is_not_opened_during_cooldown():
-    mock_url = "https://example.com/busy"
-    mock_msg = mock_message([mock_url])
-
-    def mock_handler(request):
-        raise AssertionError("429 article was retried during cooldown")
-
-    await attach_link_bodies(
-        [mock_msg], [ChannelStats(channel=Channel("ch", "mock", "mock", "A"))],
-        now=NOW, per_message=3, max_links=10,
-        existing={mock_url: mock_article(mock_url, "failed", "http_error: 429")},
-        transport=httpx.MockTransport(mock_handler),
-    )
-    assert mock_msg.link_bodies == []

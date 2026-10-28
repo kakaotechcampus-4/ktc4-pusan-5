@@ -212,7 +212,7 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 | kind | 상황 | status |
 | --- | --- | --- |
 | `url` | 열었음 | `ok` · `no_body` · `pdf` · `not_html` · `too_large` · `http_error` · `blocked` · `error` |
-| `url` | 안 열었음 | `stale`(게시 24시간 경과·게시 시각 모름) · `over_limit`(메시지당 상한) · `not_fetchable`(티커 문자열 등) · `not_opened`(`--no-links`) · `out_of_scope`(수집 범위 밖·수집량 상한) · `permanent_fail`(이미 영구 실패로 확인된 기사) · `retry_wait`(429 재시도 대기 중) |
+| `url` | 안 열었음 | `stale`(게시 24시간 경과·게시 시각 모름) · `over_limit`(메시지당 상한) · `not_fetchable`(티커 문자열 등) · `not_opened`(`--no-links`) · `out_of_scope`(수집 범위 밖·수집량 상한) · `permanent_fail`(이미 영구 실패로 확인된 기사) |
 | `attachment` | | `saved`(이 메시지의 PDF 를 저장) · `duplicate`(같은 네이버 PDF 에 연결) · `excluded`(수집 대상 아님) · `not_saved`(저장 행도 같은 PDF 도 없음) |
 
 ### 2-4. `source_card` — 공통 자료 ID (`0022`)
