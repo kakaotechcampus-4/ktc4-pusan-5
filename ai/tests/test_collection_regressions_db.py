@@ -4,6 +4,7 @@ import asyncio
 from datetime import timedelta
 
 import httpx
+import pytest
 from sqlalchemy import text
 
 from app.collectors import news as news_collector
@@ -251,24 +252,29 @@ def test_card_registration_is_scoped_and_bodyless_read_defers_body(database, mon
     run_db(database, work)
 
 
-def test_permanent_failure_is_recorded_as_such_not_out_of_scope(database):
+@pytest.mark.parametrize(("mock_error", "mock_status"), [
+    ("http_error: 404", "permanent_fail"), ("http_error: 429", "retry_wait"),
+])
+def test_permanent_failure_is_recorded_as_such_not_out_of_scope(
+    database, mock_error, mock_status,
+):
     """다시 열지 않은 영구 실패 기사를 발견 기록에 수집 범위 밖(out_of_scope)으로 남기지 않는다."""
     alembic(database, "upgrade", "head")
     mock_url = "https://example.com/gone"
     [news_id] = in_session(database, lambda session: save_news(
-        session, [mock_failed(mock_url, body_error="http_error: 404")])).ids
+        session, [mock_failed(mock_url, body_error=mock_error)])).ids
     mock_message = ChannelMessage(
         channel=SKITTEAM.id, msg_id=1, url="https://t.me/skitteam/1", posted_at=NOW,
         text="gone", links=[mock_url], link_bodies=[],
     )
     mock_article = KnownArticle(id=news_id, url=mock_url, canonical_url=mock_url,
-                                status="failed", fetched_at=NOW, error="http_error: 404")
+                                status="failed", fetched_at=NOW, error=mock_error)
     run_db(database, lambda factory: save_to_db(
         [mock_message], (SKITTEAM,), now=NOW, per_message=3,
         existing={mock_url: mock_article}, session_factory=factory,
     ))
     assert [tuple(r) for r in query(database, "SELECT status, news_id FROM telegram_message_links")] \
-        == [("permanent_fail", news_id)]
+        == [(mock_status, news_id)]
 
 
 def test_naver_search_does_not_refetch_secured_or_permanently_failed_articles(
