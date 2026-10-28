@@ -277,8 +277,8 @@ def canned_report(payload: dict[str, Any]) -> dict[str, Any]:
         "summary": {"move": _canned_move(payload), "main_cause": main_cause, "relative": None,
                     "counter": None, "unexplained": "이 종목을 직접 다룬 소식이 수집되지 않았습니다."},
         "factors": [], "terms": [], "background": {"bullish": [], "bearish": [], "neutral": []},
-        "not_found": ["직접 언급(match: direct)·테마 동향(kind: theme_recap) 메시지가 0건이라 LLM 을 부르지 않고 "
-                      "정형 보고서를 냈다"],
+        "not_found": [("직접 언급(match: direct)·테마 동향(kind: theme_recap) 메시지가 0건이라 LLM 을 부르지 않고 "
+                       "정형 보고서를 냈다")],
         "events": [],
     }
 
@@ -580,12 +580,12 @@ __all__ = [
     "canned_report",
     "check_input",
     "direct_message_count",
-    "needs_llm",
     "extract_json",
     "generate",
     "looks_like_question",
     "make_run_id",
+    "model_input",
+    "needs_llm",
     "prompt_sha256",
     "report_of",
-    "model_input",
 ]
