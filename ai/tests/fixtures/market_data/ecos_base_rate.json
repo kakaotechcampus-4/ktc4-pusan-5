@@ -1,0 +1,4 @@
+{"StatisticSearch": {"list_total_count": 2, "row": [
+  {"STAT_CODE": "722Y001", "STAT_NAME": "1.3.1. 한국은행 기준금리 및 여수신금리", "ITEM_CODE1": "0101000", "ITEM_NAME1": "한국은행 기준금리", "ITEM_CODE2": null, "ITEM_NAME2": null, "ITEM_CODE3": null, "ITEM_NAME3": null, "ITEM_CODE4": null, "ITEM_NAME4": null, "UNIT_NAME": "연%", "WGT": null, "TIME": "202608", "DATA_VALUE": "2.5"},
+  {"STAT_CODE": "722Y001", "STAT_NAME": "1.3.1. 한국은행 기준금리 및 여수신금리", "ITEM_CODE1": "0101000", "ITEM_NAME1": "한국은행 기준금리", "ITEM_CODE2": null, "ITEM_NAME2": null, "ITEM_CODE3": null, "ITEM_NAME3": null, "ITEM_CODE4": null, "ITEM_NAME4": null, "UNIT_NAME": "연%", "WGT": null, "TIME": "202609", "DATA_VALUE": "2.25"}
+]}}

@@ -1,0 +1,5 @@
+{"StatisticSearch": {"list_total_count": 3, "row": [
+  {"STAT_CODE": "731Y001", "STAT_NAME": "3.1.1.1. 주요국 통화의 대원화환율", "ITEM_CODE1": "0000001", "ITEM_NAME1": "원/미국달러(매매기준율)", "ITEM_CODE2": null, "ITEM_NAME2": null, "ITEM_CODE3": null, "ITEM_NAME3": null, "ITEM_CODE4": null, "ITEM_NAME4": null, "UNIT_NAME": "원", "WGT": null, "TIME": "20260908", "DATA_VALUE": "1388.5"},
+  {"STAT_CODE": "731Y001", "STAT_NAME": "3.1.1.1. 주요국 통화의 대원화환율", "ITEM_CODE1": "0000001", "ITEM_NAME1": "원/미국달러(매매기준율)", "ITEM_CODE2": null, "ITEM_NAME2": null, "ITEM_CODE3": null, "ITEM_NAME3": null, "ITEM_CODE4": null, "ITEM_NAME4": null, "UNIT_NAME": "원", "WGT": null, "TIME": "20260909", "DATA_VALUE": "1,391.2"},
+  {"STAT_CODE": "731Y001", "STAT_NAME": "3.1.1.1. 주요국 통화의 대원화환율", "ITEM_CODE1": "0000001", "ITEM_NAME1": "원/미국달러(매매기준율)", "ITEM_CODE2": null, "ITEM_NAME2": null, "ITEM_CODE3": null, "ITEM_NAME3": null, "ITEM_CODE4": null, "ITEM_NAME4": null, "UNIT_NAME": "원", "WGT": null, "TIME": "20260910", "DATA_VALUE": "1385.2"}
+]}}
