@@ -6,10 +6,11 @@ from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.core.database import SessionLocal
+from app.core.mvp_stocks import MVP_CODES
 from app.models.stock import Stock, StockCollectionState
 from app.repositories import stock as repo
 from app.repositories.stock_financials import save_periods
@@ -18,9 +19,20 @@ from app.schemas.stock import MetricsData, QuoteData
 from app.services import stock_data, stock_financials, stock_history
 from app.services.krx_history import krx_rows
 from app.services.market_data import MarketDataError
-from app.services.stock_detail import ACTIVE_WINDOW, snapshot_ttl
+from app.services.quote_freshness import is_quote_stale
 
 logger = logging.getLogger(__name__)
+
+
+async def schedule(session, code, resource, now, priority):
+    """정기 수집 작업은 이 함수로만 등록한다.
+
+    repo.finish() 는 stock_collection_state 행을 UPDATE 만 하므로 행이 없으면 성공 시각이 남지 않고,
+    다음 확인 때 또 만기로 보여 계속 다시 등록된다. touch() 로 행을 먼저 만든다.
+    이때 last_requested_at 은 사용자 조회 시각이 아니라 수집기가 등록한 시각이다.
+    """
+    await repo.touch(session, code, resource, now)
+    await repo.enqueue(session, code, resource, now, priority=priority)
 
 
 class StockWorker:
@@ -28,7 +40,7 @@ class StockWorker:
         self.client = client
         self.kis = kis
         self.catalog_retry_at = datetime.min.replace(tzinfo=UTC)
-        self.active_checked_at = datetime.min.replace(tzinfo=UTC)
+        self.snapshot_checked_at = datetime.min.replace(tzinfo=UTC)
 
     async def catalog(self):
         now = datetime.now(UTC)
@@ -51,32 +63,34 @@ class StockWorker:
         except (MarketDataError, httpx.HTTPError, TimeoutError, ValueError, KeyError, TypeError):
             logger.warning("stock catalog: refresh failed; previous catalog retained")
 
-    async def schedule_active(self):
+    async def schedule_snapshots(self):
+        # 사용자 조회와 무관하게 고정 목록 전체의 현재가를 갱신 기준이 지난 것만 넣는다.
+        # 종목마다 성공 시각이 달라 다음 만기도 흩어지므로 한 번에 몰리지 않는다.
         now = datetime.now(UTC)
-        if now - self.active_checked_at < timedelta(seconds=15):
+        if now - self.snapshot_checked_at < timedelta(seconds=15):
             return
-        self.active_checked_at = now
+        self.snapshot_checked_at = now
         async with SessionLocal() as session:
-            states = (
-                await session.scalars(
-                    select(StockCollectionState)
-                    .join(Stock, Stock.code == StockCollectionState.stock_code)
-                    .where(
-                        StockCollectionState.resource == "snapshot",
-                        Stock.listing_status == "listed",
-                        StockCollectionState.last_requested_at > now - ACTIVE_WINDOW,
+            rows = (
+                await session.execute(
+                    select(Stock.code, StockCollectionState.last_success_at)
+                    .outerjoin(
+                        StockCollectionState,
+                        and_(
+                            StockCollectionState.stock_code == Stock.code,
+                            StockCollectionState.resource == "snapshot",
+                        ),
                     )
+                    .where(Stock.code.in_(MVP_CODES), Stock.listing_status == "listed")
                 )
             ).all()
-            for state in states:
-                if not state.last_success_at or (
-                    now - state.last_success_at
-                ).total_seconds() >= snapshot_ttl(now):
-                    await repo.enqueue(session, state.stock_code, "snapshot", now, priority=0)
+            for code, last_success_at in rows:
+                if last_success_at is None or is_quote_stale(last_success_at, now):
+                    await schedule(session, code, "snapshot", now, priority=0)
             await session.commit()
 
     async def tick(self, timeout: float = 12):
-        await self.schedule_active()
+        await self.schedule_snapshots()
         async with SessionLocal() as session:
             job = await repo.claim(session, datetime.now(UTC))
             await session.commit()

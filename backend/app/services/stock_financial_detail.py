@@ -12,6 +12,7 @@ from app.schemas.stock_financials import (
     AnnualIncome,
     AnnualStability,
     FinancialHealth,
+    QuarterlyRatio,
     StockFinancials,
 )
 from app.schemas.stock_investment import QuarterlyIncome
@@ -35,7 +36,7 @@ async def financials(session: AsyncSession, code: str) -> StockFinancials:
             QuarterlyIncome,
             ("revenue", "operating_profit", "net_income", "fiscal_year_end_month"),
         ),
-        ("quarter_ratios", AnnualEps, ("eps", "roe", "debt_ratio")),
+        ("quarter_ratios", QuarterlyRatio, ("eps", "roe", "debt_ratio", "bps")),
     )
     for kind, schema, fields in definitions:
         state = await session.get(StockCollectionState, (code, kind))

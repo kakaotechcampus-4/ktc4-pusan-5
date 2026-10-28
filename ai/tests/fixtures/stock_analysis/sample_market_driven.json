@@ -1,0 +1,36 @@
+{
+  "stock": "솔마루전자",
+  "code": "999990",
+  "target_date": "2026-09-21",
+  "cutoff": "2026-09-21T15:30:00+09:00",
+  "change_pct": -1.8,
+  "market": {
+    "index": "코스피",
+    "change_pct": -2.9,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": -3.2,
+    "peer_up": 2,
+    "peer_down": 17,
+    "peer_total": 19,
+    "excess_pct": 1.4
+  },
+  "messages": [
+    {
+      "channel": "sample_channel_a",
+      "url": "https://t.me/sample_channel_a/501",
+      "datetime_kst": "2026-09-21T09:40:00+09:00",
+      "views": "900",
+      "text": "솔마루전자 2대 주주, 보유 지분 1.5% 시간외 대량매매로 처분",
+      "match": "direct"
+    },
+    {
+      "channel": "sample_channel_b",
+      "url": "https://t.me/sample_channel_b/502",
+      "datetime_kst": "2026-09-21T13:15:00+09:00",
+      "views": "1500",
+      "text": "미국 금리 인상 우려에 외국인 대형주 일제히 매도… 코스피 2%대 하락",
+      "match": "indirect"
+    }
+  ]
+}

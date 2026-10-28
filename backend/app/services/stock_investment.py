@@ -88,6 +88,7 @@ def investment_summary(
                 operating_profit=current["operating_profit"],
                 net_income=current["net_income"],
                 eps_cumulative=ratio.eps if ratio else None,
+                bps=ratio.bps if ratio else None,
                 roe=ratio.roe if ratio else None,
                 debt_ratio=ratio.debt_ratio if ratio else None,
             )

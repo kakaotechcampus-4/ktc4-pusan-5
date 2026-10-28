@@ -158,9 +158,16 @@ async def test_quarterly_uses_selector_one_and_preserves_cumulative_values():
     assert row.revenue == Decimal(0) and row.operating_profit == Decimal(-200000000)
     assert row.fiscal_year_end_month == 12
     assert income.calls[0][2]["FID_DIV_CLS_CODE"] == "1"
-    ratios = FakeKis({"output": {"stac_yymm": "202506", "eps": "4.2"}})
-    assert (await fetch_quarterly_ratios(ratios, "000660"))[0].eps == Decimal("4.2")
+    ratios = FakeKis({"output": {"stac_yymm": "202506", "eps": "4.2", "bps": "86,052.00"}})
+    quarter = (await fetch_quarterly_ratios(ratios, "000660"))[0]
+    assert quarter.eps == Decimal("4.2")
+    assert quarter.bps == Decimal("86052.00")
     assert ratios.calls[0][2]["FID_DIV_CLS_CODE"] == "1"
+    # bps 가 없거나 비어 있으면 null. 연간 EPS 는 bps 컬럼이 없어 분기 전용 타입만 갖는다.
+    no_bps = FakeKis({"output": {"stac_yymm": "202506", "eps": "4.2", "bps": ""}})
+    assert (await fetch_quarterly_ratios(no_bps, "000660"))[0].bps is None
+    annual = FakeKis({"output": {"stac_yymm": "202512", "eps": "4.2", "bps": "10"}})
+    assert not hasattr((await fetch_eps(annual, "000660"))[0], "bps")
 
 
 @pytest.mark.asyncio
