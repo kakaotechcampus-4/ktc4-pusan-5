@@ -28,21 +28,10 @@ from app.schemas.stock import (
     StockOverview,
     StockPrices,
 )
+from app.services.quote_freshness import is_quote_stale
 
-SNAPSHOT_TTL = 60
 PRICE_TTL = 86400
-ACTIVE_WINDOW = timedelta(minutes=10)
 EPOCH = date(1970, 1, 1)
-
-
-def market_open(now: datetime) -> bool:
-    local = now.astimezone(ZoneInfo("Asia/Seoul"))
-    return local.weekday() < 5 and (9, 0) <= (local.hour, local.minute) < (15, 40)
-
-
-def snapshot_ttl(now: datetime) -> int:
-    # 휴장일 달력 미도입: 주말/장외에는 1시간 캐시, 장중에는 1분.
-    return SNAPSHOT_TTL if market_open(now) else 3600
 
 
 async def require_stock(session: AsyncSession, code: str) -> Stock:
@@ -89,14 +78,9 @@ async def overview(session: AsyncSession, code: str) -> StockOverview:
     state = await session.get(StockCollectionState, (code, "snapshot"))
     quote_state = await session.get(StockCollectionState, (code, "quote")) or state
     metric_state = await session.get(StockCollectionState, (code, "metrics")) or state
-    quote_expired = not quote or (now - quote.collected_at).total_seconds() >= snapshot_ttl(now)
-    metrics_expired = not metrics or (now - metrics.collected_at).total_seconds() >= snapshot_ttl(
-        now
-    )
-    expired = quote_expired or metrics_expired
-    await touch(session, code, "snapshot", now)
-    if stock.listing_status == "listed" and expired:
-        await enqueue(session, code, "snapshot", now, priority=0)
+    # 현재가는 수집기가 고정 목록 전체를 정기 수집한다. 여기서는 저장 값만 읽고 작업을 등록하지 않는다.
+    quote_expired = not quote or is_quote_stale(quote.collected_at, now)
+    metrics_expired = not metrics or is_quote_stale(metrics.collected_at, now)
     job = await session.scalar(
         select(StockCollectionJob).where(
             StockCollectionJob.stock_code == code, StockCollectionJob.resource == "snapshot"
@@ -134,7 +118,6 @@ async def overview(session: AsyncSession, code: str) -> StockOverview:
                 resource.status = "unavailable"
             resource.refreshing = False
             resource.retry_after_seconds = None
-    await session.commit()
     return response
 
 
