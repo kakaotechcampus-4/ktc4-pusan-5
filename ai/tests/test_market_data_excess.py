@@ -9,10 +9,10 @@ from app.services.market_data import IndexDaily, StockDaily, compute_excess, exc
 DAY = date(2026, 9, 10)
 
 
-def stock(change_rate: float | None, *, bas_dd: date = DAY) -> StockDaily:
+def stock(change_rate: float | None, *, bas_dd: date = DAY, volume: int | None = 1000) -> StockDaily:
     return StockDaily(
         bas_dd=bas_dd, code="005930", name="삼성전자", market="KOSPI", close=62400, change=-680,
-        change_rate=change_rate, open=None, high=None, low=None, volume=None, trade_value=None,
+        change_rate=change_rate, open=None, high=None, low=None, volume=volume, trade_value=None,
         market_cap=None, listed_shares=None,
     )
 
@@ -58,3 +58,13 @@ def test_missing_rate_is_not_treated_as_zero() -> None:
         compute_excess(stock(None), kospi(-0.25))
     with pytest.raises(ValueError, match="코스피"):
         compute_excess(stock(-1.08), kospi(None))
+
+
+def test_no_trade_stock_has_no_excess() -> None:
+    # 거래정지면 등락률이 0.00 으로 온다. 계산하면 코스피를 뒤집은 −(−0.25) = +0.25%p 가 된다
+    assert compute_excess(stock(0.0, volume=0), kospi(-0.25)) is None
+
+
+def test_unknown_volume_is_not_no_trade() -> None:
+    # 거래량을 모르는 것(None)과 0 은 다르다. 0 일 때만 거른다
+    assert compute_excess(stock(-1.08, volume=None), kospi(-0.25)).excess_rate == -0.83

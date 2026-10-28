@@ -152,7 +152,7 @@ def _index_row(row: dict) -> IndexDaily:
 
 
 def _stock_row(row: dict) -> StockDaily:
-    return StockDaily(
+    stock = StockDaily(
         bas_dd=_bas_dd(row.get("BAS_DD")),
         code=row.get("ISU_CD") or "",
         name=row.get("ISU_NM") or "",
@@ -168,3 +168,8 @@ def _stock_row(row: dict) -> StockDaily:
         market_cap=to_int(row.get("MKTCAP"), field="MKTCAP"),
         listed_shares=to_int(row.get("LIST_SHRS"), field="LIST_SHRS"),
     )
+    if stock.no_trades:
+        # 체결이 없으면 시가·고가·저가가 "0" 으로 온다(2026-10-27 거래량 0 인 25종목 전부).
+        # 0원은 가격이 아니다. 종가는 직전 가격이 그대로 와서 남긴다.
+        stock.open = stock.high = stock.low = None
+    return stock

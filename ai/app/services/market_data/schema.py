@@ -43,6 +43,14 @@ class StockDaily(BaseModel):
     market_cap: int | None  # 시가총액 (원)
     listed_shares: int | None  # 상장주식수 (주)
 
+    @property
+    def no_trades(self) -> bool:
+        """그날 체결이 없었다(거래량 0). 거래정지 종목이 이렇게 온다.
+
+        종가는 직전 가격 그대로이고 등락률은 "0.00" 이다. 보합이 아니라 거래가 없었던 것이다.
+        """
+        return self.volume == 0
+
 
 class EcosPoint(BaseModel):
     """ECOS 통계 한 시점."""

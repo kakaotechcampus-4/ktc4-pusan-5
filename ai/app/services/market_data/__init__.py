@@ -6,6 +6,7 @@
     stock = await fetch_stock(client, day, "005930")
     if kospi and stock:
         move = compute_excess(stock, kospi)  # move.excess_rate: 코스피 대비 초과분(%p)
+        # 그날 체결이 없던 종목(거래정지)이면 move 는 None 이다
 
 보고서 에이전트가 쓸 시장 정보를 읽기만 한다. DB 저장과 러너 연결은 아직 없다.
 키는 app.core.config 의 KRX_AUTH_KEY·ECOS_API_KEY 에서 읽는다(require_krx·require_ecos).

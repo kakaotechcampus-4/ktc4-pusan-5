@@ -61,6 +61,7 @@ async def test_krx_latest_business_day() -> None:
     assert kospi.change_rate is not None
     assert stock is not None, f"{day} 에 {SAMSUNG} 이 없다"
     move = compute_excess(stock, kospi)
+    assert move is not None, f"{day} 에 {SAMSUNG} 체결이 없다(거래정지?)"
     print(f"{stock.name} {stock.close}원 ({stock.change_rate}%) → 초과분 {move.excess_rate}%p")
 
 

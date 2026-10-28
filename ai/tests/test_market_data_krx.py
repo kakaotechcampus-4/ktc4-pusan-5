@@ -109,6 +109,26 @@ async def test_stock_row_numbers() -> None:
     assert stock.market_cap == stock.listed_shares * stock.close  # 조사 문서에서 확인한 관계
 
 
+async def test_no_trade_day_has_no_open_high_low() -> None:
+    """DH오토넥스 2026-10-27(거래량 0). 시가·고가·저가 "0" 은 가격이 아니다."""
+    async with _client(_serve("krx_stk_bydd_trd.json")) as client:
+        stock = await fetch_stock(client, DAY, "000300")
+
+    assert stock is not None
+    assert stock.no_trades
+    assert (stock.open, stock.high, stock.low) == (None, None, None)
+    assert stock.close == 4200  # 직전 가격 그대로 온다
+    assert stock.volume == 0 and stock.change_rate == 0.0
+
+
+async def test_traded_stock_keeps_open_high_low() -> None:
+    async with _client(_serve("krx_stk_bydd_trd.json")) as client:
+        stock = await fetch_stock(client, DAY, "005930")
+
+    assert not stock.no_trades
+    assert (stock.open, stock.high, stock.low) == (222000, 225500, 220000)
+
+
 async def test_excess_from_real_rows() -> None:
     """2026-10-27 실제 응답: 삼성전자 +4.23%, 코스피 +3.09% → 시장보다 1.14%p 더 올랐다."""
     async with _client(_serve("krx_kospi_dd_trd.json")) as client:
@@ -118,6 +138,16 @@ async def test_excess_from_real_rows() -> None:
 
     move = compute_excess(stock, kospi)
     assert (move.stock_change_rate, move.index_change_rate, move.excess_rate) == (4.23, 3.09, 1.14)
+
+
+async def test_no_excess_for_no_trade_stock() -> None:
+    """거래정지 종목 등락률 0.00 을 그대로 빼면 −3.09%p 가 된다. 계산하지 않는다."""
+    async with _client(_serve("krx_kospi_dd_trd.json")) as client:
+        kospi = await fetch_kospi(client, DAY)
+    async with _client(_serve("krx_stk_bydd_trd.json")) as client:
+        stock = await fetch_stock(client, DAY, "000300")
+
+    assert compute_excess(stock, kospi) is None
 
 
 async def test_stock_not_listed_is_none() -> None:
