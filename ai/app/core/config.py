@@ -20,7 +20,15 @@ class Settings(BaseSettings):
     # 남의 서버이고 PDF 가 수십 MB 라 타임아웃은 넉넉히 준다.
     http_timeout_sec: float = 30.0
 
-    # 텔레그램은 공개 API 가 없다. 개인 계정으로 로그인해서 채널을 읽는 방식뿐이다.
+    # 네이버 뉴스 검색(NAVER API HUB). 증권 리서치와 달리 인증 키가 필요하다.
+    # backend 에서 뉴스 수집을 옮겨 오면서 키도 같이 옮겼다(services/news/naver.py).
+    naver_client_id: str = ""
+    naver_client_secret: str = ""
+
+    # 수집 범위 파일(core/scope.py). 비워 두면 ai/collection_scope.toml 을 읽는다.
+    collection_scope_file: str | None = None
+
+    # 첨부 PDF 수집은 MTProto 계정 로그인을 쓴다. 공개 채널 미리보기 수집에는 필요 없다.
     #
     # ⚠️ telegram_session 은 API 키가 아니라 **로그인된 계정 그 자체**다.
     #    이게 유출되면 그 계정으로 채팅을 읽고 메시지를 보내고 그룹을 나갈 수 있다.

@@ -16,7 +16,7 @@ KST = timezone(timedelta(hours=9))
 
 
 def box(post: str, *, time: str | None = None, text: str | None = None,
-        author: str | None = None, views: str | None = None, doc: str | None = None) -> str:
+        author: str | None = None, doc: str | None = None) -> str:
     """가짜 메시지 HTML 한 칸. 텔레그램 웹 미리보기의 실제 구조와 같다(parse.py 맨 위 참고)."""
     parts = [f'<div class="tgme_widget_message js-widget_message" data-post="{post}">']
     if author:
@@ -25,8 +25,6 @@ def box(post: str, *, time: str | None = None, text: str | None = None,
         parts.append(f'<div class="tgme_widget_message_document_title">{doc}</div>')
     if text is not None:
         parts.append(f'<div class="tgme_widget_message_text js-message_text">{text}</div>')
-    if views:
-        parts.append(f'<span class="tgme_widget_message_views">{views}</span>')
     if time:
         parts.append(f'<a class="tgme_widget_message_date"><time datetime="{time}">.</time></a>')
     parts.append("</div>")
@@ -40,7 +38,7 @@ def page(*boxes: str) -> str:
 
 def test_message_fields_are_read_as_shown() -> None:
     html = page(box(
-        "skitteam/105", time="2026-09-30T01:00:00+00:00", author="한동희", views="1.2K",
+        "skitteam/105", time="2026-09-30T01:00:00+00:00", author="한동희",
         text='[SK증권] 삼성전자가 <b>HBM</b>을 공개했다<br/>기사: '
              '<a href="https://buly.kr/abc">https://buly.kr/abc</a>',
     ))
@@ -51,7 +49,6 @@ def test_message_fields_are_read_as_shown() -> None:
     assert message.url == "https://t.me/skitteam/105"
     assert message.posted_at == datetime(2026, 9, 30, 10, 0, tzinfo=KST), "UTC → KST"
     assert message.author == "한동희"
-    assert message.views == "1.2K"
     # 굵은 글씨 앞뒤에서 끊지 않는다. 줄은 <br> 에서만 나뉜다
     assert message.text == "[SK증권] 삼성전자가 HBM을 공개했다\n기사: https://buly.kr/abc"
     assert message.links == ["https://buly.kr/abc"]
@@ -123,6 +120,48 @@ def test_time_without_timezone_is_not_trusted() -> None:
     """시간대가 없으면 UTC 인지 KST 인지 모른다. 컷오프가 9시간 틀어질 바에는 모른다고 둔다."""
     [message] = parse_page(page(box("ch/1", time="2026-09-30T10:00:00", text="글")), "ch")
     assert message.posted_at is None
+
+
+def _meta_box(post: str, meta_inner: str) -> str:
+    """메타 줄이 있는 메시지 칸. skitteam 실제 페이지(2026-10-05)의 모양 그대로다."""
+    return (f'<div class="tgme_widget_message" data-post="{post}">'
+            '<div class="tgme_widget_message_text">글</div>'
+            f'<span class="tgme_widget_message_meta">{meta_inner}'
+            '<a class="tgme_widget_message_date"><time datetime="2026-10-01T23:43:30+00:00">'
+            '23:43</time></a></span></div>')
+
+
+def test_edited_mark_is_read_from_the_meta_line_only() -> None:
+    edited, plain, author_named_edited = parse_page(page(
+        _meta_box("ch/3", '<span class="tgme_widget_message_from_author">홍길동</span>,'
+                          "\xa0edited \xa0"),
+        _meta_box("ch/2", '<span class="tgme_widget_message_from_author">홍길동</span>,\xa0'),
+        # 서명 글자에 edited 가 들어 있어도 고친 글이 아니다
+        _meta_box("ch/1", '<span class="tgme_widget_message_from_author">edited desk</span>,\xa0'),
+    ), "ch")
+
+    assert edited.edited is True
+    assert plain.edited is False
+    assert author_named_edited.edited is False
+
+
+def test_forwarded_post_keeps_the_original_channel() -> None:
+    """다른 채널 글을 전달한 것은 원래 채널과 원글 주소를 남긴다. 운영자가 쓴 글과 나누려는 것이다.
+
+    KISGregKim 실제 페이지(2026-10-05)의 모양 그대로다. 채널 이름은 가짜다.
+    """
+    forwarded, own = parse_page(page(
+        '<div class="tgme_widget_message" data-post="ch/2">'
+        '<div class="tgme_widget_message_forwarded_from accent_color">Forwarded from '
+        '<a class="tgme_widget_message_forwarded_from_name" href="https://t.me/other_ch/908">'
+        '<span dir="auto">다른 채널</span></a></div>'
+        '<div class="tgme_widget_message_text">전달한 글</div></div>',
+        box("ch/1", time="2026-09-30T01:00:00+00:00", text="직접 쓴 글"),
+    ), "ch")
+
+    assert (forwarded.forwarded_from, forwarded.forwarded_from_url) == (
+        "다른 채널", "https://t.me/other_ch/908")
+    assert (own.forwarded_from, own.forwarded_from_url) == (None, None)
 
 
 # ── 페이지 넘기기 ─────────────────────────────────────────────

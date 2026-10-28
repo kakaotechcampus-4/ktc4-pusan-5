@@ -1,5 +1,11 @@
 """
 모든 근거 카드가 들어오는 단일 테이블.
+
+구조 변경은 ai/alembic 이 한다(0022). ai/ 가 이 표를 공통 자료 목록으로 쓰면서
+news_id·analyst_report_id·telegram_message_id 와 "종류별 원문 하나" 제약을 더했다.
+card_type 이 news·pdf·message 인 카드는 ai/ 수집기가 만들고 원문은 FK 로 따라가 읽는다.
+backend 는 migrations/env.py 에서 이 표를 비교하지 않는다. 여기서 마이그레이션을 만들지 않는다.
+이 모델은 report_citation 이 FK 로 가리키고 행을 읽는 데 필요한 칼럼만 둔다.
 """
 from datetime import UTC, date, datetime
 

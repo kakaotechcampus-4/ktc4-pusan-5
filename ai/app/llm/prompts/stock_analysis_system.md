@@ -43,7 +43,7 @@ JSON 하나를 받습니다.
 }
 
 <메시지> = { "id": "<m1, m2 … messages 칸에만 붙는다>",
-             "channel": "", "url": "", "datetime_kst": "", "views": "", "text": "", "match": "direct|indirect",
+             "channel": "", "url": "", "datetime_kst": "", "text": "", "match": "direct|indirect",
              "kind": "", "after_prev_close": <true | false>, "first_seen_kst": "<시각 | null>",
              "dup_channels": <숫자> }
 ```
