@@ -1,8 +1,21 @@
 """본문 실패 사유를 종류로 나누는 규칙. 재시도 대상 선정이 이 판별 하나에 기댄다."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
-from app.services.news.failure import failure_kind, http_error, is_retryable
+from app.services.news.failure import failure_kind, http_error, is_retryable, retry_due
+
+
+@pytest.mark.parametrize("error", ["http_error: 429", "http_429"])
+def test_rate_limit_waits_one_hour(error):
+    mock_now = datetime(2026, 10, 28, tzinfo=UTC)
+    assert not retry_due(error, mock_now, now=mock_now)
+    assert not retry_due(error, mock_now - timedelta(minutes=59), now=mock_now)
+    assert retry_due(error, mock_now - timedelta(hours=1), now=mock_now)
+    assert retry_due(error, None, now=mock_now)
+    assert retry_due("http_error: 503", mock_now, now=mock_now)
+    assert not retry_due("http_error: 404", None, now=mock_now)
 
 
 @pytest.mark.parametrize(("body_error", "kind"), [

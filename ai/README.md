@@ -150,6 +150,11 @@ uv run python -m app.collectors.news_channels --dry-run        # DB 에 쓰지 �
 uv run python -m app.collectors.news_channels --jsonl          # JSONL 파일 사본도 쓴다 (data/telegram/)
 ```
 
+실패 판정과 재시도 시점은 `app/services/news/failure.py`에서 공유한다. 영구 실패는 다시
+열지 않고, 429는 마지막 본문 요청 시각부터 최소 한 시간을 기다린다. 시각이 없는 기존 행은
+한 번 더 확인한다. 현재 대기는 기사별 정책이며 `Retry-After` 헤더나 호스트 전체 요청량을
+관리하는 기능은 아니다. DNS 조회 장애는 일시 실패로 남겨 재시도를 허용한다.
+
 모두 `collection_scope.toml` 의 범위 안에서만 돈다(아래 "데이터 이용 제한"). 범위 밖의
 검색어·채널은 거부하고, 기간 밖의 자료와 수집량 상한을 넘는 새 자료는 받지 않는다.
 네이버 검색은 `.env` 에 `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` 이 있어야 한다.

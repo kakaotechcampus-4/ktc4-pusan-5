@@ -15,9 +15,13 @@ HTTP 오류는 `http_error: 404` 로 적는다. 예전 네이버 행의 `http_40
 """
 
 import re
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 FailureKind = Literal["permanent", "rate_limited", "transient", "extract", "unknown"]
+
+# 429는 다음 실행에서도 바로 재요청하지 않는다. 기존 수집 시각을 사용하므로 스키마 변경은 없다.
+RATE_LIMIT_COOLDOWN = timedelta(hours=1)
 
 # 4xx 중 다시 요청하면 될 수 있는 것. 408 요청 시간 초과, 425 너무 이른 요청. 429 는 따로 본다.
 _RETRYABLE_4XX = frozenset({408, 425})
@@ -62,3 +66,19 @@ def failure_kind(body_error: str | None) -> FailureKind:
 def is_retryable(body_error: str | None) -> bool:
     """다시 열어 볼 만한 실패인가. 영구 실패만 뺀다."""
     return failure_kind(body_error) != "permanent"
+
+
+def retry_due(
+    body_error: str | None, fetched_at: datetime | None, *, now: datetime | None = None,
+) -> bool:
+    """재시도 가능한 실패 중 지금 요청할 것. 시각 없는 기존 행은 한 번 더 확인한다.
+
+    429는 마지막 시도에서 최소 한 시간을 기다린다. Retry-After 헤더를 저장하지 않는
+    현재 구조의 기본 대기 정책이며, 호스트 전체의 요청량 제한을 대신하지 않는다.
+    """
+    kind = failure_kind(body_error)
+    if kind == "permanent":
+        return False
+    if kind == "rate_limited" and fetched_at is not None:
+        return (now or datetime.now(UTC)) - fetched_at >= RATE_LIMIT_COOLDOWN
+    return True

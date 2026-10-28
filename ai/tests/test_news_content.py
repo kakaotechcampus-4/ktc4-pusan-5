@@ -1,11 +1,38 @@
 """backend tests/test_content.py 에서 옮겨 왔다. 뉴스 수집은 이제 ai/ 가 맡는다."""
 
+import socket
+
 import httpx
 import pytest
 import respx
 
 from app.services.news.content import fetch_body
+from app.services.news.failure import failure_kind
 from app.services.news_link.fetch import MAX_HTML_BYTES
+
+
+async def test_dns_failure_remains_retryable(monkeypatch):
+    from app.services.news_link import fetch
+
+    async def mock_resolve(host):
+        raise socket.gaierror(socket.EAI_AGAIN, "mock temporary DNS failure")
+
+    def mock_handler(request):
+        pytest.fail("DNS failure must stop before HTTP")
+
+    monkeypatch.setattr(fetch, "resolve_host", mock_resolve)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        body, error = await fetch_body(client, "https://example.com/news")
+    assert body is None
+    assert error == "request_failed: gaierror"
+    assert failure_kind(error) == "transient"
+
+
+async def test_invalid_url_does_not_abort_collection():
+    async with httpx.AsyncClient() as client:
+        body, error = await fetch_body(client, "https://example.com:invalid/news")
+    assert body is None
+    assert failure_kind(error) == "permanent"
 
 
 @respx.mock

@@ -40,7 +40,7 @@ from app.repositories.scope import collection_locks, count_collected
 from app.repositories.source_card import register_missing_sources
 from app.services.news import naver
 from app.services.news.content import attach_bodies
-from app.services.news.failure import is_retryable
+from app.services.news.failure import retry_due
 from app.services.news.schema import NewsItem
 from app.services.news.url import canonical_url
 
@@ -107,13 +107,15 @@ def select_items(
     return kept
 
 
-def needs_body(article: KnownArticle | None) -> bool:
+def needs_body(article: KnownArticle | None, *, now: datetime | None = None) -> bool:
     """본문을 요청할 기사인가. 새 기사이거나, 다시 열어 볼 만한 실패 기사만이다.
 
     이미 본문이 있거나(ok) 지웠거나(purged) 404 같은 영구 실패면 열지 않는다. 그런 기사도
     저장 단계에는 넘겨서 비어 있던 발행 시각·제목·요약을 채운다.
     """
-    return article is None or (article.status == "failed" and is_retryable(article.error))
+    return article is None or (
+        article.status == "failed" and retry_due(article.error, article.fetched_at, now=now)
+    )
 
 
 async def _known_and_collected(

@@ -56,9 +56,9 @@ async def fetch_body(client: httpx.AsyncClient, url: str) -> tuple[str | None, s
         return None, "blocked_address"
     except HtmlTooLargeError:
         return None, "too_large"
-    except (httpx.HTTPError, TimeoutError) as e:
+    except (httpx.HTTPError, OSError) as e:
         return None, f"request_failed: {type(e).__name__}"
-    except (OSError, ValueError):
+    except (httpx.InvalidURL, ValueError):
         return None, "request_failed: invalid_address"
     try:
         text = await asyncio.to_thread(_extract, decode_html(content, content_type), final_url)
