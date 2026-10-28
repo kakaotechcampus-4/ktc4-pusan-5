@@ -126,8 +126,16 @@ const GROUPS: Group[] = [
           ),
       },
       {
-        label: unavailable('BPS', '분기별 BPS 데이터가 아직 연동되지 않아 표시하지 않습니다.'),
-        render: () => <span className="num">{NO_VALUE}</span>,
+        label: (
+          <>
+            BPS <InfoTip description="주당순자산입니다. 해당 결산연월 기준입니다." />
+          </>
+        ),
+        render: (point) => (
+          <span className="num">
+            {typeof point.bps === 'number' ? `${formatPrice(point.bps)}원` : NO_VALUE}
+          </span>
+        ),
       },
       {
         label: unavailable(
