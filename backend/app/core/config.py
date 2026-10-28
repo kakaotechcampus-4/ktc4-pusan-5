@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     kis_app_secret: str = ""
     kis_env: str = "real"
     kis_api_base_url: str = "https://openapi.koreainvestment.com:9443"
+    # KIS 요청 사이 간격(초). 공식 한도는 계좌(앱키)당 초당 18건이지만 신규 신청 후 3일은 초당 3건이고,
+    # 실측으로는 1초 간격에서만 안정적이었다. 신규 제한이 풀리면 다시 측정해 줄인다.
+    kis_request_interval_seconds: float = Field(default=1.0, gt=0)
     fred_api_key: str = ""
     fred_api_base_url: str = "https://api.stlouisfed.org/fred"
     krx_auth_key: str = ""
