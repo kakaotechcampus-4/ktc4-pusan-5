@@ -36,8 +36,14 @@ class DartError(Exception):
 
     reason 은 news.body_error 와 같은 형식(`http_error: 503`, `dart_status: 020` …)이고,
     kind 로 영구·요청 과다·일시 실패를 가른다(services/news/failure.py). 재시도는 하지 않는다.
-    HTTP 200 인데 JSON 객체가 아니면(점검 HTML·잘린 응답) `invalid_response: …` 다. 무엇이
-    왔는지 몰라 kind 는 unknown 이다.
+    HTTP 200 인데 응답을 믿을 수 없으면 `invalid_response: <어디가>` 다. 무엇이 왔는지 몰라
+    kind 는 unknown 이다.
+        not_json          JSON 이 아니다(점검 HTML·잘린 응답)
+        not_object        JSON 이지만 객체가 아니다(배열·문자열 등)
+        status            status 가 없거나 문자열이 아니다
+        total_page        성공인데 쪽 수가 숫자가 아니거나 지금 쪽보다 작다
+        list              성공인데 list 가 객체 목록이 아니다
+        disclosure        공시 행의 필드가 없거나 형식이 다르다(parse_list 실패)
     """
 
     def __init__(self, message: str, *, reason: str | None = None) -> None:
@@ -97,14 +103,28 @@ async def _page(client: httpx.AsyncClient, key: str, day: date, page_no: int) ->
         reason = "invalid_response: not_json"
         raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason) from e
     if not isinstance(body, dict):
-        reason = f"invalid_response: {type(body).__name__}"
+        reason = "invalid_response: not_object"
         raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
     status = body.get("status")
+    if not isinstance(status, str) or not status:
+        reason = "invalid_response: status"
+        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
     if status == _STATUS_EMPTY:
         return {"list": [], "total_page": 0}
     if status != _STATUS_OK:
         # 키를 메시지에 남기지 않는다
         reason = f"{dart_status(status)} ({body.get('message')})"
+        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
+    # 성공인데 쪽 수가 없으면 1쪽에서 멈춰 나머지 쪽을 빠뜨린다. 쪽 수는 정수나 숫자 문자열이고
+    # 지금 쪽 이상이어야 한다. bool 은 int 의 하위형이라, "²" 는 isdigit 이 참이라 따로 막는다.
+    total = body.get("total_page")
+    if (isinstance(total, bool) or not isinstance(total, (int, str))
+            or (not str(total).isascii() or not str(total).isdigit()) or int(total) < page_no):
+        reason = "invalid_response: total_page"
+        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
+    rows = body.get("list")
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        reason = "invalid_response: list"
         raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
     return body
 
@@ -120,6 +140,12 @@ async def fetch_day(day: date) -> list[Disclosure]:
             total = int(body.get("total_page") or 0)
             if total > MAX_PAGES:
                 raise DartError(f"{day}: 쪽 수가 비정상이다 ({total})")
-            items.extend(parse_list(body.get("list", [])))
+            try:
+                parsed = parse_list(body["list"])
+            except (KeyError, TypeError, ValueError, AttributeError) as e:
+                # 외부 필드 값은 오류 메시지에 넣지 않는다.
+                reason = "invalid_response: disclosure"
+                raise DartError(f"{day:%Y%m%d} p{page_no}: {reason}", reason=reason) from e
+            items.extend(parsed)
             page_no += 1
     return items
