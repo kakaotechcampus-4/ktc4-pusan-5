@@ -19,7 +19,15 @@ from app.services.market_data import (
     build_market_context,
     groups_of,
 )
-from app.services.market_data.context import common_base, is_common, prev_market_cap
+from app.services.market_data import context
+from app.services.market_data.context import (
+    KOSPI_FOLLOW_THRESHOLD_PP,
+    common_base,
+    group_relation,
+    is_common,
+    kospi_relation,
+    prev_market_cap,
+)
 from app.services.market_data.krx import _index_row, _stock_row
 
 FIXTURES = Path(__file__).parent / "fixtures" / "market_data"
@@ -107,6 +115,109 @@ def test_real_rows_samsung() -> None:
     assert k.kospi_weight_pct == round(weight * 100, 2)
     assert k.kospi_contribution_pp == round(4.23 * weight, 3)
     assert k.kospi_ex_self_change_rate_pct == round((3.09 - 4.23 * weight) / (1 - weight), 2)
+    # 비중이 fixture 기준 48.77%(실제 28%대)라 어느 쪽이든 자기 제외 코스피로 판정한다
+    assert k.kospi_basis == "kospi_ex_self"
+    assert k.excess_vs_kospi_ex_self_pp == 2.23
+    assert k.kospi_relation == "diverges"
+
+
+def test_real_rows_kb_judged_against_kospi() -> None:
+    """KB금융: 비중 fixture 기준 2.04%(실제는 더 작다) → 코스피 그대로. 0.27 − 3.09 = −2.82%p."""
+    k = build_market_context("105560", DAY, KOSPI, STOCKS).kospi
+
+    assert k.kospi_weight_pct == 2.04
+    assert k.kospi_basis == "kospi"
+    assert k.excess_vs_kospi_pp == -2.82
+    assert k.kospi_relation == "diverges"
+
+
+# --- 코스피 판정 -------------------------------------------------------------------------------
+
+SCALE = 1_000_000  # 시총이 정수라 비중(%)을 이만큼 키워 전일 시총으로 쓴다
+
+
+def _kospi_ctx(target_rate: float, kospi_rate: float, weight_pct: float, *,
+               code: str = "000010", target_volume: int = 1000):
+    """대상과 보합 종목 000020 둘뿐인 시장. 대상의 전일 시총 비중이 weight_pct 가 되게 맞춘다."""
+    prev = round(weight_pct * SCALE)
+    target = stock(code, round(prev * (1 + target_rate / 100)), target_rate, volume=target_volume)
+    rest = stock("000020", round(100 * SCALE) - prev, 0.0)
+    return build_market_context(code, DAY, kospi(kospi_rate), [target, rest],
+                                groups={}, stock_groups={})
+
+
+@pytest.mark.parametrize(("weight_pct", "shown", "basis"), [
+    (10.00, 10.00, "kospi_ex_self"),  # 경계: 정확히 10% 는 자기 제외
+    (9.99, 9.99, "kospi"),
+    (9.996, 10.00, "kospi_ex_self"),  # 반올림한 비중(보이는 숫자)으로 가른다
+])
+def test_kospi_basis_by_weight(weight_pct: float, shown: float, basis: str) -> None:
+    k = _kospi_ctx(0.0, 0.0, weight_pct).kospi
+    assert k.kospi_weight_pct == shown
+    assert k.kospi_basis == basis
+
+
+# 아래 표의 경계 ±1.00 / ±1.01 은 KOSPI_FOLLOW_THRESHOLD_PP = 1.0 기준이다
+@pytest.mark.parametrize(("target_rate", "kospi_rate", "weight_pct", "vs_kospi", "vs_ex_self", "relation"), [
+    # 비중 9.99% → 코스피 대비로 판정. 자기 제외 초과분(1.11)은 기준을 넘어도 보지 않는다
+    (2.00, 1.00, 9.99, 1.00, 1.11, "follows"),  # 경계: 정확히 +1.00%p
+    (0.00, 1.00, 9.99, -1.00, -1.11, "follows"),  # 경계: 정확히 −1.00%p
+    (2.01, 1.00, 9.99, 1.01, 1.12, "diverges"),
+    (-0.01, 1.00, 9.99, -1.01, -1.12, "diverges"),
+    # 비중 20% → 자기 제외 = (코스피 − 0.2 × 종목) / 0.8. 코스피 대비(0.8 안팎)는 보지 않는다
+    (2.00, 1.200, 20.0, 0.80, 1.00, "follows"),  # 경계: 자기 제외 1.00% → +1.00%p
+    (0.00, 0.800, 20.0, -0.80, -1.00, "follows"),  # 경계: −1.00%p
+    (2.01, 1.202, 20.0, 0.81, 1.01, "diverges"),
+    (-0.01, 0.798, 20.0, -0.81, -1.01, "diverges"),
+])
+def test_kospi_relation(
+    target_rate: float, kospi_rate: float, weight_pct: float,
+    vs_kospi: float, vs_ex_self: float, relation: str,
+) -> None:
+    assert KOSPI_FOLLOW_THRESHOLD_PP == 1.0
+    k = _kospi_ctx(target_rate, kospi_rate, weight_pct).kospi
+    assert k.excess_vs_kospi_pp == vs_kospi
+    assert k.excess_vs_kospi_ex_self_pp == vs_ex_self
+    assert k.kospi_relation == relation
+
+
+def test_kospi_and_group_thresholds_are_separate(monkeypatch: pytest.MonkeyPatch) -> None:
+    """코스피 판정은 KOSPI_FOLLOW_THRESHOLD_PP, 그룹 판정은 GROUP_FOLLOW_THRESHOLD_PP 만 본다."""
+    monkeypatch.setattr(context, "KOSPI_FOLLOW_THRESHOLD_PP", 0.5)
+    assert kospi_relation(0.80) == "diverges"
+    assert group_relation(0.80, 2) == "follows"
+
+    monkeypatch.setattr(context, "KOSPI_FOLLOW_THRESHOLD_PP", 1.0)
+    monkeypatch.setattr(context, "GROUP_FOLLOW_THRESHOLD_PP", 0.5)
+    assert kospi_relation(0.80) == "follows"
+    assert group_relation(0.80, 2) == "diverges"
+
+
+def test_kospi_relation_judges_the_rounded_excess() -> None:
+    """2.14 − 1.14 는 float 로 1.0000000000000002 다. 보이는 숫자(1.00)대로 follows 여야 한다."""
+    assert 2.14 - 1.14 > 1.0
+    k = _kospi_ctx(2.14, 1.14, 1.0).kospi
+    assert k.kospi_basis == "kospi"
+    assert k.excess_vs_kospi_pp == 1.00
+    assert k.kospi_relation == "follows"
+
+
+def test_preferred_stock_is_judged_against_kospi() -> None:
+    """우선주는 비중이 없어(분모 밖) 코스피 그대로 비교한다. 시총이 아무리 커도 마찬가지다."""
+    k = _kospi_ctx(3.00, 1.00, 50.0, code="000015").kospi
+    assert k.kospi_weight_pct is None
+    assert k.kospi_basis == "kospi"
+    assert k.excess_vs_kospi_pp == 2.00
+    assert k.kospi_relation == "diverges"
+
+
+@pytest.mark.parametrize(("weight_pct", "basis"), [(20.0, "kospi_ex_self"), (5.0, "kospi")])
+def test_kospi_relation_none_when_target_has_no_trades(weight_pct: float, basis: str) -> None:
+    """거래정지면 어느 기준이든 초과분이 없어 판정하지 않는다. 기준은 비중대로 남긴다."""
+    k = _kospi_ctx(0.0, 3.00, weight_pct, target_volume=0).kospi
+    assert k.kospi_basis == basis
+    assert k.excess_vs_kospi_pp is None and k.excess_vs_kospi_ex_self_pp is None
+    assert k.kospi_relation is None
 
 
 # --- 동종 그룹 ---------------------------------------------------------------------------------
@@ -251,6 +362,7 @@ def test_no_trades_target_has_no_excess_or_contribution() -> None:
     assert k.kospi_contribution_pp is None
     assert k.kospi_ex_self_change_rate_pct is None and k.excess_vs_kospi_ex_self_pp is None
     assert k.kospi_weight_pct is not None  # 비중은 거래와 관계없이 있다
+    assert k.kospi_relation is None
     [peer] = ctx.peers
     assert peer.avg_change_rate_pct is not None  # 그룹 평균은 낸다
     assert peer.excess_vs_group_pp is None

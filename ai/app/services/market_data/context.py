@@ -62,6 +62,12 @@ CONTRIBUTION_DECIMALS = 3
 # 그룹 대비 초과분이 이 안(경계 포함)이면 그룹 흐름을 따라갔다고 본다 (%p).
 # 반올림한 excess_vs_group_pp 로 판정한다. 보고서에 보이는 숫자와 판정이 어긋나지 않게 하려는 것이다.
 GROUP_FOLLOW_THRESHOLD_PP = 1.0
+# 코스피 대비 초과분(kospi_basis 쪽)이 이 안(경계 포함)이면 시장 흐름을 따라갔다고 본다 (%p).
+# 그룹 판정처럼 반올림한 초과분으로 판정한다.
+KOSPI_FOLLOW_THRESHOLD_PP = 1.0
+# 코스피 비중이 이 이상(%)이면 자기 제외 코스피 대비 초과분으로 판정한다. 코스피 등락률에 자기 몫이
+# 크게 섞여 있어서다. 같은 이유로 반올림한 kospi_weight_pct 로 가른다.
+KOSPI_EX_SELF_WEIGHT_PCT = 10.0
 
 
 async def fetch_market_context(client: httpx.AsyncClient, code: str, bas_dd: date) -> MarketContext:
@@ -112,14 +118,20 @@ def kospi_comparison(stock: StockDaily, kospi: IndexDaily, stocks: list[StockDai
         ex_self = (kospi.change_rate - contribution) / (1 - weight)  # %
         excess_ex_self = stock.change_rate - ex_self  # %p
 
+    excess_pp = move.excess_rate if move else None
+    weight_pct = _round(weight * 100 if weight is not None else None, RATE_DECIMALS)
+    excess_ex_self_pp = _round(excess_ex_self, RATE_DECIMALS)
+    basis = kospi_basis(weight_pct)
     return KospiComparison(
         stock_change_rate_pct=stock.change_rate,
         kospi_change_rate_pct=kospi.change_rate,
-        excess_vs_kospi_pp=move.excess_rate if move else None,
-        kospi_weight_pct=_round(weight * 100 if weight is not None else None, RATE_DECIMALS),
+        excess_vs_kospi_pp=excess_pp,
+        kospi_weight_pct=weight_pct,
         kospi_contribution_pp=_round(contribution, CONTRIBUTION_DECIMALS),
         kospi_ex_self_change_rate_pct=_round(ex_self, RATE_DECIMALS),
-        excess_vs_kospi_ex_self_pp=_round(excess_ex_self, RATE_DECIMALS),
+        excess_vs_kospi_ex_self_pp=excess_ex_self_pp,
+        kospi_basis=basis,
+        kospi_relation=kospi_relation(excess_ex_self_pp if basis == "kospi_ex_self" else excess_pp),
         common_prev_market_cap_krw=round(base),
         kospi_recomputed_change_rate_pct=round(recomputed, CONTRIBUTION_DECIMALS),
         weight_basis=WEIGHT_BASIS,
@@ -180,6 +192,20 @@ def group_relation(
     if abs(excess_pp) <= GROUP_FOLLOW_THRESHOLD_PP:
         return "follows"
     return "diverges" if peer_count >= 2 else "inconclusive"
+
+
+def kospi_basis(weight_pct: float | None) -> Literal["kospi", "kospi_ex_self"]:
+    """코스피 판정에 쓸 초과분. 비중이 없으면(보통주가 아니면) 코스피와 그대로 비교한다."""
+    if weight_pct is not None and weight_pct >= KOSPI_EX_SELF_WEIGHT_PCT:
+        return "kospi_ex_self"
+    return "kospi"
+
+
+def kospi_relation(excess_pp: float | None) -> Literal["follows", "diverges"] | None:
+    """코스피 비교 판정. 초과분이 없으면(거래정지) 판정하지 않는다."""
+    if excess_pp is None:
+        return None
+    return "follows" if abs(excess_pp) <= KOSPI_FOLLOW_THRESHOLD_PP else "diverges"
 
 
 def is_common(code: str) -> bool:

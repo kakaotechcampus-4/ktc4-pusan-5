@@ -89,6 +89,14 @@ class KospiComparison(BaseModel):
     # 이 종목을 뺀 나머지 시장의 등락률 (%) = (코스피 − 기여도) / (1 − 비중)
     kospi_ex_self_change_rate_pct: float | None
     excess_vs_kospi_ex_self_pp: float | None  # 종목 − 자기 제외 코스피 (%p)
+    # 판정에 쓴 초과분
+    # kospi_ex_self  kospi_weight_pct ≥ KOSPI_EX_SELF_WEIGHT_PCT. excess_vs_kospi_ex_self_pp 로 판정한다
+    # kospi          그 밖(비중이 없는 우선주 포함). excess_vs_kospi_pp 로 판정한다
+    kospi_basis: Literal["kospi", "kospi_ex_self"]
+    # follows   kospi_basis 초과분의 |값| ≤ KOSPI_FOLLOW_THRESHOLD_PP. 시장 흐름을 따라갔다
+    # diverges  기준 초과. 시장과 크게 달랐다
+    # None      초과분이 없다(대상이 거래정지)
+    kospi_relation: Literal["follows", "diverges"] | None
     # 비중의 분모. 보통주 전 종목의 전일 시총 합(역산) (원)
     common_prev_market_cap_krw: int
     # 보통주 전 종목 등락률을 전일 시총으로 가중해 다시 계산한 코스피 등락률 (%).

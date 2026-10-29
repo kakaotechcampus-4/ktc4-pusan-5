@@ -93,7 +93,9 @@ async def test_market_context_latest_business_day() -> None:
         k = ctx.kospi
         print(f"{ctx.name} {k.stock_change_rate_pct}% | 비중 {k.kospi_weight_pct}%"
               f" 기여도 {k.kospi_contribution_pp}%p | 자기 제외 코스피 {k.kospi_ex_self_change_rate_pct}%"
-              f" 초과분 {k.excess_vs_kospi_ex_self_pp}%p")
+              f" 초과분 {k.excess_vs_kospi_ex_self_pp}%p | {k.kospi_basis} 기준 {k.kospi_relation}")
+        # 실제 분모로 본 비중: 삼성전자 28%대, KB금융 1%대
+        assert k.kospi_basis == ("kospi_ex_self" if code == SAMSUNG else "kospi")
         for peer in ctx.peers:
             print(f"  {peer.group}: 평균 {peer.avg_change_rate_pct}% 초과분 {peer.excess_vs_group_pp}%p"
                   f" (쓴 종목 {peer.members_used})")
