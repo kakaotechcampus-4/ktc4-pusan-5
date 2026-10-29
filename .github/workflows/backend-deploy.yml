@@ -38,7 +38,13 @@ jobs:
           DEPLOY_SHA: ${{ github.sha }}
         run: |
           # 트리거된 커밋(SHA)을 그대로 서버에 올린다. git pull은 그 사이 들어온 최신 커밋을 끌어올 수 있다.
-          COMMAND="cd /home/ubuntu/ktc4-pusan-5&& git fetch origin ${DEPLOY_SHA} && git reset --hard ${DEPLOY_SHA} && docker compose up -d --build"
+          # --wait-timeout 은 아직 정하지 않았다. 서버에서 up --wait 소요 시간을 측정한 뒤 그 값을 근거로 추가한다.
+          # 그 전까지는 아래 폴링 루프의 상한(10분)이 전체 대기 시간을 제한한다.
+          # 측정용: 빌드와 up --wait 를 나누고 up --wait 의 시작/종료 시각을 stdout 에 남긴다. (\$ 는 서버 셸에서 평가)
+          # 실패해도 종료 시각과 exit code 를 출력한 뒤 원래 exit code 로 끝낸다.
+          # SSM은 root로 실행되어 ubuntu 소유 저장소에서 git이 'dubious ownership'으로 거부한다(HOME도 비어 있어 전역 safe.directory가 안 먹는다).
+          # 저장소 소유자인 ubuntu로 실행해 소유권 불일치 자체를 없앤다. 안쪽 \$ 는 ubuntu 셸에서 평가된다.
+          COMMAND="sudo -H -u ubuntu bash -c 'cd /home/ubuntu/ktc4-pusan-5 && git fetch origin ${DEPLOY_SHA} && git reset --hard ${DEPLOY_SHA} && docker compose build && echo up-wait-start: \$(date +%T) && docker compose up -d --wait; RC=\$?; echo up-wait-end: \$(date +%T) rc=\$RC; exit \$RC'"
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
@@ -50,20 +56,23 @@ jobs:
           echo "CommandId: $COMMAND_ID"
 
           # send-command는 '요청 접수'만 의미한다. 서버에서 실제 실행이 끝날 때까지 기다린다.
-          # 명령이 실패하면 wait가 비정상 종료하므로, 로그를 먼저 출력할 수 있게 코드를 받아둔다.
-          WAIT_RC=0
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" \
-            --instance-id "$INSTANCE_ID" \
-            --region ap-northeast-2 || WAIT_RC=$?
-
-          STATUS=$(aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id "$INSTANCE_ID" \
-            --region ap-northeast-2 \
-            --query "Status" \
-            --output text)
-          echo "status: $STATUS (wait exit code: $WAIT_RC)"
+          # `aws ssm wait command-executed` 는 약 100초(5초 x 20회)만 기다리고 포기한다.
+          # 빌드 + up --wait(healthcheck 대기)는 그보다 길 수 있어 직접 폴링한다.
+          STATUS=""
+          for _ in $(seq 1 120); do
+            # 전송 직후에는 invocation 이 아직 없어 조회가 실패할 수 있다.
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --region ap-northeast-2 \
+              --query "Status" \
+              --output text 2>/dev/null || echo "Pending")
+            case "$STATUS" in
+              Pending|InProgress|Delayed) sleep 5 ;;
+              *) break ;;
+            esac
+          done
+          echo "status: $STATUS"
 
           echo "----- stdout -----"
           aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
