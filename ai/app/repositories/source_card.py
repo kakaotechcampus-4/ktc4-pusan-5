@@ -19,6 +19,7 @@
 **기준 시각(cutoff)을 주면 그 뒤에 받은 본문은 주지 않는다.** stock_card_ids 는 자료가 기준
 시각 전에 공개됐는지를 보지만, 본문은 나중에 받았을 수 있다. 10시 기사를 18시에 받았다면
 14시 기준 보고서에 그 본문을 쓸 수 없다 — 14시 당시와 같았다는 보장이 없다.
+요약은 cutoff 를 주면 늘 뺀다. 나중에 채우거나 덮어쓰는데 그 시각을 남기지 않는다.
 """
 
 from dataclasses import dataclass, field
@@ -439,7 +440,9 @@ class SourceRecord:
     body_status: str | None  # 원문 표의 상태 값 그대로 (기사 ok|failed|purged, PDF ok|empty|...)
     body_error: str | None
     body_fetched_at: datetime | None  # 본문을 받은 시각
-    summary: str | None  # 네이버가 준 요약. 본문 아님
+    # 요약. 본문 아님. 기사·네이버 리포트는 네이버가 준 것, 텔레그램 리포트는 생성한 것
+    # (collectors/summary.py). get_sources 에 cutoff 를 주면 늘 None
+    summary: str | None
     body: str | None = None  # 저장된 정제 본문. 네이버 기사는 최대 3000자. include_body=True만
     edited: bool | None = None  # 메시지만: 수정 표시가 있었다
     edit_detected_at: datetime | None = None  # 메시지만: 다시 수집했을 때 본문이 달랐던 첫 시각
@@ -578,7 +581,10 @@ async def get_sources(
 
     cutoff 는 보고서 기준 시각이다. 주면 그 뒤에 받은 본문은 없는 것으로 보고 사유를
     not_observed_at_cutoff 로 적는다. stock_card_ids 에 준 until 과 같은 값을 넘긴다.
+    cutoff 는 시간대가 있어야 한다. 요약은 관측 시각이 없어 cutoff 지정 시 항상 제외한다.
     """
+    if cutoff is not None and cutoff.utcoffset() is None:
+        raise ValueError("cutoff must be timezone-aware")
     cards = {
         card.id: card
         for card in (
@@ -654,6 +660,9 @@ async def get_sources(
             continue  # 원문 표를 가리키지 않는 카드(backend 의 다른 종류)
         if cutoff is not None:
             _hide_unobserved_body(record, cutoff)
+            # 요약은 본문과 따로 나중에 채우거나 덮어쓰고(news.summary·analyst_reports.summary_text)
+            # 그 시각을 남기지 않는다. 기준 시각 당시의 요약이라고 할 수 없다.
+            record.summary = None
         record.discoveries = found.get((record.kind, record.raw_id), [])
         records.append(record)
     return records

@@ -407,3 +407,26 @@ def test_card_ids_for_urls_matches_messages_and_canonical_news(database):
         "https://t.me/skitteam/1": ids["message1"],
         "https://NEWS.example.com/a/1?utm_source=tg": ids["news1"],
     }
+
+
+@pytest.mark.parametrize("mock_include_body", [True, False])
+def test_cutoff_excludes_unversioned_summaries_even_without_body(database, mock_include_body):
+    alembic(database, "upgrade", "head")
+    seed(database)
+    query(database, "UPDATE news SET summary = 'later summary'")
+    query(database, "UPDATE analyst_reports SET summary_text = 'later PDF summary', body_text = NULL")
+    register(database)
+    mock_ids = _card_ids(database)
+    mock_wanted = [mock_ids["news1"], mock_ids["pdf1"]]
+    mock_records = in_session(database, lambda s: get_sources(
+        s, mock_wanted, cutoff=FETCHED, include_body=mock_include_body))
+    assert all(record.summary is None for record in mock_records)
+    assert mock_records[0].has_body  # 기준 시각과 정확히 같은 시각에 받은 본문은 허용한다.
+    assert mock_records[0].body == ("기사 본문 전체" if mock_include_body else None)
+    mock_current = in_session(database, lambda s: get_sources(s, mock_wanted))
+    assert [record.summary for record in mock_current] == ["later summary", "later PDF summary"]
+
+
+async def test_get_sources_rejects_cutoff_without_timezone_before_querying():
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await get_sources(None, [], cutoff=FETCHED.replace(tzinfo=None))

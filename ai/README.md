@@ -262,7 +262,9 @@ uv run python -m app.collectors.sources show 12 --body   # 본문 앞부분까�
 보고서용으로 읽을 때는 `cutoff=기준시각` 도 준다(`stock_card_ids` 의 `until` 과 같은 값).
 자료가 기준 시각 전에 공개됐어도 본문은 나중에 받았을 수 있다. 본문을 받은 시각
 (`body_fetched_at`, 메시지는 수집 시각)이 기준 시각보다 늦거나 비어 있으면 본문을 빼고
-제목·주소·시각만 준다.
+제목·주소·시각만 준다. `cutoff` 는 시간대가 있는 datetime 이어야 한다.
+요약(`summary`)은 본문과 별도로 나중에 보완·갱신될 수 있고 관측 시각이 없으므로,
+`cutoff` 를 지정한 조회에서는 항상 제외한다. `cutoff` 가 없으면 기존처럼 요약을 준다.
 
 | body_missing_reason | 뜻 |
 |---|---|
