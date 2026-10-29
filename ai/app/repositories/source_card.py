@@ -15,6 +15,10 @@
 **본문은 요청할 때만 준다(include_body).** 원문은 팀 내부의 분류·검증에만 쓴다.
 출처·시각·본문 유무와 없는 사유는 늘 주고, 본문이 필요한
 코드는 include_body=True 를 적는다. 그래야 원문을 읽는 곳을 코드에서 찾을 수 있다.
+
+**기준 시각(cutoff)을 주면 그 뒤에 받은 본문은 주지 않는다.** stock_card_ids 는 자료가 기준
+시각 전에 공개됐는지를 보지만, 본문은 나중에 받았을 수 있다. 10시 기사를 18시에 받았다면
+14시 기준 보고서에 그 본문을 쓸 수 없다 — 14시 당시와 같았다는 보장이 없다.
 """
 
 from dataclasses import dataclass, field
@@ -429,6 +433,8 @@ class SourceRecord:
     #   empty            글자 없이 첨부만 올린 메시지
     #   not_collected    본문을 받지 않는 자료 (공시는 목록만 저장한다)
     #   purged: ...      보관 정책으로 지웠다. 재분류·과거 결과 검증에 쓸 수 없다
+    #   not_observed_at_cutoff: ...  본문은 있지만 기준 시각 이후에 받았다(또는 받은 시각을
+    #                    모른다). get_sources 에 cutoff 를 줬을 때만
     body_missing_reason: str | None
     body_status: str | None  # 원문 표의 상태 값 그대로 (기사 ok|failed|purged, PDF ok|empty|...)
     body_error: str | None
@@ -518,6 +524,19 @@ def _disclosure_record(card: SourceCard, disclosure: DartDisclosure) -> SourceRe
     )
 
 
+def _hide_unobserved_body(record: SourceRecord, cutoff: datetime) -> None:
+    """기준 시각 이후에 받은 본문을 뺀다. 받은 시각을 모르는 본문도 뺀다 — 이전이라고 할 수 없다.
+
+    제목·주소·시각 같은 메타데이터는 남긴다. 원래 본문이 없던 자료는 그 사유를 그대로 둔다.
+    """
+    fetched = record.body_fetched_at
+    if not record.has_body or (fetched is not None and fetched <= cutoff):
+        return
+    when = f"{fetched.astimezone(KST):%Y-%m-%d %H:%M} KST" if fetched else "받은 시각 미상"
+    record.has_body, record.body = False, None
+    record.body_missing_reason = f"not_observed_at_cutoff: 기준 시각 이후 받은 본문 ({when})"
+
+
 async def _discoveries(session: AsyncSession, condition) -> list[tuple]:
     """(링크 행, 메시지, 채널, 메시지 카드 id, 대상 카드 id) 를 메시지 게시 순으로."""
     message_card = select(SourceCard.id).where(
@@ -548,13 +567,17 @@ def _discovery(link, message, channel, message_card_id, target_card_id) -> Disco
 
 
 async def get_sources(
-    session: AsyncSession, card_ids: list[int], *, include_body: bool = False
+    session: AsyncSession, card_ids: list[int], *, include_body: bool = False,
+    cutoff: datetime | None = None,
 ) -> list[SourceRecord]:
     """공통 ID 들로 원문을 읽는다. 결과는 넘긴 순서대로이고, 없는 ID 는 빠진다.
 
     본문은 include_body=True 일 때만 담는다(맨 위 설명). 본문이 없으면 그 사유를
     body_missing_reason 에 늘 담는다. 기사·PDF 는 그것을 공유한 텔레그램 메시지들을, 메시지는
     그 메시지가 건 링크·첨부를 discoveries 에 담는다.
+
+    cutoff 는 보고서 기준 시각이다. 주면 그 뒤에 받은 본문은 없는 것으로 보고 사유를
+    not_observed_at_cutoff 로 적는다. stock_card_ids 에 준 until 과 같은 값을 넘긴다.
     """
     cards = {
         card.id: card
@@ -629,6 +652,8 @@ async def get_sources(
             record = _disclosure_record(card, disclosures[card.dart_disclosure_id])
         else:
             continue  # 원문 표를 가리키지 않는 카드(backend 의 다른 종류)
+        if cutoff is not None:
+            _hide_unobserved_body(record, cutoff)
         record.discoveries = found.get((record.kind, record.raw_id), [])
         records.append(record)
     return records

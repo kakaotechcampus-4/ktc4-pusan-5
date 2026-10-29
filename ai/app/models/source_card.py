@@ -118,6 +118,7 @@ class SourceCard(Base):
     # 모르면 NULL 이다. 수집 시각으로 대신 채우지 않는다. 날짜는 event_date(KST)에도 적는다 —
     # 시각을 모르는 네이버 리포트는 event_date 에 작성일만, 공시는 접수일만 있다.
     # 본문을 언제 받았는지(기준 시각 이후 수정이 섞였는지)는 원문 표의 body_fetched_at 이 말한다.
+    # 기준 시각 이후에 받은 본문은 get_sources(cutoff=) 가 뺀다.
     available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

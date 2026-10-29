@@ -358,6 +358,38 @@ def test_get_sources_reports_the_public_time(database):
     assert record.available_at == datetime(2026, 10, 5, 1, 0, tzinfo=UTC)
 
 
+def test_get_sources_hides_bodies_fetched_after_the_cutoff(database):
+    """기준 시각 전에 공개된 자료라도 본문을 그 뒤에 받았으면 당시 본문이라는 보장이 없다."""
+    alembic(database, "upgrade", "head")
+    seed(database)
+    register(database)
+    ids = _card_ids(database)
+    wanted = [ids["news1"], ids["pdf2"], ids["message1"]]
+
+    def read(cutoff, include_body=True):
+        return in_session(database, lambda s: get_sources(
+            s, wanted, include_body=include_body, cutoff=cutoff))
+
+    # 기사 본문은 FETCHED 에 받았다. 텔레그램 PDF 는 받은 시각이 비어 있고, 메시지는 지금 수집했다
+    news, pdf, message = read(FETCHED + timedelta(hours=1))
+    assert (news.has_body, news.body, news.body_missing_reason) == (True, "기사 본문 전체", None)
+    assert (pdf.has_body, pdf.body) == (False, None)
+    assert pdf.body_missing_reason == "not_observed_at_cutoff: 기준 시각 이후 받은 본문 (받은 시각 미상)"
+    assert (message.has_body, message.body) == (False, None)
+    assert message.body_missing_reason.startswith("not_observed_at_cutoff: ")
+    assert (message.title, message.url) == (None, "https://t.me/skitteam/1"), "메타데이터는 남긴다"
+
+    [news, *_] = read(FETCHED - timedelta(hours=1))
+    assert (news.has_body, news.body) == (False, None)
+    assert news.body_missing_reason == (
+        "not_observed_at_cutoff: 기준 시각 이후 받은 본문 (2026-10-05 11:00 KST)")
+    assert news.title == "삼성전자 HBM"
+
+    # 본문을 요청하지 않아도 유무와 사유는 같은 판단을 따른다
+    [news, *_] = read(FETCHED - timedelta(hours=1), include_body=False)
+    assert not news.has_body and news.body_missing_reason.startswith("not_observed_at_cutoff: ")
+
+
 def test_card_ids_for_urls_matches_messages_and_canonical_news(database):
     from app.repositories.source_card import card_ids_for_urls
 
