@@ -82,6 +82,10 @@ async def test_fetch_day_raises_on_error_status_without_leaking_key(key):
      "dart_status: 800 (시스템 점검으로 인한 서비스가 중지 중입니다.)", "transient"),
     (httpx.Response(404), "http_error: 404", "permanent"),
     (httpx.Response(503), "http_error: 503", "transient"),
+    # 200 인데 JSON 객체가 아니다. 무엇이 왔는지 몰라 unknown 이다
+    (httpx.Response(200, text="<html>점검 중</html>"), "invalid_response: not_json", "unknown"),
+    (httpx.Response(200, text='{"status": "000", "li'), "invalid_response: not_json", "unknown"),
+    (httpx.Response(200, json=[]), "invalid_response: list", "unknown"),
 ])
 async def test_fetch_day_classifies_failures_like_news(key, response, reason, kind):
     respx.get(LIST_URL).mock(return_value=response)

@@ -36,6 +36,8 @@ class DartError(Exception):
 
     reason 은 news.body_error 와 같은 형식(`http_error: 503`, `dart_status: 020` …)이고,
     kind 로 영구·요청 과다·일시 실패를 가른다(services/news/failure.py). 재시도는 하지 않는다.
+    HTTP 200 인데 JSON 객체가 아니면(점검 HTML·잘린 응답) `invalid_response: …` 다. 무엇이
+    왔는지 몰라 kind 는 unknown 이다.
     """
 
     def __init__(self, message: str, *, reason: str | None = None) -> None:
@@ -89,7 +91,14 @@ async def _page(client: httpx.AsyncClient, key: str, day: date, page_no: int) ->
     except httpx.HTTPError as e:
         reason = f"request_failed: {type(e).__name__}"
         raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason) from e
-    body = resp.json()
+    try:
+        body = resp.json()
+    except ValueError as e:  # JSONDecodeError·UnicodeDecodeError 둘 다 ValueError 다
+        reason = "invalid_response: not_json"
+        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason) from e
+    if not isinstance(body, dict):
+        reason = f"invalid_response: {type(body).__name__}"
+        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
     status = body.get("status")
     if status == _STATUS_EMPTY:
         return {"list": [], "total_page": 0}
