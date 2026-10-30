@@ -10,6 +10,19 @@
     stock_card_ids             종목 하나의 자료 중 기준 시각 이전에 나온 것의 공통 ID
     card_ids_for_urls          출처 주소 → 공통 ID (보고서 출처를 원문에 이을 때)
 
+시각 이름. 자료마다 남은 시각이 달라 무엇을 무엇과 비교하는지 섞이기 쉽다.
+    cutoff           보고서가 몇 시 시점을 기준으로 만들어지는가(기준 시각). stock_card_ids 의
+                     until 과 같은 값이다. 이 시각에 알 수 없던 것은 보고서에 쓰지 않는다
+    available_at     자료가 공개돼 있었다고 확인된 가장 이른 시각(source_card). 자료를 고를 때
+                     cutoff 와 비교한다(stock_card_ids)
+    published_at     원문이 밝힌 발행 시각(기사)·게시 시각(메시지). 모르면 비어 있다
+    write_date       PDF 작성일·공시 접수일. 시각 없이 날짜만 있다
+    collected_at     수집기가 원문 행을 처음 저장한 시각. 공시는 처음 본 시각(first_seen_at)
+    body_fetched_at  우리가 본문을 받은 시각. 발행 시각이 아니다 — 글은 나온 뒤에도 고쳐지므로
+                     저장된 본문이 언제 것인지는 이 값만 말한다. 본문을 쓸지 정할 때 cutoff 와
+                     비교한다(get_sources). 메시지는 처음 받은 글을 바꾸지 않아 collected_at 이다.
+                     본문이 없으면 비어 있다
+
 카드에는 원문을 복제하지 않는다. 원 발행처(source_name)와 채널만 적고 본문은 FK 로 읽는다.
 
 **본문은 요청할 때만 준다(include_body).** 원문은 팀 내부의 분류·검증에만 쓴다.
@@ -424,8 +437,9 @@ class SourceRecord:
     channel: str | None  # 텔레그램에서 온 자료의 채널
     published_at: datetime | None  # 기사 발행 시각·메시지 게시 시각. 모르면 None
     write_date: date | None  # PDF 작성일·공시 접수일 (시각이 없다)
-    collected_at: datetime | None
-    # 공개돼 있었다고 확인된 가장 이른 시각(source_card.available_at). 기준 시각 판단에 쓴다
+    collected_at: datetime | None  # 원문 행을 처음 저장한 시각. 공시는 first_seen_at
+    # 공개돼 있었다고 확인된 가장 이른 시각(source_card.available_at). 자료를 고를 때 기준
+    # 시각과 비교한다(stock_card_ids)
     available_at: datetime | None
     has_body: bool  # 본문이 있는가 (include_body 와 상관없이 알려준다)
     # 본문이 없으면 그 사유. 있으면 None.
@@ -439,7 +453,9 @@ class SourceRecord:
     body_missing_reason: str | None
     body_status: str | None  # 원문 표의 상태 값 그대로 (기사 ok|failed|purged, PDF ok|empty|...)
     body_error: str | None
-    body_fetched_at: datetime | None  # 본문을 받은 시각
+    # 우리가 본문을 받은 시각. 발행 시각 아님. 메시지는 collected_at. 본문을 쓸 때 기준 시각과
+    # 비교한다(_hide_after_cutoff)
+    body_fetched_at: datetime | None
     # 요약. 본문 아님. 기사·네이버 리포트는 네이버가 준 것, 텔레그램 리포트는 생성한 것
     # (collectors/summary.py). get_sources 에 cutoff 를 주면 늘 None
     summary: str | None
@@ -586,8 +602,8 @@ async def get_sources(
     그 메시지가 건 링크·첨부를 discoveries 에 담는다.
 
     cutoff 는 보고서 기준 시각이다. 주면 그 뒤에 받은 본문은 없는 것으로 보고 사유를
-    not_observed_at_cutoff 로 적는다. stock_card_ids 에 준 until 과 같은 값을 넘긴다.
-    cutoff 는 시간대가 있어야 한다. 요약은 관측 시각이 없어 cutoff 지정 시 항상 제외한다.
+    not_observed_at_cutoff 로 적고, 요약은 늘 뺀다(규칙은 _hide_after_cutoff). stock_card_ids 에
+    준 until 과 같은 값을 넘긴다. cutoff 는 시간대가 있어야 한다.
     """
     if cutoff is not None and cutoff.utcoffset() is None:
         raise ValueError("cutoff must be timezone-aware")
