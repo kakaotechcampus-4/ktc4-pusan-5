@@ -90,7 +90,25 @@ def parse_list(rows: list[dict]) -> list[Disclosure]:
     return items
 
 
-async def _page(client: httpx.AsyncClient, key: str, day: date, page_no: int) -> dict:
+def _read_page(body: dict, at: str, page_no: int) -> tuple[int, list[dict]]:
+    """성공(000) 응답 본문의 형식을 검사해 (쪽 수, 공시 행) 으로."""
+    # 성공인데 쪽 수가 없으면 1쪽에서 멈춰 나머지 쪽을 빠뜨린다. 쪽 수는 정수나 숫자 문자열이고
+    # 지금 쪽 이상이어야 한다. bool 은 int 의 하위형이라, "²" 는 isdigit 이 참이라 따로 막는다.
+    total = body.get("total_page")
+    if (isinstance(total, bool) or not isinstance(total, (int, str))
+            or (not str(total).isascii() or not str(total).isdigit())
+            or not page_no <= int(total) <= MAX_PAGES):
+        raise _invalid(at, "total_page")
+    rows = body.get("list")
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise _invalid(at, "list")
+    return int(total), rows
+
+
+async def _page(
+    client: httpx.AsyncClient, key: str, day: date, page_no: int,
+) -> tuple[int, list[dict]]:
+    """한 쪽을 받아 (쪽 수, 공시 행) 으로. 전송과 DART 상태 코드를 보고, 본문 형식은 _read_page 가 본다."""
     ymd = day.strftime("%Y%m%d")
     at = f"{ymd} p{page_no}"
     params = {
@@ -118,21 +136,11 @@ async def _page(client: httpx.AsyncClient, key: str, day: date, page_no: int) ->
     if not isinstance(status, str) or not status:
         raise _invalid(at, "status")
     if status == _STATUS_EMPTY:
-        return {"list": [], "total_page": 0}
+        return 0, []
     if status != _STATUS_OK:
         # 키를 메시지에 남기지 않는다
         raise _error(at, f"{dart_status(status)} ({body.get('message')})")
-    # 성공인데 쪽 수가 없으면 1쪽에서 멈춰 나머지 쪽을 빠뜨린다. 쪽 수는 정수나 숫자 문자열이고
-    # 지금 쪽 이상이어야 한다. bool 은 int 의 하위형이라, "²" 는 isdigit 이 참이라 따로 막는다.
-    total = body.get("total_page")
-    if (isinstance(total, bool) or not isinstance(total, (int, str))
-            or (not str(total).isascii() or not str(total).isdigit())
-            or not page_no <= int(total) <= MAX_PAGES):
-        raise _invalid(at, "total_page")
-    rows = body.get("list")
-    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
-        raise _invalid(at, "list")
-    return body
+    return _read_page(body, at, page_no)
 
 
 async def fetch_day(day: date) -> list[Disclosure]:
@@ -142,10 +150,9 @@ async def fetch_day(day: date) -> list[Disclosure]:
     async with httpx.AsyncClient(timeout=settings.http_timeout_sec) as client:
         page_no, total = 1, 1
         while page_no <= total:
-            body = await _page(client, key, day, page_no)
-            total = int(body.get("total_page") or 0)
+            total, rows = await _page(client, key, day, page_no)
             try:
-                parsed = parse_list(body["list"])
+                parsed = parse_list(rows)
             except (KeyError, TypeError, ValueError, AttributeError) as e:
                 # 외부 필드 값은 오류 메시지에 넣지 않는다.
                 raise _invalid(f"{day:%Y%m%d} p{page_no}", "disclosure") from e
