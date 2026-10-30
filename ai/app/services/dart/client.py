@@ -44,6 +44,9 @@ class DartError(Exception):
         total_page        성공인데 쪽 수가 숫자가 아니거나 지금 쪽보다 작다
         list              성공인데 list 가 객체 목록이 아니다
         disclosure        공시 행의 필드가 없거나 형식이 다르다(parse_list 실패)
+
+    메시지는 `<위치>: <reason>` 이다. 위치는 날짜·쪽(`20261008 p2`)이다. 외부 필드 값은
+    넣지 않는다.
     """
 
     def __init__(self, message: str, *, reason: str | None = None) -> None:
@@ -53,6 +56,15 @@ class DartError(Exception):
     @property
     def kind(self) -> FailureKind:
         return failure_kind(self.reason)
+
+
+def _error(at: str, reason: str) -> DartError:
+    return DartError(f"{at}: {reason}", reason=reason)
+
+
+def _invalid(at: str, where: str) -> DartError:
+    """HTTP 200 인데 응답을 믿을 수 없다. where 는 DartError 의 표에 있는 이름이다."""
+    return _error(at, f"invalid_response: {where}")
 
 
 def parse_list(rows: list[dict]) -> list[Disclosure]:
@@ -80,6 +92,7 @@ def parse_list(rows: list[dict]) -> list[Disclosure]:
 
 async def _page(client: httpx.AsyncClient, key: str, day: date, page_no: int) -> dict:
     ymd = day.strftime("%Y%m%d")
+    at = f"{ymd} p{page_no}"
     params = {
         "crtfc_key": key,
         "bgn_de": ymd,
@@ -92,40 +105,32 @@ async def _page(client: httpx.AsyncClient, key: str, day: date, page_no: int) ->
         resp = await client.get(LIST_URL, params=params)
         resp.raise_for_status()
     except httpx.HTTPStatusError as e:
-        reason = http_error(e.response.status_code)
-        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason) from e
+        raise _error(at, http_error(e.response.status_code)) from e
     except httpx.HTTPError as e:
-        reason = f"request_failed: {type(e).__name__}"
-        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason) from e
+        raise _error(at, f"request_failed: {type(e).__name__}") from e
     try:
         body = resp.json()
     except ValueError as e:  # JSONDecodeError·UnicodeDecodeError 둘 다 ValueError 다
-        reason = "invalid_response: not_json"
-        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason) from e
+        raise _invalid(at, "not_json") from e
     if not isinstance(body, dict):
-        reason = "invalid_response: not_object"
-        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
+        raise _invalid(at, "not_object")
     status = body.get("status")
     if not isinstance(status, str) or not status:
-        reason = "invalid_response: status"
-        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
+        raise _invalid(at, "status")
     if status == _STATUS_EMPTY:
         return {"list": [], "total_page": 0}
     if status != _STATUS_OK:
         # 키를 메시지에 남기지 않는다
-        reason = f"{dart_status(status)} ({body.get('message')})"
-        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
+        raise _error(at, f"{dart_status(status)} ({body.get('message')})")
     # 성공인데 쪽 수가 없으면 1쪽에서 멈춰 나머지 쪽을 빠뜨린다. 쪽 수는 정수나 숫자 문자열이고
     # 지금 쪽 이상이어야 한다. bool 은 int 의 하위형이라, "²" 는 isdigit 이 참이라 따로 막는다.
     total = body.get("total_page")
     if (isinstance(total, bool) or not isinstance(total, (int, str))
             or (not str(total).isascii() or not str(total).isdigit()) or int(total) < page_no):
-        reason = "invalid_response: total_page"
-        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
+        raise _invalid(at, "total_page")
     rows = body.get("list")
     if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
-        reason = "invalid_response: list"
-        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
+        raise _invalid(at, "list")
     return body
 
 
@@ -144,8 +149,7 @@ async def fetch_day(day: date) -> list[Disclosure]:
                 parsed = parse_list(body["list"])
             except (KeyError, TypeError, ValueError, AttributeError) as e:
                 # 외부 필드 값은 오류 메시지에 넣지 않는다.
-                reason = "invalid_response: disclosure"
-                raise DartError(f"{day:%Y%m%d} p{page_no}: {reason}", reason=reason) from e
+                raise _invalid(f"{day:%Y%m%d} p{page_no}", "disclosure") from e
             items.extend(parsed)
             page_no += 1
     return items
