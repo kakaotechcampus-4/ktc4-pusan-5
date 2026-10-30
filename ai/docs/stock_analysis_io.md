@@ -171,6 +171,11 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
   그 응답을 함께 쓰고 종목마다 계산만 따로 한다. 동시에 들어온 같은 날 보고서도 같은 호출을 기다린다.
 - **실패해도 보고서는 만든다.** KRX 호출 실패·응답 깨짐·`KRX_AUTH_KEY` 없음·계산 불가면 칸이 `null` 이고 사유는 래퍼
   `market_compare_error` 에 남는다. 실패도 기준일마다 한 번만 시도하고 그 날 보고서 모두 같은 사유를 쓴다.
+- **예상 밖 예외도 실행을 멈추지 않는다.** 시장 맥락에서 난 예외는 종류와 상관없이 여기서 멈춘다 — KRX 응답 처리에서 났으면 그
+  날짜 보고서 모두, 종목별 계산·입력 덮어쓰기에서 났으면 그 보고서만 시장 맥락 실패다(칸 `null`, 입력 등락률 그대로).
+  예상한 실패(`market_compare.EXPECTED_ERRORS` — `RuntimeError`·`ValueError`, `KrxError` 등 포함)가 아니면
+  (`AttributeError`·`ZeroDivisionError`·`KeyError` …) 래퍼 `market_compare_unexpected: true`, traceback 이 붙은 ERROR 로그,
+  러너 요약의 「예상 밖 예외」 줄로 드러낸다. 코드 버그나 KRX 응답 모양이 바뀐 것이다.
 - 기준일 데이터가 없으면(당일·휴장일, KRX 는 T+1) 실패가 아니라 `status: "no_data"` 인 칸이 간다.
 - `null`·`no_data`·`stock_not_found`·`no_trades` 면 프롬프트 3단계 「비교 수치」가 비교 문장을 쓰지 않게 한다. 나머지는 그대로다.
 
@@ -410,7 +415,8 @@ LLM 을 부른다(`generate.needs_llm`).
 | `issue_trace` | 모델이 낸 이슈 목록 |
 | `move_case` / `judge_layers` / `common_move` / `move_strength_cap` / `market_led` / `move_comparison` | 러너가 계산한 값(`market` 이 null 이면 null). `move_case` 는 모델에 보내지 않는다 |
 | `main_cause_sentences` / `sector` / `universe_weight` | 모델 입력 맨 위·market 에 넣은 값(종목 표에 없으면 `sector`·`universe_weight` 는 null) |
-| `market_compare` / `market_compare_error` | 모델에 보낸 `market_compare` 칸과, KRX 호출·계산이 실패해 칸이 null 일 때 그 사유(`"KrxError: …"` 처럼 `<예외 이름>: <메시지>`). 성공·`no_data`·장 마감 전이면 사유는 null. `inputs/` 사본에는 이 칸이 없다 |
+| `market_compare` / `market_compare_error` | 모델에 보낸 `market_compare` 칸과, KRX 호출·계산·입력 덮어쓰기가 실패해 칸이 null 일 때 그 사유(`"KrxError: …"` 처럼 `<예외 이름>: <메시지>`). 성공·`no_data`·장 마감 전이면 사유는 null. `inputs/` 사본에는 이 칸이 없다 |
+| `market_compare_error_type` / `market_compare_unexpected` | 실패한 예외 이름(`"KrxError"`, `"AttributeError"` …, 실패가 아니면 null)과 그것이 예상 밖 예외(`RuntimeError`·`ValueError` 계열이 아님)인지(`true`/`false`) |
 | `market_compare_skipped` | 기준 시각이 장 마감(15:30) 전이라 시장 맥락을 넣지 않았으면 `"BEFORE_CLOSE"`, 그 밖 null |
 | `change_pct_override` | 장 마감 이후 시장 맥락이 ok 라 입력 등락률을 바꿨을 때 `{input, krx, source, peers, excess_pct}`, 그 밖 null. `source` 는 `"KRX /sto/stk_bydd_trd <target_date> FLUC_RT"`. `peers` 는 `{input: {peer_median_pct, peer_up, peer_down, peer_total}, krx: 같은 모양 \| null(쓸 종목 없음), excluded: [{code, reason}]}`, `excess_pct` 는 `{input, recomputed}`. 입력에 `peer_median_pct` 가 없어 다시 계산하지 않았으면 둘 다 null |
 
@@ -476,6 +482,8 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
   // 시장 맥락 status 별 보고서 수(나온 것만). before_close 는 장 마감 전이라 넣지 않음, failed 는 KRX 실패로 칸이 null
   "market_compare": { "before_close": 1, "failed": 1, "ok": 7 },
   "change_pct_overridden": 7,                        // 입력 change_pct 를 KRX 등락률로 바꾼 보고서 수
+  "market_compare_errors": { "AttributeError": 1 },  // 시장 맥락 실패의 예외 종류별 보고서 수
+  "market_compare_unexpected": 1,                    // 그중 예상 밖 예외인 보고서 수
   "issue_trace_messages": { "traced": 30, "total": 31 },
   "loaded": null                                     // --load 면 적재 건수
 }
@@ -483,6 +491,8 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
 
 보고서마다 찍는 줄 끝에 `issue_trace_warnings=… events_problems=… verify_warnings=…` 건수가 붙는다.
 끝에 `시장 맥락 (ok 밖은 비교 문장 없이 만듦): before_close=… ok=… · change_pct 를 KRX 등락률로 바꿈: …` 줄을 찍는다.
+실패가 있으면 `시장 맥락 실패 종류: KrxError=…` 줄이 붙고, 예상 밖 예외가 있으면 그 줄 끝에
+`· 예상 밖 예외 N건 — 로그의 traceback 을 확인한다` 가 붙는다.
 
 종료 코드: 호출 자체가 실패한 건(`errors`)이 있으면 1. 검증 실패는 데이터라 0.
 

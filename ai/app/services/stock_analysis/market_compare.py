@@ -39,6 +39,12 @@ fetch_market_context 는 부를 때마다 KRX 를 두 번 부른다(코스피 �
 status 가 no_data 인 칸이 그대로 간다. 어느 쪽이든 프롬프트 3단계 「비교 수치」가 코스피·그룹 비교 문장을 쓰지
 않게 한다. 나머지 보고서는 그대로 만든다.
 
+**어떤 예외든 여기서 멈춘다.** 시장 맥락은 보고서의 곁가지라 이 때문에 실행 전체(asyncio.gather)가 멈추면 안 된다.
+KRX 응답 처리에서 난 예외는 그 날짜의 실패(같은 날 보고서 모두), 종목별 계산·입력 덮어쓰기에서 난 예외는 그 보고서의
+실패다. 대신 묻히지 않게 예외 종류를 래퍼(market_compare_error_type)와 러너 요약에 남긴다. 예상한 실패
+(EXPECTED_ERRORS — KRX 호출 실패·응답 깨짐·키 없음은 RuntimeError, 등락률 빈 칸·보통주 0개는 ValueError)가 아니면
+market_compare_unexpected 를 켜고 traceback 과 함께 ERROR 로그를 남긴다. 코드 버그나 KRX 응답 모양 변화다.
+
 프롬프트 1부에 적힌 칸만 보낸다. 비중의 분모·재계산 코스피·weight_basis 는 검수용이라 모델에 보내지 않는다.
 members_used 는 코드만 있어서 그룹 정의(peer_groups)에서 이름을 붙인다.
 """
@@ -47,6 +53,7 @@ import asyncio
 import logging
 import statistics
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from datetime import date, datetime, time
 from typing import Any
 
@@ -76,6 +83,9 @@ BEFORE_CLOSE = "BEFORE_CLOSE"
 OVERRIDE_STATUS = "ok"
 # 다시 계산한 중간값·excess_pct 의 자리 수. 입력 등락률과 같은 소수 둘째 자리.
 RATE_DECIMALS = 2
+# 예상한 실패. MarketDataError(KRX 호출 실패·응답 깨짐)·키 없음은 RuntimeError, 등락률 빈 칸·보통주 0개는 ValueError 다.
+# 이 밖의 예외도 잡지만 예상 밖(market_compare_unexpected)으로 표시한다.
+EXPECTED_ERRORS = (RuntimeError, ValueError)
 
 # 프롬프트 1부 market_compare.kospi 의 칸. 순서도 프롬프트와 같다.
 KOSPI_KEYS = (
@@ -93,6 +103,29 @@ KOSPI_KEYS = (
 Day = tuple[IndexDaily | None, list[StockDaily]]
 
 
+@dataclass(frozen=True)
+class CompareFailure:
+    """시장 맥락 실패 하나. str 은 래퍼 market_compare_error 에 남기는 "<예외 이름>: <메시지>" 다."""
+
+    kind: str  # 예외 이름 (KrxError, AttributeError …)
+    message: str
+    unexpected: bool  # EXPECTED_ERRORS 밖의 예외
+
+    def __str__(self) -> str:
+        return f"{self.kind}: {self.message}"
+
+
+def _failure(exc: Exception, stage: str, code: Any, target_date: Any) -> CompareFailure:
+    """예외를 실패로 바꾸고 로그를 남긴다. 예상 밖이면 traceback 과 함께 ERROR 다."""
+    failure = CompareFailure(type(exc).__name__, str(exc), not isinstance(exc, EXPECTED_ERRORS))
+    if failure.unexpected:
+        logger.error("시장 맥락 %s 에서 예상 밖 예외, 비교 없이 만든다 (%s %s): %s", stage, code, target_date, failure,
+                     exc_info=exc)
+    else:
+        logger.warning("시장 맥락을 못 읽어 비교 없이 만든다 (%s %s): %s", code, target_date, failure)
+    return failure
+
+
 class MarketCompare:
     """실행 하나의 market_compare 칸을 만든다. 기준일별 KRX 응답을 실행이 끝날 때까지 들고 있는다."""
 
@@ -101,39 +134,50 @@ class MarketCompare:
         self._days: dict[date, asyncio.Task[Day]] = {}
 
     async def apply(self, payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-        """(모델에 보낼 입력, 래퍼에 남길 칸). 받은 payload 는 바꾸지 않는다.
+        """(모델에 보낼 입력, 래퍼에 남길 칸). 받은 payload 는 바꾸지 않는다. 예외를 올리지 않는다.
 
-        래퍼 칸: market_compare(보낸 칸), market_compare_error(칸이 null 인 실패 사유), market_compare_skipped
-        (장 마감 전이면 BEFORE_CLOSE), change_pct_override(KRX 로 덮어썼으면 원래 값과 출처).
+        래퍼 칸: market_compare(보낸 칸), market_compare_error(칸이 null 인 실패 사유)·market_compare_error_type
+        (예외 이름)·market_compare_unexpected(예상 밖 예외인가), market_compare_skipped(장 마감 전이면 BEFORE_CLOSE),
+        change_pct_override(KRX 로 덮어썼으면 원래 값과 출처).
         """
         fields: dict[str, Any] = {"market_compare": None, "market_compare_error": None,
+                                  "market_compare_error_type": None, "market_compare_unexpected": False,
                                   "market_compare_skipped": None, "change_pct_override": None}
         if not after_close(payload):
             fields["market_compare_skipped"] = BEFORE_CLOSE
             return {**payload, "market_compare": None}, fields
-        compare, fields["market_compare_error"] = await self(payload)
-        fields["market_compare"] = compare
+        compare, failure = await self(payload)
         out = {**payload, "market_compare": compare}
         if compare is not None and compare["status"] == OVERRIDE_STATUS:
-            _, stocks = await self._days[date.fromisoformat(payload["target_date"])]  # 이미 끝난 Task 다
-            out, fields["change_pct_override"] = override_change_pct(out, compare, stocks)
+            try:
+                _, stocks = await self._days[date.fromisoformat(payload["target_date"])]  # 이미 끝난 Task 다
+                out, fields["change_pct_override"] = override_change_pct(out, compare, stocks)
+            # 덮어쓰지 못했는데 칸만 보내면 입력 등락률과 KRX 등락률이 섞인다. 시장 맥락 전체를 실패로 돌린다
+            except Exception as exc:  # noqa: BLE001 — 시장 맥락 때문에 실행이 멈추면 안 된다. 종류는 래퍼에 남긴다
+                failure = _failure(exc, "입력 덮어쓰기", payload["code"], payload["target_date"])
+                compare, out = None, {**payload, "market_compare": None}
+        fields["market_compare"] = compare
+        if failure is not None:
+            fields.update(market_compare_error=str(failure), market_compare_error_type=failure.kind,
+                          market_compare_unexpected=failure.unexpected)
         return out, fields
 
-    async def __call__(self, payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
-        """(입력 칸, 실패 사유). 실패하면 (None, 사유), 아니면 (칸, None). 예외를 올리지 않는다."""
+    async def __call__(self, payload: dict[str, Any]) -> tuple[dict[str, Any] | None, CompareFailure | None]:
+        """(입력 칸, 실패). 실패하면 (None, 실패), 아니면 (칸, None). 예외를 올리지 않는다."""
         code, target_date = payload["code"], payload["target_date"]
         day = date.fromisoformat(target_date)
         if day not in self._days:
             self._days[day] = asyncio.create_task(self._fetch(day))
         try:
             kospi, stocks = await self._days[day]
-            ctx = build_market_context(str(code), day, kospi, stocks)
-        # MarketDataError(KRX 호출 실패·응답 깨짐)와 키 없음은 RuntimeError, 등락률 빈 칸·보통주 0개는 ValueError 다
-        except (RuntimeError, ValueError) as exc:
-            error = f"{type(exc).__name__}: {exc}"
-            logger.warning("시장 맥락을 못 읽어 비교 없이 만든다 (%s %s): %s", code, target_date, error)
-            return None, error
-        return to_input(ctx), None
+        # 그 날짜의 실패다. 같은 날 보고서는 모두 같은 Task 의 같은 예외를 받는다
+        except Exception as exc:  # noqa: BLE001 — 시장 맥락 때문에 실행이 멈추면 안 된다. 종류는 래퍼에 남긴다
+            return None, _failure(exc, "KRX 응답 처리", code, target_date)
+        try:
+            return to_input(build_market_context(str(code), day, kospi, stocks)), None
+        # 그 종목의 실패다. 같은 날 다른 종목은 계산한다
+        except Exception as exc:  # noqa: BLE001 — 위와 같다
+            return None, _failure(exc, "계산", code, target_date)
 
     async def _fetch(self, day: date) -> Day:
         """fetch_market_context 와 같은 두 호출. 코스피가 없는 날은 전 종목을 부르지 않는다."""

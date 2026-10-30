@@ -324,7 +324,30 @@ async def test_krx_failure_still_makes_every_report(fake_llm, krx, tmp_path, cap
     # 장 마감 전 입력(sample_flat, 11:00)은 KRX 를 부르지 않아 실패 사유가 없다
     assert wrappers.pop("sample_flat.json")["market_compare_error"] is None
     assert all(w["market_compare_error"].startswith("KrxError: KRX kospi_dd_trd") for w in wrappers.values())
-    assert "시장 맥락 (ok 밖은 비교 문장 없이 만듦): before_close=1, failed=8" in capsys.readouterr().out
+    assert all((w["market_compare_error_type"], w["market_compare_unexpected"]) == ("KrxError", False)
+               for w in wrappers.values())
+    assert (result["market_compare_errors"], result["market_compare_unexpected"]) == ({"KrxError": 8}, 0)
+    out = capsys.readouterr().out
+    assert "시장 맥락 (ok 밖은 비교 문장 없이 만듦): before_close=1, failed=8" in out
+    assert "시장 맥락 실패 종류: KrxError=8\n" in out  # 예상한 실패라 예상 밖 경고는 없다
+
+
+async def test_malformed_krx_response_does_not_stop_the_run(fake_llm, krx, tmp_path, capsys):
+    """KRX 응답 행이 객체가 아니면(AttributeError) 예상 밖 예외다. 그래도 실행은 끝까지 가고 9건 모두 만든다.
+    그 날짜 보고서는 비교 없이 가고, 래퍼·요약에 예외 종류와 예상 밖 표시가 남는다."""
+    krx.return_value = [None]
+
+    result = await collector.run(FIXTURES, out_root=tmp_path)
+
+    assert (result["total"], result["errors"]) == (9, 0)
+    assert result["market_compare"] == {"before_close": 1, "failed": 8}
+    assert (result["market_compare_errors"], result["market_compare_unexpected"]) == ({"AttributeError": 8}, 8)
+    wrappers = parsed(only_run_dir(tmp_path))
+    assert wrappers.pop("sample_flat.json")["market_compare_unexpected"] is False
+    assert all(w["market_compare_error_type"] == "AttributeError" and w["market_compare_unexpected"]
+               for w in wrappers.values())
+    assert ("시장 맥락 실패 종류: AttributeError=8 · 예상 밖 예외 8건 — 로그의 traceback 을 확인한다"
+            in capsys.readouterr().out)
 
 
 async def test_broken_events_are_recorded_apart_from_verify_status(monkeypatch, tmp_path):

@@ -159,10 +159,11 @@ async def test_failure_returns_null_with_reason(krx, exc) -> None:
     kospi, _ = krx
     kospi.side_effect = exc
 
-    compare, error = await mc.MarketCompare(object())(payload())
+    compare, failure = await mc.MarketCompare(object())(payload())
 
     assert compare is None
-    assert error == f"{type(exc).__name__}: {exc}"
+    assert str(failure) == f"{type(exc).__name__}: {exc}"
+    assert failure.kind == type(exc).__name__ and failure.unexpected is False  # 예상한 실패
 
 
 async def test_failure_is_tried_once_per_day(krx) -> None:
@@ -182,7 +183,7 @@ async def test_failure_is_tried_once_per_day(krx) -> None:
 
     assert [c.args[1] for c in kospi.await_args_list] == [DAY, date(2026, 10, 28)]
     assert [c for c, _ in same_day] == [None, None, None]
-    assert {e for _, e in same_day} == {"KrxError: KRX kospi_dd_trd 20261027 요청 실패: ReadTimeout: "}
+    assert {str(e) for _, e in same_day} == {"KrxError: KRX kospi_dd_trd 20261027 요청 실패: ReadTimeout: "}
     assert other_day["status"] == "no_data" and other_error is None
 
 
@@ -197,16 +198,64 @@ async def test_build_failure_affects_only_that_stock(krx) -> None:
     samsung, samsung_error = await compare_for(payload("005930"))
     kb, kb_error = await compare_for(payload("105560"))
 
-    assert samsung is None and samsung_error.startswith("ValueError: ")
+    assert samsung is None and str(samsung_error).startswith("ValueError: ")
     assert kb["status"] == "ok" and kb_error is None
 
 
-async def test_other_errors_are_not_swallowed(krx) -> None:
-    """코드 버그(TypeError 등)는 숨기지 않는다. KRX·계산 실패만 비교 없이 넘어간다."""
+@pytest.mark.parametrize("exc", [
+    AttributeError("'NoneType' object has no attribute 'get'"),  # KRX 응답 행이 객체가 아니다
+    TypeError("bug"),  # 코드 버그
+])
+async def test_unexpected_fetch_error_fails_that_day_and_is_marked(krx, exc, caplog) -> None:
+    """예상 밖 예외도 실행을 멈추지 않는다. 그 날짜 보고서는 모두 비교 없이 가고, 예상 밖으로 표시하고 ERROR 로 남긴다.
+    다른 날은 영향이 없다."""
     kospi, _ = krx
-    kospi.side_effect = TypeError("bug")
-    with pytest.raises(TypeError):
-        await mc.MarketCompare(object())(payload())
+
+    async def fail_on_day(client, day):
+        """2026-10-27 만 예외다. 다른 날은 데이터가 없는 날(None)이다."""
+        if day == DAY:
+            raise exc
+
+    kospi.side_effect = fail_on_day
+    compare_for = mc.MarketCompare(object())
+
+    with caplog.at_level("ERROR", logger=mc.__name__):
+        same_day = [await compare_for(payload(code)) for code in ("005930", "105560")]
+    other_day, other_failure = await compare_for(payload(target_date="2026-10-28"))
+
+    assert [c for c, _ in same_day] == [None, None]
+    assert {(f.kind, f.unexpected) for _, f in same_day} == {(type(exc).__name__, True)}
+    assert kospi.await_count == 2  # 실패한 날도 한 번만 부른다
+    assert "예상 밖 예외" in caplog.text and type(exc).__name__ in caplog.text
+    assert other_failure is None and other_day["status"] == "no_data"  # 다른 날은 따로 부른다
+
+
+async def test_unexpected_build_error_fails_only_that_stock(krx) -> None:
+    """보통주가 대상 하나뿐인 응답이면 비중이 100% 라 (1 − 비중) 으로 나누다 ZeroDivisionError 가 난다. 그 종목만 실패다."""
+    _, stocks = krx
+    kb = next(s for s in STOCKS if s.code == "105560")
+    stocks.return_value = [kb]
+    compare_for = mc.MarketCompare(object())
+
+    compare, failure = await compare_for(payload("105560"))
+
+    assert compare is None
+    assert failure.kind == "ZeroDivisionError" and failure.unexpected is True
+
+
+async def test_unexpected_override_error_drops_market_compare(krx, monkeypatch) -> None:
+    """입력 덮어쓰기에서 예외가 나면 시장 맥락 전체를 실패로 돌린다. 칸만 보내면 두 등락률이 섞인다."""
+    def broken(*args, **kwargs):
+        raise KeyError("peer_median_pct")
+
+    monkeypatch.setattr(mc, "universe_peers", broken)
+    original = report_input()
+
+    sent, fields = await mc.MarketCompare(object()).apply(original)
+
+    assert sent == {**original, "market_compare": None}
+    assert fields["market_compare"] is None and fields["change_pct_override"] is None
+    assert fields["market_compare_error_type"] == "KeyError" and fields["market_compare_unexpected"] is True
 
 
 # --- 기준 시각과 입력 등락률 ---------------------------------------------------------------------
@@ -233,8 +282,9 @@ async def test_before_close_skips_krx_and_keeps_input(krx) -> None:
 
     assert (kospi.await_count, stocks.await_count) == (0, 0)
     assert sent == {**original, "market_compare": None}
-    assert fields == {"market_compare": None, "market_compare_error": None,
-                      "market_compare_skipped": mc.BEFORE_CLOSE, "change_pct_override": None}
+    assert fields == {"market_compare": None, "market_compare_error": None, "market_compare_error_type": None,
+                      "market_compare_unexpected": False, "market_compare_skipped": mc.BEFORE_CLOSE,
+                      "change_pct_override": None}
 
 
 async def test_after_close_ok_overrides_change_pct_and_excess(krx) -> None:

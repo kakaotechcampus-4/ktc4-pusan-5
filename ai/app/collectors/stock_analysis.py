@@ -148,6 +148,13 @@ def count_market_compare(wrappers: list[dict[str, Any]]) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def count_market_compare_errors(wrappers: list[dict[str, Any]]) -> tuple[dict[str, int], int]:
+    """(시장 맥락 실패의 예외 종류별 보고서 수, 그중 예상 밖 예외인 보고서 수)."""
+    kinds: Counter[str] = Counter(w["market_compare_error_type"] for w in wrappers
+                                  if w.get("market_compare_error_type"))
+    return dict(sorted(kinds.items())), sum(bool(w.get("market_compare_unexpected")) for w in wrappers)
+
+
 def _assign_run_ids(payloads: list[dict[str, Any]]) -> list[str]:
     """같은 종목·날짜·기준시각이 두 번 들어오면 반복 번호로 가른다. 파일이 덮어써지면 안 된다."""
     seen: Counter[str] = Counter()
@@ -258,6 +265,7 @@ async def run(
     for w in wrappers:
         reasons.update(families_of(w["verify_problems"]))
     move_cases, opposite_with_counter = count_move_cases(wrappers)
+    compare_errors, compare_unexpected = count_market_compare_errors(wrappers)
     result = {
         "run_dir": str(run_dir),
         "total": len(wrappers),
@@ -286,6 +294,9 @@ async def run(
         "market_compare": count_market_compare(wrappers),
         # 입력 change_pct 를 KRX 등락률로 덮어쓴 보고서 수(장 마감 이후 시장 맥락 ok).
         "change_pct_overridden": sum(w.get("change_pct_override") is not None for w in wrappers),
+        # 시장 맥락 실패의 예외 종류별 보고서 수와, 그중 예상 밖 예외(코드 버그·KRX 응답 모양 변화)인 보고서 수.
+        "market_compare_errors": compare_errors,
+        "market_compare_unexpected": compare_unexpected,
         # issue_trace 에 오른 메시지 수 / 입력 메시지 수. issue_trace 가 있는 보고서만 더한다.
         "issue_trace_messages": {
             k: sum(w["issue_trace_stats"][f"messages_{k}"] for w in wrappers if w["issue_trace_stats"])
@@ -330,6 +341,9 @@ async def run(
     print("시장 맥락 (ok 밖은 비교 문장 없이 만듦): "
           + ", ".join(f"{s}={n}" for s, n in result["market_compare"].items())
           + f" · change_pct 를 KRX 등락률로 바꿈: {result['change_pct_overridden']}")
+    if compare_errors:
+        print("시장 맥락 실패 종류: " + ", ".join(f"{k}={n}" for k, n in compare_errors.items())
+              + (f" · 예상 밖 예외 {compare_unexpected}건 — 로그의 traceback 을 확인한다" if compare_unexpected else ""))
     return result
 
 
