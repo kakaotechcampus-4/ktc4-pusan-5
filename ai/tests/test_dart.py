@@ -172,10 +172,27 @@ async def test_fetch_day_normalizes_invalid_success_fields(key, mock_body, mock_
     assert mock_error.value.kind == "unknown"
 
 
-def test_parse_list_names_the_row_without_external_values():
+@pytest.mark.parametrize(("mock_row", "mock_field"), [
+    (raw(corp_name="비밀", report_nm=42), "report_nm"),
+    (raw(corp_name="비밀", rcept_dt="20261332"), "rcept_dt"),
+])
+def test_parse_list_names_the_row_and_field_without_external_values(mock_row, mock_field):
     with pytest.raises(DartError) as mock_error:
-        parse_list([raw(), raw(corp_name="비밀", report_nm=42)], at="20261008 p2")
-    assert str(mock_error.value) == "20261008 p2 row 1: invalid_response: disclosure"
+        parse_list([raw(), mock_row], at="20261008 p2")
+    assert str(mock_error.value) == (
+        f"20261008 p2 row 1 field {mock_field}: invalid_response: disclosure")
+
+
+@respx.mock
+async def test_fetch_day_does_not_report_code_bugs_as_invalid_response(key, monkeypatch):
+    # 응답은 정상이고 변환 코드가 실패한다. DART 문제(DartError)로 바뀌면 안 된다.
+    def mock_broken_disclosure(**fields):
+        raise TypeError("mock bug")
+
+    monkeypatch.setattr(dart, "Disclosure", mock_broken_disclosure)
+    respx.get(LIST_URL).mock(return_value=httpx.Response(200, json=page([raw()])))
+    with pytest.raises(TypeError, match="mock bug"):
+        await dart.fetch_day(DAY)
 
 
 @respx.mock

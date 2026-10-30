@@ -45,8 +45,8 @@ class DartError(Exception):
         list              성공인데 list 가 객체 목록이 아니다
         disclosure        공시 행의 필드가 없거나 형식이 다르다(parse_list)
 
-    메시지는 `<위치>: <reason>` 이다. 위치는 날짜·쪽(`20261008 p2`)이고 공시 행이면 몇째 행인지
-    붙인다. 외부 필드 값은 넣지 않는다.
+    메시지는 `<위치>: <reason>` 이다. 위치는 날짜·쪽(`20261008 p2`)이고 공시 행이면 몇째 행과
+    필드 이름을 붙인다(`20261008 p2 row 1 field report_nm`). 외부 필드 값은 넣지 않는다.
     """
 
     def __init__(self, message: str, *, reason: str | None = None) -> None:
@@ -73,12 +73,13 @@ def _text(row: dict, key: str, at: str, *, optional: bool = False) -> str:
     if optional and value is None:
         return ""
     if not isinstance(value, str):
-        raise _invalid(at, "disclosure")
+        raise _invalid(f"{at} field {key}", "disclosure")
     return value
 
 
 def _rcept_dt(value: str, at: str) -> date:
     """접수일 YYYYMMDD → date."""
+    at = f"{at} field rcept_dt"
     if len(value) != 8 or not value.isascii() or not value.isdigit():
         raise _invalid(at, "disclosure")
     try:
