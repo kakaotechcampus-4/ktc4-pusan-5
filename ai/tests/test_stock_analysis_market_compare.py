@@ -447,3 +447,46 @@ async def test_override_leaves_missing_index_change_pct(krx) -> None:
 def test_after_close_uses_late_close_day(cutoff: str, after: bool) -> None:
     assert mc.after_close({"target_date": cutoff[:10], "cutoff": cutoff}) is after
 
+
+# --- 공유 Task 취소와 실패 로그 ------------------------------------------------------------------
+
+
+async def test_cancelling_one_report_does_not_cancel_shared_day(krx) -> None:
+    """같은 날 보고서 하나가 취소돼도 기준일 Task 는 계속 돌고, 다른 보고서는 결과를 받는다."""
+    kospi, _ = krx
+    release = asyncio.Event()
+
+    async def slow_kospi(client, day):
+        await release.wait()
+        return KOSPI
+
+    kospi.side_effect = slow_kospi
+    compare_for = mc.MarketCompare(object())
+    cancelled = asyncio.create_task(compare_for(payload("005930")))
+    other = asyncio.create_task(compare_for(payload("105560")))
+    await asyncio.sleep(0)
+    cancelled.cancel()
+    await asyncio.sleep(0)
+    release.set()
+
+    compare, failure = await other
+    assert failure is None and compare["status"] == "ok"
+    assert cancelled.cancelled()
+    assert not compare_for._days[DAY].cancelled()
+
+
+@pytest.mark.parametrize(("exc", "level"), [
+    (KrxError("KRX kospi_dd_trd 20261027 요청 실패: ReadTimeout: "), "WARNING"),
+    (TypeError("bug"), "ERROR"),
+])
+async def test_day_failure_is_logged_once_per_day(krx, caplog, exc, level) -> None:
+    """같은 날 보고서 셋이 같은 KRX 실패를 받아도 로그는 그 날짜에 한 번이다. 보고서마다 실패 사유는 그대로 받는다."""
+    kospi, _ = krx
+    kospi.side_effect = exc
+    compare_for = mc.MarketCompare(object())
+
+    with caplog.at_level("WARNING", logger=mc.__name__):
+        results = [await compare_for(payload(code)) for code in ("005930", "105560", "000660")]
+
+    assert {str(f) for _, f in results} == {f"{type(exc).__name__}: {exc}"}
+    assert [r.levelname for r in caplog.records] == [level]
