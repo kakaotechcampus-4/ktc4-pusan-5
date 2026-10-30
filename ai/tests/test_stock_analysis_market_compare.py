@@ -22,6 +22,13 @@ def payload(code: str = "105560", target_date: str = TARGET_DATE) -> dict:
     return {"code": code, "target_date": target_date}
 
 
+def report_input(cutoff: str = f"{TARGET_DATE}T15:30:00+09:00", *, market: dict | None = None) -> dict:
+    """apply 가 보는 보고서 입력. change_pct −4.2 는 KRX(KB금융 0.27%)와 일부러 다르게 둔다."""
+    default = {"index": "코스피", "change_pct": 3.09, "peer_median_pct": -0.6, "peer_up": 5, "peer_down": 13,
+               "peer_total": 19, "excess_pct": -3.6}
+    return {**payload(), "cutoff": cutoff, "change_pct": -4.2, "market": default if market is None else market}
+
+
 @pytest.fixture
 def krx(monkeypatch):
     """2026-10-27 fixture 응답을 돌려준다. 호출 수를 센다."""
@@ -200,3 +207,142 @@ async def test_other_errors_are_not_swallowed(krx) -> None:
     kospi.side_effect = TypeError("bug")
     with pytest.raises(TypeError):
         await mc.MarketCompare(object())(payload())
+
+
+# --- 기준 시각과 입력 등락률 ---------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("cutoff", "after"), [
+    (f"{TARGET_DATE}T15:29:00+09:00", False),  # 경계: 장 마감 1분 전
+    (f"{TARGET_DATE}T15:29:59+09:00", False),
+    (f"{TARGET_DATE}T15:30:00+09:00", True),  # 경계: 장 마감 시각부터 이후다
+    (f"{TARGET_DATE}T11:00:00+09:00", False),
+    (f"{TARGET_DATE}T06:30:00+00:00", True),  # UTC 06:30 = KST 15:30. 시간대를 맞춰 비교한다
+    ("2026-10-28T08:00:00+09:00", True),  # 다음 날 아침 기준 시각은 그날 장 마감 이후다
+])
+def test_after_close_boundary(cutoff: str, after: bool) -> None:
+    assert mc.MARKET_CLOSE.isoformat() == "15:30:00"
+    assert mc.after_close({**payload(), "cutoff": cutoff}) is after
+
+
+async def test_before_close_skips_krx_and_keeps_input(krx) -> None:
+    kospi, stocks = krx
+    original = report_input(f"{TARGET_DATE}T15:29:00+09:00")
+
+    sent, fields = await mc.MarketCompare(object()).apply(original)
+
+    assert (kospi.await_count, stocks.await_count) == (0, 0)
+    assert sent == {**original, "market_compare": None}
+    assert fields == {"market_compare": None, "market_compare_error": None,
+                      "market_compare_skipped": mc.BEFORE_CLOSE, "change_pct_override": None}
+
+
+async def test_after_close_ok_overrides_change_pct_and_excess(krx) -> None:
+    original = report_input()
+
+    sent, fields = await mc.MarketCompare(object()).apply(original)
+
+    assert fields["market_compare"]["status"] == "ok" and fields["market_compare_skipped"] is None
+    assert sent["market_compare"] == fields["market_compare"]
+    assert sent["change_pct"] == 0.27
+    # 대형주 비교 수치는 KRX 응답의 유니버스 8종목(자기 제외)으로 다시 낸다. 지수 칸은 그대로
+    krx_peers = {"peer_median_pct": 3.84, "peer_up": 8, "peer_down": 0, "peer_total": 8}
+    assert sent["market"] == {**original["market"], **krx_peers, "excess_pct": -3.57}  # 0.27 − 3.84
+    override = fields["change_pct_override"]
+    assert {k: override[k] for k in ("input", "krx", "source", "excess_pct")} == {
+        "input": -4.2, "krx": 0.27, "source": "KRX /sto/stk_bydd_trd 2026-10-27 FLUC_RT",
+        "excess_pct": {"input": -3.6, "recomputed": -3.57}}
+    assert override["peers"]["input"] == {"peer_median_pct": -0.6, "peer_up": 5, "peer_down": 13, "peer_total": 19}
+    assert override["peers"]["krx"] == krx_peers
+    # 받은 입력은 바꾸지 않는다
+    assert original["change_pct"] == -4.2 and original["market"]["excess_pct"] == -3.6
+    assert original["market"]["peer_median_pct"] == -0.6
+
+
+@pytest.mark.parametrize("market", [
+    None,  # market 칸이 null
+    {"index": "코스피", "change_pct": 3.09, "peer_median_pct": None, "excess_pct": None},  # 중간값이 없다
+])
+async def test_override_without_peer_median_leaves_market(krx, market) -> None:
+    """입력에 중간값이 없으면 market 을 건드리지 않는다. 없던 대형주 비교를 KRX 로 새로 켜지 않는다."""
+    original = {**report_input(), "market": market}
+
+    sent, fields = await mc.MarketCompare(object()).apply(original)
+
+    assert sent["change_pct"] == 0.27
+    assert sent["market"] == market
+    assert fields["change_pct_override"]["peers"] is None
+    assert fields["change_pct_override"]["excess_pct"] is None
+
+
+def universe_stock(code: str, rate: float | None, *, volume: int = 1000):
+    return STOCKS[0].model_copy(update={"code": code, "name": code, "change_rate": rate, "volume": volume})
+
+
+def test_universe_peers_leaves_out_self_missing_no_trades_and_blank_rate() -> None:
+    """유니버스 7종목: 자기 자신 1, 응답에 없음 1, 거래정지 1, 등락률 빈 칸 1 을 빼면 3종목(−1.0, 0.0, 2.0)이 남는다.
+    보합 0.0 은 전체 수에만 든다."""
+    stocks = [
+        universe_stock("000010", 5.0),  # 대상 자신
+        universe_stock("000020", -1.0),
+        universe_stock("000030", 0.0),
+        universe_stock("000040", 2.0),
+        universe_stock("000050", 0.0, volume=0),  # 거래정지: 0.00 은 보합이 아니다
+        universe_stock("000060", None),
+    ]
+    universe = ("000010", "000020", "000030", "000040", "000050", "000060", "000070")
+
+    peers, excluded = mc.universe_peers(stocks, "000010", universe)
+
+    assert peers == {"peer_median_pct": 0.0, "peer_up": 1, "peer_down": 1, "peer_total": 3}
+    assert excluded == [{"code": "000050", "reason": "no_trades"}, {"code": "000060", "reason": "no_rate"},
+                        {"code": "000070", "reason": "missing"}]
+
+
+def test_universe_peers_median_of_even_count_is_rounded() -> None:
+    stocks = [universe_stock(c, r) for c, r in (("000020", 0.35), ("000030", 0.80))]
+    peers, _ = mc.universe_peers(stocks, "000010", ("000020", "000030"))
+    assert peers["peer_median_pct"] == round((0.35 + 0.80) / 2, 2)
+
+
+def test_universe_peers_none_when_nothing_usable() -> None:
+    peers, excluded = mc.universe_peers([], "000010", ("000020",))
+    assert peers is None and excluded == [{"code": "000020", "reason": "missing"}]
+
+
+def test_override_falls_back_to_input_median_when_universe_is_empty() -> None:
+    """쓸 유니버스 종목이 하나도 없으면 입력 중간값·종목 수를 두고 excess_pct 만 새 change_pct 로 다시 낸다."""
+    original = report_input()
+    compare = mc.to_input(build_market_context("105560", DAY, KOSPI, STOCKS))
+
+    sent, record = mc.override_change_pct(original, compare, STOCKS, universe=("999990",))
+
+    assert sent["market"] == {**original["market"], "excess_pct": 0.87}  # 0.27 − (−0.6)
+    assert record["peers"] == {"input": {"peer_median_pct": -0.6, "peer_up": 5, "peer_down": 13, "peer_total": 19},
+                               "krx": None, "excluded": [{"code": "999990", "reason": "missing"}]}
+    assert record["excess_pct"] == {"input": -3.6, "recomputed": 0.87}
+
+
+@pytest.mark.parametrize(("setup", "status"), [
+    ("no_data", "no_data"),  # 장 마감 이후인데 KRX 데이터가 없다
+    ("failed", None),  # KRX 호출 실패
+    ("no_trades", "no_trades"),  # 거래정지. 0.00 은 보합이 아니라 덮어쓰지 않는다
+])
+async def test_after_close_without_ok_keeps_input(krx, setup, status) -> None:
+    kospi, stocks = krx
+    if setup == "no_data":
+        kospi.return_value = None
+    elif setup == "failed":
+        kospi.side_effect = KrxError("KRX kospi_dd_trd 20261027 요청 실패: ReadTimeout: ")
+    else:
+        halted = STOCKS[6].model_copy(update={"volume": 0, "change_rate": 0.0})  # KB금융을 거래정지로
+        assert halted.code == "105560"
+        stocks.return_value = [halted if s.code == "105560" else s for s in STOCKS]
+    original = report_input()
+
+    sent, fields = await mc.MarketCompare(object()).apply(original)
+
+    assert (sent["market_compare"] or {}).get("status") == status
+    assert sent["change_pct"] == -4.2 and sent["market"] == original["market"]
+    assert fields["change_pct_override"] is None
+    assert (fields["market_compare_error"] is not None) is (setup == "failed")

@@ -1,10 +1,29 @@
 """입력 market_compare 칸. 시장 맥락(market_data.context)을 프롬프트 1부 입력 형식으로 옮긴다.
 
-    compare_for = MarketCompare(client)          # 실행 하나에 하나
-    compare, error = await compare_for(payload)
+    compare_for = MarketCompare(client)                  # 실행 하나에 하나
+    payload, fields = await compare_for.apply(payload)   # 모델에 보낼 입력, 래퍼에 남길 칸
 
 러너가 보고서마다 입력에 넣는다(collectors.stock_analysis). 입력에 같은 칸이 있어도 다시 계산해 덮어쓴다 —
 market 계산 칸과 같이 계산은 한 곳에서만 한다.
+
+## 기준 시각이 장 마감 전이면 넣지 않는다
+
+KRX 는 장 마감 확정 데이터만 있다. cutoff 가 target_date 의 MARKET_CLOSE(15:30 KST)보다 이르면 그날 종가는 기준
+시각 뒤의 일이라 모델에 보여 주면 안 된다. KRX 를 부르지 않고 칸을 null 로 둔다(래퍼 market_compare_skipped
+BEFORE_CLOSE). 입력 change_pct 는 기준 시각의 값이라 그대로 쓴다.
+
+## 장 마감 이후 ok 면 입력 등락률을 KRX 로 바꾼다
+
+입력 change_pct 와 KRX 등락률은 출처가 달라 어긋날 수 있다. 한 입력에 두 숫자가 있으면 모델이 어느 쪽을 쓸지
+모른다. 그래서 시장 맥락이 ok 면 change_pct 를 KRX 등락률(market_compare.kospi.stock_change_rate_pct)로 덮어쓴다.
+그 밖(no_data·실패·no_trades·stock_not_found)은 입력 값을 그대로 쓴다.
+
+입력 market 의 대형주 비교 수치(peer_median_pct·peer_up·peer_down·peer_total)도 입력을 만든 쪽 시세라, 같이 바꾸지
+않으면 excess_pct(= change_pct − peer_median_pct)가 두 출처를 섞는다. 입력에 peer_median_pct 가 있으면 이미 받아 둔
+KRX 전 종목 응답으로 대형주 유니버스(stock_meta.universe_codes) 중간값과 상승·하락·전체 수를 다시 계산하고
+excess_pct 도 다시 계산한다(universe_peers). 대상 종목 자신과 응답에 없는·거래정지·등락률 빈 칸 종목은 뺀다.
+쓸 종목이 하나도 없으면 입력 중간값으로 excess_pct 만 다시 계산한다. 원래 값·다시 계산한 값·뺀 종목은 래퍼
+change_pct_override 에 남는다. 입력에 peer_median_pct 가 없으면 market 은 건드리지 않는다(없던 비교를 켜지 않는다).
 
 ## KRX 는 기준일마다 한 번
 
@@ -26,12 +45,14 @@ members_used 는 코드만 있어서 그룹 정의(peer_groups)에서 이름을 
 
 import asyncio
 import logging
-from collections.abc import Mapping
-from datetime import date
+import statistics
+from collections.abc import Iterable, Mapping
+from datetime import date, datetime, time
 from typing import Any
 
 import httpx
 
+from app.repositories.stock_move_analysis import KST
 from app.services.market_data import (
     GROUPS,
     IndexDaily,
@@ -41,8 +62,20 @@ from app.services.market_data import (
     fetch_kospi,
     fetch_stock_daily,
 )
+from app.services.market_data.krx import KOSPI_STOCK_PATH
+from app.services.stock_analysis.stock_meta import universe_codes
 
 logger = logging.getLogger(__name__)
+
+# 유가증권시장 정규장 마감(KST). cutoff 가 target_date 의 이 시각과 같거나 늦으면 KRX 종가 데이터를 쓴다.
+# 수능일처럼 마감이 늦춰지는 날은 따로 보지 않는다.
+MARKET_CLOSE = time(15, 30)
+# 래퍼 market_compare_skipped 값. 기준 시각이 장 마감 전이라 시장 맥락을 넣지 않았다.
+BEFORE_CLOSE = "BEFORE_CLOSE"
+# 결과(ok)를 KRX 등락률로 덮어쓸 수 있는 status. no_trades 의 0.00 은 보합이 아니라 거래가 없던 것이라 쓰지 않는다.
+OVERRIDE_STATUS = "ok"
+# 다시 계산한 중간값·excess_pct 의 자리 수. 입력 등락률과 같은 소수 둘째 자리.
+RATE_DECIMALS = 2
 
 # 프롬프트 1부 market_compare.kospi 의 칸. 순서도 프롬프트와 같다.
 KOSPI_KEYS = (
@@ -67,6 +100,25 @@ class MarketCompare:
         self._client = client
         self._days: dict[date, asyncio.Task[Day]] = {}
 
+    async def apply(self, payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        """(모델에 보낼 입력, 래퍼에 남길 칸). 받은 payload 는 바꾸지 않는다.
+
+        래퍼 칸: market_compare(보낸 칸), market_compare_error(칸이 null 인 실패 사유), market_compare_skipped
+        (장 마감 전이면 BEFORE_CLOSE), change_pct_override(KRX 로 덮어썼으면 원래 값과 출처).
+        """
+        fields: dict[str, Any] = {"market_compare": None, "market_compare_error": None,
+                                  "market_compare_skipped": None, "change_pct_override": None}
+        if not after_close(payload):
+            fields["market_compare_skipped"] = BEFORE_CLOSE
+            return {**payload, "market_compare": None}, fields
+        compare, fields["market_compare_error"] = await self(payload)
+        fields["market_compare"] = compare
+        out = {**payload, "market_compare": compare}
+        if compare is not None and compare["status"] == OVERRIDE_STATUS:
+            _, stocks = await self._days[date.fromisoformat(payload["target_date"])]  # 이미 끝난 Task 다
+            out, fields["change_pct_override"] = override_change_pct(out, compare, stocks)
+        return out, fields
+
     async def __call__(self, payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
         """(입력 칸, 실패 사유). 실패하면 (None, 사유), 아니면 (칸, None). 예외를 올리지 않는다."""
         code, target_date = payload["code"], payload["target_date"]
@@ -88,6 +140,77 @@ class MarketCompare:
         kospi = await fetch_kospi(self._client, day)
         stocks = await fetch_stock_daily(self._client, day) if kospi is not None else []
         return kospi, stocks
+
+
+def after_close(payload: dict[str, Any]) -> bool:
+    """cutoff 가 target_date 의 MARKET_CLOSE(KST) 와 같거나 늦은가. 다음 날 새벽 같은 기준 시각도 장 마감 이후다."""
+    cutoff = datetime.fromisoformat(payload["cutoff"])
+    close = datetime.combine(date.fromisoformat(payload["target_date"]), MARKET_CLOSE, tzinfo=KST)
+    return cutoff >= close
+
+
+def override_change_pct(
+    payload: dict[str, Any], compare: dict[str, Any], stocks: list[StockDaily],
+    universe: Iterable[str] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """(change_pct 를 KRX 등락률로 바꾼 입력, 래퍼 change_pct_override).
+
+    입력 market 에 peer_median_pct 가 있으면 대형주 비교 수치를 stocks(같은 날 KRX 전 종목)로 다시 계산하고
+    excess_pct 도 다시 계산한다. universe 를 안 주면 stock_meta 의 대형주 유니버스다.
+    """
+    krx = compare["kospi"]["stock_change_rate_pct"]
+    out = {**payload, "change_pct": krx}
+    record: dict[str, Any] = {
+        "input": payload["change_pct"], "krx": krx,
+        "source": f"KRX {KOSPI_STOCK_PATH} {payload['target_date']} FLUC_RT",
+        "peers": None, "excess_pct": None,
+    }
+    market = payload.get("market")
+    median = market.get("peer_median_pct") if isinstance(market, dict) else None
+    if not isinstance(median, (int, float)) or isinstance(median, bool):
+        return out, record
+    peers, excluded = universe_peers(stocks, str(payload["code"]), universe_codes() if universe is None else universe)
+    record["peers"] = {"input": {key: market.get(key) for key in PEER_KEYS}, "krx": peers, "excluded": excluded}
+    new_market = {**market, **(peers or {})}
+    excess = round(krx - new_market["peer_median_pct"], RATE_DECIMALS)
+    out["market"] = {**new_market, "excess_pct": excess}
+    record["excess_pct"] = {"input": market.get("excess_pct"), "recomputed": excess}
+    return out, record
+
+
+# 입력 market 의 대형주 비교 수치. universe_peers 가 이 이름으로 돌려준다.
+PEER_KEYS = ("peer_median_pct", "peer_up", "peer_down", "peer_total")
+
+
+def universe_peers(
+    stocks: list[StockDaily], code: str, universe: Iterable[str],
+) -> tuple[dict[str, Any] | None, list[dict[str, str]]]:
+    """(대형주 비교 수치, 뺀 종목). 유니버스에서 대상 종목 자신을 빼고 KRX 등락률로 중간값·상승·하락·전체 수를 낸다.
+
+    응답에 없는(missing)·거래정지(no_trades)·등락률 빈 칸(no_rate) 종목은 빼고 이유를 남긴다. 보합(0.00)은 전체 수에만
+    든다. 쓸 종목이 없으면 (None, 뺀 종목).
+    """
+    by_code = {s.code: s for s in stocks}
+    rates: list[float] = []
+    excluded: list[dict[str, str]] = []
+    for member in universe:
+        if member == code:
+            continue
+        stock = by_code.get(member)
+        reason = ("missing" if stock is None else "no_trades" if stock.no_trades
+                  else "no_rate" if stock.change_rate is None else None)
+        if reason:
+            excluded.append({"code": member, "reason": reason})
+        else:
+            rates.append(stock.change_rate)
+    if not rates:
+        return None, excluded
+    return {
+        "peer_median_pct": round(statistics.median(rates), RATE_DECIMALS),
+        "peer_up": sum(r > 0 for r in rates),
+        "peer_down": sum(r < 0 for r in rates),
+        "peer_total": len(rates),
+    }, excluded
 
 
 def to_input(ctx: MarketContext, groups: Mapping[str, Mapping[str, str]] = GROUPS) -> dict[str, Any]:

@@ -16,8 +16,10 @@
 
 생성 전에 KRX 로 시장 맥락을 계산해 입력 market_compare 칸에 넣는다(stock_analysis.market_compare).
 KRX 는 실행 하나 안에서 기준일마다 한 번만 부르고(실패도 한 번), 같은 날 보고서는 그 응답을 함께 쓴다.
-입력 사본은 받은 바이트 그대로라 이 칸이 없다. 모델에 보낸 칸과 실패 사유는 래퍼 market_compare·
-market_compare_error 에 남긴다. KRX 가 실패해도 보고서는 만들고 비교 문장만 빠진다.
+기준 시각이 장 마감(15:30) 전이면 넣지 않는다. 장 마감 이후 시장 맥락이 ok 면 입력 change_pct 를 KRX 등락률로
+바꾼다(excess_pct 도 다시 계산). 입력 사본은 받은 바이트 그대로라 이 칸들이 바뀌기 전 값이다. 모델에 보낸 칸,
+실패 사유, 건너뛴 이유, 덮어쓴 원래 값은 래퍼 market_compare·market_compare_error·market_compare_skipped·
+change_pct_override 에 남긴다. KRX 가 실패해도 보고서는 만들고 비교 문장만 빠진다.
 
 `--load` 가 없으면 파일만 쓴다. 적재는 같은 파일을 두 번 넣지 않으므로(sha256)
 파일만 먼저 쓰고 나중에 적재 모듈로 넣어도 된다.
@@ -136,9 +138,13 @@ def count_move_cases(wrappers: list[dict[str, Any]]) -> tuple[dict[str, int], in
 
 
 def count_market_compare(wrappers: list[dict[str, Any]]) -> dict[str, int]:
-    """시장 맥락 status 별 보고서 수. 칸이 null(KRX 호출·계산 실패)이면 failed 로 센다."""
-    counts: Counter[str] = Counter(
-        (w.get("market_compare") or {}).get("status") or "failed" for w in wrappers)
+    """시장 맥락 status 별 보고서 수. 칸이 null 이면 장 마감 전은 before_close, 그 밖(KRX 호출·계산 실패)은 failed."""
+    def status(w: dict[str, Any]) -> str:
+        if w.get("market_compare"):
+            return w["market_compare"]["status"]
+        return "before_close" if w.get("market_compare_skipped") else "failed"
+
+    counts: Counter[str] = Counter(status(w) for w in wrappers)
     return dict(sorted(counts.items()))
 
 
@@ -178,12 +184,11 @@ async def run(
         copied = run_dir / "inputs" / f"{run_id}.json"
         copied.write_bytes(data)
         async with gate:
-            # 실패하면 칸이 null 이고 보고서는 그대로 만든다. 받은 입력 dict 는 바꾸지 않는다.
-            compare, compare_error = await compare_for(payload)
-            payload = {**payload, "market_compare": compare}
+            # 장 마감 전이거나 실패하면 칸이 null 이고 보고서는 그대로 만든다. 장 마감 이후 ok 면 change_pct 가 KRX
+            # 등락률로 바뀐다. 받은 입력 dict 는 바꾸지 않고, 이후 생성·검증은 바뀐 입력으로 한다.
+            payload, compare_fields = await compare_for.apply(payload)
             wrapper = await generate(payload, system=system, prompt_hash=prompt_hash, run_id=run_id)
-            wrapper["market_compare"] = compare
-            wrapper["market_compare_error"] = compare_error
+            wrapper.update(compare_fields)
             report = report_of(wrapper)
             # quote 가 원문에 없는 factor 는 검증 전에 한 번 고쳐 쓰게 하고, 그래도 없으면 뺀다.
             # 개수 상한을 넘은 보고서는 고쳐 쓰지 않는다(repair.repair_limit, 비용 상한).
@@ -277,8 +282,10 @@ async def run(
                     for key in ("json_retry", "judge_retry")},
         # 직접 언급 메시지가 0건이라 LLM 을 부르지 않고 정형 보고서를 낸 회차 수(generate.canned_report).
         "skipped_llm": sum(bool(w.get("skipped_llm")) for w in wrappers),
-        # 시장 맥락 status 별 보고서 수. KRX 호출·계산이 실패해 칸이 null 인 것은 failed.
+        # 시장 맥락 status 별 보고서 수. 칸이 null 인 것은 before_close(장 마감 전)·failed(KRX 호출·계산 실패).
         "market_compare": count_market_compare(wrappers),
+        # 입력 change_pct 를 KRX 등락률로 덮어쓴 보고서 수(장 마감 이후 시장 맥락 ok).
+        "change_pct_overridden": sum(w.get("change_pct_override") is not None for w in wrappers),
         # issue_trace 에 오른 메시지 수 / 입력 메시지 수. issue_trace 가 있는 보고서만 더한다.
         "issue_trace_messages": {
             k: sum(w["issue_trace_stats"][f"messages_{k}"] for w in wrappers if w["issue_trace_stats"])
@@ -320,8 +327,9 @@ async def run(
           + ", ".join(f"{k}={n}" for k, n in result["warning_counts"].items()))
     print("다시 부른 회차: " + ", ".join(f"{k}={n}" for k, n in result["retried"].items())
           + f" · LLM 없이 정형 보고서: {result['skipped_llm']}")
-    print("시장 맥락 (failed 는 비교 문장 없이 만듦): "
-          + ", ".join(f"{s}={n}" for s, n in result["market_compare"].items()))
+    print("시장 맥락 (ok 밖은 비교 문장 없이 만듦): "
+          + ", ".join(f"{s}={n}" for s, n in result["market_compare"].items())
+          + f" · change_pct 를 KRX 등락률로 바꿈: {result['change_pct_overridden']}")
     return result
 
 

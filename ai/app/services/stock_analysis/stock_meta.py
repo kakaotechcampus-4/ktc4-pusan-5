@@ -29,4 +29,9 @@ def universe_weight(code: Any) -> float | None:
     return info.get("universe_weight") if info else None
 
 
-__all__ = ["META_PATH", "sector", "universe_weight"]
+def universe_codes() -> tuple[str, ...]:
+    """대형주 유니버스 종목코드(universe_weight 가 있는 종목). 입력 peer_median_pct 의 비교 대상과 같은 묶음이다."""
+    return tuple(sorted(code for code, info in _table().items() if info.get("universe_weight") is not None))
+
+
+__all__ = ["META_PATH", "sector", "universe_codes", "universe_weight"]

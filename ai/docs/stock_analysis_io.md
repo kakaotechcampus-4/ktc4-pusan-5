@@ -30,7 +30,8 @@
                                                                 relative 다시 쓰기)
 ```
 
-③ 바로 앞에서 KRX 로 시장 맥락을 계산해 입력 `market_compare` 칸에 넣는다(아래 「`market_compare`」). KRX 가 실패해도
+③ 바로 앞에서 KRX 로 시장 맥락을 계산해 입력 `market_compare` 칸에 넣는다(아래 「`market_compare`」). 기준 시각이 장 마감
+(15:30) 전이면 넣지 않고, 장 마감 이후 시장 맥락이 ok 면 입력 `change_pct` 를 KRX 등락률로 바꾼다. KRX 가 실패해도
 멈추지 않고 비교 문장만 빠진다.
 
 ```bash
@@ -172,6 +173,35 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
   `market_compare_error` 에 남는다. 실패도 기준일마다 한 번만 시도하고 그 날 보고서 모두 같은 사유를 쓴다.
 - 기준일 데이터가 없으면(당일·휴장일, KRX 는 T+1) 실패가 아니라 `status: "no_data"` 인 칸이 간다.
 - `null`·`no_data`·`stock_not_found`·`no_trades` 면 프롬프트 3단계 「비교 수치」가 비교 문장을 쓰지 않게 한다. 나머지는 그대로다.
+
+##### 기준 시각과 입력 등락률
+
+KRX 는 장 마감 확정 데이터뿐이다. 기준 시각(`cutoff`)이 장 마감 전이면 그날 종가는 기준 시각 뒤의 일이고, 장 마감 이후면
+입력 `change_pct` 와 KRX 등락률이 한 입력에 함께 있어 어긋날 수 있다. 그래서 `cutoff` 를 `target_date` 의 장 마감
+(`market_compare.MARKET_CLOSE` = 15:30 KST)과 견줘 정한다(`market_compare.after_close`). 날짜까지 함께 보므로 다음 날 아침
+기준 시각은 장 마감 이후다. 시간대가 다른 `cutoff` 도 KST 로 맞춰 본다.
+
+| 경우 | `market_compare` | `change_pct`·`market.excess_pct` | 래퍼 |
+| --- | --- | --- | --- |
+| `cutoff` < 15:30 (15:29 포함) | `null`. KRX 를 부르지 않는다 | 입력 그대로 | `market_compare_skipped: "BEFORE_CLOSE"` |
+| `cutoff` ≥ 15:30, status `ok` | 계산한 칸 | `change_pct` ← `kospi.stock_change_rate_pct`(KRX 등락률). 입력 `market.peer_median_pct` 가 있으면 대형주 비교 수치와 `excess_pct` 도 KRX 로 다시 낸다(아래) | `change_pct_override` 에 원래 값·다시 계산한 값·출처 |
+| `cutoff` ≥ 15:30, `no_data`·`no_trades`·`stock_not_found` | status 만 있는 칸 | 입력 그대로 | — |
+| `cutoff` ≥ 15:30, KRX 실패 | `null` | 입력 그대로 | `market_compare_error` 에 사유 |
+
+- 바꾼 값은 모델 입력뿐 아니라 러너 계산 칸(`judge_layers`·`common_move`·`move_case` 등), 검증(`CHANGE_PCT_MISMATCH` 포함),
+  정형 보고서에도 그대로 쓰인다. `inputs/` 사본은 받은 바이트 그대로라 바꾸기 전 값이다.
+- `no_trades` 의 등락률 0.00 은 보합이 아니라 거래가 없던 것이라 덮어쓰지 않는다.
+- **대형주 비교 수치도 KRX 로 맞춘다.** 입력 `peer_median_pct`·`peer_up`·`peer_down`·`peer_total` 은 입력을 만든 쪽 시세라
+  `change_pct` 만 바꾸면 `excess_pct` 가 두 출처를 섞는다. 입력에 `peer_median_pct` 가 있으면 이미 받아 둔 KRX 전 종목
+  응답으로 대형주 유니버스(`stock_meta.json` 의 `universe_weight` 가 있는 20종목, `stock_meta.universe_codes`)를 다시 센다
+  (`market_compare.universe_peers`).
+  - 대상 종목 자신, 응답에 없는 종목(`missing`), 거래정지(`no_trades`), 등락률 빈 칸(`no_rate`)은 뺀다.
+  - 중간값은 소수 둘째 자리. 보합(0.00)은 `peer_total` 에만 들고 `peer_up`·`peer_down` 에는 들지 않는다.
+  - `excess_pct` ← 새 `change_pct` − 새 `peer_median_pct`.
+  - 쓸 종목이 하나도 없으면 입력 중간값·종목 수를 그대로 두고 `excess_pct` 만 새 `change_pct` 로 다시 낸다.
+  - 입력에 `peer_median_pct` 가 없으면(`market` 이 null 포함) `market` 을 건드리지 않는다. 없던 비교를 새로 켜지 않는다.
+- 지수 등락률(`market.change_pct`)·`as_of` 는 바꾸지 않는다.
+- 수능일처럼 장 마감이 늦춰지는 날은 따로 보지 않는다(15:30 고정).
 
 `judge_layers` — 층마다 이 입력에서 원인을 판단하는가. `false` 인 층에는 link 를 달지 않고 그 층 판정은 `no_clear_cause`.
 
@@ -380,7 +410,9 @@ LLM 을 부른다(`generate.needs_llm`).
 | `issue_trace` | 모델이 낸 이슈 목록 |
 | `move_case` / `judge_layers` / `common_move` / `move_strength_cap` / `market_led` / `move_comparison` | 러너가 계산한 값(`market` 이 null 이면 null). `move_case` 는 모델에 보내지 않는다 |
 | `main_cause_sentences` / `sector` / `universe_weight` | 모델 입력 맨 위·market 에 넣은 값(종목 표에 없으면 `sector`·`universe_weight` 는 null) |
-| `market_compare` / `market_compare_error` | 모델에 보낸 `market_compare` 칸과, 칸이 null 일 때 그 사유(`"KrxError: …"` 처럼 `<예외 이름>: <메시지>`). 성공·`no_data` 면 사유는 null. `inputs/` 사본에는 이 칸이 없다 |
+| `market_compare` / `market_compare_error` | 모델에 보낸 `market_compare` 칸과, KRX 호출·계산이 실패해 칸이 null 일 때 그 사유(`"KrxError: …"` 처럼 `<예외 이름>: <메시지>`). 성공·`no_data`·장 마감 전이면 사유는 null. `inputs/` 사본에는 이 칸이 없다 |
+| `market_compare_skipped` | 기준 시각이 장 마감(15:30) 전이라 시장 맥락을 넣지 않았으면 `"BEFORE_CLOSE"`, 그 밖 null |
+| `change_pct_override` | 장 마감 이후 시장 맥락이 ok 라 입력 등락률을 바꿨을 때 `{input, krx, source, peers, excess_pct}`, 그 밖 null. `source` 는 `"KRX /sto/stk_bydd_trd <target_date> FLUC_RT"`. `peers` 는 `{input: {peer_median_pct, peer_up, peer_down, peer_total}, krx: 같은 모양 \| null(쓸 종목 없음), excluded: [{code, reason}]}`, `excess_pct` 는 `{input, recomputed}`. 입력에 `peer_median_pct` 가 없어 다시 계산하지 않았으면 둘 다 null |
 
 ### 검증 결과
 
@@ -441,14 +473,16 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
   "warning_counts": { "issue_trace_warnings": 3, "events_problems": 1, "verify_warnings": 4 },  // 경고 건수 합
   "retried": { "json_retry": 0, "judge_retry": 1 },  // LLM 을 다시 부른 회차 수
   "skipped_llm": 1,                                  // 정형 보고서 회차 수
-  "market_compare": { "failed": 1, "ok": 8 },        // 시장 맥락 status 별 보고서 수(나온 것만). failed 는 칸이 null
+  // 시장 맥락 status 별 보고서 수(나온 것만). before_close 는 장 마감 전이라 넣지 않음, failed 는 KRX 실패로 칸이 null
+  "market_compare": { "before_close": 1, "failed": 1, "ok": 7 },
+  "change_pct_overridden": 7,                        // 입력 change_pct 를 KRX 등락률로 바꾼 보고서 수
   "issue_trace_messages": { "traced": 30, "total": 31 },
   "loaded": null                                     // --load 면 적재 건수
 }
 ```
 
 보고서마다 찍는 줄 끝에 `issue_trace_warnings=… events_problems=… verify_warnings=…` 건수가 붙는다.
-끝에 `시장 맥락 (failed 는 비교 문장 없이 만듦): ok=… failed=…` 줄을 찍는다. 나온 status 만 센다.
+끝에 `시장 맥락 (ok 밖은 비교 문장 없이 만듦): before_close=… ok=… · change_pct 를 KRX 등락률로 바꿈: …` 줄을 찍는다.
 
 종료 코드: 호출 자체가 실패한 건(`errors`)이 있으면 1. 검증 실패는 데이터라 0.
 
