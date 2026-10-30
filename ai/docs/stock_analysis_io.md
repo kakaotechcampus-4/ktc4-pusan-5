@@ -51,8 +51,9 @@ uv run python -m app.collectors.stock_analysis --input case.json --load
 
 ```
 runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해도 겹치지 않는다. 이미 있으면 멈춘다
-  inputs/<run_id>.json   받은 입력 바이트 그대로
-  parsed/<run_id>.json   실행 기록 래퍼 (아래 「래퍼」)
+  inputs/<run_id>.json        받은 입력 바이트 그대로
+  inputs_used/<run_id>.json   실제로 생성·검증에 쓴 입력(market_compare 를 넣고 KRX 로 덮어쓴 뒤). 검증을 다시 돌릴 때 쓴다
+  parsed/<run_id>.json        실행 기록 래퍼 (아래 「래퍼」)
 ```
 
 `run_id` 는 `<종목명>-<target_date>-<cutoff HHMM>__r<반복>` (예: `솔마루전자-2026-09-18-1530__r1`).
@@ -123,7 +124,8 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
 
 ### 러너가 모델에 보내는 입력 — `generate.model_input()`
 
-받은 입력을 그대로 보내지 않는다. `inputs/` 사본은 받은 바이트 그대로이고, 같은 함수로 언제든 다시 만들 수 있다.
+받은 입력을 그대로 보내지 않는다. 이 함수에 넘기는 입력은 `inputs_used/` 사본(시장 맥락을 넣고 KRX 로 덮어쓴 뒤)이고,
+그 사본으로 같은 함수를 부르면 언제든 다시 만들 수 있다. `inputs/` 사본은 받은 바이트 그대로라 덮어쓰기 전 값이다.
 검증·출처 대조는 나누기 전 입력 전체로 한다.
 
 - **메시지를 세 칸으로 나눈다**(`verify.split_messages`).
@@ -196,7 +198,7 @@ KRX 는 장 마감 확정 데이터뿐이다. 기준 시각(`cutoff`)이 장 마
 | `cutoff` ≥ 15:30, KRX 실패 | `null` | 입력 그대로 | `market_compare_error` 에 사유 |
 
 - 바꾼 값은 모델 입력뿐 아니라 러너 계산 칸(`judge_layers`·`common_move`·`move_case` 등), 검증(`CHANGE_PCT_MISMATCH` 포함),
-  정형 보고서에도 그대로 쓰인다. `inputs/` 사본은 받은 바이트 그대로라 바꾸기 전 값이다.
+  정형 보고서에도 그대로 쓰인다. `inputs/` 사본은 받은 바이트 그대로라 바꾸기 전 값이고, 바꾼 뒤 입력은 `inputs_used/` 사본이다.
 - `no_trades` 의 등락률 0.00 은 보합이 아니라 거래가 없던 것이라 덮어쓰지 않는다.
 - **대형주 비교 수치도 KRX 로 맞춘다.** 입력 `peer_median_pct`·`peer_up`·`peer_down`·`peer_total` 은 입력을 만든 쪽 시세라
   `change_pct` 만 바꾸면 `excess_pct` 가 두 출처를 섞는다. 입력에 `peer_median_pct` 가 있으면 이미 받아 둔 KRX 전 종목
@@ -421,7 +423,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `issue_trace` | 모델이 낸 이슈 목록 |
 | `move_case` / `judge_layers` / `common_move` / `move_strength_cap` / `market_led` / `move_comparison` | 러너가 계산한 값(`market` 이 null 이면 null). `move_case` 는 모델에 보내지 않는다 |
 | `main_cause_sentences` / `sector` / `universe_weight` | 모델 입력 맨 위·market 에 넣은 값(종목 표에 없으면 `sector`·`universe_weight` 는 null) |
-| `market_compare` / `market_compare_error` | 모델에 보낸 `market_compare` 칸과, KRX 호출·계산·입력 덮어쓰기가 실패해 칸이 null 일 때 그 사유(`"KrxError: …"` 처럼 `<예외 이름>: <메시지>`). 성공·`no_data`·장 마감 전이면 사유는 null. `inputs/` 사본에는 이 칸이 없다 |
+| `market_compare` / `market_compare_error` | 모델에 보낸 `market_compare` 칸과, KRX 호출·계산·입력 덮어쓰기가 실패해 칸이 null 일 때 그 사유(`"KrxError: …"` 처럼 `<예외 이름>: <메시지>`). 성공·`no_data`·장 마감 전이면 사유는 null. `inputs/` 사본에는 이 칸이 없고 `inputs_used/` 사본에는 있다 |
 | `market_compare_error_type` / `market_compare_unexpected` | 실패한 예외 이름(`"KrxError"`, `"AttributeError"` …, 실패가 아니면 null)과 그것이 예상 밖 예외(`RuntimeError`·`ValueError` 계열이 아님)인지(`true`/`false`) |
 | `market_compare_skipped` | 기준 시각이 장 마감(평소 15:30, `LATE_CLOSE` 날은 그 시각) 전이라 시장 맥락을 넣지 않았으면 `"BEFORE_CLOSE"`, 그 밖 null |
 | `change_pct_override` | 장 마감 이후 시장 맥락이 ok 라 입력 등락률을 바꿨을 때 `{input, krx, source, index, peers, excess_pct}`, 그 밖 null. `source` 는 `"KRX /sto/stk_bydd_trd <target_date> FLUC_RT"`. `index` 는 `{input: {change_pct, as_of}, krx: {change_pct, as_of}, source: "KRX /idx/kospi_dd_trd <target_date> 코스피 FLUC_RT"}`, 입력 지수 등락률이 없어 바꾸지 않았으면 null. `peers` 는 `{input: {peer_median_pct, peer_up, peer_down, peer_total}, krx: 같은 모양 \| null(쓸 종목 없음), excluded: [{code, reason}]}`, `excess_pct` 는 `{input, recomputed}`. 입력에 `peer_median_pct` 가 없어 다시 계산하지 않았으면 둘 다 null |
@@ -464,7 +466,7 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
 `provider`, `model`, `stream`, `max_completion_tokens`, `reasoning_effort`, `usage`, `input_tokens`,
 `cost`, `cost_currency`, `cost_basis`(`provider`|`token_rates`|`unavailable`), `cost_rates`,
 `truncation`(잘렸을 때만), `duration_ms`, `prompt_name`, `prompt_sha256`, `generated_at`(KST ISO 8601),
-`input_path`, `input_original_path`, `input_sha256`.
+`input_path`, `input_used_path`(`inputs_used/` 사본, 실행 디렉터리 기준 상대 경로), `input_original_path`, `input_sha256`(받은 바이트).
 
 ---
 

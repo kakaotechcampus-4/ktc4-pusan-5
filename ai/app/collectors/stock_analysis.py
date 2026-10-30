@@ -7,18 +7,19 @@
 겹치지 않는다. 이미 있으면 덮어쓰지 않고 멈춘다(exist_ok=False).
 
     runs/<YYYYMMDD-HHMMSS>-<8자>/
-      inputs/<run_id>.json   받은 입력 그대로(바이트 복사)
-      parsed/<run_id>.json   실행 기록 래퍼. 적재 모듈이 읽는 파일
+      inputs/<run_id>.json        받은 입력 그대로(바이트 복사)
+      inputs_used/<run_id>.json   실제로 생성·검증에 쓴 입력(시장 맥락을 넣고 KRX 로 덮어쓴 뒤)
+      parsed/<run_id>.json        실행 기록 래퍼. 적재 모듈이 읽는 파일
 
 입력을 같이 남기는 이유: 보고서 출력에는 market 이 없어서 보고서만으로는 초과분을
 다시 확인할 수 없다. 검증을 다시 돌리거나 같은 입력으로 재생성하려면 입력이 있어야 한다.
-래퍼의 input_path 는 실행 디렉터리 기준 상대 경로라 runs/ 를 통째로 옮겨도 이어진다.
+검증을 다시 돌릴 때는 inputs_used/ 사본을 쓴다. inputs/ 사본은 KRX 로 바꾸기 전 값이라 결과가 달라질 수 있다.
+래퍼의 input_path·input_used_path 는 실행 디렉터리 기준 상대 경로라 runs/ 를 통째로 옮겨도 이어진다.
 
 생성 전에 KRX 로 시장 맥락을 계산해 입력 market_compare 칸에 넣는다(stock_analysis.market_compare).
 KRX 는 실행 하나 안에서 기준일마다 한 번만 부르고(실패도 한 번), 같은 날 보고서는 그 응답을 함께 쓴다.
 기준 시각이 장 마감(평소 15:30, market_compare.LATE_CLOSE 날은 그 시각) 전이면 넣지 않는다. 장 마감 이후 시장
-맥락이 ok 면 입력 change_pct 와 지수 등락률을 KRX 등락률로 바꾼다(excess_pct 도 다시 계산). 입력 사본은 받은 바이트
-그대로라 이 칸들이 바뀌기 전 값이다. 모델에 보낸 칸,
+맥락이 ok 면 입력 change_pct 와 지수 등락률을 KRX 등락률로 바꾼다(excess_pct 도 다시 계산). 모델에 보낸 칸,
 실패 사유, 건너뛴 이유, 덮어쓴 원래 값은 래퍼 market_compare·market_compare_error·market_compare_skipped·
 change_pct_override 에 남긴다. KRX 가 실패해도 보고서는 만들고 비교 문장만 빠진다.
 
@@ -183,6 +184,7 @@ async def run(
     run_dir = out_root / f"{started:%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
     run_dir.mkdir(parents=True, exist_ok=False)
     (run_dir / "inputs").mkdir()
+    (run_dir / "inputs_used").mkdir()
     (run_dir / "parsed").mkdir()
 
     run_ids = _assign_run_ids([payload for _, _, payload in items])
@@ -191,10 +193,12 @@ async def run(
     async def work(run_id: str, source: Path, data: bytes, payload: dict[str, Any]) -> dict:
         copied = run_dir / "inputs" / f"{run_id}.json"
         copied.write_bytes(data)
+        used = run_dir / "inputs_used" / f"{run_id}.json"
         async with gate:
             # 장 마감 전이거나 실패하면 칸이 null 이고 보고서는 그대로 만든다. 장 마감 이후 ok 면 change_pct 가 KRX
             # 등락률로 바뀐다. 받은 입력 dict 는 바꾸지 않고, 이후 생성·검증은 바뀐 입력으로 한다.
             payload, compare_fields = await compare_for.apply(payload)
+            used.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
             wrapper = await generate(payload, system=system, prompt_hash=prompt_hash, run_id=run_id)
             wrapper.update(compare_fields)
             report = report_of(wrapper)
@@ -221,6 +225,7 @@ async def run(
                     wrapper.update(finalize(report, payload, wrapper.get("issue_trace")))
                 wrapper["final_text"] = json.dumps(report, ensure_ascii=False)
         wrapper["input_path"] = copied.relative_to(run_dir).as_posix()
+        wrapper["input_used_path"] = used.relative_to(run_dir).as_posix()
         wrapper["input_original_path"] = source.as_posix()
         wrapper["input_sha256"] = hashlib.sha256(data).hexdigest()
         status, problems = verify_wrapper(wrapper, report, payload)

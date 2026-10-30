@@ -709,3 +709,23 @@ async def test_dropped_move_factor_without_rewrite_warns_main_cause_stale(monkey
     assert wrapper["issue_trace_stats"]["issues_used"] == 0
     assert [w.split(":")[0] for w in wrapper["issue_trace_warnings"]] == ["ISSUE_TRACE_MISSING_URL"] * (total - 1)
     assert result["issue_trace_messages"] == {"traced": 1, "total": total}
+
+
+async def test_used_input_copy_reproduces_verification(fake_llm, krx, tmp_path):
+    """장 마감 이후 ok 면 생성·검증 입력이 받은 입력과 다르다(change_pct −4.2 → 0.27). 받은 입력 사본으로 다시 검증하면
+    결과가 달라지므로, 실제로 쓴 입력을 따로 남기고 그 사본으로 다시 검증하면 같은 결과가 나와야 한다."""
+    from app.services.stock_analysis.verify import verify_wrapper
+
+    krx.side_effect = real_rows
+    runs = tmp_path / "runs"
+    await collector.run(same_day_inputs(tmp_path, ("105560",)), out_root=runs)
+    run_dir = only_run_dir(runs)
+    [wrapper] = parsed(run_dir).values()
+    report = gen.report_of(wrapper)
+    expected = (wrapper["verify_status"], wrapper["verify_problems"])
+
+    received = json.loads((run_dir / wrapper["input_path"]).read_text(encoding="utf-8"))
+    assert verify_wrapper(wrapper, report, received) != expected  # 받은 입력으로는 재현되지 않는다
+    used = json.loads((run_dir / wrapper["input_used_path"]).read_text(encoding="utf-8"))
+    assert used["change_pct"] == 0.27 and used["market_compare"] == wrapper["market_compare"]
+    assert verify_wrapper(wrapper, report, used) == expected

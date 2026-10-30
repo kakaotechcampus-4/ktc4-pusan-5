@@ -157,7 +157,8 @@ def model_input(payload: dict[str, Any]) -> dict[str, Any]:
     - market 에 러너가 계산한 judge_layers·common_move 를 넣는다. 입력에 같은 칸이 있어도 다시 계산해
       덮어쓴다 — 계산은 verify 의 함수 한 곳에서만 한다. move_case 는 보내지 않는다(래퍼 집계에만 남긴다).
       market 이 null 이면 넣을 자리가 없어 그대로 둔다.
-    러너가 남기는 입력 사본(inputs/)은 받은 바이트 그대로다. 같은 함수로 언제든 다시 만들 수 있다.
+    러너는 이 함수에 넘기는 입력을 inputs_used/ 사본으로 남긴다. 그 사본으로 언제든 다시 만들 수 있다.
+    inputs/ 사본은 받은 바이트 그대로라 시장 맥락을 넣고 KRX 로 덮어쓰기 전 값이다.
     """
     out = {k: v for k, v in payload.items() if k != "messages"}
     # 업종 라벨(러너 종목 표). 테마 동향의 업종 단락과 relation: sector 판단에 쓴다(프롬프트 1부).
