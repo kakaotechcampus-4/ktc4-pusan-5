@@ -82,6 +82,10 @@ async def test_fetch_day_raises_on_error_status_without_leaking_key(key):
      "dart_status: 800 (시스템 점검으로 인한 서비스가 중지 중입니다.)", "transient"),
     (httpx.Response(404), "http_error: 404", "permanent"),
     (httpx.Response(503), "http_error: 503", "transient"),
+    # 200 인데 JSON 객체가 아니다. 무엇이 왔는지 몰라 unknown 이다
+    (httpx.Response(200, text="<html>점검 중</html>"), "invalid_response: not_json", "unknown"),
+    (httpx.Response(200, text='{"status": "000", "li'), "invalid_response: not_json", "unknown"),
+    (httpx.Response(200, json=[]), "invalid_response: not_object", "unknown"),
 ])
 async def test_fetch_day_classifies_failures_like_news(key, response, reason, kind):
     respx.get(LIST_URL).mock(return_value=response)
@@ -138,3 +142,64 @@ async def test_day_outside_the_period_is_not_requested(monkeypatch):
     monkeypatch.setattr(collector.dart, "fetch_day", lambda *a, **k: pytest.fail("불렀다"))
     result = await collector.collect(date(2026, 11, 1), scope=scope())
     assert result.out_of_period
+
+
+@respx.mock
+@pytest.mark.parametrize(("mock_body", "mock_reason"), [
+    ({}, "status"),
+    ({"status": []}, "status"),
+    ({"status": "000", "list": []}, "total_page"),
+    (page([], total_page="broken"), "total_page"),
+    (page([], total_page="²"), "total_page"),
+    (page([], total_page=True), "total_page"),
+    (page([], total_page=1.5), "total_page"),
+    (page([], total_page=0), "total_page"),
+    (page([], total_page=dart.MAX_PAGES + 1), "total_page"),
+    ({"status": "000", "total_page": 1}, "list"),
+    (page(None), "list"),
+    (page([None]), "list"),
+    (page([{"stock_code": "005930"}]), "disclosure"),
+    (page([raw(rcept_dt="invalid")]), "disclosure"),
+    (page([raw(rcept_dt="20261332")]), "disclosure"),
+    (page([raw(corp_name=42)]), "disclosure"),
+    (page([raw(stock_code=5930)]), "disclosure"),
+])
+async def test_fetch_day_normalizes_invalid_success_fields(key, mock_body, mock_reason):
+    respx.get(LIST_URL).mock(return_value=httpx.Response(200, json=mock_body))
+    with pytest.raises(DartError) as mock_error:
+        await dart.fetch_day(DAY)
+    assert mock_error.value.reason == f"invalid_response: {mock_reason}"
+    assert mock_error.value.kind == "unknown"
+
+
+@pytest.mark.parametrize(("mock_row", "mock_field"), [
+    (raw(corp_name="비밀", report_nm=42), "report_nm"),
+    (raw(corp_name="비밀", rcept_dt="20261332"), "rcept_dt"),
+])
+def test_parse_list_names_the_row_and_field_without_external_values(mock_row, mock_field):
+    with pytest.raises(DartError) as mock_error:
+        parse_list([raw(), mock_row], at="20261008 p2")
+    assert str(mock_error.value) == (
+        f"20261008 p2 row 1 field {mock_field}: invalid_response: disclosure")
+
+
+@respx.mock
+async def test_fetch_day_does_not_report_code_bugs_as_invalid_response(key, monkeypatch):
+    # 응답은 정상이고 변환 코드가 실패한다. DART 문제(DartError)로 바뀌면 안 된다.
+    def mock_broken_disclosure(**fields):
+        raise TypeError("mock bug")
+
+    monkeypatch.setattr(dart, "Disclosure", mock_broken_disclosure)
+    respx.get(LIST_URL).mock(return_value=httpx.Response(200, json=page([raw()])))
+    with pytest.raises(TypeError, match="mock bug"):
+        await dart.fetch_day(DAY)
+
+
+@respx.mock
+async def test_fetch_day_does_not_return_partial_results_after_invalid_second_page(key):
+    respx.get(LIST_URL).mock(side_effect=[
+        httpx.Response(200, json=page([raw("1")], total_page="2")),
+        httpx.Response(200, json=page(None, total_page="2")),
+    ])
+    with pytest.raises(DartError, match="invalid_response: list"):
+        await dart.fetch_day(DAY)

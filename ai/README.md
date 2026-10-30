@@ -259,12 +259,20 @@ uv run python -m app.collectors.sources show 12 --body   # 본문 앞부분까�
 원문을 읽는 코드를 찾을 수 있게 하려는 것이다. 본문이 있는지(`has_body`)와 없으면 그 사유
 (`body_missing_reason`)는 늘 준다.
 
+보고서용으로 읽을 때는 `cutoff=기준시각` 도 준다(`stock_card_ids` 의 `until` 과 같은 값).
+자료가 기준 시각 전에 공개됐어도 본문은 나중에 받았을 수 있다. 우리가 본문을 받은 시각
+(`body_fetched_at`. 발행 시각이 아니다. 메시지는 수집 시각)이 기준 시각보다 늦거나 비어 있으면
+본문을 빼고 제목·주소·시각만 준다. `cutoff` 는 시간대가 있는 datetime 이어야 한다.
+요약(`summary`)은 본문과 별도로 나중에 보완·갱신될 수 있고 그 시각이 남지 않으므로,
+`cutoff` 를 지정한 조회에서는 항상 제외한다. `cutoff` 가 없으면 기존처럼 요약을 준다.
+
 | body_missing_reason | 뜻 |
 |---|---|
 | `failed: <사유>` | 기사를 열었지만 본문을 못 얻었다 (`http_error: 403`, `extract_empty` 등) |
 | `empty`·`unusable`·`skipped`·`pending`… | PDF 본문 상태 그대로 (`analyst_reports.body_status`) |
 | `empty: 글자 없이 첨부만 올린 메시지` | 메시지에 글자가 없다 |
 | `purged: 보관 정책으로 삭제 (날짜) 사유` | 보관 정책으로 지웠다. 재분류·과거 결과 검증에 쓸 수 없다 |
+| `not_observed_at_cutoff: 기준 시각 이후 받은 본문 (시각)` | 본문은 있지만 기준 시각 이후에 받았거나 받은 시각을 모른다. `cutoff` 를 줬을 때만 |
 
 ## 데이터 이용 제한
 
