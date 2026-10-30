@@ -428,3 +428,30 @@ async def test_rewrite_keeps_original_detail_and_links(fake_complete):
     assert records[0]["result"] == "fixed"
     assert r["factors"][0]["detail"] == "원래 부연"
     assert r["factors"][0]["sources"][0]["quote"] == "규제 대상 장비로 명시"
+
+
+async def test_relative_rewrite_gets_stock_name(fake_complete):
+    """kospi_ex_self 날 규칙이 "<종목명>을 뺀 코스피" 를 쓰라고 하므로 종목명을 함께 보낸다."""
+    r = relative_report()
+    compare = {**GROUP_COMPARE, "kospi": {"kospi_basis": "kospi_ex_self", "kospi_relation": "follows"}}
+    fake_complete.side_effect = answers(json.dumps({"event": "x", "sources": [source("없는 문장")]}),
+                                        json.dumps({"relative": COMPARE_SENTENCE}))
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    await repair.rewrite_summary(r, records, "relative", stream=True, market_compare=compare, stock="삼성전자")
+    sent = json.loads(fake_complete.await_args_list[1].args[1])
+    assert sent["stock"] == "삼성전자"
+
+
+def test_relative_rules_take_meta_phrases_from_verify(monkeypatch):
+    """다시 쓰기 프롬프트의 금지 문구는 검증기(COMPARE_META_PHRASES)와 같은 목록이다. 검증기에 말을 더하면 프롬프트에도 든다."""
+    import importlib
+
+    from app.services.stock_analysis import verify
+
+    monkeypatch.setattr(verify, "COMPARE_META_PHRASES", (*verify.COMPARE_META_PHRASES, "새로 막는 말"))
+    try:
+        reloaded = importlib.reload(repair)
+        assert all(phrase in reloaded.RELATIVE_SYSTEM for phrase in verify.COMPARE_META_PHRASES)
+    finally:
+        monkeypatch.undo()
+        importlib.reload(repair)

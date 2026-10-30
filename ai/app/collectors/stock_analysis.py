@@ -208,12 +208,13 @@ async def run(
                 wrapper["repair_limit"] = repair_limit(report)
                 repairs = await repair_quotes(report, payload, stream=wrapper["stream"], run_id=run_id)
                 # 등락 층·상대 층 근거가 빠졌으면 남은 근거로 main_cause·relative 를 한 번 다시 쓰게 한다.
-                # relative 의 코스피·그룹 비교 문장이 지워지지 않게 모델에 보낸 market_compare 를 함께 준다.
+                # relative 의 코스피·그룹 비교 문장이 지워지지 않게 모델에 보낸 market_compare 와 종목명을 함께 준다.
                 for field, sentences in (("main_cause", main_cause_sentences(payload)),
                                          ("relative", RELATIVE_MAX_SENTENCES)):
                     rewrite = await rewrite_summary(report, repairs, field, stream=wrapper["stream"],
                                                     run_id=run_id, sentences=sentences,
-                                                    market_compare=payload.get("market_compare"))
+                                                    market_compare=payload.get("market_compare"),
+                                                    stock=payload.get("stock"))
                     if rewrite is not None:
                         wrapper[f"{field}_rewrite"] = rewrite
                         wrapper["cost"] += rewrite["cost"]

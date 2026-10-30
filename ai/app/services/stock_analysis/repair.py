@@ -37,6 +37,7 @@ from app.llm.client import LLMError, StreamInterrupted, complete, cost_detail
 from app.services.stock_analysis.verify import (
     BACKGROUND_SLOTS,
     CAPS,
+    COMPARE_META_PHRASES,
     QUOTE_NOT_IN_SOURCE,
     QUOTE_VERIFY_FAIL,
     _background_is_empty,
@@ -317,13 +318,14 @@ _RELATIVE_COMPARE_RULES = """
 
 - 그룹 이름, 비교한 종목, 그룹 평균 등락률을 쓰고, 코스피는 수치 없이 말로만 씁니다. 초과분 숫자는 쓰지 않습니다.
   수치는 market_compare 에 있는 값만 씁니다. 직접 계산하지 않습니다.
-- `kospi_basis` 가 `kospi_ex_self` 면 코스피 대신 "<종목명>을 뺀 코스피" 와 비교합니다. 코스피 판정이 `null` 이면 그룹 쪽만 씁니다.
+- `kospi_basis` 가 `kospi_ex_self` 면 코스피 대신 "<종목명>을 뺀 코스피" 와 비교합니다. 종목명은 입력 `stock` 입니다.
+  코스피 판정이 `null` 이면 그룹 쪽만 씁니다.
 - `members_used` 가 한 종목이면 "평균" 이라 하지 않고 그 종목 이름으로 씁니다. 이름에 "연동" 이 들어간 그룹은 지분으로 이어진
   종목 묶음입니다 — 같은 업종이라고 쓰지 않습니다.
 - market_compare 가 `null` 이거나 `status` 가 `ok` 가 아니거나, `peers` 가 비었거나 `peers[].relation` 이 모두 `null` 이면
   비교 문장을 쓰지 않습니다.
-- "판정하기 어렵"·"기준 시장"·"비교 종목이 하나뿐" 같은 안쪽 말은 쓰지 않습니다.
-"""
+""" + "- " + "·".join(f'"{phrase}"' for phrase in COMPARE_META_PHRASES) + " 같은 안쪽 말은 쓰지 않습니다.\n"
+# 금지 문구는 검증기(verify.COMPARE_META_PHRASES)와 같은 목록이다. 검증기에 말을 더하면 여기에도 든다.
 
 MAIN_CAUSE_SYSTEM = _SUMMARY_SYSTEM.format(
     field="main_cause", what="오늘 등락의 원인 요약", basis="남은 근거(remaining_factors)", scope="남은 근거",
@@ -356,12 +358,14 @@ def has_group_compare(market_compare: Any) -> bool:
 
 
 def _summary_user(report: dict[str, Any], field: str, dropped: list[dict[str, Any]], sentences: int,
-                  remaining: list[dict[str, Any]], market_compare: dict[str, Any] | None) -> str:
+                  remaining: list[dict[str, Any]], market_compare: dict[str, Any] | None, stock: str | None) -> str:
     _, verdict_key, _ = _SUMMARY_FIELDS[field]
     body = {verdict_key: report.get(verdict_key), "max_sentences": sentences,
             field: report["summary"][field], "dropped": [r.get("event") for r in dropped],
             "remaining_factors": remaining}
     if field == "relative":
+        # kospi_ex_self 날 "<종목명>을 뺀 코스피" 에 쓴다
+        body["stock"] = stock
         body["market_compare"] = market_compare
     return json.dumps(body, ensure_ascii=False, indent=2)
 
@@ -380,10 +384,10 @@ def _remaining(report: dict[str, Any], layer: str) -> list[dict[str, Any]]:
 
 async def rewrite_summary(
     report: dict[str, Any], records: list[dict[str, Any]], field: str, *, stream: bool, run_id: str = "",
-    sentences: int = 3, market_compare: dict[str, Any] | None = None,
+    sentences: int = 3, market_compare: dict[str, Any] | None = None, stock: str | None = None,
 ) -> dict[str, Any] | None:
     """repair_quotes 가 그 칸의 층(main_cause 는 move, relative 는 relative) link 를 가진 factor 를 뺐으면 그 칸을
-    한 번 다시 쓰게 한다. market_compare 는 모델에 보낸 입력 칸이고 relative 를 다시 쓸 때만 쓴다.
+    한 번 다시 쓰게 한다. market_compare 는 모델에 보낸 입력 칸, stock 은 입력 종목명이고 relative 를 다시 쓸 때만 쓴다.
 
     report 를 제자리에서 고친다. 할 일이 없으면 None, 있으면 기록(래퍼 main_cause_rewrite·relative_rewrite 칸)을
     돌려준다. result 는 rewritten | cleared(relative 를 null 로 둠) | failed. relative 는 남은 상대 층 근거도 쓸 그룹
@@ -411,7 +415,7 @@ async def rewrite_summary(
         return record
     try:
         text, usage = await complete(
-            system, _summary_user(report, field, dropped, sentences, remaining, market_compare),
+            system, _summary_user(report, field, dropped, sentences, remaining, market_compare, stock),
             max_tokens=REPAIR_MAX_TOKENS, stream=stream)
     except (LLMError, StreamInterrupted) as exc:
         logger.warning("%s: %s 다시 쓰기 실패: %s", run_id, field, exc)
