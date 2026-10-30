@@ -15,7 +15,12 @@ RATE_LIMIT_RETRIES = 2
 
 
 class KisClient:
-    """환율·랭킹이 토큰/HTTP 연결/호출 속도 제한을 공유한다."""
+    """홈 지표(환율·금·랭킹·수급)와 종목 수집기가 토큰/HTTP 연결/호출 속도 제한을 공유한다.
+
+    모든 KIS 요청은 lock 하나로 토큰 발급·간격·응답 대기·재시도까지 한 건씩 직렬화한다.
+    간격을 응답 시간보다 짧게 줄이면 직렬화가 처리량 상한이 되므로, 그때는 다음 요청 시각
+    예약만 lock으로 보호하고 HTTP 요청과 재시도 대기는 lock 밖에서 하도록 바꾼다.
+    """
 
     def __init__(self, client: httpx.AsyncClient):
         self.client = client
@@ -83,7 +88,8 @@ class KisClient:
                     response.raise_for_status()
                     raise MarketDataError("INVALID_RESPONSE")
                 # 초당 제한 오류(EGW00201)는 HTTP 500으로도 온다. 한도 아래에서도 간헐적으로 거부되므로
-                # KIS 안내대로 이 요청만 다시 보낸다. 간격은 _pace 가 지키고, 다른 요청은 멈추지 않는다.
+                # KIS 안내대로 60초 전체 정지 없이 이 요청만 _pace 간격을 지켜 다시 보낸다.
+                # 재시도하는 동안 lock을 쥐고 있어 다른 요청은 기다리지만, 최대 재시도 횟수만큼이라 길지 않다.
                 if body.get("msg_cd") != "EGW00201" or attempt == RATE_LIMIT_RETRIES:
                     break
             response.raise_for_status()
