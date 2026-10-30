@@ -41,7 +41,7 @@ class DartError(Exception):
         not_json          JSON 이 아니다(점검 HTML·잘린 응답)
         not_object        JSON 이지만 객체가 아니다(배열·문자열 등)
         status            status 가 없거나 문자열이 아니다
-        total_page        성공인데 쪽 수가 숫자가 아니거나 지금 쪽보다 작다
+        total_page        성공인데 쪽 수가 숫자가 아니거나, 지금 쪽보다 작거나, MAX_PAGES 를 넘는다
         list              성공인데 list 가 객체 목록이 아니다
         disclosure        공시 행의 필드가 없거나 형식이 다르다(parse_list 실패)
 
@@ -126,7 +126,8 @@ async def _page(client: httpx.AsyncClient, key: str, day: date, page_no: int) ->
     # 지금 쪽 이상이어야 한다. bool 은 int 의 하위형이라, "²" 는 isdigit 이 참이라 따로 막는다.
     total = body.get("total_page")
     if (isinstance(total, bool) or not isinstance(total, (int, str))
-            or (not str(total).isascii() or not str(total).isdigit()) or int(total) < page_no):
+            or (not str(total).isascii() or not str(total).isdigit())
+            or not page_no <= int(total) <= MAX_PAGES):
         raise _invalid(at, "total_page")
     rows = body.get("list")
     if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
@@ -143,8 +144,6 @@ async def fetch_day(day: date) -> list[Disclosure]:
         while page_no <= total:
             body = await _page(client, key, day, page_no)
             total = int(body.get("total_page") or 0)
-            if total > MAX_PAGES:
-                raise DartError(f"{day}: 쪽 수가 비정상이다 ({total})")
             try:
                 parsed = parse_list(body["list"])
             except (KeyError, TypeError, ValueError, AttributeError) as e:

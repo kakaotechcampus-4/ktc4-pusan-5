@@ -154,6 +154,7 @@ async def test_day_outside_the_period_is_not_requested(monkeypatch):
     (page([], total_page=True), "total_page"),
     (page([], total_page=1.5), "total_page"),
     (page([], total_page=0), "total_page"),
+    (page([], total_page=dart.MAX_PAGES + 1), "total_page"),
     ({"status": "000", "total_page": 1}, "list"),
     (page(None), "list"),
     (page([None]), "list"),
