@@ -231,6 +231,7 @@ async def test_relative_is_rewritten_when_relative_factor_dropped_and_another_re
     sent = json.loads(fake_complete.await_args_list[1].args[1])
     assert [f["event"] for f in sent["remaining_factors"]] == ["다른 사건"]
     assert sent["relative_verdict"] == "partially_explained" and sent["max_sentences"] == 3
+    assert sent["market_compare"] is None  # 칸이 없던 날도 키는 간다
 
 
 async def test_relative_is_cleared_without_llm_when_no_relative_factor_remains(fake_complete):
@@ -241,6 +242,63 @@ async def test_relative_is_cleared_without_llm_when_no_relative_factor_remains(f
     assert rewrite["result"] == "cleared" and rewrite["after"] is None
     assert r["summary"]["relative"] is None
     assert fake_complete.await_count == 1  # quote 고쳐 쓰기 한 번뿐
+
+
+# 코스피와 다르게 같은 은행지주 그룹을 따라간 날. 비교 문장은 빠진 근거와 상관없다
+GROUP_COMPARE = {"status": "ok", "status_reason": None,
+                 "kospi": {"kospi_basis": "kospi", "kospi_relation": "diverges"},
+                 "peers": [{"group": "은행지주", "avg_change_rate_pct": -3.04, "relation": "follows"}]}
+COMPARE_SENTENCE = "코스피는 올랐지만 KB금융은 같은 은행지주 그룹 3개 종목(평균 3.04% 하락)과 함께 내렸습니다."
+
+
+async def test_relative_keeps_compare_sentence_when_no_relative_factor_remains(fake_complete):
+    r = relative_report()
+    r["summary"]["relative"] = f"{COMPARE_SENTENCE} 행정명령 때문에 다른 대형주보다 더 내렸습니다."
+    fake_complete.side_effect = answers(json.dumps({"event": "x", "sources": [source("없는 문장")]}),
+                                        json.dumps({"relative": COMPARE_SENTENCE}))
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    rewrite = await repair.rewrite_summary(r, records, "relative", stream=True, market_compare=GROUP_COMPARE)
+    assert (rewrite["result"], rewrite["after"]) == ("rewritten", COMPARE_SENTENCE)
+    assert r["summary"]["relative"] == COMPARE_SENTENCE
+    sent = json.loads(fake_complete.await_args_list[1].args[1])
+    assert sent["remaining_factors"] == [] and sent["market_compare"] == GROUP_COMPARE
+
+
+@pytest.mark.parametrize("market_compare", [
+    None,
+    {"status": "no_data", "status_reason": "기준일 데이터 없음", "kospi": None, "peers": []},
+    {**GROUP_COMPARE, "status": "no_trades"},
+    {**GROUP_COMPARE, "peers": []},  # 코스피 판정만 있다. 코스피 판정 문장은 move 에 있다
+    {**GROUP_COMPARE, "peers": [{**GROUP_COMPARE["peers"][0], "relation": None}]},
+])
+async def test_relative_is_cleared_without_llm_when_no_group_compare_to_keep(fake_complete, market_compare):
+    r = relative_report()
+    fake_complete.return_value = (json.dumps({"event": "x", "sources": [source("없는 문장")]}), USAGE)
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    rewrite = await repair.rewrite_summary(r, records, "relative", stream=True, market_compare=market_compare)
+    assert rewrite["result"] == "cleared" and r["summary"]["relative"] is None
+    assert fake_complete.await_count == 1
+
+
+async def test_relative_rewrite_may_answer_null(fake_complete):
+    r = relative_report()
+    fake_complete.side_effect = answers(json.dumps({"event": "x", "sources": [source("없는 문장")]}),
+                                        json.dumps({"relative": None}))
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    rewrite = await repair.rewrite_summary(r, records, "relative", stream=True, market_compare=GROUP_COMPARE)
+    assert (rewrite["result"], rewrite["after"], rewrite["error"]) == ("cleared", None, None)
+    assert r["summary"]["relative"] is None
+    assert rewrite["usage"] == USAGE
+
+
+async def test_market_compare_goes_only_to_relative_rewrite(fake_complete):
+    r = cause_report()
+    fake_complete.side_effect = answers(json.dumps({"event": "x", "sources": [source("없는 문장")]}),
+                                        json.dumps({"main_cause": "다른 사건 때문입니다."}))
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    await repair.rewrite_summary(r, records, "main_cause", stream=True, market_compare=GROUP_COMPARE)
+    assert "market_compare" not in json.loads(fake_complete.await_args_list[1].args[1])
+    assert "market_compare" in repair.RELATIVE_SYSTEM and "market_compare" not in repair.MAIN_CAUSE_SYSTEM
 
 
 @pytest.mark.parametrize("factors, background", [(5, 0), (0, 7)])

@@ -578,13 +578,18 @@ def _linked(payload, k, event, layers, quote=None):
             "links": [{"layer": layer, "note": "n", "direction_match": True, "strength": "partial"} for layer in layers]}
 
 
-async def _run_with_dropped_factor(monkeypatch, tmp_path, factors, summary, repair_replies):
+async def _run_with_dropped_factor(monkeypatch, tmp_path, factors, summary, repair_replies, market_compare=None):
     """+6.5%(중간값 -0.6%) 날. factors[0] 의 quote 가 원문에 없고 고쳐 써도 없어 빠진다. repair 쪽 LLM 응답은
-    repair_replies 순서다(첫 번째는 quote 고쳐 쓰기). 래퍼를 돌려준다."""
+    repair_replies 순서다(첫 번째는 quote 고쳐 쓰기). market_compare 를 주면 그 칸을 입력에 넣는다. 래퍼를 돌려준다."""
     from app.services.stock_analysis import repair
 
     path = FIXTURES / "sample_big_up.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
+    if market_compare is not None:
+        async def apply(self, payload):
+            return {**payload, "market_compare": market_compare}, {"market_compare": market_compare}
+
+        monkeypatch.setattr(mc.MarketCompare, "apply", apply)
 
     async def fake(system, user, **_):
         report = report_for(json.loads(user))
@@ -623,6 +628,26 @@ async def test_dropped_relative_factor_rewrites_relative_through_collector(monke
     assert "main_cause_rewrite" not in wrapper  # 빠진 factor 에 등락 층 link 가 없었다
     assert not [w for w in wrapper["verify_warnings"] if w.startswith("RELATIVE_STALE")]
     assert wrapper["cost"] == pytest.approx(0.03)
+
+
+async def test_relative_rewrite_keeps_compare_sentence_through_collector(monkeypatch, tmp_path):
+    """상대 층 근거가 모두 빠져도 그룹 비교가 있으면 relative 를 비우지 않고, 모델에 보낸 market_compare 로 다시 쓴다."""
+    compare = {"status": "ok", "status_reason": None, "kospi": {"kospi_basis": "kospi", "kospi_relation": "diverges"},
+               "peers": [{"group": "2차전지", "avg_change_rate_pct": 6.1, "relation": "follows"}]}
+    sentence = "코스피와는 다르게 같은 2차전지 그룹(평균 6.10% 상승)과 함께 움직였습니다."
+
+    def factors(payload):
+        return [_linked(payload, 0, "없는 사건", ["relative"], quote="원문에 없는 문장"),
+                _linked(payload, 0, "공급 계약", ["move"])]
+
+    wrapper = await _run_with_dropped_factor(
+        monkeypatch, tmp_path, factors, {"relative": f"{sentence} 없는 사건으로 더 올랐습니다."},
+        [_STILL_BAD, (json.dumps({"relative": sentence}, ensure_ascii=False), {"cost": 0.01})],
+        market_compare=compare)
+    assert (wrapper["relative_rewrite"]["result"], wrapper["relative_rewrite"]["after"]) == ("rewritten", sentence)
+    assert json.loads(wrapper["final_text"])["summary"]["relative"] == sentence
+    sent = json.loads(collector_repair.complete.await_args_list[1].args[1])
+    assert sent["remaining_factors"] == [] and sent["market_compare"] == compare
 
 
 async def test_failed_relative_rewrite_warns_relative_stale_through_collector(monkeypatch, tmp_path):
