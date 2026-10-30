@@ -16,10 +16,6 @@ async def list_with_quotes(session: AsyncSession, user_id: int):
     return result.all()
 
 
-async def stock_exists(session: AsyncSession, code: str) -> bool:
-    return await session.get(Stock, code) is not None
-
-
 # 이미 담긴 종목이면 무시
 async def add(session: AsyncSession, user_id: int, code: str) -> None:
     await session.execute(

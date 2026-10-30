@@ -286,7 +286,7 @@ async def test_worker_saves_income_and_failed_eps_keeps_previous_rows(stock_db, 
     async def fetch_eps(_kis, _code):
         raise MarketDataError("UPSTREAM_FAILURE")
 
-    monkeypatch.setattr(stocks.StockWorker, "schedule_active", lambda self: _noop())
+    monkeypatch.setattr(stocks.StockWorker, "schedule_snapshots", lambda self: _noop())
     monkeypatch.setattr(stocks.stock_financials, "fetch_income", fetch_income)
     monkeypatch.setattr(stocks.stock_financials, "fetch_eps", fetch_eps)
     monkeypatch.setattr(stocks, "SessionLocal", stock_db)

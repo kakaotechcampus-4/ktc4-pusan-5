@@ -49,22 +49,6 @@ export type SignalBoard = {
   sources: string[];
 };
 
-/* ── 관심 종목 ──────────────────────────────────────────────────────────── */
-
-export type WatchItem = {
-  code: string;
-  name: string;
-  initial: string;
-  price: number;
-  /** 등락률(%) */
-  change: number;
-};
-
-export type Watchlist = {
-  items: WatchItem[];
-  asOf: string;
-};
-
 /* ── 값 ─────────────────────────────────────────────────────────────────── */
 
 /**
@@ -174,50 +158,11 @@ export const mockSignalBoard: SignalBoard = {
   ],
 };
 
-export const mockWatchlist: Watchlist = {
-  asOf: AS_OF,
-  items: [
-    { code: '005930', name: '삼성전자', initial: '삼', price: 62400, change: -1.08 },
-    { code: '000660', name: 'SK하이닉스', initial: 'SK', price: 1730000, change: 2.31 },
-    { code: '032830', name: '삼성생명', initial: '생', price: 328500, change: 10.61 },
-    { code: '009150', name: '삼성전기', initial: '전', price: 1316000, change: -5.73 },
-    { code: '373220', name: 'LG에너지솔루션', initial: 'LG', price: 343500, change: -4.05 },
-    { code: '196170', name: '알테오젠', initial: '알', price: 320000, change: -5.74 },
-  ],
-};
-
-/** 빈 상태를 눈으로 확인할 때 mockWatchlist 대신 이걸 넘긴다. */
-export const mockEmptyWatchlist: Watchlist = { asOf: AS_OF, items: [] };
-
 /** 빈 상태를 눈으로 확인할 때 mockSignalBoard 대신 아래 내용을 넘긴다. */
 export const mockEmptySignalBoard: SignalBoard = {
   ...mockSignalBoard,
   signals: [],
 };
-
-/* 검색 자동완성 */
-
-export type SearchableStock = {
-  code: string;
-  name: string;
-  initial: string;
-};
-
-/** 검색창 자동완성용 mock */
-export const mockSearchIndex: SearchableStock[] = [
-  { code: '005930', name: '삼성전자', initial: '삼' },
-  { code: '000660', name: 'SK하이닉스', initial: 'SK' },
-  { code: '032830', name: '삼성생명', initial: '생' },
-  { code: '373220', name: 'LG에너지솔루션', initial: 'LG' },
-  { code: '009150', name: '삼성전기', initial: '전' },
-  { code: '196170', name: '알테오젠', initial: '알' },
-  { code: '035420', name: 'NAVER', initial: 'N' },
-  { code: '035720', name: '카카오', initial: '카' },
-  { code: '005380', name: '현대차', initial: '현' },
-  { code: '000270', name: '기아', initial: '기' },
-  { code: '068270', name: '셀트리온', initial: '셀' },
-  { code: '005490', name: 'POSCO홀딩스', initial: 'P' },
-];
 
 /* 실시간 랭킹 */
 

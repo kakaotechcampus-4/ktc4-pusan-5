@@ -20,14 +20,14 @@ async def known_rcept_nos(session: AsyncSession, rcept_nos: list[str]) -> set[st
     return set(rows.scalars())
 
 
-async def save_disclosures(session: AsyncSession, items: list[Disclosure]) -> int:
-    """새 공시만 넣는다. 이미 있는 접수번호는 건드리지 않는다(first_seen_at 보존). 넣은 수."""
+async def save_disclosures(session: AsyncSession, items: list[Disclosure]) -> list[int]:
+    """새 공시만 넣는다. 이미 있는 접수번호는 건드리지 않는다(first_seen_at 보존). 넣은 행의 id."""
     if not items:
-        return 0
+        return []
     stmt = (
         insert(DartDisclosure)
         .values([asdict(item) for item in items])
         .on_conflict_do_nothing(constraint="uq_dart_disclosure_rcept_no")
         .returning(DartDisclosure.id)
     )
-    return len((await session.execute(stmt)).all())
+    return list((await session.execute(stmt)).scalars().all())

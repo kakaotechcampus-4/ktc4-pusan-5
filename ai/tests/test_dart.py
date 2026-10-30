@@ -70,6 +70,32 @@ async def test_fetch_day_raises_on_error_status_without_leaking_key(key):
     with pytest.raises(DartError, match="020") as error:
         await dart.fetch_day(DAY)
     assert "test-key" not in str(error.value)
+    assert error.value.reason.startswith("dart_status: 020")
+    assert error.value.kind == "rate_limited"
+
+
+@respx.mock
+@pytest.mark.parametrize(("response", "reason", "kind"), [
+    (httpx.Response(200, json={"status": "010", "message": "등록되지 않은 키입니다."}),
+     "dart_status: 010 (등록되지 않은 키입니다.)", "permanent"),
+    (httpx.Response(200, json={"status": "800", "message": "시스템 점검으로 인한 서비스가 중지 중입니다."}),
+     "dart_status: 800 (시스템 점검으로 인한 서비스가 중지 중입니다.)", "transient"),
+    (httpx.Response(404), "http_error: 404", "permanent"),
+    (httpx.Response(503), "http_error: 503", "transient"),
+])
+async def test_fetch_day_classifies_failures_like_news(key, response, reason, kind):
+    respx.get(LIST_URL).mock(return_value=response)
+    with pytest.raises(DartError) as error:
+        await dart.fetch_day(DAY)
+    assert (error.value.reason, error.value.kind) == (reason, kind)
+
+
+@respx.mock
+async def test_fetch_day_network_failure_is_transient(key):
+    respx.get(LIST_URL).mock(side_effect=httpx.ConnectTimeout("mock timeout"))
+    with pytest.raises(DartError) as error:
+        await dart.fetch_day(DAY)
+    assert (error.value.reason, error.value.kind) == ("request_failed: ConnectTimeout", "transient")
 
 
 async def test_fetch_day_needs_a_key(monkeypatch):

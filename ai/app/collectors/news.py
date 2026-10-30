@@ -18,6 +18,8 @@ backend `app/collectors/news.py` 에서 옮겨 왔다. 검색과 본문 추출(t
 **수집 범위 안에서만 받는다**(collection_scope.toml 의 naver_news). 검색어는 허용 목록에 있어야
 하고, 발행일이 기간 밖인 기사는 받지 않는다. 새 기사는 수집량 상한까지만 받고, 상한을 넘는
 기사는 본문을 열지도 않는다. 이미 있는 기사는 상한과 상관없이 비어 있던 것을 채운다.
+이미 있는 기사의 본문은 다시 열어 볼 만한 실패일 때만 요청한다. 본문이 있거나 지웠거나 404 같은
+영구 실패면 요청하지 않고 발행 시각·제목·요약만 채운다.
 """
 
 import argparse
@@ -27,11 +29,18 @@ from datetime import UTC, datetime, timedelta
 
 from app.core.database import SessionLocal
 from app.core.scope import KST, CollectionScope, ScopeError, SourceScope, load_scope
-from app.repositories.news import failed_news, known_news_keys, save_news
+from app.repositories.news import (
+    KnownArticle,
+    failed_news,
+    known_articles,
+    known_news_keys,
+    save_news,
+)
 from app.repositories.scope import collection_locks, count_collected
 from app.repositories.source_card import register_missing_sources
 from app.services.news import naver
 from app.services.news.content import attach_bodies
+from app.services.news.failure import is_retryable
 from app.services.news.schema import NewsItem
 from app.services.news.url import canonical_url
 
@@ -64,6 +73,7 @@ class CollectResult:
     fetched: int = 0  # 검색 결과(또는 재시도 대상) 건수
     out_of_period: int = 0  # 발행일이 수집 기간 밖이라 받지 않은 기사
     held: int = 0  # 수집량 상한 때문에 받지 않은 새 기사
+    reused: int = 0  # 이미 있는 기사라 본문을 다시 요청하지 않은 것 (ok·purged·영구 실패)
     inserted: int = 0  # 새 기사
     filled: int = 0  # 실패했던 본문을 이번에 채운 기사
     cards: dict[str, int] = field(default_factory=dict)
@@ -97,10 +107,27 @@ def select_items(
     return kept
 
 
-async def _known_and_collected(items: list[NewsItem]) -> tuple[set[str], int]:
+def needs_body(article: KnownArticle | None) -> bool:
+    """본문을 요청할 기사인가. 새 기사이거나, 다시 열어 볼 만한 실패 기사만이다.
+
+    이미 본문이 있거나(ok) 지웠거나(purged) 404 같은 영구 실패면 열지 않는다. 그런 기사도
+    저장 단계에는 넘겨서 비어 있던 발행 시각·제목·요약을 채운다.
+    """
+    return article is None or (article.status == "failed" and is_retryable(article.error))
+
+
+async def _known_and_collected(
+    items: list[NewsItem],
+) -> tuple[set[str], dict[str, KnownArticle], int]:
+    """(이미 있는 기사의 정규화 주소, 원문 주소 → 기존 기사, 누적 수집량)."""
+    urls = [str(item.url) for item in items]
     async with SessionLocal() as session:
-        known = await known_news_keys(session, [str(item.url) for item in items])
-        return known, await count_collected(session, "naver_news")
+        known = await known_news_keys(session, urls)
+        found = await known_articles(session, urls)
+        # 텔레그램 발견 주소로만 찾은 기사는 뺀다. save_news 는 그 주소로 행을 찾지 않으므로
+        # 새 기사로 들어가는데, 본문을 안 받으면 빈 행이 된다.
+        articles = {url: a for url, a in found.items() if a.canonical_url == canonical_url(url)}
+        return known, articles, await count_collected(session, "naver_news")
 
 
 async def _save(items: list[NewsItem], result: CollectResult) -> CollectResult:
@@ -112,7 +139,7 @@ async def _save(items: list[NewsItem], result: CollectResult) -> CollectResult:
     try:
         async with SessionLocal() as session:
             result.cards = await register_missing_sources(
-                session, news_ids=saved.ids, report_ids=[], message_ids=[],
+                session, news_ids=saved.ids, report_ids=[], message_ids=[], disclosure_ids=[],
             )
             await session.commit()
     except Exception as exc:  # noqa: BLE001
@@ -130,10 +157,12 @@ async def collect(
     async with collection_locks(SessionLocal, "naver_news"):
         items = await naver.search(query, display=display)
         result = CollectResult(fetched=len(items))
-        known, collected = await _known_and_collected(items)
+        known, articles, collected = await _known_and_collected(items)
         items = select_items(items, scope=scope, source=source, known=known, collected=collected,
                              result=result)
-        items = await attach_bodies(items)
+        fetch = [item for item in items if needs_body(articles.get(str(item.url)))]
+        result.reused = len(items) - len(fetch)
+        await attach_bodies(fetch)  # 항목을 직접 고친다. 열지 않은 항목은 본문 없이 저장된다
         # 분류는 원문 저장과 별도로 실행한다.
         return await _save(items, result)
 
@@ -145,6 +174,8 @@ async def retry_failed(
     scope: CollectionScope | None = None,
 ) -> CollectResult:
     """본문을 못 얻은 네이버 기사의 원문을 다시 연다. 얻으면 채우고, 또 실패하면 사유만 바꾼다.
+
+    404·410 같은 영구 실패는 다시 열지 않는다(services/news/failure.py).
 
     이미 있는 기사라 수집량 상한은 늘지 않는다. 출처가 꺼졌거나 발행일이 기간 밖이면 열지 않는다.
     """
@@ -187,6 +218,8 @@ def main() -> None:
             result = asyncio.run(collect(args.query, display=args.display))
             print(f"가져온 {result.fetched}건 / 새로 저장 {result.inserted}건 / "
                   f"본문 보완 {result.filled}건")
+            if result.reused:
+                print(f"이미 있는 기사라 본문을 다시 받지 않음 {result.reused}건")
     except ScopeError as exc:
         p.exit(1, f"{exc}\n")
     if result.out_of_period or result.held:

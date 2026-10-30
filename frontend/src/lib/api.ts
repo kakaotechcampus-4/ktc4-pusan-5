@@ -12,6 +12,7 @@ import type {
   StockPriceResource,
   StockFinancials,
   PricePeriod,
+  SearchResponse,
   User,
   WatchlistResponse,
 } from './types';
@@ -104,8 +105,24 @@ export function loginWithKakao(code: string): Promise<User> {
   });
 }
 
+/** 로컬 개발 전용. 백엔드의 ENABLE_TEST_LOGIN이 꺼져 있으면 404 ApiError */
+export function loginAsTestAccount(): Promise<User> {
+  return request<User>('/api/auth/test-login', { method: 'POST' });
+}
+
 export function logout(): Promise<void> {
   return request<void>('/api/auth/logout', { method: 'POST' });
+}
+
+/** 종목과 개념을 함께 검색한다. limit 은 종류별 최대 개수다. */
+export function searchAll(
+  query: string,
+  signal?: AbortSignal,
+  limit?: number,
+): Promise<SearchResponse> {
+  const params = new URLSearchParams({ q: query });
+  if (limit) params.set('limit', String(limit));
+  return request<SearchResponse>(`/api/search?${params}`, { signal });
 }
 
 /** 로그인한 사용자의 관심 종목. 비로그인이면 401 UNAUTHORIZED ApiError */

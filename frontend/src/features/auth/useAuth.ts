@@ -11,6 +11,8 @@ export type AuthContextValue = {
   user: User | null;
   status: AuthStatus;
   loginWithKakao: (code: string) => Promise<void>;
+  /** 로컬 개발 전용 테스트 계정 로그인 */
+  loginAsTestAccount: () => Promise<void>;
   logout: () => Promise<void>;
 };
 

@@ -27,6 +27,8 @@ export type StockQuoteData = {
   change: number;
   changeAmount: number;
   volume: number;
+  /** 전일 대비 거래량 변화율(%). 전일 거래량이 없거나 거래 전이면 null */
+  volumeChange: number | null;
   tradingValue: number;
   marketCap: number | null;
 };
@@ -115,6 +117,8 @@ export type InvestmentPoint = {
   operatingProfit: number | null;
   netIncome: number | null;
   epsCumulative: number | null;
+  /** 분기 BPS(원). 결산연월 기준 */
+  bps: number | null;
   roe: number | null;
   debtRatio: number | null;
   rs: number | null;
@@ -172,6 +176,24 @@ export type MarketBoard<T, K extends string> = {
 };
 export type FlowBoard = MarketBoard<FlowItem, 'flowBuy' | 'flowSell'>;
 export type SectorBoard = MarketBoard<SectorItem, 'sectorKospi' | 'sectorKosdaq'>;
+export type SearchStockItem = {
+  code: string;
+  name: string;
+  market: 'KOSPI' | 'KOSDAQ';
+};
+
+export type SearchConceptItem = {
+  slug: string;
+  name: string;
+  summary: string;
+};
+
+export type SearchResponse = {
+  query: string;
+  stocks: SearchStockItem[];
+  concepts: SearchConceptItem[];
+};
+
 export type MarketOverview = {
   items: MarketItem[];
   rankings: RankingBoard[];
@@ -211,6 +233,10 @@ export type StockListItem = {
   sector: string;
 };
 
+/** asOf: 시가총액 순위를 조회한 시각 */
 export type StockListResponse = {
   items: StockListItem[];
+  /** 고정 100개 중 일부가 DB에 없으면 false */
+  complete: boolean;
+  asOf: string;
 };

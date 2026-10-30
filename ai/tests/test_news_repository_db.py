@@ -37,8 +37,8 @@ def row(url: str = URL, **values) -> dict:
 
 
 def failed(url: str = URL, **values) -> dict:
-    return row(url, **{"cleaned_text": None, "body_status": "failed", "body_error": "http_404",
-                       **values})
+    return row(url, **{"cleaned_text": None, "body_status": "failed",
+                       "body_error": "http_error: 503", **values})
 
 
 def from_telegram(url: str = URL, **values) -> dict:
@@ -64,7 +64,8 @@ def test_failed_body_is_filled_later_but_a_secured_body_is_never_replaced(databa
     assert (second.inserted, second.filled) == (0, 1)
 
     # 성공한 본문은 다시 실패해도, 다른 본문을 받아도 그대로다
-    save(database, [failed(body_error="http_500", body_fetched_at=later + timedelta(hours=1))])
+    save(database, [failed(body_error="http_error: 500",
+                           body_fetched_at=later + timedelta(hours=1))])
     save(database, [row(cleaned_text="고쳐진 기사 본문", body_fetched_at=later + timedelta(hours=2))])
 
     [news] = stored(database)
@@ -156,11 +157,70 @@ def test_failed_news_lists_only_recent_failures_of_the_source(database):
     assert [n.url for n in targets] == ["https://a.example.com/1"]
 
 
+def test_failed_news_skips_permanent_failures(database):
+    alembic(database, "upgrade", "head")
+    save(database, [
+        failed("https://a.example.com/gone", body_error="http_error: 404"),
+        failed("https://a.example.com/legacy", body_error="http_410"),  # 예전 네이버 형식
+        failed("https://a.example.com/busy", body_error="http_error: 429"),
+        failed("https://a.example.com/timeout", body_error="request_failed: ReadTimeout"),
+    ])
+
+    async def work(session):
+        return await failed_news(session, source="naver", since=T0 - timedelta(hours=1), limit=1)
+
+    targets = in_session(database, work)
+    assert [n.url for n in targets] == ["https://a.example.com/busy"], "상한은 거른 뒤에 센다"
+
+
 def test_collected_time_is_not_used_as_publish_time(database):
     """링크로 연 기사는 발행 시각이 비어 있어야 한다. 받은 시각과 섞이면 컷오프가 틀어진다."""
     alembic(database, "upgrade", "head")
     save(database, [from_telegram(body_fetched_at=datetime.now(UTC))])
     assert query(database, "SELECT published_at FROM news")[0][0] is None
+
+
+def test_retry_selection_continues_past_a_batch(database):
+    alembic(database, "upgrade", "head")
+    save(database, [
+        *(failed(f"https://a.example.com/gone/{i}", body_error="http_error: 404")
+          for i in range(101)),
+        failed("https://a.example.com/due", body_error="http_error: 429"),
+        failed("https://a.example.com/next"),
+    ])
+
+    targets = in_session(database, lambda session: failed_news(
+        session, source="naver", since=T0, limit=1,
+    ))
+    assert [n.url for n in targets] == ["https://a.example.com/due"]
+
+
+@pytest.mark.parametrize("limit", [0, -1])
+async def test_nonpositive_retry_limit_does_not_query(limit):
+    from unittest.mock import AsyncMock
+
+    mock_session = AsyncMock()
+    assert await failed_news(mock_session, source="naver", since=T0, limit=limit) == []
+    mock_session.stream_scalars.assert_not_called()
+
+
+async def test_retry_scan_stops_at_limit_and_closes_cursor():
+    from unittest.mock import AsyncMock
+
+    from app.models import News
+
+    async def mock_rows():
+        yield News(id=1, body_error="http_error: 404", body_fetched_at=T0)
+        yield News(id=2, body_error="http_error: 503", body_fetched_at=T0)
+        pytest.fail("Read past the requested number of retry targets")
+
+    mock_stream = AsyncMock()
+    mock_stream.__aiter__.side_effect = mock_rows
+    mock_session = AsyncMock()
+    mock_session.stream_scalars.return_value = mock_stream
+    targets = await failed_news(mock_session, source="naver", since=T0, limit=1)
+    assert [n.id for n in targets] == [2]
+    mock_stream.close.assert_awaited_once()
 
 
 def test_purged_body_is_not_restored_by_a_later_collection(database):

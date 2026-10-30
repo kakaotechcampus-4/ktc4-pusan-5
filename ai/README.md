@@ -144,11 +144,15 @@ backend 조회는 `verify_status = 'passed'` 를 전제한다.
 
 ```bash
 uv run python -m app.collectors.news 삼성전자 --display 50
-uv run python -m app.collectors.news --retry-failed            # 본문을 못 얻은 네이버 기사만 다시 연다
+uv run python -m app.collectors.news --retry-failed            # 본문을 못 얻은 네이버 기사만 다시 연다 (404 등 영구 실패 제외)
 uv run python -m app.collectors.news_channels                  # 어제 0시부터. 범위의 채널을 DB 에 쓴다
 uv run python -m app.collectors.news_channels --dry-run        # DB 에 쓰지 않고 범위 확인·요약만
 uv run python -m app.collectors.news_channels --jsonl          # JSONL 파일 사본도 쓴다 (data/telegram/)
 ```
+
+실패 판정은 `app/services/news/failure.py`에서 공유한다. 404·410 같은 영구 실패는 다시
+열지 않는다. 429는 따로 분류만 하고 일시 실패처럼 다음 실행에서 다시 연다(대기·백오프 없음).
+DNS 조회 장애는 일시 실패로 남겨 재시도를 허용한다.
 
 모두 `collection_scope.toml` 의 범위 안에서만 돈다(아래 "데이터 이용 제한"). 범위 밖의
 검색어·채널은 거부하고, 기간 밖의 자료와 수집량 상한을 넘는 새 자료는 받지 않는다.

@@ -15,6 +15,10 @@ router = APIRouter()
 
 _COOKIE_MAX_AGE = settings.jwt_expire_minutes * 60
 
+# 카카오 id와 겹치지 않는 고정 식별자(카카오 id는 숫자 문자열만 나옴)
+_TEST_ACCOUNT_KAKAO_ID = "TEST_ACCOUNT"
+_TEST_ACCOUNT_NICKNAME = "테스트 계정"
+
 
 def _to_response(user: User) -> UserResponse:
     return UserResponse(
@@ -51,6 +55,26 @@ async def login_with_kakao(
         session,
         kakao_id=kakao_user.kakao_id,
         nickname=kakao_user.nickname,
+    )
+    await session.commit()
+
+    _set_session_cookie(response, user.id)
+    return _to_response(user)
+
+
+@router.post("/test-login", response_model=UserResponse)
+async def login_as_test_account(
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+) -> UserResponse:
+    # 로컬 개발 전용. 꺼져 있으면 엔드포인트 자체가 없는 것처럼 404로 응답한다
+    if not settings.enable_test_login:
+        raise AppError("NOT_FOUND", "요청한 리소스를 찾을 수 없습니다", status_code=404)
+
+    user = await get_or_create_user(
+        session,
+        kakao_id=_TEST_ACCOUNT_KAKAO_ID,
+        nickname=_TEST_ACCOUNT_NICKNAME,
     )
     await session.commit()
 

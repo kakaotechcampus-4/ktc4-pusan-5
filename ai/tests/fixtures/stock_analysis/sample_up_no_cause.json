@@ -1,0 +1,28 @@
+{
+  "stock": "하늬결화학",
+  "code": "999980",
+  "target_date": "2026-09-22",
+  "cutoff": "2026-09-22T15:30:00+09:00",
+  "change_pct": 0.54,
+  "market": {
+    "index": "코스피",
+    "change_pct": -2.2,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": -2.41,
+    "peer_up": 1,
+    "peer_down": 18,
+    "peer_total": 19,
+    "excess_pct": 2.95
+  },
+  "messages": [
+    {
+      "channel": "sample_channel_b",
+      "url": "https://t.me/sample_channel_b/602",
+      "datetime_kst": "2026-09-22T15:20:00+09:00",
+      "views": "700",
+      "text": "[샘플] 외국인 대형주 매도에 코스피 2%대 하락 마감",
+      "match": "indirect"
+    }
+  ]
+}

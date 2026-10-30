@@ -3,9 +3,11 @@ import respx
 from httpx import ASGITransport
 from sqlalchemy import delete
 
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.main import app
 from app.models import User
+from app.routers.auth import _TEST_ACCOUNT_KAKAO_ID
 from app.services.kakao import KAKAO_TOKEN_URL, KAKAO_USER_URL
 
 _KAKAO_ID = "test-router-kakao-id"
@@ -17,9 +19,9 @@ _KAKAO_USER_JSON = {
 }
 
 
-async def _cleanup() -> None:
+async def _cleanup(kakao_id: str = _KAKAO_ID) -> None:
     async with SessionLocal() as session:
-        await session.execute(delete(User).where(User.kakao_id == _KAKAO_ID))
+        await session.execute(delete(User).where(User.kakao_id == kakao_id))
         await session.commit()
 
 
@@ -64,3 +66,30 @@ async def test_kakao_login_fails_with_kakao_auth_failed_on_kakao_error():
 
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "KAKAO_AUTH_FAILED"
+
+
+async def test_test_login_returns_404_when_disabled(monkeypatch):
+    monkeypatch.setattr(settings, "enable_test_login", False)
+
+    transport = ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post("/api/auth/test-login")
+
+    assert resp.status_code == 404
+
+
+async def test_test_login_sets_cookie_when_enabled(monkeypatch):
+    monkeypatch.setattr(settings, "enable_test_login", True)
+
+    transport = ASGITransport(app=app)
+    try:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post("/api/auth/test-login")
+            assert resp.status_code == 200
+            assert resp.json()["nickname"] == "테스트 계정"
+            assert "access_token" in resp.cookies
+
+            me_resp = await client.get("/api/auth/me")
+            assert me_resp.status_code == 200
+    finally:
+        await _cleanup(_TEST_ACCOUNT_KAKAO_ID)

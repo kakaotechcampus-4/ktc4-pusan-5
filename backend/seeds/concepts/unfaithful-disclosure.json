@@ -1,0 +1,49 @@
+{
+  "slug": "unfaithful-disclosure",
+  "name": "불성실공시",
+  "aliases": [
+    "불성실공시법인",
+    "공시번복",
+    "공시변경",
+    "공시불이행"
+  ],
+  "category": "disclosure/unfaithful-disclosure",
+  "extraCategories": null,
+  "summary": "상장사가 공시 의무를 어긴 경우 한국거래소가 불성실공시법인으로 지정하고 벌점 등을 매기는 제도입니다.",
+  "body": "불성실공시는 상장사가 공시 의무를 지키지 않은 경우를 말하고, 이런 회사는 불성실공시법인으로 지정됩니다. 유형은 신고기한까지 공시하지 않거나 거짓·잘못된 내용을 공시한 공시불이행, 공시한 내용을 전면 취소하거나 부인한 공시번복, 공시 내용의 일부를 일정 비율 이상 바꾼 공시변경으로 나뉩니다.\n\n지정되면 위반 정도와 지연 기간에 따라 벌점이 부과되고, 벌점이 일정 수준(유가증권시장 10점, 코스닥시장 8점) 이상이면 지정일 하루 동안 매매거래가 정지됩니다. 누계 벌점이 쌓이면 관리종목으로 지정될 수 있고, 위반이 이어지면 [상장폐지](delisting) 심사 대상이 될 수 있습니다. 회사가 낸 [공시](disclosure)를 믿기 어렵게 만든다는 점에서 지정 예고나 지정만으로도 주가의 [변동성](volatility)이 커질 수 있습니다.\n\n불성실공시법인 지정 현황은 한국거래소 전자공시(KIND)에서 확인할 수 있습니다.",
+  "related": [
+    {
+      "slug": "disclosure",
+      "reason": "공시 제도의 기본"
+    },
+    {
+      "slug": "delisting",
+      "reason": "벌점이 쌓였을 때 이어질 수 있는 단계"
+    },
+    {
+      "slug": "volatility",
+      "reason": "신뢰 하락이 주가 변동으로 이어지는 경우"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "이미 낸 공시를 전면 취소하거나 부인하는 것은 공시번복에 해당한다.",
+      "answer": true,
+      "explanation": "공시한 내용을 전면 취소·부인하는 경우를 공시번복으로 봅니다."
+    },
+    {
+      "question": "불성실공시법인으로 지정되어도 주식 매매거래에는 어떤 영향도 없다.",
+      "answer": false,
+      "explanation": "벌점이 부과되고, 벌점이 일정 수준 이상이면 지정일에 매매거래가 정지됩니다."
+    },
+    {
+      "question": "불성실공시법인 지정 현황은 한국거래소 전자공시(KIND)에서 확인할 수 있다.",
+      "answer": true,
+      "explanation": "생활법령정보가 KIND를 확인처로 안내합니다."
+    }
+  ],
+  "sources": [
+    "법제처 찾기쉬운 생활법령정보 「주식투자자-주요경영사항 등 공시의무 및 불성실공시」(2026-09-15 기준) https://www.easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=1701&ccfNo=1&cciNo=3&cnpClsNo=2",
+    "법제처 찾기쉬운 생활법령정보 「주식투자자-관리종목 지정 및 상장폐지」(2026-09-15 기준) https://easylaw.go.kr/CSP/CnpClsMain.laf?popMenu=ov&csmSeq=1701&ccfNo=1&cciNo=2&cnpClsNo=2"
+  ]
+}

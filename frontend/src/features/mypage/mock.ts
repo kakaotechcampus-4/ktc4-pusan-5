@@ -4,7 +4,7 @@
  *   headline = factors[0].claim, changePct = change_pct, sources = factors 출처 channel (중복 제거)
  * 숫자는 가공하지 않은 원본이다. 포맷은 화면에서 lib/format.ts 로 한다.
  */
-import type { MyScrapList, MyWatchlist } from './types';
+import type { MyScrapList } from './types';
 
 export const mockScraps: MyScrapList = {
   items: [
@@ -57,19 +57,3 @@ export const mockScraps: MyScrapList = {
 
 /** 빈 상태를 눈으로 확인할 때 mockScraps 대신 이걸 쓴다. */
 export const mockEmptyScraps: MyScrapList = { items: [] };
-
-/** 홈 mockWatchlist 와 같은 6종목. initial 은 백엔드가 주지 않으므로 넣지 않는다. */
-export const mockMyWatchlist: MyWatchlist = {
-  asOf: '2026-10-02T15:30:00+09:00',
-  items: [
-    { code: '005930', name: '삼성전자', price: 62400, change: -1.08 },
-    { code: '000660', name: 'SK하이닉스', price: 1730000, change: 2.31 },
-    { code: '032830', name: '삼성생명', price: 328500, change: 10.61 },
-    { code: '009150', name: '삼성전기', price: 1316000, change: -5.73 },
-    { code: '373220', name: 'LG에너지솔루션', price: 343500, change: -4.05 },
-    { code: '196170', name: '알테오젠', price: 320000, change: -5.74 },
-  ],
-};
-
-/** 빈 상태를 눈으로 확인할 때 mockMyWatchlist 대신 이걸 쓴다. */
-export const mockEmptyMyWatchlist: MyWatchlist = { asOf: mockMyWatchlist.asOf, items: [] };

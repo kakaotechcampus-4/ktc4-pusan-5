@@ -64,8 +64,8 @@ def test_registration_is_idempotent_and_does_not_copy_the_raw_text(database):
     alembic(database, "upgrade", "head")
     seed(database)
 
-    assert register(database) == {"news": 1, "pdf": 2, "message": 1}
-    assert register(database) == {"news": 0, "pdf": 0, "message": 0}
+    assert register(database) == {"news": 1, "pdf": 2, "message": 1, "disclosure": 0}
+    assert register(database) == {"news": 0, "pdf": 0, "message": 0, "disclosure": 0}
 
     cards = query(database, """
         SELECT c.card_type, c.source_name, ch.telegram_handle, c.raw_text, c.cleaned_text,
@@ -86,6 +86,7 @@ def test_registration_is_idempotent_and_does_not_copy_the_raw_text(database):
 @pytest.mark.parametrize("card_type,column", [
     ("news", "analyst_report_id"),  # 종류와 다른 원문
     ("pdf", None),  # 원문 없는 pdf 카드
+    ("disclosure", None),  # 원문 없는 공시 카드
     ("price", "news_id"),  # 원문 표가 없는 종류가 원문을 가리킴
 ])
 def test_card_must_point_to_one_raw_row_of_its_own_kind(database, card_type, column):
@@ -109,7 +110,7 @@ def test_other_card_types_without_raw_rows_are_still_allowed(database):
         INSERT INTO source_card (card_type, tags, payload, created_at)
         VALUES ('price', '[]', '{}', now())
     """)
-    assert register(database) == {"news": 0, "pdf": 0, "message": 0}
+    assert register(database) == {"news": 0, "pdf": 0, "message": 0, "disclosure": 0}
 
 
 def test_a_raw_row_cannot_get_two_cards(database):

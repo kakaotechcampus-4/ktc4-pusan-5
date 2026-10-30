@@ -96,6 +96,19 @@ def _integer(value: object, *, optional: bool = False) -> int | None:
         raise MarketDataError("INVALID_RESPONSE") from None
 
 
+def _volume_change(raw: object) -> Decimal | None:
+    """KIS prdy_vrss_vol_rate(전일 거래량 = 100) 를 전일 대비 변화율(%)로 바꾼다.
+
+    부가 정보라서 값이 없거나 이상해도 시세는 살린다. 0 은 전일 거래량이 0 이거나 오늘 아직
+    거래가 없는 경우여서 -100% 로 보이지 않게 값 없음으로 둔다.
+    """
+    try:
+        rate = _decimal(raw, optional=True)
+    except MarketDataError:
+        return None
+    return rate - 100 if rate else None
+
+
 def _row(body: dict, key: str) -> dict[str, Any]:
     value = body.get(key)
     if not isinstance(value, dict):
@@ -128,6 +141,7 @@ async def fetch_snapshot(kis: _KisGetter, code: str) -> StockSnapshot:
         if change_amount is None or change is None or volume is None or trading_value is None or trading_value < 0:
             raise MarketDataError("INVALID_RESPONSE")
         quote = {"price": price, "change": change, "change_amount": change_amount, "volume": volume,
+                 "volume_change": _volume_change(output.get("prdy_vrss_vol_rate")),
                  "trading_value": trading_value, "market_cap": market_cap, "source_as_of": None}
     except MarketDataError as error:
         quote_error = str(error)

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import {
   ApiError,
   fetchMe,
+  loginAsTestAccount as requestTestLogin,
   loginWithKakao as requestKakaoLogin,
   logout as requestLogout,
 } from '@/lib/api';
@@ -61,6 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('authenticated');
   }
 
+  async function loginAsTestAccount() {
+    const me = await requestTestLogin();
+    setUser(me);
+    setStatus('authenticated');
+  }
+
   async function logout() {
     await requestLogout();
     setUser(null);
@@ -68,7 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, status, loginWithKakao, logout }}>
+    <AuthContext.Provider
+      value={{ user, status, loginWithKakao, loginAsTestAccount, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

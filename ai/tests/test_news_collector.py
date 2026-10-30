@@ -37,9 +37,9 @@ def test_to_row_marks_extracted_body_as_ok():
 
 
 def test_to_row_keeps_failure_reason_and_does_not_store_an_empty_body():
-    assert _to_row(_item(body_error="http_404"))[
+    assert _to_row(_item(body_error="http_error: 404"))[
         "body_status"] == "failed"
-    assert _to_row(_item(body_error="http_404"))["body_error"] == "http_404"
+    assert _to_row(_item(body_error="http_error: 404"))["body_error"] == "http_error: 404"
     # 원문은 받았지만 정제하고 나니 남은 게 없다
     empty = _to_row(_item(raw_text="ⓒ 무단 전재", cleaned_text=""))
     assert (empty["body_status"], empty["body_error"], empty["cleaned_text"]) == (
@@ -93,3 +93,19 @@ async def test_query_outside_the_scope_is_refused_before_searching(monkeypatch):
     monkeypatch.setattr(collector.naver, "search", lambda *a, **k: pytest.fail("검색했다"))
     with pytest.raises(ScopeError, match="SK하이닉스"):
         await collector.collect("SK하이닉스", scope=_scope())
+
+
+def test_only_new_or_retryable_articles_need_a_body():
+    from app.collectors.news import needs_body
+    from app.repositories.news import KnownArticle
+
+    def known(status, error=None):
+        return KnownArticle(id=1, url="u", canonical_url="u", status=status, fetched_at=None,
+                            error=error)
+
+    assert needs_body(None), "새 기사"
+    assert needs_body(known("failed", "http_error: 503"))
+    assert needs_body(known("failed", "http_error: 429"))
+    assert not needs_body(known("failed", "http_error: 404"))
+    assert not needs_body(known("ok"))
+    assert not needs_body(known("purged"))

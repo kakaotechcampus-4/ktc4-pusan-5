@@ -160,6 +160,7 @@ async def record_pdf_messages(
             await save_message_links(session, links)
             await register_missing_sources(
                 session, news_ids=[], report_ids=report_ids, message_ids=[m.id for m in saved],
+                disclosure_ids=[],
             )
     except Exception as exc:  # noqa: BLE001 — PDF 행은 지킨다. 실패는 집계해 종료 코드로 알린다
         logger.error("%s: 메시지·발견 경로 저장 실패 (%s)", channel, type(exc).__name__)

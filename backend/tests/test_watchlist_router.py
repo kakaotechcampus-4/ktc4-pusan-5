@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 from httpx import ASGITransport
 from sqlalchemy import delete
 
@@ -8,17 +9,27 @@ from app.core.database import SessionLocal
 from app.core.security import ACCESS_TOKEN_COOKIE, create_access_token
 from app.main import app
 from app.models import Stock, StockQuoteSnapshot, User
+from app.services import stock_detail
 
 _KAKAO_ID = "test-watchlist-kakao-id"
 _CODE = "9T0001"
 _CODE_NO_QUOTE = "9T0002"
 _CODE_OLD_QUOTE = "9T0003"
+_CODE_OUTSIDE = "9T0004"  # DB에는 있지만 고정 목록(MVP) 밖
+
+
+@pytest.fixture(autouse=True)
+def mvp_codes(monkeypatch):
+    # 관심종목 추가는 require_stock 을 거친다. 테스트 종목 중 _CODE_OUTSIDE 만 목록에서 뺀다.
+    monkeypatch.setattr(
+        stock_detail, "MVP_CODES", frozenset([_CODE, _CODE_NO_QUOTE, _CODE_OLD_QUOTE])
+    )
 
 
 async def _cleanup() -> None:
     async with SessionLocal() as session:
         await session.execute(delete(User).where(User.kakao_id == _KAKAO_ID))
-        codes = [_CODE, _CODE_NO_QUOTE, _CODE_OLD_QUOTE]
+        codes = [_CODE, _CODE_NO_QUOTE, _CODE_OLD_QUOTE, _CODE_OUTSIDE]
         await session.execute(
             delete(StockQuoteSnapshot).where(StockQuoteSnapshot.stock_code.in_(codes))
         )
@@ -33,7 +44,12 @@ async def _seed() -> int:
         session.add(user)
         session.add_all(
             Stock(code=c, name=n, market="KOSPI", synced_at=now)
-            for c, n in [(_CODE, "테스트전자"), (_CODE_NO_QUOTE, "무시세"), (_CODE_OLD_QUOTE, "옛시세")]
+            for c, n in [
+                (_CODE, "테스트전자"),
+                (_CODE_NO_QUOTE, "무시세"),
+                (_CODE_OLD_QUOTE, "옛시세"),
+                (_CODE_OUTSIDE, "목록밖"),
+            ]
         )
         await session.flush()
         session.add(
@@ -128,7 +144,21 @@ async def test_watchlist_add_unknown_stock_returns_404():
             resp = await client.post("/api/watchlist", json={"stockCode": "ZZZZZZ"})
         assert resp.status_code == 404
         assert resp.json() == {
-            "error": {"code": "STOCK_NOT_FOUND", "message": "종목을 찾을 수 없습니다"}
+            "error": {"code": "STOCK_NOT_FOUND", "message": "등록되지 않은 종목입니다."}
         }
+    finally:
+        await _cleanup()
+
+
+async def test_watchlist_add_stock_outside_fixed_list_returns_404():
+    await _cleanup()
+    user_id = await _seed()
+    try:
+        async with _client(user_id) as client:
+            resp = await client.post("/api/watchlist", json={"stockCode": _CODE_OUTSIDE})
+            items = (await client.get("/api/watchlist")).json()["items"]
+        assert resp.status_code == 404
+        assert resp.json()["error"]["code"] == "STOCK_NOT_FOUND"
+        assert items == []
     finally:
         await _cleanup()

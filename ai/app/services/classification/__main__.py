@@ -26,7 +26,7 @@ from datetime import datetime
 from pathlib import Path
 
 from app.core.scope import KST
-from app.llm.client import cost_usd
+from app.llm.client import cost as cost_usd
 from app.services.classification import splitter
 from app.services.classification.basis import Basis, load_basis
 from app.services.classification.evaluate import (
