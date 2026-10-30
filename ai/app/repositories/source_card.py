@@ -527,11 +527,17 @@ def _disclosure_record(card: SourceCard, disclosure: DartDisclosure) -> SourceRe
     )
 
 
-def _hide_unobserved_body(record: SourceRecord, cutoff: datetime) -> None:
-    """기준 시각 이후에 받은 본문을 뺀다. 받은 시각을 모르는 본문도 뺀다 — 이전이라고 할 수 없다.
+def _hide_after_cutoff(record: SourceRecord, cutoff: datetime) -> None:
+    """기준 시각에 볼 수 있었다고 확인되지 않는 본문·요약을 뺀다. 저장된 원문은 그대로 둔다.
 
-    제목·주소·시각 같은 메타데이터는 남긴다. 원래 본문이 없던 자료는 그 사유를 그대로 둔다.
+    본문과 요약은 남은 시각 기록이 달라 규칙이 다르다.
+        본문  body_fetched_at 을 cutoff 와 비교한다. 그 뒤에 받았거나 받은 시각을 모르면 뺀다 —
+              이전에 받았다고 할 수 없다. 원래 본문이 없던 자료는 그 사유를 그대로 둔다
+        요약  나중에 채우거나 덮어쓰는데(news.summary·analyst_reports.summary_text) 그 시각을
+              남기지 않는다. 비교할 시각이 없어 늘 뺀다
+    제목·주소·시각 같은 메타데이터는 남긴다.
     """
+    record.summary = None
     fetched = record.body_fetched_at
     if not record.has_body or (fetched is not None and fetched <= cutoff):
         return
@@ -659,10 +665,7 @@ async def get_sources(
         else:
             continue  # 원문 표를 가리키지 않는 카드(backend 의 다른 종류)
         if cutoff is not None:
-            _hide_unobserved_body(record, cutoff)
-            # 요약은 본문과 따로 나중에 채우거나 덮어쓰고(news.summary·analyst_reports.summary_text)
-            # 그 시각을 남기지 않는다. 기준 시각 당시의 요약이라고 할 수 없다.
-            record.summary = None
+            _hide_after_cutoff(record, cutoff)
         record.discoveries = found.get((record.kind, record.raw_id), [])
         records.append(record)
     return records
