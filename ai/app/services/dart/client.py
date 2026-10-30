@@ -43,10 +43,10 @@ class DartError(Exception):
         status            status 가 없거나 문자열이 아니다
         total_page        성공인데 쪽 수가 숫자가 아니거나, 지금 쪽보다 작거나, MAX_PAGES 를 넘는다
         list              성공인데 list 가 객체 목록이 아니다
-        disclosure        공시 행의 필드가 없거나 형식이 다르다(parse_list 실패)
+        disclosure        공시 행의 필드가 없거나 형식이 다르다(parse_list)
 
-    메시지는 `<위치>: <reason>` 이다. 위치는 날짜·쪽(`20261008 p2`)이다. 외부 필드 값은
-    넣지 않는다.
+    메시지는 `<위치>: <reason>` 이다. 위치는 날짜·쪽(`20261008 p2`)이고 공시 행이면 몇째 행인지
+    붙인다. 외부 필드 값은 넣지 않는다.
     """
 
     def __init__(self, message: str, *, reason: str | None = None) -> None:
@@ -67,31 +67,56 @@ def _invalid(at: str, where: str) -> DartError:
     return _error(at, f"invalid_response: {where}")
 
 
-def parse_list(rows: list[dict]) -> list[Disclosure]:
-    """list.json 의 list → Disclosure. 종목코드가 없는 행(비상장 등)은 버린다."""
+def _text(row: dict, key: str, at: str, *, optional: bool = False) -> str:
+    """공시 행의 문자열 필드. optional 이면 없을 때 "" 다."""
+    value = row.get(key)
+    if optional and value is None:
+        return ""
+    if not isinstance(value, str):
+        raise _invalid(at, "disclosure")
+    return value
+
+
+def _rcept_dt(value: str, at: str) -> date:
+    """접수일 YYYYMMDD → date."""
+    if len(value) != 8 or not value.isascii() or not value.isdigit():
+        raise _invalid(at, "disclosure")
+    try:
+        return date(int(value[:4]), int(value[4:6]), int(value[6:]))
+    except ValueError as e:  # 13월·32일처럼 없는 날짜
+        raise _invalid(at, "disclosure") from e
+
+
+def parse_list(rows: list[dict], *, at: str = "list") -> list[Disclosure]:
+    """list.json 의 list → Disclosure. 종목코드가 없는 행(비상장 등)은 버린다.
+
+    행의 필드가 없거나 형식이 다르면 DartError(invalid_response: disclosure). 필드는 읽는
+    자리에서 검사하므로 이 함수 안의 다른 예외는 응답 문제가 아니라 코드 문제다.
+    at 은 메시지 앞에 붙일 위치(날짜·쪽)다.
+    """
     items: list[Disclosure] = []
-    for row in rows:
-        stock_code = (row.get("stock_code") or "").strip()
+    for index, row in enumerate(rows):
+        row_at = f"{at} row {index}"
+        stock_code = _text(row, "stock_code", row_at, optional=True).strip()
         if not stock_code:
             continue
         items.append(
             Disclosure(
-                rcept_no=row["rcept_no"],
-                corp_code=row["corp_code"],
-                corp_name=row["corp_name"].strip(),
+                rcept_no=_text(row, "rcept_no", row_at),
+                corp_code=_text(row, "corp_code", row_at),
+                corp_name=_text(row, "corp_name", row_at).strip(),
                 stock_code=stock_code,
-                report_nm=" ".join(row["report_nm"].split()),
-                flr_nm=row["flr_nm"].strip(),
-                rcept_dt=date(int(row["rcept_dt"][:4]), int(row["rcept_dt"][4:6]),
-                              int(row["rcept_dt"][6:8])),
-                rm=(row.get("rm") or "").strip() or None,
+                report_nm=" ".join(_text(row, "report_nm", row_at).split()),
+                flr_nm=_text(row, "flr_nm", row_at).strip(),
+                rcept_dt=_rcept_dt(_text(row, "rcept_dt", row_at), row_at),
+                rm=_text(row, "rm", row_at, optional=True).strip() or None,
             )
         )
     return items
 
 
-def _read_page(body: dict, at: str, page_no: int) -> tuple[int, list[dict]]:
-    """성공(000) 응답 본문의 형식을 검사해 (쪽 수, 공시 행) 으로."""
+def _read_page(body: dict, at: str, page_no: int) -> tuple[int, list[Disclosure]]:
+    """성공(000) 응답 본문의 형식을 검사해 (쪽 수, 공시) 로."""
     # 성공인데 쪽 수가 없으면 1쪽에서 멈춰 나머지 쪽을 빠뜨린다. 쪽 수는 정수나 숫자 문자열이고
     # 지금 쪽 이상이어야 한다. bool 은 int 의 하위형이라, "²" 는 isdigit 이 참이라 따로 막는다.
     total = body.get("total_page")
@@ -102,13 +127,13 @@ def _read_page(body: dict, at: str, page_no: int) -> tuple[int, list[dict]]:
     rows = body.get("list")
     if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
         raise _invalid(at, "list")
-    return int(total), rows
+    return int(total), parse_list(rows, at=at)
 
 
 async def _page(
     client: httpx.AsyncClient, key: str, day: date, page_no: int,
-) -> tuple[int, list[dict]]:
-    """한 쪽을 받아 (쪽 수, 공시 행) 으로. 전송과 DART 상태 코드를 보고, 본문 형식은 _read_page 가 본다."""
+) -> tuple[int, list[Disclosure]]:
+    """한 쪽을 받아 (쪽 수, 공시) 로. 전송과 DART 상태 코드를 보고, 본문 형식은 _read_page 가 본다."""
     ymd = day.strftime("%Y%m%d")
     at = f"{ymd} p{page_no}"
     params = {
@@ -150,12 +175,7 @@ async def fetch_day(day: date) -> list[Disclosure]:
     async with httpx.AsyncClient(timeout=settings.http_timeout_sec) as client:
         page_no, total = 1, 1
         while page_no <= total:
-            total, rows = await _page(client, key, day, page_no)
-            try:
-                parsed = parse_list(rows)
-            except (KeyError, TypeError, ValueError, AttributeError) as e:
-                # 외부 필드 값은 오류 메시지에 넣지 않는다.
-                raise _invalid(f"{day:%Y%m%d} p{page_no}", "disclosure") from e
+            total, parsed = await _page(client, key, day, page_no)
             items.extend(parsed)
             page_no += 1
     return items

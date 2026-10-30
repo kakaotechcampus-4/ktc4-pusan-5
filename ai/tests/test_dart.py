@@ -160,7 +160,9 @@ async def test_day_outside_the_period_is_not_requested(monkeypatch):
     (page([None]), "list"),
     (page([{"stock_code": "005930"}]), "disclosure"),
     (page([raw(rcept_dt="invalid")]), "disclosure"),
+    (page([raw(rcept_dt="20261332")]), "disclosure"),
     (page([raw(corp_name=42)]), "disclosure"),
+    (page([raw(stock_code=5930)]), "disclosure"),
 ])
 async def test_fetch_day_normalizes_invalid_success_fields(key, mock_body, mock_reason):
     respx.get(LIST_URL).mock(return_value=httpx.Response(200, json=mock_body))
@@ -168,6 +170,12 @@ async def test_fetch_day_normalizes_invalid_success_fields(key, mock_body, mock_
         await dart.fetch_day(DAY)
     assert mock_error.value.reason == f"invalid_response: {mock_reason}"
     assert mock_error.value.kind == "unknown"
+
+
+def test_parse_list_names_the_row_without_external_values():
+    with pytest.raises(DartError) as mock_error:
+        parse_list([raw(), raw(corp_name="비밀", report_nm=42)], at="20261008 p2")
+    assert str(mock_error.value) == "20261008 p2 row 1: invalid_response: disclosure"
 
 
 @respx.mock
