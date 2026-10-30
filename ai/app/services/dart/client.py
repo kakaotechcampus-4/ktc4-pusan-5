@@ -25,7 +25,9 @@ from app.services.news.failure import FailureKind, dart_status, failure_kind, ht
 
 LIST_URL = "https://opendart.fss.or.kr/api/list.json"
 PAGE_COUNT = 100  # 쪽당 최대 건수
-MAX_PAGES = 50  # 하루 코스피 공시가 5천 건을 넘을 일은 없다. 넘으면 응답이 이상한 것이다
+# 하루 코스피 공시가 5천 건을 넘을 일은 없다. 넘으면 응답이 이상한 것이라
+# invalid_response: total_page 로 멈춘다(_read_page)
+MAX_PAGES = 50
 
 _STATUS_OK = "000"
 _STATUS_EMPTY = "013"  # 조회된 데이터가 없음
@@ -59,6 +61,7 @@ class DartError(Exception):
 
 
 def _error(at: str, reason: str) -> DartError:
+    """메시지 양식(`<위치>: <reason>`)은 여기서만 만든다. 던지는 건 부르는 쪽이다."""
     return DartError(f"{at}: {reason}", reason=reason)
 
 
@@ -68,7 +71,11 @@ def _invalid(at: str, where: str) -> DartError:
 
 
 def _text(row: dict, key: str, at: str, *, optional: bool = False) -> str:
-    """공시 행의 문자열 필드. optional 이면 없을 때 "" 다."""
+    """공시 행의 문자열 필드. optional 이면 없을 때 "" 다.
+
+    문자열이 아니면(없음·숫자 등) DartError(invalid_response: disclosure). 위치에 필드 이름을
+    붙인다.
+    """
     value = row.get(key)
     if optional and value is None:
         return ""
@@ -93,7 +100,8 @@ def parse_list(rows: list[dict], *, at: str = "list") -> list[Disclosure]:
 
     행의 필드가 없거나 형식이 다르면 DartError(invalid_response: disclosure). 필드는 읽는
     자리에서 검사하므로 이 함수 안의 다른 예외는 응답 문제가 아니라 코드 문제다.
-    at 은 메시지 앞에 붙일 위치(날짜·쪽)다.
+    at 은 메시지 앞에 붙일 위치(날짜·쪽)다. 몇째 행인지는 여기서, 필드 이름은 _text·_rcept_dt 가
+    붙인다.
     """
     items: list[Disclosure] = []
     for index, row in enumerate(rows):
@@ -119,7 +127,8 @@ def parse_list(rows: list[dict], *, at: str = "list") -> list[Disclosure]:
 def _read_page(body: dict, at: str, page_no: int) -> tuple[int, list[Disclosure]]:
     """성공(000) 응답 본문의 형식을 검사해 (쪽 수, 공시) 로."""
     # 성공인데 쪽 수가 없으면 1쪽에서 멈춰 나머지 쪽을 빠뜨린다. 쪽 수는 정수나 숫자 문자열이고
-    # 지금 쪽 이상이어야 한다. bool 은 int 의 하위형이라, "²" 는 isdigit 이 참이라 따로 막는다.
+    # 지금 쪽 이상, MAX_PAGES 이하여야 한다. bool 은 int 의 하위형이라, "²" 는 isdigit 이 참이라
+    # 따로 막는다.
     total = body.get("total_page")
     if (isinstance(total, bool) or not isinstance(total, (int, str))
             or (not str(total).isascii() or not str(total).isdigit())
