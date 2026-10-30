@@ -295,9 +295,10 @@ async def test_after_close_ok_overrides_change_pct_and_excess(krx) -> None:
     assert fields["market_compare"]["status"] == "ok" and fields["market_compare_skipped"] is None
     assert sent["market_compare"] == fields["market_compare"]
     assert sent["change_pct"] == 0.27
-    # 대형주 비교 수치는 KRX 응답의 유니버스 8종목(자기 제외)으로 다시 낸다. 지수 칸은 그대로
+    # 대형주 비교 수치는 KRX 응답의 유니버스 8종목(자기 제외)으로 다시 낸다. 지수 칸은 KRX 코스피 종가(3.09, 15:30)
     krx_peers = {"peer_median_pct": 3.84, "peer_up": 8, "peer_down": 0, "peer_total": 8}
-    assert sent["market"] == {**original["market"], **krx_peers, "excess_pct": -3.57}  # 0.27 − 3.84
+    assert sent["market"] == {**original["market"], **krx_peers, "excess_pct": -3.57,  # 0.27 − 3.84
+                              "change_pct": 3.09, "as_of": "15:30"}
     override = fields["change_pct_override"]
     assert {k: override[k] for k in ("input", "krx", "source", "excess_pct")} == {
         "input": -4.2, "krx": 0.27, "source": "KRX /sto/stk_bydd_trd 2026-10-27 FLUC_RT",
@@ -313,14 +314,15 @@ async def test_after_close_ok_overrides_change_pct_and_excess(krx) -> None:
     None,  # market 칸이 null
     {"index": "코스피", "change_pct": 3.09, "peer_median_pct": None, "excess_pct": None},  # 중간값이 없다
 ])
-async def test_override_without_peer_median_leaves_market(krx, market) -> None:
-    """입력에 중간값이 없으면 market 을 건드리지 않는다. 없던 대형주 비교를 KRX 로 새로 켜지 않는다."""
+async def test_override_without_peer_median_leaves_peers(krx, market) -> None:
+    """입력에 중간값이 없으면 대형주 비교 수치를 건드리지 않는다. 없던 대형주 비교를 KRX 로 새로 켜지 않는다.
+    지수 등락률은 있으면 KRX 로 바꾼다. market 이 null 이면 그대로 null 이다."""
     original = {**report_input(), "market": market}
 
     sent, fields = await mc.MarketCompare(object()).apply(original)
 
     assert sent["change_pct"] == 0.27
-    assert sent["market"] == market
+    assert sent["market"] == (None if market is None else {**market, "change_pct": 3.09, "as_of": "15:30"})
     assert fields["change_pct_override"]["peers"] is None
     assert fields["change_pct_override"]["excess_pct"] is None
 
@@ -367,7 +369,8 @@ def test_override_falls_back_to_input_median_when_universe_is_empty() -> None:
 
     sent, record = mc.override_change_pct(original, compare, STOCKS, universe=("999990",))
 
-    assert sent["market"] == {**original["market"], "excess_pct": 0.87}  # 0.27 − (−0.6)
+    assert sent["market"] == {**original["market"], "excess_pct": 0.87,  # 0.27 − (−0.6)
+                              "change_pct": 3.09, "as_of": "15:30"}
     assert record["peers"] == {"input": {"peer_median_pct": -0.6, "peer_up": 5, "peer_down": 13, "peer_total": 19},
                                "krx": None, "excluded": [{"code": "999990", "reason": "missing"}]}
     assert record["excess_pct"] == {"input": -3.6, "recomputed": 0.87}
@@ -396,3 +399,51 @@ async def test_after_close_without_ok_keeps_input(krx, setup, status) -> None:
     assert sent["change_pct"] == -4.2 and sent["market"] == original["market"]
     assert fields["change_pct_override"] is None
     assert (fields["market_compare_error"] is not None) is (setup == "failed")
+
+
+# --- 지수 등락률도 KRX 로 ------------------------------------------------------------------------
+
+
+async def test_after_close_ok_overrides_index_change_pct_and_as_of(krx) -> None:
+    """입력 지수 등락률(−0.50, 14:00)과 KRX 코스피 등락률(3.09, 종가)이 한 입력에 같이 있으면 모델이 어느 쪽을 쓸지 모른다.
+    덮어쓸 때 지수 칸도 KRX 로 바꾸고 원래 값을 래퍼에 남긴다. 정형 보고서 move 문장도 같은 값을 쓴다."""
+    from app.services.stock_analysis.generate import canned_report
+
+    market = {"index": "코스피", "change_pct": -0.5, "as_of": "14:00", "peer_median_pct": -0.6, "peer_up": 5,
+              "peer_down": 13, "peer_total": 19, "excess_pct": -3.6}
+    original = report_input(market=market)
+
+    sent, fields = await mc.MarketCompare(object()).apply(original)
+
+    assert sent["market_compare"]["kospi"]["kospi_change_rate_pct"] == 3.09
+    assert (sent["market"]["change_pct"], sent["market"]["as_of"]) == (3.09, "15:30")
+    assert fields["change_pct_override"]["index"] == {
+        "input": {"change_pct": -0.5, "as_of": "14:00"}, "krx": {"change_pct": 3.09, "as_of": "15:30"},
+        "source": "KRX /idx/kospi_dd_trd 2026-10-27 코스피 FLUC_RT"}
+    assert "코스피는 3.09% 올랐" in canned_report({**sent, "stock": "KB금융"})["summary"]["move"]
+    assert original["market"]["change_pct"] == -0.5  # 받은 입력은 바꾸지 않는다
+
+
+async def test_override_leaves_missing_index_change_pct(krx) -> None:
+    """입력에 지수 등락률이 없으면 새로 켜지 않는다(정형 보고서의 지수 문장이 새로 생기면 안 된다)."""
+    market = {"index": "코스피", "change_pct": None, "peer_median_pct": -0.6, "peer_up": 5, "peer_down": 13,
+              "peer_total": 19, "excess_pct": -3.6}
+
+    sent, fields = await mc.MarketCompare(object()).apply(report_input(market=market))
+
+    assert sent["market"]["change_pct"] is None and "as_of" not in sent["market"]
+    assert fields["change_pct_override"]["index"] is None
+
+
+# --- 장 마감이 늦춰지는 날 -----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("cutoff", "after"), [
+    ("2026-11-19T15:30:00+09:00", False),  # 수능일. 15:30 은 아직 장중이다
+    ("2026-11-19T16:29:00+09:00", False),
+    ("2026-11-19T16:30:00+09:00", True),
+    ("2026-11-20T15:30:00+09:00", True),  # 다음 날은 평소대로
+])
+def test_after_close_uses_late_close_day(cutoff: str, after: bool) -> None:
+    assert mc.after_close({"target_date": cutoff[:10], "cutoff": cutoff}) is after
+

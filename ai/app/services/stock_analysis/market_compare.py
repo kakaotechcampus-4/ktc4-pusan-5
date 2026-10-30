@@ -8,8 +8,8 @@ market 계산 칸과 같이 계산은 한 곳에서만 한다.
 
 ## 기준 시각이 장 마감 전이면 넣지 않는다
 
-KRX 는 장 마감 확정 데이터만 있다. cutoff 가 target_date 의 MARKET_CLOSE(15:30 KST)보다 이르면 그날 종가는 기준
-시각 뒤의 일이라 모델에 보여 주면 안 된다. KRX 를 부르지 않고 칸을 null 로 둔다(래퍼 market_compare_skipped
+KRX 는 장 마감 확정 데이터만 있다. cutoff 가 target_date 의 장 마감(market_close — 평소 MARKET_CLOSE 15:30 KST,
+LATE_CLOSE 에 있는 날은 그 시각)보다 이르면 그날 종가는 기준 시각 뒤의 일이라 모델에 보여 주면 안 된다. KRX 를 부르지 않고 칸을 null 로 둔다(래퍼 market_compare_skipped
 BEFORE_CLOSE). 입력 change_pct 는 기준 시각의 값이라 그대로 쓴다.
 
 ## 장 마감 이후 ok 면 입력 등락률을 KRX 로 바꾼다
@@ -23,7 +23,11 @@ BEFORE_CLOSE). 입력 change_pct 는 기준 시각의 값이라 그대로 쓴다
 KRX 전 종목 응답으로 대형주 유니버스(stock_meta.universe_codes) 중간값과 상승·하락·전체 수를 다시 계산하고
 excess_pct 도 다시 계산한다(universe_peers). 대상 종목 자신과 응답에 없는·거래정지·등락률 빈 칸 종목은 뺀다.
 쓸 종목이 하나도 없으면 입력 중간값으로 excess_pct 만 다시 계산한다. 원래 값·다시 계산한 값·뺀 종목은 래퍼
-change_pct_override 에 남는다. 입력에 peer_median_pct 가 없으면 market 은 건드리지 않는다(없던 비교를 켜지 않는다).
+change_pct_override 에 남는다. 입력에 peer_median_pct 가 없으면 대형주 비교 수치는 건드리지 않는다(없던 비교를 켜지 않는다).
+
+입력 market 의 지수 등락률(change_pct)·as_of 도 같은 이유로 KRX 코스피 등락률(market_compare.kospi.kospi_change_rate_pct)과
+그날 장 마감 시각으로 바꾼다. 안 바꾸면 모델 입력에 출처·시각이 다른 코스피 등락률이 둘 있고, 정형 보고서 move 문장도 입력
+값을 쓴다. 입력 지수 등락률이 숫자가 아니면(null·칸 없음) 건드리지 않는다. 원래 값은 change_pct_override.index 에 남는다.
 
 ## KRX 는 기준일마다 한 번
 
@@ -69,14 +73,17 @@ from app.services.market_data import (
     fetch_kospi,
     fetch_stock_daily,
 )
-from app.services.market_data.krx import KOSPI_STOCK_PATH
+from app.services.market_data.krx import KOSPI_INDEX_NAME, KOSPI_INDEX_PATH, KOSPI_STOCK_PATH
 from app.services.stock_analysis.stock_meta import universe_codes
 
 logger = logging.getLogger(__name__)
 
 # 유가증권시장 정규장 마감(KST). cutoff 가 target_date 의 이 시각과 같거나 늦으면 KRX 종가 데이터를 쓴다.
-# 수능일처럼 마감이 늦춰지는 날은 따로 보지 않는다.
 MARKET_CLOSE = time(15, 30)
+# 장 마감이 늦춰지는 날(수능일 등)과 그날 마감 시각(KST). 매년 추가 필요 — 거래소 공지가 나오면 넣는다.
+LATE_CLOSE = {
+    date(2026, 11, 19): time(16, 30),  # 2027학년도 수능
+}
 # 래퍼 market_compare_skipped 값. 기준 시각이 장 마감 전이라 시장 맥락을 넣지 않았다.
 BEFORE_CLOSE = "BEFORE_CLOSE"
 # 결과(ok)를 KRX 등락률로 덮어쓸 수 있는 status. no_trades 의 0.00 은 보합이 아니라 거래가 없던 것이라 쓰지 않는다.
@@ -186,11 +193,16 @@ class MarketCompare:
         return kospi, stocks
 
 
+def market_close(day: date) -> time:
+    """그날 장 마감 시각(KST). LATE_CLOSE 에 있으면 그 시각, 아니면 MARKET_CLOSE."""
+    return LATE_CLOSE.get(day, MARKET_CLOSE)
+
+
 def after_close(payload: dict[str, Any]) -> bool:
-    """cutoff 가 target_date 의 MARKET_CLOSE(KST) 와 같거나 늦은가. 다음 날 새벽 같은 기준 시각도 장 마감 이후다."""
+    """cutoff 가 target_date 의 장 마감(market_close, KST)과 같거나 늦은가. 다음 날 새벽 같은 기준 시각도 장 마감 이후다."""
     cutoff = datetime.fromisoformat(payload["cutoff"])
-    close = datetime.combine(date.fromisoformat(payload["target_date"]), MARKET_CLOSE, tzinfo=KST)
-    return cutoff >= close
+    day = date.fromisoformat(payload["target_date"])
+    return cutoff >= datetime.combine(day, market_close(day), tzinfo=KST)
 
 
 def override_change_pct(
@@ -199,27 +211,41 @@ def override_change_pct(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """(change_pct 를 KRX 등락률로 바꾼 입력, 래퍼 change_pct_override).
 
-    입력 market 에 peer_median_pct 가 있으면 대형주 비교 수치를 stocks(같은 날 KRX 전 종목)로 다시 계산하고
-    excess_pct 도 다시 계산한다. universe 를 안 주면 stock_meta 의 대형주 유니버스다.
+    입력 market 에 지수 등락률(change_pct)이 있으면 KRX 코스피 등락률과 그날 장 마감 시각(as_of)으로 바꾼다.
+    peer_median_pct 가 있으면 대형주 비교 수치를 stocks(같은 날 KRX 전 종목)로 다시 계산하고 excess_pct 도 다시
+    계산한다. universe 를 안 주면 stock_meta 의 대형주 유니버스다.
     """
     krx = compare["kospi"]["stock_change_rate_pct"]
     out = {**payload, "change_pct": krx}
     record: dict[str, Any] = {
         "input": payload["change_pct"], "krx": krx,
         "source": f"KRX {KOSPI_STOCK_PATH} {payload['target_date']} FLUC_RT",
-        "peers": None, "excess_pct": None,
+        "index": None, "peers": None, "excess_pct": None,
     }
     market = payload.get("market")
-    median = market.get("peer_median_pct") if isinstance(market, dict) else None
-    if not isinstance(median, (int, float)) or isinstance(median, bool):
+    if not isinstance(market, dict):
         return out, record
-    peers, excluded = universe_peers(stocks, str(payload["code"]), universe_codes() if universe is None else universe)
-    record["peers"] = {"input": {key: market.get(key) for key in PEER_KEYS}, "krx": peers, "excluded": excluded}
-    new_market = {**market, **(peers or {})}
-    excess = round(krx - new_market["peer_median_pct"], RATE_DECIMALS)
-    out["market"] = {**new_market, "excess_pct": excess}
-    record["excess_pct"] = {"input": market.get("excess_pct"), "recomputed": excess}
+    new_market = dict(market)
+    if _is_rate(market.get("change_pct")):
+        index = {"change_pct": compare["kospi"]["kospi_change_rate_pct"],
+                 "as_of": market_close(date.fromisoformat(payload["target_date"])).strftime("%H:%M")}
+        new_market.update(index)
+        record["index"] = {"input": {"change_pct": market["change_pct"], "as_of": market.get("as_of")}, "krx": index,
+                           "source": f"KRX {KOSPI_INDEX_PATH} {payload['target_date']} {KOSPI_INDEX_NAME} FLUC_RT"}
+    if _is_rate(market.get("peer_median_pct")):
+        peers, excluded = universe_peers(stocks, str(payload["code"]),
+                                         universe_codes() if universe is None else universe)
+        record["peers"] = {"input": {key: market.get(key) for key in PEER_KEYS}, "krx": peers, "excluded": excluded}
+        new_market.update(peers or {})
+        excess = round(krx - new_market["peer_median_pct"], RATE_DECIMALS)
+        new_market["excess_pct"] = excess
+        record["excess_pct"] = {"input": market.get("excess_pct"), "recomputed": excess}
+    out["market"] = new_market
     return out, record
+
+
+def _is_rate(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
 # 입력 market 의 대형주 비교 수치. universe_peers 가 이 이름으로 돌려준다.

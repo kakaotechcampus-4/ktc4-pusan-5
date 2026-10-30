@@ -16,8 +16,9 @@
 
 생성 전에 KRX 로 시장 맥락을 계산해 입력 market_compare 칸에 넣는다(stock_analysis.market_compare).
 KRX 는 실행 하나 안에서 기준일마다 한 번만 부르고(실패도 한 번), 같은 날 보고서는 그 응답을 함께 쓴다.
-기준 시각이 장 마감(15:30) 전이면 넣지 않는다. 장 마감 이후 시장 맥락이 ok 면 입력 change_pct 를 KRX 등락률로
-바꾼다(excess_pct 도 다시 계산). 입력 사본은 받은 바이트 그대로라 이 칸들이 바뀌기 전 값이다. 모델에 보낸 칸,
+기준 시각이 장 마감(평소 15:30, market_compare.LATE_CLOSE 날은 그 시각) 전이면 넣지 않는다. 장 마감 이후 시장
+맥락이 ok 면 입력 change_pct 와 지수 등락률을 KRX 등락률로 바꾼다(excess_pct 도 다시 계산). 입력 사본은 받은 바이트
+그대로라 이 칸들이 바뀌기 전 값이다. 모델에 보낸 칸,
 실패 사유, 건너뛴 이유, 덮어쓴 원래 값은 래퍼 market_compare·market_compare_error·market_compare_skipped·
 change_pct_override 에 남긴다. KRX 가 실패해도 보고서는 만들고 비교 문장만 빠진다.
 

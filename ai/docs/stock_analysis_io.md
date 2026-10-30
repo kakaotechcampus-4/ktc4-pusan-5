@@ -31,7 +31,8 @@
 ```
 
 ③ 바로 앞에서 KRX 로 시장 맥락을 계산해 입력 `market_compare` 칸에 넣는다(아래 「`market_compare`」). 기준 시각이 장 마감
-(15:30) 전이면 넣지 않고, 장 마감 이후 시장 맥락이 ok 면 입력 `change_pct` 를 KRX 등락률로 바꾼다. KRX 가 실패해도
+(평소 15:30, 늦춰지는 날은 그 시각) 전이면 넣지 않고, 장 마감 이후 시장 맥락이 ok 면 입력 `change_pct` 와 지수 등락률을
+KRX 등락률로 바꾼다. KRX 가 실패해도
 멈추지 않고 비교 문장만 빠진다.
 
 ```bash
@@ -183,13 +184,14 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
 
 KRX 는 장 마감 확정 데이터뿐이다. 기준 시각(`cutoff`)이 장 마감 전이면 그날 종가는 기준 시각 뒤의 일이고, 장 마감 이후면
 입력 `change_pct` 와 KRX 등락률이 한 입력에 함께 있어 어긋날 수 있다. 그래서 `cutoff` 를 `target_date` 의 장 마감
-(`market_compare.MARKET_CLOSE` = 15:30 KST)과 견줘 정한다(`market_compare.after_close`). 날짜까지 함께 보므로 다음 날 아침
+(`market_compare.market_close` — 평소 `MARKET_CLOSE` = 15:30 KST, `LATE_CLOSE` 에 있는 날은 그 시각)과 견줘
+정한다(`market_compare.after_close`). 날짜까지 함께 보므로 다음 날 아침
 기준 시각은 장 마감 이후다. 시간대가 다른 `cutoff` 도 KST 로 맞춰 본다.
 
 | 경우 | `market_compare` | `change_pct`·`market.excess_pct` | 래퍼 |
 | --- | --- | --- | --- |
 | `cutoff` < 15:30 (15:29 포함) | `null`. KRX 를 부르지 않는다 | 입력 그대로 | `market_compare_skipped: "BEFORE_CLOSE"` |
-| `cutoff` ≥ 15:30, status `ok` | 계산한 칸 | `change_pct` ← `kospi.stock_change_rate_pct`(KRX 등락률). 입력 `market.peer_median_pct` 가 있으면 대형주 비교 수치와 `excess_pct` 도 KRX 로 다시 낸다(아래) | `change_pct_override` 에 원래 값·다시 계산한 값·출처 |
+| `cutoff` ≥ 15:30, status `ok` | 계산한 칸 | `change_pct` ← `kospi.stock_change_rate_pct`(KRX 등락률). 입력 `market.change_pct`(지수)가 있으면 그 값과 `as_of` 도 KRX 로 바꾼다. 입력 `market.peer_median_pct` 가 있으면 대형주 비교 수치와 `excess_pct` 도 KRX 로 다시 낸다(아래) | `change_pct_override` 에 원래 값·다시 계산한 값·출처 |
 | `cutoff` ≥ 15:30, `no_data`·`no_trades`·`stock_not_found` | status 만 있는 칸 | 입력 그대로 | — |
 | `cutoff` ≥ 15:30, KRX 실패 | `null` | 입력 그대로 | `market_compare_error` 에 사유 |
 
@@ -205,8 +207,12 @@ KRX 는 장 마감 확정 데이터뿐이다. 기준 시각(`cutoff`)이 장 마
   - `excess_pct` ← 새 `change_pct` − 새 `peer_median_pct`.
   - 쓸 종목이 하나도 없으면 입력 중간값·종목 수를 그대로 두고 `excess_pct` 만 새 `change_pct` 로 다시 낸다.
   - 입력에 `peer_median_pct` 가 없으면(`market` 이 null 포함) `market` 을 건드리지 않는다. 없던 비교를 새로 켜지 않는다.
-- 지수 등락률(`market.change_pct`)·`as_of` 는 바꾸지 않는다.
-- 수능일처럼 장 마감이 늦춰지는 날은 따로 보지 않는다(15:30 고정).
+- **지수 등락률도 KRX 로 맞춘다.** 입력 `market.change_pct` 가 숫자면 `kospi.kospi_change_rate_pct`(KRX 코스피 등락률)로,
+  `market.as_of` 는 그날 장 마감 시각(`"15:30"`, 늦춰지는 날은 그 시각)으로 바꾼다. 안 바꾸면 모델 입력에 출처·시각이 다른
+  코스피 등락률이 둘 있고, 정형 보고서 `summary.move` 도 입력 값을 쓴다. 입력 지수 등락률이 null 이거나 없으면 건드리지 않는다.
+- **장 마감이 늦춰지는 날**(수능일 등)은 `market_compare.LATE_CLOSE` 에 날짜와 마감 시각을 적는다. 지금은 2026-11-19
+  (16:30)뿐이다. **매년 추가 필요** — 거래소가 그해 수능일 장 운영 시간을 공지하면 넣는다. 빠뜨리면 그날은 15:30 으로
+  판정해, 장중 기준 시각에 늦춰진 마감의 종가가 들어간다.
 
 `judge_layers` — 층마다 이 입력에서 원인을 판단하는가. `false` 인 층에는 link 를 달지 않고 그 층 판정은 `no_clear_cause`.
 
@@ -417,8 +423,8 @@ LLM 을 부른다(`generate.needs_llm`).
 | `main_cause_sentences` / `sector` / `universe_weight` | 모델 입력 맨 위·market 에 넣은 값(종목 표에 없으면 `sector`·`universe_weight` 는 null) |
 | `market_compare` / `market_compare_error` | 모델에 보낸 `market_compare` 칸과, KRX 호출·계산·입력 덮어쓰기가 실패해 칸이 null 일 때 그 사유(`"KrxError: …"` 처럼 `<예외 이름>: <메시지>`). 성공·`no_data`·장 마감 전이면 사유는 null. `inputs/` 사본에는 이 칸이 없다 |
 | `market_compare_error_type` / `market_compare_unexpected` | 실패한 예외 이름(`"KrxError"`, `"AttributeError"` …, 실패가 아니면 null)과 그것이 예상 밖 예외(`RuntimeError`·`ValueError` 계열이 아님)인지(`true`/`false`) |
-| `market_compare_skipped` | 기준 시각이 장 마감(15:30) 전이라 시장 맥락을 넣지 않았으면 `"BEFORE_CLOSE"`, 그 밖 null |
-| `change_pct_override` | 장 마감 이후 시장 맥락이 ok 라 입력 등락률을 바꿨을 때 `{input, krx, source, peers, excess_pct}`, 그 밖 null. `source` 는 `"KRX /sto/stk_bydd_trd <target_date> FLUC_RT"`. `peers` 는 `{input: {peer_median_pct, peer_up, peer_down, peer_total}, krx: 같은 모양 \| null(쓸 종목 없음), excluded: [{code, reason}]}`, `excess_pct` 는 `{input, recomputed}`. 입력에 `peer_median_pct` 가 없어 다시 계산하지 않았으면 둘 다 null |
+| `market_compare_skipped` | 기준 시각이 장 마감(평소 15:30, `LATE_CLOSE` 날은 그 시각) 전이라 시장 맥락을 넣지 않았으면 `"BEFORE_CLOSE"`, 그 밖 null |
+| `change_pct_override` | 장 마감 이후 시장 맥락이 ok 라 입력 등락률을 바꿨을 때 `{input, krx, source, index, peers, excess_pct}`, 그 밖 null. `source` 는 `"KRX /sto/stk_bydd_trd <target_date> FLUC_RT"`. `index` 는 `{input: {change_pct, as_of}, krx: {change_pct, as_of}, source: "KRX /idx/kospi_dd_trd <target_date> 코스피 FLUC_RT"}`, 입력 지수 등락률이 없어 바꾸지 않았으면 null. `peers` 는 `{input: {peer_median_pct, peer_up, peer_down, peer_total}, krx: 같은 모양 \| null(쓸 종목 없음), excluded: [{code, reason}]}`, `excess_pct` 는 `{input, recomputed}`. 입력에 `peer_median_pct` 가 없어 다시 계산하지 않았으면 둘 다 null |
 
 ### 검증 결과
 
