@@ -15,6 +15,7 @@ from app.services.stock_analysis.verify import (
     BACKGROUND_WITHOUT_SOURCE,
     CHANGE_PCT_MISMATCH,
     COMMON_MOVE_WITH_MOVE_LINK,
+    COMPARE_META_PHRASE,
     COUNT_OVER_CAP,
     COUNTER_WITHOUT_BACKGROUND,
     DATE_MISMATCH,
@@ -1286,6 +1287,36 @@ def test_more_less_comparison_on_flat_day_warns(move, warned):
     assert (MOVE_COMPARISON_ON_FLAT in codes(check_warnings(r, flat))) is warned
     # 상대 층을 판단하는 날(차이가 큰 날)은 더·덜 비교가 정상이다
     assert MOVE_COMPARISON_ON_FLAT not in codes(check_warnings(cause_report(summary=summary(move=move)), CAUSE))
+
+
+# --- 비교 판정의 안쪽 말 -------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("relative", "warned"), [
+    ("같은 메모리반도체 그룹과 비교해 판정하기 어렵습니다.", True),
+    ("기준 시장과 비슷하게 움직였습니다.", True),
+    ("비교 종목이 하나뿐이라 그룹 흐름은 알 수 없습니다.", True),
+    ("같은 메모리반도체 그룹의 SK하이닉스는 5.49% 내렸습니다.", False),  # inconclusive 날 쓰는 꼴
+    ("삼성전자를 뺀 코스피와 다르게 움직였습니다.", False),
+])
+def test_compare_meta_phrase_in_summary_warns(relative, warned):
+    r = cause_report(summary=summary(relative=relative))
+    assert (COMPARE_META_PHRASE in codes(check_warnings(r))) is warned
+
+
+def test_compare_meta_phrase_checks_every_reader_field_but_not_quotes():
+    """summary 밖에서도 독자가 읽는 칸(event·detail·note·background text)은 본다. quote 는 원문이라 보지 않는다."""
+    meta = "기준 시장"
+    r = cause_report(
+        factors=[factor(event=f"{meta} 흐름", detail=f"{meta} 부연",
+                        links=[link(note=f"{meta}과 같은 방향")],
+                        sources=[source(quote=f"{meta} 원문")])],
+        background={"bullish": [], "bearish": [], "neutral": [bg(f"{meta} 재료")]},
+    )
+    warnings = [w for w in check_warnings(r) if code_of(w) == COMPARE_META_PHRASE]
+    assert [w.split(": ", 1)[1] for w in warnings] == [
+        f"factors[0].event 에 {meta!r}", f"factors[0].detail 에 {meta!r}",
+        f"factors[0].links[0].note 에 {meta!r}", f"background.neutral[0].text 에 {meta!r}"]
 
 
 # --- strength 정의(출처 direct + 방향)와 direct 출처 누락 경고 ------------------------------

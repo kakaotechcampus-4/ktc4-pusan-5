@@ -14,6 +14,11 @@
 다시 확인할 수 없다. 검증을 다시 돌리거나 같은 입력으로 재생성하려면 입력이 있어야 한다.
 래퍼의 input_path 는 실행 디렉터리 기준 상대 경로라 runs/ 를 통째로 옮겨도 이어진다.
 
+생성 전에 KRX 로 시장 맥락을 계산해 입력 market_compare 칸에 넣는다(stock_analysis.market_compare).
+KRX 는 실행 하나 안에서 기준일마다 한 번만 부르고(실패도 한 번), 같은 날 보고서는 그 응답을 함께 쓴다.
+입력 사본은 받은 바이트 그대로라 이 칸이 없다. 모델에 보낸 칸과 실패 사유는 래퍼 market_compare·
+market_compare_error 에 남긴다. KRX 가 실패해도 보고서는 만들고 비교 문장만 빠진다.
+
 `--load` 가 없으면 파일만 쓴다. 적재는 같은 파일을 두 번 넣지 않으므로(sha256)
 파일만 먼저 쓰고 나중에 적재 모듈로 넣어도 된다.
 """
@@ -29,6 +34,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import httpx
+
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.llm.client import cost_currency, endpoint, format_cost, load_prompt
 from app.repositories.stock_move_analysis import KST, insert_analysis_files
@@ -41,6 +49,7 @@ from app.services.stock_analysis.generate import (
     prompt_sha256,
     report_of,
 )
+from app.services.stock_analysis.market_compare import MarketCompare
 from app.services.stock_analysis.repair import (
     RELATIVE_MAX_SENTENCES,
     repair_limit,
@@ -126,6 +135,13 @@ def count_move_cases(wrappers: list[dict[str, Any]]) -> tuple[dict[str, int], in
     return cases, opposite_with_counter
 
 
+def count_market_compare(wrappers: list[dict[str, Any]]) -> dict[str, int]:
+    """시장 맥락 status 별 보고서 수. 칸이 null(KRX 호출·계산 실패)이면 failed 로 센다."""
+    counts: Counter[str] = Counter(
+        (w.get("market_compare") or {}).get("status") or "failed" for w in wrappers)
+    return dict(sorted(counts.items()))
+
+
 def _assign_run_ids(payloads: list[dict[str, Any]]) -> list[str]:
     """같은 종목·날짜·기준시각이 두 번 들어오면 반복 번호로 가른다. 파일이 덮어써지면 안 된다."""
     seen: Counter[str] = Counter()
@@ -162,7 +178,12 @@ async def run(
         copied = run_dir / "inputs" / f"{run_id}.json"
         copied.write_bytes(data)
         async with gate:
+            # 실패하면 칸이 null 이고 보고서는 그대로 만든다. 받은 입력 dict 는 바꾸지 않는다.
+            compare, compare_error = await compare_for(payload)
+            payload = {**payload, "market_compare": compare}
             wrapper = await generate(payload, system=system, prompt_hash=prompt_hash, run_id=run_id)
+            wrapper["market_compare"] = compare
+            wrapper["market_compare_error"] = compare_error
             report = report_of(wrapper)
             # quote 가 원문에 없는 factor 는 검증 전에 한 번 고쳐 쓰게 하고, 그래도 없으면 뺀다.
             # 개수 상한을 넘은 보고서는 고쳐 쓰지 않는다(repair.repair_limit, 비용 상한).
@@ -216,10 +237,13 @@ async def run(
               f"{format_cost(wrapper['cost'], wrapper['cost_currency'])}) {counts}", flush=True)
         return wrapper
 
-    wrappers = await asyncio.gather(*(
-        work(run_id, path, data, payload)
-        for run_id, (path, data, payload) in zip(run_ids, items, strict=True)
-    ))
+    async with httpx.AsyncClient(timeout=settings.http_timeout_sec) as client:
+        # 기준일별 KRX 응답을 이 실행이 끝날 때까지 함께 쓴다
+        compare_for = MarketCompare(client)
+        wrappers = await asyncio.gather(*(
+            work(run_id, path, data, payload)
+            for run_id, (path, data, payload) in zip(run_ids, items, strict=True)
+        ))
 
     # 사유는 **보고서 기준·계열 단위**로 센다. 한 보고서에서 quote 가 셋 틀려도 1건이고,
     # 한 실수로 함께 나오는 코드(FLAT_MOVE_VERDICT + FLAT_MOVE_FACTORS 등)도 1건이다 —
@@ -253,6 +277,8 @@ async def run(
                     for key in ("json_retry", "judge_retry")},
         # 직접 언급 메시지가 0건이라 LLM 을 부르지 않고 정형 보고서를 낸 회차 수(generate.canned_report).
         "skipped_llm": sum(bool(w.get("skipped_llm")) for w in wrappers),
+        # 시장 맥락 status 별 보고서 수. KRX 호출·계산이 실패해 칸이 null 인 것은 failed.
+        "market_compare": count_market_compare(wrappers),
         # issue_trace 에 오른 메시지 수 / 입력 메시지 수. issue_trace 가 있는 보고서만 더한다.
         "issue_trace_messages": {
             k: sum(w["issue_trace_stats"][f"messages_{k}"] for w in wrappers if w["issue_trace_stats"])
@@ -294,6 +320,8 @@ async def run(
           + ", ".join(f"{k}={n}" for k, n in result["warning_counts"].items()))
     print("다시 부른 회차: " + ", ".join(f"{k}={n}" for k, n in result["retried"].items())
           + f" · LLM 없이 정형 보고서: {result['skipped_llm']}")
+    print("시장 맥락 (failed 는 비교 문장 없이 만듦): "
+          + ", ".join(f"{s}={n}" for s, n in result["market_compare"].items()))
     return result
 
 

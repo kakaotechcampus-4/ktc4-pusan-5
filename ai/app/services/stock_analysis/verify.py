@@ -201,6 +201,12 @@ _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 # "더 내렸습니다", "덜 올랐고", "더 크게 하락" 처럼 더·덜 뒤에 등락을 말하는 말이 오는 꼴. 앞에 한글이 붙은 "더"(예: "보다더")
 # 는 보지 않고, "여기에 더해" 같은 쓰임은 뒤 말이 달라 걸리지 않는다.
 _MORE_LESS = re.compile(r"(?<![가-힣])(더|덜)\s*(크게\s*|많이\s*|적게\s*)?(내렸|내린|내려|올랐|오른|올라|하락|상승|빠졌|떨어)")
+# 보고서 문장에 비교 판정의 안쪽 말이 나왔다. 「기준 시장」은 프롬프트가 kospi_basis 쪽을 가리키는 자리 이름이라 독자에게는
+# "코스피"·"<종목명>을 뺀 코스피" 로 쓴다. 「판정하기 어렵」·「비교 종목이 하나뿐」은 inconclusive 의 뜻풀이라, 그날은 판정하는
+# 말 없이 비교 종목 등락률만 쓴다(프롬프트 3단계 「비교 수치」). 독자가 읽는 칸(summary, factor event·detail·note,
+# background text)만 본다. quote 는 원문이라 보지 않는다.
+COMPARE_META_PHRASE = "COMPARE_META_PHRASE"
+COMPARE_META_PHRASES = ("판정하기 어렵", "기준 시장", "비교 종목이 하나뿐")
 
 # --- events ↔ 실제 칸 대조 (events_problems, 판정과 분리) ------------------------
 
@@ -1198,6 +1204,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
                                 뒤라면 model_strength(래퍼 strength_recomputed)의 모델 값으로 본다(finalize).
     MARKET_LED_DIRECT_FACTOR    market_led 날 등락 층 factor 의 이슈가 모두 relation: direct 다. issue_trace 가 있어야 본다.
     MAIN_CAUSE_TOO_LONG         summary.main_cause 가 MAIN_CAUSE_MAX_SENTENCES 문장을 넘는다(러너 고정 문장 포함).
+    COMPARE_META_PHRASE         독자가 읽는 칸에 비교 판정의 안쪽 말(COMPARE_META_PHRASES)이 있다. payload 없이 본다.
     """
     if not isinstance(report, dict):
         return []
@@ -1211,6 +1218,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
                 out.append(_p(DUPLICATE_SOURCES,
                               f"factors[{i}] 와 factors[{j}] 의 출처가 같다. 한 사건이면 factor 하나에 links 로 단다"))
     out += _check_caps(report)
+    out += _check_compare_meta(report)
     if payload is None:
         return out
     kinds = {m.get("url"): m.get("kind") for m in _messages(payload)}
@@ -1365,6 +1373,19 @@ def _check_caps(report: dict[str, Any]) -> list[str]:
         if watches[slot] > CAPS["watch_slot"]:
             over.append(f"background.{slot} watch {watches[slot]}개(최대 {CAPS['watch_slot']})")
     return [_p(COUNT_OVER_CAP, x) for x in over]
+
+
+def _check_compare_meta(report: dict[str, Any]) -> list[str]:
+    """독자가 읽는 칸마다 COMPARE_META_PHRASES 를 찾는다. 칸 하나에 말 하나당 경고 하나."""
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    texts = [(f"summary.{key}", summary.get(key)) for key in SUMMARY_KEYS]
+    for i, f in enumerate(_factors(report)):
+        texts += [(f"factors[{i}].event", f.get("event")), (f"factors[{i}].detail", f.get("detail"))]
+        texts += [(f"factors[{i}].links[{j}].note", x.get("note")) for j, x in enumerate(_links(f))]
+    texts += [(f"{path}.text", item.get("text")) for path, item in _background_items(report)]
+    return [_p(COMPARE_META_PHRASE, f"{path} 에 {phrase!r}")
+            for path, text in texts if isinstance(text, str)
+            for phrase in COMPARE_META_PHRASES if phrase in text]
 
 
 def _check_theme_recap_sector(report: dict[str, Any], kinds: dict[Any, Any],

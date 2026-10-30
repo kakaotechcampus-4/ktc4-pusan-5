@@ -12,6 +12,7 @@
 | 러너가 정하는 칸(strength·판정 재계산, main_cause 고정 문장) | [app/services/stock_analysis/finalize.py](../app/services/stock_analysis/finalize.py) |
 | 스키마·규칙·근거 검증, 러너 계산 칸(judge_layers 등) | [app/services/stock_analysis/verify.py](../app/services/stock_analysis/verify.py) |
 | 종목 표(업종 라벨·유니버스 비중) | [app/services/stock_analysis/stock_meta.json](../app/services/stock_analysis/stock_meta.json) · [stock_meta.py](../app/services/stock_analysis/stock_meta.py) |
+| 시장 맥락 입력(`market_compare`, KRX) | [app/services/stock_analysis/market_compare.py](../app/services/stock_analysis/market_compare.py) · 계산 [app/services/market_data/context.py](../app/services/market_data/context.py) |
 | 러너(CLI) | [app/collectors/stock_analysis.py](../app/collectors/stock_analysis.py) |
 | 샘플 입력 | [tests/fixtures/stock_analysis/](../tests/fixtures/stock_analysis/) |
 
@@ -28,6 +29,9 @@
                                 위반이면 1회 재호출)              근거로 main_cause·   고정 문장)
                                                                 relative 다시 쓰기)
 ```
+
+③ 바로 앞에서 KRX 로 시장 맥락을 계산해 입력 `market_compare` 칸에 넣는다(아래 「`market_compare`」). KRX 가 실패해도
+멈추지 않고 비교 문장만 빠진다.
 
 ```bash
 uv run python -m app.collectors.stock_analysis --input tests/fixtures/stock_analysis
@@ -75,6 +79,7 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
     // judge_layers·common_move·move_strength_cap·market_led·move_comparison·universe_weight 는 넣지 않아도 된다.
     // 러너가 계산해 덮어쓴다(아래)
   },
+  // market_compare 는 넣지 않아도 된다. 러너가 code·target_date 로 KRX 에서 계산해 덮어쓴다(아래)
   "messages": [                               // 필수. 배열. 이미 종목·시간으로 걸러진 상태
     {
       "channel": "sample_channel_a",
@@ -133,7 +138,40 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
   `universe_weight`, 아래). 입력에 값이 있어도 덮어쓴다. `market` 이 null 이면 넣지 않는다. 계산은 verify 의 함수 한 곳이고
   검증도 같은 함수를 본다.
 - **맨 위에 `sector`·`main_cause_sentences` 를 넣는다**(아래). `market` 과 상관없이 늘 넣는다.
+- **맨 위에 `market_compare` 를 넣는다**(아래). 이 칸은 `model_input()` 이 아니라 러너가 생성 전에 입력에 넣는다.
+  입력에 값이 있어도 덮어쓴다.
 - `move_case` 는 모델에 보내지 않는다. 래퍼 `move_case` 와 러너 집계에만 남긴다.
+
+#### `market_compare` — 코스피·동종 그룹 비교
+
+러너가 `code`·`target_date` 로 KRX 장 마감 확정 데이터(코스피 지수, 유가증권 전 종목)를 받아 계산한다
+(`market_compare.MarketCompare` → `market_data.build_market_context`). 형식은 프롬프트 1부 그대로다 — 비교 판정
+`kospi.kospi_basis`(`kospi` | `kospi_ex_self`, 코스피 비중 10% 이상이면 자기 제외 코스피)·`kospi.kospi_relation`
+(`follows` | `diverges` | null)과 그룹마다 `peers[].relation`(`follows` | `diverges` | `inconclusive` | null). 판정 기준은
+`market_data/context.py` 상수(`KOSPI_EX_SELF_WEIGHT_PCT`, `KOSPI_FOLLOW_THRESHOLD_PP`, `GROUP_FOLLOW_THRESHOLD_PP`)다.
+프롬프트에 없는 계산 칸(비중 분모, 재계산 코스피, `weight_basis`)은 보내지 않고, `members_used` 는 `{code, name}` 으로 바꾼다.
+
+```jsonc
+// KB금융 2026-10-29 (실제 KRX 응답으로 계산)
+"market_compare": {
+  "status": "ok",                    // ok | no_data | stock_not_found | no_trades
+  "status_reason": null,
+  "kospi": { "stock_change_rate_pct": 1.82, "kospi_change_rate_pct": -1.24, "excess_vs_kospi_pp": 3.06,
+             "kospi_weight_pct": 1.14, "kospi_contribution_pp": 0.021, "kospi_ex_self_change_rate_pct": -1.28,
+             "excess_vs_kospi_ex_self_pp": 3.1, "kospi_basis": "kospi", "kospi_relation": "diverges" },
+  "peers": [ { "group": "은행지주", "avg_change_rate_pct": 2.54, "excess_vs_group_pp": -0.72, "peer_count": 3,
+               "relation": "follows",
+               "members_used": [ { "code": "055550", "name": "신한지주" }, … ],
+               "members_excluded": [ { "code": "105560", "name": "KB금융", "reason": "self" } ] } ]
+}
+```
+
+- **KRX 는 실행 하나 안에서 기준일마다 한 번** 부른다(코스피 지수·전 종목 한 번씩, 코스피가 없는 날은 지수만). 같은 날 보고서는
+  그 응답을 함께 쓰고 종목마다 계산만 따로 한다. 동시에 들어온 같은 날 보고서도 같은 호출을 기다린다.
+- **실패해도 보고서는 만든다.** KRX 호출 실패·응답 깨짐·`KRX_AUTH_KEY` 없음·계산 불가면 칸이 `null` 이고 사유는 래퍼
+  `market_compare_error` 에 남는다. 실패도 기준일마다 한 번만 시도하고 그 날 보고서 모두 같은 사유를 쓴다.
+- 기준일 데이터가 없으면(당일·휴장일, KRX 는 T+1) 실패가 아니라 `status: "no_data"` 인 칸이 간다.
+- `null`·`no_data`·`stock_not_found`·`no_trades` 면 프롬프트 3단계 「비교 수치」가 비교 문장을 쓰지 않게 한다. 나머지는 그대로다.
 
 `judge_layers` — 층마다 이 입력에서 원인을 판단하는가. `false` 인 층에는 link 를 달지 않고 그 층 판정은 `no_clear_cause`.
 
@@ -342,6 +380,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `issue_trace` | 모델이 낸 이슈 목록 |
 | `move_case` / `judge_layers` / `common_move` / `move_strength_cap` / `market_led` / `move_comparison` | 러너가 계산한 값(`market` 이 null 이면 null). `move_case` 는 모델에 보내지 않는다 |
 | `main_cause_sentences` / `sector` / `universe_weight` | 모델 입력 맨 위·market 에 넣은 값(종목 표에 없으면 `sector`·`universe_weight` 는 null) |
+| `market_compare` / `market_compare_error` | 모델에 보낸 `market_compare` 칸과, 칸이 null 일 때 그 사유(`"KrxError: …"` 처럼 `<예외 이름>: <메시지>`). 성공·`no_data` 면 사유는 null. `inputs/` 사본에는 이 칸이 없다 |
 
 ### 검증 결과
 
@@ -350,7 +389,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verify_status` | `passed` / `failed`. 스키마·규칙·근거 중 하나라도 걸리면 failed |
 | `verify_problems` | `"<코드>: <상세>"` 문자열 배열 (예: `QUOTE_NOT_IN_SOURCE: factors[0].sources[0] ...`) |
 | `events_status` / `events_problems` | `events` 칸 검사. `passed` / `failed` / `missing`. 판정과 별개. 형식(`SCHEMA_*`, `EVENT_REASON_MISMATCH`)과 실제 칸 대조: `EVENT_BACKGROUND_REF_MISSING`·`_REF_DUPLICATE`·`_UNREFERENCED`(background 항목과 사건이 하나씩 짝), `EVENT_FACTOR_COUNT`·`_REF_MISSING`·`_DUPLICATE`, `ISSUE_ID_DUPLICATE` |
-| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`·`RELATIVE_STALE`(근거를 뺐는데 그 칸을 다시 쓰지 못함), `REPAIR_SKIPPED_OVER_CAP`(개수 상한을 넘어 quote 고쳐 쓰기를 하지 않음), `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 direct 메시지에서 나왔는데 출처에 direct 가 없음), `MAIN_CAUSE_TOO_LONG`(최종 main_cause 가 러너 고정 문장 포함 3문장 초과. 자르지 않음), `STRENGTH_MISMATCH`(모델 strength 가 정의와 어긋남 — 사건 이슈가 direct(입력 match) 메시지에서 나왔는데 partial, 아닌데 sufficient. issue_trace 가 없으면 출처로 봄. 미확인·대형주 몫 상한은 예외) |
+| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`·`RELATIVE_STALE`(근거를 뺐는데 그 칸을 다시 쓰지 못함), `REPAIR_SKIPPED_OVER_CAP`(개수 상한을 넘어 quote 고쳐 쓰기를 하지 않음), `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 direct 메시지에서 나왔는데 출처에 direct 가 없음), `MAIN_CAUSE_TOO_LONG`(최종 main_cause 가 러너 고정 문장 포함 3문장 초과. 자르지 않음), `STRENGTH_MISMATCH`(모델 strength 가 정의와 어긋남 — 사건 이슈가 direct(입력 match) 메시지에서 나왔는데 partial, 아닌데 sufficient. issue_trace 가 없으면 출처로 봄. 미확인·대형주 몫 상한은 예외), `COMPARE_META_PHRASE`(독자가 읽는 칸 — summary, factor event·detail·links note, background text — 에 비교 판정의 안쪽 말 "판정하기 어렵"·"기준 시장"·"비교 종목이 하나뿐" 이 있음. quote 는 보지 않음) |
 | `issue_trace_warnings` / `issue_trace_stats` | `ISSUE_TRACE_MISSING_URL`(messages 칸 누락)·`ISSUE_ID_UNKNOWN` 경고와 집계(`messages_traced`, `messages_total`, `relations`, `issues_used`) |
 
 ### 재시도·고쳐 쓰기 기록
@@ -402,12 +441,14 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
   "warning_counts": { "issue_trace_warnings": 3, "events_problems": 1, "verify_warnings": 4 },  // 경고 건수 합
   "retried": { "json_retry": 0, "judge_retry": 1 },  // LLM 을 다시 부른 회차 수
   "skipped_llm": 1,                                  // 정형 보고서 회차 수
+  "market_compare": { "failed": 1, "ok": 8 },        // 시장 맥락 status 별 보고서 수(나온 것만). failed 는 칸이 null
   "issue_trace_messages": { "traced": 30, "total": 31 },
   "loaded": null                                     // --load 면 적재 건수
 }
 ```
 
 보고서마다 찍는 줄 끝에 `issue_trace_warnings=… events_problems=… verify_warnings=…` 건수가 붙는다.
+끝에 `시장 맥락 (failed 는 비교 문장 없이 만듦): ok=… failed=…` 줄을 찍는다. 나온 status 만 센다.
 
 종료 코드: 호출 자체가 실패한 건(`errors`)이 있으면 1. 검증 실패는 데이터라 0.
 
