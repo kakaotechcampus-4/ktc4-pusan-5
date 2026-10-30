@@ -1,6 +1,7 @@
 from app.models.channel import Channel
 from app.models.concept import Concept
 from app.models.market import MarketSnapshot
+from app.models.market_calendar import MarketCalendarDay
 from app.models.ranking import RankingSnapshot
 from app.models.report import Report, ReportBlock, ReportCitation
 from app.models.source_card import SourceCard
@@ -28,6 +29,7 @@ __all__ = [
     "Channel",
     "Concept",
     "KrxHistoricalCache",
+    "MarketCalendarDay",
     "MarketSnapshot",
     "RankingSnapshot",
     "Report",

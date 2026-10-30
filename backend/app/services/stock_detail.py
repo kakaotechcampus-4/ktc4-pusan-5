@@ -17,6 +17,7 @@ from app.models.stock import (
     StockMetricSnapshot,
     StockQuoteSnapshot,
 )
+from app.repositories.market_calendar import load_calendar
 from app.repositories.stock import enqueue, touch
 from app.schemas.stock import (
     Candle,
@@ -79,8 +80,9 @@ async def overview(session: AsyncSession, code: str) -> StockOverview:
     quote_state = await session.get(StockCollectionState, (code, "quote")) or state
     metric_state = await session.get(StockCollectionState, (code, "metrics")) or state
     # 현재가는 수집기가 고정 목록 전체를 정기 수집한다. 여기서는 저장 값만 읽고 작업을 등록하지 않는다.
-    quote_expired = not quote or is_quote_stale(quote.collected_at, now)
-    metrics_expired = not metrics or is_quote_stale(metrics.collected_at, now)
+    calendar = await load_calendar(session, now)
+    quote_expired = not quote or is_quote_stale(quote.collected_at, now, calendar)
+    metrics_expired = not metrics or is_quote_stale(metrics.collected_at, now, calendar)
     job = await session.scalar(
         select(StockCollectionJob).where(
             StockCollectionJob.stock_code == code, StockCollectionJob.resource == "snapshot"
