@@ -25,9 +25,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.services.classification import splitter
-from app.services.classification.assemble import NON_EVIDENCE_ROLES
 from app.services.classification.basis import normalize_mention
 from app.services.classification.events import Event
+
+# 근거 후보가 아닌 역할. 등락만 말하는 사건은 "왜" 가 아니라 "얼마나" 다
+NON_EVIDENCE_ROLES = frozenset({"price_move"})
 
 
 @dataclass(frozen=True)

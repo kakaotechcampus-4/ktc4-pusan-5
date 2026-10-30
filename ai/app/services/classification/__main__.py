@@ -1,131 +1,238 @@
-"""사건 추출을 돌려 본다. 프롬프트를 고치면서 결과를 눈으로 보는 용도다. DB 에 쓰지 않는다.
+"""자료 분류 실행. 단계는 pipeline.py, 저장·조회는 repositories/classification.py 다.
 
-기사 하나
-    uv run python -m app.services.classification 기사.txt --title "제목"
-        --basis tests/fixtures/mock_classification_basis.json
+DB 에 쓰는 명령
+    uv run python -m app.services.classification basis             # 기준 JSON → 기준표 (검사 후 넣는다)
+    uv run python -m app.services.classification basis --check     # 검사만
+    uv run python -m app.services.classification run --limit 20    # 회차가 없는 자료를 최근 것부터
+    … run --since 2026-10-28 --retry       # 그날 이후 자료. 실패·본문 없음만 있는 자료도 다시
+    … run --ids 101 102                    # 이 자료만 (회차가 있어도 새 회차를 만든다)
+    … run --ids 101 --experiment --judge-model <모델>
+                                           # 저장하되 조회에 쓰는 회차는 바꾸지 않는다(모델 비교)
+    uv run python -m app.services.classification show 005930 --days 3
+                                           # 종목 하나의 판정 자료·공통 배경 (생성 쪽에 넘기는 것)
 
-실험 기사 묶음 (eval_data/*/articles.json). 같은 폴더에 labels.csv 가 있으면 정답과 대조한다
-    uv run python -m app.services.classification --articles eval_data/news_compare_tg/articles.json
-    … --limit 3          앞 3건만 (프롬프트를 고친 직후 싸게 확인할 때)
-    … --ids de97da,fa52b1
+DB 를 쓰지 않는 명령 — 프롬프트·모델을 바꿔 가며 볼 때
+    uv run python -m app.services.classification try 기사.txt --title "제목"
+    uv run python -m app.services.classification eval --articles eval_data/news_compare_tg/articles.json
+    … eval --articles … --limit 3 --judge-model <모델>
+    … eval --articles … --review eval_data/news_compare_tg/classify_<시각>.json   # 검토표 CSV 만
 
-묶음 결과는 articles.json 옆에 classify_<시각>.json 으로 남긴다(eval_data 는 git 에 안 올라간다).
+eval 은 같은 폴더에 labels.csv 가 있으면 ① 추출을 정답 문장과 대조한다(evaluate.py). 결과는
+articles.json 옆에 classify_<시각>.json 으로 남는다(eval_data 는 git 에 안 올라간다).
 
-사람이 볼 검토표 (LLM 을 부르지 않는다. 결과 파일 옆에 review_<시각>.csv, 엑셀로 연다)
-    uv run python -m app.services.classification --articles eval_data/news_compare_tg/articles.json
-        --review eval_data/news_compare_tg/classify_<시각>.json
-기사마다 토큰·비용을 찍고 마지막에 합계를 낸다. LLM 은 .env 의 설정(LLM_PROVIDER 등)대로 부른다.
+단계별 모델은 --extract-model / --link-model / --judge-model, 안 주면 .env 의
+CLASSIFICATION_<단계>_MODEL, 그것도 없으면 SUMMARY_MODEL 이다(llm.py). LLM 은 .env 의 프로바이더로 부른다.
 """
 
 import argparse
 import asyncio
 import json
+import sys
 from collections import Counter
 from dataclasses import asdict
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
+from app.core.database import SessionLocal
 from app.core.scope import KST
-from app.llm.client import cost as cost_usd
-from app.services.classification import splitter
-from app.services.classification.basis import Basis, load_basis
-from app.services.classification.evaluate import (
-    Tokens,
-    load_labels,
-    score,
-    tokens_line,
-    tokens_of,
-    write_review,
+from app.llm.client import cost_currency, endpoint, format_cost
+from app.repositories.classification import (
+    DEFAULT_LABELS,
+    cards_to_classify,
+    classified_sources,
+    save_run,
+    stored_basis_versions,
+    sync_basis,
 )
-from app.services.classification.extract import ExtractionRun, extract_events
-from app.services.classification.link import alias_index, link_mentions
+from app.repositories.source_card import get_sources
+from app.services.classification import splitter
+from app.services.classification.basis import Basis, BasisError, load_basis
+from app.services.classification.evaluate import load_labels, score, write_review
+from app.services.classification.judge import LABELS
+from app.services.classification.pipeline import ClassificationResult, classify
+
+# ── 출력 ─────────────────────────────────────────────────────────────────
 
 
-def print_events(run: ExtractionRun, body: str, basis: Basis | None) -> None:
-    sentences = splitter.split(body, run.splitter_version)
-    if not run.events:
-        print("사건 없음 — 이유가 될 내용이 없는 기사로 판단")
-    index = alias_index(basis) if basis else None
-    for event in run.events:
-        print(f"\n[{event.order_index}] {event.scope} / {event.role} / {event.tense}"
-              f"  문장 {list(event.sentence_indices)}  문맥 {list(event.context_indices)}")
-        for i in (*event.context_indices, *event.sentence_indices):
-            mark = "  (문맥)" if i in event.context_indices else ""
-            print(f"    {i}. {sentences[i - 1]}{mark}")
-        print(f"    표기 {list(event.mentions)}")
-        if basis:
-            result = link_mentions(event.mentions, basis, index)
-            linked = [f"{link.mention}→{link.stock_code or link.industry_code}" for link in result.links]
-            print(f"    연결 {linked}  미연결 {result.unresolved}")
-        if event.reason:
-            print(f"    이유 {event.reason}")
-    if run.dropped_mentions:
-        print(f"\n원문에 없어 뺀 표기 {run.dropped_mentions}")
+def describe(result: ClassificationResult, body: str, basis: Basis) -> list[str]:
+    """결과를 사람이 읽는 줄로. try 와 eval 이 쓴다."""
+    lines = [f"상태 {result.status}  문장 {result.sentence_count}  비용 {format_cost(result.cost)}"]
+    lines += [f"  {step}: {call.model}" for step, call in result.calls.items()]
+    if result.error:
+        lines.append(f"오류 {result.error}")
+    if result.status != "ok":
+        return lines
+    if not result.events:
+        lines.append("사건 없음 — 이유가 될 내용이 없는 자료로 판단")
+    sentences = splitter.split(body, result.splitter_version)
+    for item in result.events:
+        e = item.event
+        lines.append(f"\n[{e.order_index}] {e.scope} / {e.role} / {e.tense}  "
+                     f"문장 {list(e.sentence_indices)}  문맥 {list(e.context_indices)}")
+        lines += [f"    {i}. {sentences[i - 1]}" + ("  (문맥)" if i in e.context_indices else "")
+                  for i in (*e.context_indices, *e.sentence_indices)]
+        linked = [f"{link.mention}→{link.stock_code or link.industry_code or link.external_code}"
+                  + (f"(자회사 {link.via_subsidiary})" if link.via_subsidiary else "")
+                  + ("*" if link.linked_by == "llm_code" else "") for link in item.links]
+        lines.append(f"    연결 {linked}  미연결 {item.unresolved}")
+        judgments = {j.stock_code: j for j in item.judgments}
+        for c in item.candidates:
+            j = judgments.get(c.stock_code)
+            via = c.industry_code or c.via_stock_code or c.via_external_code or ""
+            lines.append(f"    {basis.stocks[c.stock_code].name:<10} {c.path:<8} {via:<14} "
+                         f"{j.label if j else '-':<16} {j.reason if j else ''}")
+    if any(result.judge_fixes.values()):
+        lines.append(f"\n판정 보정 {result.judge_fixes}")
+    if result.dropped_mentions:
+        lines.append(f"원문에 없어 뺀 표기 {result.dropped_mentions}")
+    return lines
 
 
-async def run_one(args: argparse.Namespace) -> None:
-    body = args.file.read_text(encoding="utf-8")
-    basis = load_basis(args.basis) if args.basis else None
-    run = await extract_events(body, args.title, model=args.model)
-    print(f"상태 {run.status}  모델 {run.model}  문장 {run.sentence_count}")
-    print(f"토큰 {tokens_line(tokens_of(run.usage))}  비용 ${cost_usd(run.usage):.5f}")
-    if run.error:
-        print(f"오류 {run.error}")
-    if run.status != "ok":
-        if run.raw_response:
-            print("--- 응답 원문 ---\n" + run.raw_response)
+def result_dict(result: ClassificationResult) -> dict:
+    """eval 결과 파일에 남기는 모양. 검토표(write_review)가 읽는 칸(run.status·events 등)을 지킨다."""
+    calls = {step: {"model": c.model, "raw_response": c.raw_response, "error": c.error}
+             for step, c in result.calls.items()}
+    return {
+        "status": result.status, "error": result.error, "basis_version": result.basis_version,
+        "splitter_version": result.splitter_version, "sentence_count": result.sentence_count,
+        "raw_response": calls.get("extract", {}).get("raw_response"),
+        "calls": calls, "usage": result.usage, "judge_fixes": result.judge_fixes,
+        "dropped_mentions": result.dropped_mentions,
+        "events": [{
+            **asdict(item.event),
+            "links": [asdict(link) for link in item.links], "unresolved": item.unresolved,
+            "candidates": [{k: v for k, v in asdict(c).items() if k != "link"}
+                           for c in item.candidates],
+            "judgments": [asdict(j) for j in item.judgments],
+        } for item in result.events],
+    }
+
+
+def models_of(args: argparse.Namespace) -> dict[str, str | None]:
+    return {"extract": args.extract_model, "link": args.link_model, "judge": args.judge_model}
+
+
+# ── DB 명령 ──────────────────────────────────────────────────────────────
+
+
+async def run_basis(path: Path | None, check_only: bool) -> None:
+    basis = load_basis(path)
+    print(f"기준 {basis.name}  버전 {basis.version[:12]}")
+    print(f"산업 {len(basis.industries)} · 종목 {len(basis.stocks)} · 외부 기업 {len(basis.externals)}"
+          f" · 종목–산업 {len(basis.stock_industries)} · 기업 관계 {len(basis.relations)}")
+    if check_only:
         return
-    print_events(run, body, basis)
+    async with SessionLocal() as session:
+        counts = await sync_basis(session, basis)
+        await session.commit()
+    print("넣음 " + ", ".join(f"{k} {v}" for k, v in counts.items()))
 
 
-async def run_batch(args: argparse.Namespace) -> None:
+async def run_classify(args: argparse.Namespace) -> None:
+    basis = load_basis(args.basis)
+    endpoint()  # 키가 없으면 자료를 읽기 전에 멈춘다
+    async with SessionLocal() as session:
+        stored = await stored_basis_versions(session)
+        if stored != {basis.version}:
+            raise SystemExit(
+                f"DB 기준표 버전 {sorted(v[:12] for v in stored) or '없음'} 이 기준 파일"
+                f" {basis.version[:12]} 과 다르다. 먼저 `basis` 를 돌린다."
+            )
+        since = datetime.combine(args.since, time(), KST) if args.since else None
+        card_ids = await cards_to_classify(session, card_ids=args.ids, since=since,
+                                           limit=args.limit, retry=args.retry)
+    print(f"{len(card_ids)}건 · 기준 {basis.version[:12]}"
+          + (" · 실험(현재 회차를 바꾸지 않음)" if args.experiment else ""))
+
+    statuses: Counter = Counter()
+    total = 0.0
+    for n, card_id in enumerate(card_ids, start=1):
+        async with SessionLocal() as session:
+            records = await get_sources(session, [card_id], include_body=True)
+        if not records:
+            continue
+        record = records[0]
+        result = await classify(record.title, record.body if record.has_body else None, basis,
+                                models=models_of(args))
+        async with SessionLocal() as session:
+            run_id = await save_run(session, card_id, result, make_current=not args.experiment)
+            await session.commit()
+        statuses[result.status] += 1
+        total += result.cost
+        direct = ",".join(basis.stocks[c].name for c in sorted(result.direct_stocks())) or "-"
+        print(f"[{n:>3}/{len(card_ids)}] 자료 {card_id:<7} {record.kind:<8} {result.status:<8} "
+              f"회차 {run_id:<6} 사건 {len(result.events):>2}  DIRECT {direct}  "
+              f"{format_cost(result.cost)}")
+        if result.error:
+            print(f"        오류 {result.error[:200]}")
+    print("\n상태 " + (", ".join(f"{k} {v}" for k, v in statuses.items()) or "없음")
+          + f"  비용 {format_cost(total)}")
+
+
+async def run_show(args: argparse.Namespace) -> None:
+    until = datetime.fromisoformat(args.until) if args.until else datetime.now(KST)
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=KST)
+    since = until - timedelta(days=args.days)
+    async with SessionLocal() as session:
+        found = await classified_sources(session, args.stock, until=until, since=since,
+                                         labels=tuple(args.labels))
+    print(f"{args.stock}  {since:%Y-%m-%d %H:%M} ~ {until:%Y-%m-%d %H:%M}  판정 {args.labels}")
+    for source in found["sources"]:
+        paths = Counter(e["path"] for e in source["events"])
+        print(f"  자료 {source['source_card_id']:<7} {source['card_type']:<8} "
+              f"{source['card_label'] or '공통 배경':<17} {source['available_at'] or '-':<26} "
+              f"{dict(paths)}  {source['source_name'] or ''}")
+    print(f"자료 {len(found['sources'])} · 미분류 {found['unclassified']} · 실패 {found['failed']}")
+
+
+# ── DB 를 쓰지 않는 명령 ──────────────────────────────────────────────────
+
+
+async def run_try(args: argparse.Namespace) -> None:
+    basis = load_basis(args.basis)
+    body = args.file.read_text(encoding="utf-8")
+    result = await classify(args.title, body, basis, models=models_of(args))
+    print("\n".join(describe(result, body, basis)))
+
+
+async def run_eval(args: argparse.Namespace) -> None:
+    basis = load_basis(args.basis)
     articles: dict = json.loads(args.articles.read_text(encoding="utf-8"))
     labels_path = args.articles.parent / "labels.csv"
     labels = load_labels(labels_path) if labels_path.is_file() else {}
-    if args.ids:
-        # 같은 id 를 두 번 적으면 LLM 도 두 번 부른다. 순서는 지키고 한 번만 남긴다
-        ids = list(dict.fromkeys(part.strip() for part in args.ids.split(",") if part.strip()))
-    else:
-        ids = list(articles)
+    ids = (list(dict.fromkeys(i.strip() for i in args.ids.split(",") if i.strip()))
+           if args.ids else list(articles))
     # 오타 난 id 가 섞이면 앞 기사들에 비용을 쓴 뒤에야 멈춘다. 부르기 전에 확인한다
     missing = [article_id for article_id in ids if article_id not in articles]
     if missing:
-        raise ValueError(f"없는 기사 ID: {', '.join(missing)}")
-    if args.limit is not None:
-        ids = ids[: args.limit]
+        raise SystemExit(f"없는 기사 ID: {', '.join(missing)}")
+    ids = ids[: args.limit] if args.limit else ids
+    endpoint()
 
-    results = []
-    statuses: Counter = Counter()
-    scores: Counter = Counter()
-    total_tokens, total_cost = Tokens(), 0.0
-    print(f"{len(ids)}건 · 정답 {'있음' if labels else '없음'} · 결과는 끝나고 파일로 남긴다\n")
+    results, statuses, scores, total = [], Counter(), Counter(), 0.0
+    print(f"{len(ids)}건 · 정답 {'있음' if labels else '없음'} · 기준 {basis.version[:12]}\n")
     for n, article_id in enumerate(ids, start=1):
         article = articles[article_id]
-        run = await extract_events(article.get("body"), article.get("title", ""), model=args.model)
-        tokens, cost = tokens_of(run.usage), cost_usd(run.usage)
-        total_tokens, total_cost = total_tokens + tokens, total_cost + cost
-        statuses[run.status] += 1
-
+        result = await classify(article.get("title"), article.get("body"), basis,
+                                models=models_of(args))
+        statuses[result.status] += 1
+        total += result.cost
         label = labels.get(article_id)
-        verdict = score(run.events, label) if label and run.status == "ok" else None
+        verdict = (score([i.event for i in result.events], label)
+                   if label and result.status == "ok" else None)
         if verdict:
             scores[(bool(label.gold), verdict)] += 1
-        stock = label.stock if label else article.get("stock", "")
-        print(f"[{n:>2}/{len(ids)}] {article_id} {stock:<10} {run.status:<7} "
-              f"사건 {len(run.events):>2}  {('정답 ' + verdict) if verdict else '':<9}  "
-              f"{tokens_line(tokens)}  ${cost:.5f}")
-        if run.error:
-            print(f"        오류 {run.error[:200]}")
-
+        direct = ",".join(basis.stocks[c].name for c in sorted(result.direct_stocks())) or "-"
+        print(f"[{n:>2}/{len(ids)}] {article_id} {result.status:<7} 사건 {len(result.events):>2}  "
+              f"{('정답 ' + verdict) if verdict else '':<9} DIRECT {direct}  {format_cost(result.cost)}")
+        if result.error:
+            print(f"        오류 {result.error[:200]}")
         results.append({
-            "id": article_id,
-            "title": article.get("title"),
+            "id": article_id, "title": article.get("title"),
             "label": {"kind": label.kind, "stock": label.stock, "gold": sorted(label.gold),
                       "memo": label.memo, "reason": label.reason} if label else None,
-            "verdict": verdict,
-            "tokens": asdict(tokens),
-            "cost_usd": cost,
-            "run": asdict(run),
+            "verdict": verdict, "cost": result.cost, "run": result_dict(result),
         })
 
     print("\n=== 합계 ===")
@@ -138,52 +245,99 @@ async def run_batch(args: argparse.Namespace) -> None:
     if no_cause:
         print(f"원인 없는 기사 {no_cause}건: 걸러냄 {scores[(False, 'pass')]} · "
               f"그 종목 근거를 냄 {scores[(False, 'fail')]}")
-    count = max(len(ids), 1)
-    print(f"토큰 {tokens_line(total_tokens)}  (기사당 평균 {total_tokens.total // count:,})")
-    print(f"비용 ${total_cost:.5f}  (기사당 평균 ${total_cost / count:.5f})")
+    print(f"비용 {format_cost(total)} (기사당 평균 {format_cost(total / max(len(ids), 1))})")
 
     out = args.out or args.articles.parent / f"classify_{datetime.now(KST):%Y%m%d-%H%M%S}.json"
     out.write_text(json.dumps({
-        "model": results[0]["run"]["model"] if results else None,
-        "prompt_sha256": results[0]["run"]["prompt_sha256"] if results else None,
-        "total_tokens": asdict(total_tokens),
-        "total_cost_usd": total_cost,
+        "models": {step: call["model"] for step, call in
+                   (results[0]["run"]["calls"].items() if results else [])},
+        "basis_version": basis.version, "cost_currency": cost_currency(), "total_cost": total,
         "results": results,
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"결과 파일 {out}")
 
 
+def write_review_only(args: argparse.Namespace) -> None:
+    result = json.loads(args.review.read_text(encoding="utf-8"))
+    articles = json.loads(args.articles.read_text(encoding="utf-8"))
+    out = args.out or args.review.with_name(
+        args.review.name.replace("classify_", "review_", 1)).with_suffix(".csv")
+    labels_path = args.articles.parent / "labels.csv"
+    labels = load_labels(labels_path) if labels_path.is_file() else None
+    print(f"검토표 {write_review(result, articles, out, labels)}행 → {out}")
+
+
+# ── 인자 ─────────────────────────────────────────────────────────────────
+
+
+def _date(text: str) -> date:
+    return date.fromisoformat(text)
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="사건 추출을 돌려 본다")
-    parser.add_argument("file", type=Path, nargs="?", help="본문 텍스트 파일(UTF-8). 기사 하나")
-    parser.add_argument("--title", default="")
-    parser.add_argument("--basis", type=Path, default=None, help="분류 기준 JSON. 기사 하나일 때 연결을 보여 준다")
-    parser.add_argument("--articles", type=Path, default=None, help="실험 기사 묶음 articles.json")
-    parser.add_argument("--limit", type=int, default=None, help="앞에서 몇 건만")
-    parser.add_argument("--ids", default=None, help="쉼표로 구분한 기사 id")
-    parser.add_argument("--out", type=Path, default=None, help="묶음 결과 파일 경로")
-    parser.add_argument("--review", type=Path, default=None,
-                        help="묶음 결과 파일(classify_*.json)로 검토표 CSV 만 만든다. --articles 와 함께")
-    parser.add_argument("--model", default=None, help="비우면 설정의 SUMMARY_MODEL")
+    # 한국어 Windows 콘솔(cp949)에서 '—' 같은 글자를 찍다가 죽지 않게 한다
+    sys.stdout.reconfigure(errors="replace")
+    parser = argparse.ArgumentParser(description="자료 분류")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    basis = sub.add_parser("basis", help="기준 JSON 을 검사하고 기준표에 넣는다")
+    basis.add_argument("--file", type=Path, default=None, help="비우면 기준 폴더의 마지막 파일")
+    basis.add_argument("--check", action="store_true", help="검사만 하고 DB 에 넣지 않는다")
+
+    def add_models(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--basis", type=Path, default=None, help="기준 JSON. 비우면 기준 폴더의 마지막 파일")
+        p.add_argument("--extract-model", default=None)
+        p.add_argument("--link-model", default=None)
+        p.add_argument("--judge-model", default=None)
+
+    run = sub.add_parser("run", help="자료를 분류해 회차로 저장한다")
+    run.add_argument("--ids", type=int, nargs="+", default=None, help="공통 자료 ID. 회차가 있어도 다시")
+    run.add_argument("--since", type=_date, default=None, help="이 날짜(KST) 이후 자료")
+    run.add_argument("--limit", type=int, default=None)
+    run.add_argument("--retry", action="store_true", help="현재 회차가 없는 자료(실패 등)도 다시")
+    run.add_argument("--experiment", action="store_true",
+                     help="저장만 하고 조회에 쓰는 회차를 바꾸지 않는다")
+    add_models(run)
+
+    show = sub.add_parser("show", help="종목 하나에 붙는 분류 자료를 본다")
+    show.add_argument("stock", help="종목코드 6자리")
+    show.add_argument("--until", default=None, help="기준 시각 ISO 8601. 비우면 지금")
+    show.add_argument("--days", type=int, default=3, help="기준 시각에서 며칠 전까지")
+    show.add_argument("--labels", nargs="+", default=list(DEFAULT_LABELS), choices=LABELS)
+
+    try_parser = sub.add_parser("try", help="본문 파일 하나를 분류해 본다 (DB 안 씀)")
+    try_parser.add_argument("file", type=Path)
+    try_parser.add_argument("--title", default="")
+    add_models(try_parser)
+
+    eval_parser = sub.add_parser("eval", help="실험 기사 묶음을 분류해 본다 (DB 안 씀)")
+    eval_parser.add_argument("--articles", type=Path, required=True)
+    eval_parser.add_argument("--limit", type=int, default=None)
+    eval_parser.add_argument("--ids", default=None, help="쉼표로 구분한 기사 id")
+    eval_parser.add_argument("--out", type=Path, default=None)
+    eval_parser.add_argument("--review", type=Path, default=None,
+                             help="결과 파일(classify_*.json)로 검토표 CSV 만 만든다")
+    add_models(eval_parser)
+
     args = parser.parse_args()
-    if bool(args.file) == bool(args.articles):
-        parser.error("기사 파일 하나 또는 --articles 중 하나만 준다")
-    if args.limit is not None and args.limit < 1:
+    if getattr(args, "limit", None) is not None and args.limit < 1:
         # 0 이 '제한 없음' 으로 읽히면 묶음 전체를 부른다
         parser.error("--limit 은 1 이상이어야 한다")
-    if args.review:
-        if not args.articles:
-            parser.error("--review 는 --articles 와 함께 준다 (문장 원문을 거기서 읽는다)")
-        result = json.loads(args.review.read_text(encoding="utf-8"))
-        articles = json.loads(args.articles.read_text(encoding="utf-8"))
-        out = args.out or args.review.with_name(args.review.name.replace("classify_", "review_", 1)
-                                               ).with_suffix(".csv")
-        labels_path = args.articles.parent / "labels.csv"
-        labels = load_labels(labels_path) if labels_path.is_file() else None
-        count = write_review(result, articles, out, labels)
-        print(f"검토표 {count}행 → {out}")
-        return
-    asyncio.run(run_batch(args) if args.articles else run_one(args))
+    try:
+        if args.command == "basis":
+            asyncio.run(run_basis(args.file, args.check))
+        elif args.command == "run":
+            asyncio.run(run_classify(args))
+        elif args.command == "show":
+            asyncio.run(run_show(args))
+        elif args.command == "try":
+            asyncio.run(run_try(args))
+        elif args.review:
+            write_review_only(args)
+        else:
+            asyncio.run(run_eval(args))
+    except BasisError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 if __name__ == "__main__":

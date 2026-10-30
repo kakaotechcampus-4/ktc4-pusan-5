@@ -94,6 +94,15 @@ class Settings(BaseSettings):
     # 그런 모델은 .env 에 `LLM_TEMPERATURE=` 로 비워 두면 요청에서 필드를 아예 뺀다.
     llm_temperature: float | None = 0.2
 
+    # 자료 분류(services/classification)의 단계별 모델. 비우면 SUMMARY_MODEL 을 쓴다.
+    # 단계마다 모델을 바꿔 보는 실험용이다(classification/llm.py). OpenRouter 는 모델 이름만 바꾸면
+    # 되지만, Elice 는 모델마다 주소(LLM_BASE_URL)가 달라서 한 실행에 모델 하나만 쓸 수 있다.
+    classification_extract_model: str | None = None
+    classification_link_model: str | None = None
+    classification_judge_model: str | None = None
+    # 출력 상한(추론 토큰 포함). 판정 응답은 사건 × 후보 수만큼 길어진다.
+    classification_max_tokens: int = 6000
+
     @field_validator("stock_analysis_stream", mode="before")
     @classmethod
     def _blank_stream_is_auto(cls, value: object) -> object:

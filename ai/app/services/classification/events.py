@@ -50,18 +50,21 @@ class ParsedEvents:
     dropped_mentions: list[tuple[int, str]]
 
 
+def strip_fence(response: str) -> str:
+    """모델이 지시를 어기고 ```json 블록으로 감싸 보내는 경우가 있다. 감싼 것만 벗긴다."""
+    text = response.strip()
+    fenced = _FENCE_RE.match(text)
+    return fenced.group(1) if fenced else text
+
+
 def parse_events(response: str, sentences: list[str], title: str = "") -> ParsedEvents:
     """응답 텍스트 → 사건 목록. sentences 는 LLM 에 넣은 그 문장들(splitter 결과)이다.
 
     표기는 제목에서도 찾는다. 회사 이름이 제목에만 있고 본문은 "회사는" 으로 쓰는 기사가 흔하다.
     근거 번호는 본문 문장만 가리킨다 — 제목은 번호가 없다.
     """
-    text = response.strip()
-    fenced = _FENCE_RE.match(text)
-    if fenced:
-        text = fenced.group(1)
     try:
-        data = json.loads(text)
+        data = json.loads(strip_fence(response))
     except json.JSONDecodeError as exc:
         raise EventParseError(f"JSON 이 아니다: {exc}") from exc
     if not isinstance(data, dict) or not isinstance(data.get("events"), list):

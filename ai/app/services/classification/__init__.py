@@ -1,20 +1,26 @@
-"""자료 분류 — 사건 추출 결과를 종목·산업에 연결하고 종목별로 조립한다.
+"""자료 분류 — 자료(뉴스·PDF·메시지)를 사건으로 나누고, 사건마다 어느 종목에 해당하는지 판정한다.
 
-설계는 docs/CLASSIFICATION_DB_DRAFT.md(표 구조·조립 규칙)와 docs/INDUSTRY_MAP.md(연결 기준)다.
+설계는 docs/CLASSIFICATION_DB_DRAFT.md, 기준 데이터의 검증은 docs/INDUSTRY_REVIEW.md(회사–산업)와
+docs/RELATION_REVIEW.md(회사–회사)다.
 
-    원문 → 문장 번호(splitter) → LLM 사건 추출(extract) → 응답 검사(events)
-         → 표기 → 종목·산업(link) → 종목별 조립(assemble)
+**DB 가 후보 종목을 정하고, LLM 은 그 후보마다 "이 사건이 이 종목에 해당하는가" 만 판정한다.**
 
-**LLM 은 사건의 scope 와 기사 속 표기만 낸다. 어느 종목에 붙일지는 기준(basis)이 정한다.**
-산업–종목 연결은 사람이 근거를 확인한 것(`status = confirmed`)만 쓴다.
+    ① extract     사건 추출(LLM, 자료당 1회): scope·role·tense·근거 문장 번호·기사 속 표기
+    ② link        표기 → 종목·산업·외부 기업: 별칭 사전 → 안 잡히면 LLM 이 코드 목록에서 고름
+    ③ candidates  후보 모으기(코드): company / industry(stock_industries) / relation(company_relations)
+    ④ judge       (사건, 후보)마다 DIRECT·INDIRECT_CONTEXT·NOT_APPLICABLE·UNKNOWN (LLM) + 저장 전 보정
 
-프롬프트는 llm/prompts/classification_events.md 다. 기사 하나로 돌려 보려면
-`python -m app.services.classification <본문 파일>`, 실험 기사 묶음을 정답과 대조하며 돌리려면
-`--articles eval_data/<폴더>/articles.json` (__main__.py, 대조·토큰 집계는 evaluate.py).
+    pipeline      ①~④ 를 잇는다. DB 를 쓰지 않는다
+    basis         기준 JSON(app/data/classification_basis/) 읽기·검사
+    llm           단계별 모델로 LLM 을 부른다
+    evaluate      ① 추출을 실험 정답과 대조한다
 
-아직 없는 것 — 정해지지 않아서 일부러 비워 뒀다.
-    - 사건 형식 확정: 실험 E2·E3 결과로 정한다(전제 P10). 지금 프롬프트는 첫 안이다
-    - DB 표와 마이그레이션: E3 채택 뒤 만든다(DRAFT 11절 11번)
-    - 수집기 연결: 저장할 표가 없어 source_card 를 읽어 돌리는 배치는 아직 없다
-    - 운영용 기준 JSON: INDUSTRY_MAP 3절 연결을 검토한 뒤 만든다. 지금은 테스트용 mock 만 있다
+저장·조회는 repositories/classification.py, 실행은 `python -m app.services.classification`(__main__.py).
+DIRECT 판정은 source_card_stocks 에 tagged_by = classification 으로도 들어간다.
+
+아직 정하지 않은 것 (CLASSIFICATION_DB_DRAFT 11절)
+    - 사건 형식·role 최종안: 실험 E2·E3 결과로 정한다(전제 P10). 지금 프롬프트는 첫 안이다
+    - 기준 JSON 은 사실 확인 전 초안이다(2026-10-30-draft). 확인이 끝나면 새 날짜 파일로 만든다
+    - 긴 자료(PDF 본문 2만 자 초과)를 나눠 보내는 법. 지금은 건너뛴다(skipped)
+    - 수집기 끝에 분류를 붙일지. 지금은 run 명령을 따로 돌린다
 """

@@ -6,9 +6,11 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 from app.services.classification import __main__ as cli
-from app.services.classification import extract as extract_service
+from app.services.classification import llm
 from app.services.classification.evaluate import Label, Tokens, load_labels, score, tokens_of
 from app.services.classification.events import Event
+
+MOCK_BASIS = Path(__file__).parent / "fixtures" / "mock_classification_basis.json"
 
 
 def event(sentences, context=(), role="cause", mentions=("삼성전자",)) -> Event:
@@ -61,7 +63,7 @@ def test_tokens_include_reasoning() -> None:
     assert tokens_of({}).total == 0
 
 
-async def test_batch_writes_result_file_with_tokens(tmp_path: Path, monkeypatch, capsys) -> None:
+async def test_eval_writes_result_file_with_judgments(tmp_path: Path, monkeypatch, capsys) -> None:
     articles = {"a": {"title": "삼성전자 실적", "body": "삼성전자 실적이 늘었다. 주가가 올랐다."}}
     (tmp_path / "articles.json").write_text(json.dumps(articles, ensure_ascii=False), encoding="utf-8")
     (tmp_path / "labels.csv").write_text(
@@ -73,19 +75,29 @@ async def test_batch_writes_result_file_with_tokens(tmp_path: Path, monkeypatch,
         {"scope": "company", "role": "price_move", "tense": "past", "sentences": [2],
          "mentions": []},
     ]}, ensure_ascii=False)
+    judged = json.dumps({"judgments": [
+        {"event": 1, "stock": "005930", "label": "DIRECT", "reason": "회사 실적"}]})
     usage = {"prompt_tokens": 1000, "completion_tokens": 200, "cost": 0.001, "finish_reason": "stop"}
-    monkeypatch.setattr(extract_service, "complete", AsyncMock(return_value=(response, usage)))
+
+    async def complete(system, user, **kwargs):
+        return (judged if "# 판정할 사건" in user else response), usage
+
+    monkeypatch.setattr(llm, "complete", AsyncMock(side_effect=complete))
+    monkeypatch.setattr(cli, "endpoint", lambda: ("http://test", "key"))
 
     out = tmp_path / "out.json"
-    await cli.run_batch(argparse.Namespace(
-        articles=tmp_path / "articles.json", ids=None, limit=None, out=out, model=None))
+    await cli.run_eval(argparse.Namespace(
+        articles=tmp_path / "articles.json", ids=None, limit=None, out=out, basis=MOCK_BASIS,
+        extract_model=None, link_model=None, judge_model=None))
 
     printed = capsys.readouterr().out
-    assert "정답 all" in printed and "1,200 토큰" in printed
+    assert "정답 all" in printed and "DIRECT 삼성전자" in printed
     saved = json.loads(out.read_text(encoding="utf-8"))
-    assert saved["total_tokens"] == {"prompt": 1000, "completion": 200, "reasoning": 0}
+    run = saved["results"][0]["run"]
     assert saved["results"][0]["verdict"] == "all"
-    assert saved["results"][0]["run"]["raw_response"] == response
+    assert run["raw_response"] == response
+    assert run["events"][0]["judgments"][0]["label"] == "DIRECT"
+    assert set(saved["models"]) == {"extract", "judge"}
 
 
 def test_review_sheet_shows_sentences_and_failed_raw_events(tmp_path: Path) -> None:
