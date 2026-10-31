@@ -15,7 +15,15 @@ const quote: Resource<StockQuoteData> = {
   retryAfterSeconds: null,
   sourceAsOf: null,
   collectedAt: '2026-09-20T01:23:00Z',
-  data: { price: 100, change: 1, changeAmount: 1, volume: 1, tradingValue: 100, marketCap: null },
+  data: {
+    price: 100,
+    change: 1,
+    changeAmount: 1,
+    volume: 1,
+    volumeChange: null,
+    tradingValue: 100,
+    marketCap: null,
+  },
 };
 afterEach(cleanup);
 

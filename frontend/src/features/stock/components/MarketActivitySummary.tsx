@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { InfoTip, SkeletonText, StatList, StatListItem } from '@/components/ui';
+import { Change, InfoTip, SkeletonText, StatList, StatListItem } from '@/components/ui';
 import { formatCompactKRW, formatPrice, formatRatio } from '@/lib/format';
 import type { Resource, StockMetricsData, StockQuoteData } from '@/lib/types';
 import { NO_VALUE } from '../financialUtils';
@@ -28,10 +28,16 @@ export function MarketActivitySummary({
       <StatListItem
         label={
           <>
-            거래량 <InfoTip description="전일 대비 거래량 변화율은 아직 연동되지 않았습니다." />
+            거래량{' '}
+            <InfoTip description="전일 대비 거래량 변화율입니다. 장중에는 오늘 거래량이 쌓이는 중이라 낮게 보일 수 있고, 전일 거래량이 없으면 표시하지 않습니다." />
           </>
         }
-        value={num(q ? `${formatPrice(q.volume)}주` : NO_VALUE)}
+        value={
+          <span className="flex items-baseline gap-2">
+            {num(q ? `${formatPrice(q.volume)}주` : NO_VALUE)}
+            {typeof q?.volumeChange === 'number' && <Change value={q.volumeChange} />}
+          </span>
+        }
       />
       <StatListItem label="거래대금" value={num(q ? formatCompactKRW(q.tradingValue) : NO_VALUE)} />
       <StatListItem

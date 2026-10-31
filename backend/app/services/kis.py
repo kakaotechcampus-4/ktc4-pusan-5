@@ -10,9 +10,17 @@ from app.schemas.ranking import ACTIVE_RANKINGS, RankingItem
 from app.services.market_data import MarketDataError, Quote, number
 from app.services.ranking import parse_ranking
 
+# 초당 제한(EGW00201)을 받았을 때 같은 요청을 다시 보내는 최대 횟수.
+RATE_LIMIT_RETRIES = 2
+
 
 class KisClient:
-    """환율·랭킹이 토큰/HTTP 연결/호출 속도 제한을 공유한다."""
+    """홈 지표(환율·금·랭킹·수급)와 종목 수집기가 토큰/HTTP 연결/호출 속도 제한을 공유한다.
+
+    모든 KIS 요청은 lock 하나로 토큰 발급·간격·응답 대기·재시도까지 한 건씩 직렬화한다.
+    간격을 응답 시간보다 짧게 줄이면 직렬화가 처리량 상한이 되므로, 그때는 다음 요청 시각
+    예약만 lock으로 보호하고 HTTP 요청과 재시도 대기는 lock 밖에서 하도록 바꾼다.
+    """
 
     def __init__(self, client: httpx.AsyncClient):
         self.client = client
@@ -24,7 +32,7 @@ class KisClient:
 
     async def _pace(self) -> None:
         await asyncio.sleep(max(0, self.next_request_at - time.monotonic()))
-        self.next_request_at = time.monotonic() + 0.6
+        self.next_request_at = time.monotonic() + settings.kis_request_interval_seconds
 
     async def _authenticate(self) -> None:
         if not settings.kis_app_key or not settings.kis_app_secret:
@@ -56,31 +64,34 @@ class KisClient:
     async def get(self, path: str, tr_id: str, params: dict[str, str]) -> dict:
         async with self.lock:
             await self._authenticate()
-            await self._pace()
-            response = await self.client.get(
-                settings.kis_api_base_url + path,
-                headers={
-                    "authorization": f"Bearer {self.token}",
-                    "appkey": settings.kis_app_key,
-                    "appsecret": settings.kis_app_secret,
-                    "tr_id": tr_id,
-                    "custtype": "P",
-                },
-                params=params,
-            )
-            if response.status_code in (401, 403):
-                self.expires_at = datetime.min.replace(tzinfo=UTC)
-            # 초당 제한 오류는 HTTP 500으로도 반환된다. 다음 요청까지 대기한다.
-            try:
-                body = response.json()
-            except ValueError:
-                response.raise_for_status()
-                raise MarketDataError("INVALID_RESPONSE") from None
-            if not isinstance(body, dict):
-                response.raise_for_status()
-                raise MarketDataError("INVALID_RESPONSE")
-            if body.get("msg_cd") == "EGW00201":
-                self.next_request_at = time.monotonic() + 60
+            for attempt in range(RATE_LIMIT_RETRIES + 1):
+                await self._pace()
+                response = await self.client.get(
+                    settings.kis_api_base_url + path,
+                    headers={
+                        "authorization": f"Bearer {self.token}",
+                        "appkey": settings.kis_app_key,
+                        "appsecret": settings.kis_app_secret,
+                        "tr_id": tr_id,
+                        "custtype": "P",
+                    },
+                    params=params,
+                )
+                if response.status_code in (401, 403):
+                    self.expires_at = datetime.min.replace(tzinfo=UTC)
+                try:
+                    body = response.json()
+                except ValueError:
+                    response.raise_for_status()
+                    raise MarketDataError("INVALID_RESPONSE") from None
+                if not isinstance(body, dict):
+                    response.raise_for_status()
+                    raise MarketDataError("INVALID_RESPONSE")
+                # 초당 제한 오류(EGW00201)는 HTTP 500으로도 온다. 한도 아래에서도 간헐적으로 거부되므로
+                # KIS 안내대로 60초 전체 정지 없이 이 요청만 _pace 간격을 지켜 다시 보낸다.
+                # 재시도하는 동안 lock을 쥐고 있어 다른 요청은 기다리지만, 최대 재시도 횟수만큼이라 길지 않다.
+                if body.get("msg_cd") != "EGW00201" or attempt == RATE_LIMIT_RETRIES:
+                    break
             response.raise_for_status()
             if body.get("rt_cd") != "0":
                 if body.get("msg_cd") in ("EGW00121", "EGW00123"):

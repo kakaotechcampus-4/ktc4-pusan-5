@@ -89,5 +89,6 @@ class StockQuarterlyRatio(Base):
     eps: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
     roe: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
     debt_ratio: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
+    bps: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
     source: Mapped[str] = mapped_column(String(12), default="KIS")
     collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

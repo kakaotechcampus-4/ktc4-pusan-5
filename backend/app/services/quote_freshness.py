@@ -4,13 +4,23 @@ from datetime import datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from app.services.stock_detail import SNAPSHOT_TTL, market_open
+from app.core.config import settings
 
 KST = ZoneInfo("Asia/Seoul")
 # market_open 의 마감 시각(15:40)과 같다.
 MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE = 15, 40
+# 장중 갱신 주기. 수집기의 현재가 수집 주기와 같은 값
+SNAPSHOT_TTL = settings.stock_quote_interval_seconds
 
 QuoteStatus = Literal["ready", "stale", "pending"]
+
+
+def market_open(now: datetime) -> bool:
+    local = now.astimezone(KST)
+    return local.weekday() < 5 and (9, 0) <= (local.hour, local.minute) < (
+        MARKET_CLOSE_HOUR,
+        MARKET_CLOSE_MINUTE,
+    )
 
 
 def last_market_close(now: datetime) -> datetime:
@@ -27,10 +37,10 @@ def last_market_close(now: datetime) -> datetime:
 
 
 def is_quote_stale(collected_at: datetime, now: datetime) -> bool:
-    """장중에는 갱신 주기(60초)가 지났는지, 장외에는 마지막 마감 이후에 받은 값인지로 본다.
+    """장중에는 갱신 주기(SNAPSHOT_TTL)가 지났는지, 장외에는 마지막 마감 이후에 받은 값인지로 본다.
 
-    장외에 갱신 주기(1시간)로만 보면 주말마다 모든 종목이 낡았다고 나오는데,
-    마감 시세는 다음 개장 전까지 최신이다.
+    마감 시세는 다음 개장 전까지 최신이다. 수집기도 같은 기준으로 다시 받을지 정하므로
+    장외에는 마감 후 한 번만 수집한다.
     """
     if market_open(now):
         return (now - collected_at).total_seconds() >= SNAPSHOT_TTL

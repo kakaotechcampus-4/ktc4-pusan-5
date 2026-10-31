@@ -21,6 +21,10 @@ class AnnualEps(CamelModel):
     debt_ratio: FiniteFloat | None = None
 
 
+class QuarterlyRatio(AnnualEps):
+    bps: FiniteFloat | None = None
+
+
 class AnnualStability(CamelModel):
     fiscal_period: str
     current_ratio: FiniteFloat | None = None

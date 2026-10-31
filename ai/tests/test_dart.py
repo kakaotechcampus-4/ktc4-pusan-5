@@ -1,0 +1,205 @@
+"""DART 공시 목록 어댑터와 수집기의 고르기. DB 저장은 tests/test_dart_disclosure_db.py."""
+
+from datetime import date
+
+import httpx
+import pytest
+import respx
+
+from app.collectors import disclosure as collector
+from app.collectors.disclosure import CollectResult, select_items
+from app.core.config import settings
+from app.core.scope import ScopeError, SourceScope, parse_scope
+from app.services.dart import client as dart
+from app.services.dart.client import LIST_URL, DartError, parse_list
+
+DAY = date(2026, 10, 8)
+
+
+def raw(rcept_no="20261008000123", stock_code="005930", **values):
+    return {
+        "corp_code": "00126380", "corp_name": "삼성전자 ", "stock_code": stock_code,
+        "corp_cls": "Y", "report_nm": "주요사항보고서(자기주식취득결정)  ",
+        "rcept_no": rcept_no, "flr_nm": "삼성전자", "rcept_dt": "20261008", "rm": "유",
+        **values,
+    }
+
+
+def page(rows, total_page=1):
+    return {"status": "000", "message": "정상", "total_page": total_page, "list": rows}
+
+
+@pytest.fixture
+def key(monkeypatch):
+    monkeypatch.setattr(settings, "dart_api_key", "test-key")
+
+
+def test_parse_list_cleans_fields_and_skips_unlisted_companies():
+    [item] = parse_list([raw(rm=""), raw(rcept_no="20261008000999", stock_code=" ")])
+    assert item.corp_name == "삼성전자"
+    assert item.report_nm == "주요사항보고서(자기주식취득결정)"
+    assert item.rcept_dt == DAY
+    assert item.rm is None
+
+
+@respx.mock
+async def test_fetch_day_reads_every_page_of_kospi(key):
+    route = respx.get(LIST_URL).mock(side_effect=[
+        httpx.Response(200, json=page([raw("1")], total_page=2)),
+        httpx.Response(200, json=page([raw("2")], total_page=2)),
+    ])
+    items = await dart.fetch_day(DAY)
+    assert [i.rcept_no for i in items] == ["1", "2"]
+    params = route.calls.last.request.url.params
+    assert params["page_no"] == "2"
+    assert params["bgn_de"] == params["end_de"] == "20261008"
+    assert params["corp_cls"] == "Y"
+
+
+@respx.mock
+async def test_fetch_day_treats_no_data_as_empty(key):
+    respx.get(LIST_URL).mock(return_value=httpx.Response(
+        200, json={"status": "013", "message": "조회된 데이타가 없습니다."}))
+    assert await dart.fetch_day(DAY) == []
+
+
+@respx.mock
+async def test_fetch_day_raises_on_error_status_without_leaking_key(key):
+    respx.get(LIST_URL).mock(return_value=httpx.Response(
+        200, json={"status": "020", "message": "요청 제한을 초과하였습니다."}))
+    with pytest.raises(DartError, match="020") as error:
+        await dart.fetch_day(DAY)
+    assert "test-key" not in str(error.value)
+    assert error.value.reason.startswith("dart_status: 020")
+    assert error.value.kind == "rate_limited"
+
+
+@respx.mock
+@pytest.mark.parametrize(("response", "reason", "kind"), [
+    (httpx.Response(200, json={"status": "010", "message": "등록되지 않은 키입니다."}),
+     "dart_status: 010 (등록되지 않은 키입니다.)", "permanent"),
+    (httpx.Response(200, json={"status": "800", "message": "시스템 점검으로 인한 서비스가 중지 중입니다."}),
+     "dart_status: 800 (시스템 점검으로 인한 서비스가 중지 중입니다.)", "transient"),
+    (httpx.Response(404), "http_error: 404", "permanent"),
+    (httpx.Response(503), "http_error: 503", "transient"),
+    # 200 인데 JSON 객체가 아니다. 무엇이 왔는지 몰라 unknown 이다
+    (httpx.Response(200, text="<html>점검 중</html>"), "invalid_response: not_json", "unknown"),
+    (httpx.Response(200, text='{"status": "000", "li'), "invalid_response: not_json", "unknown"),
+    (httpx.Response(200, json=[]), "invalid_response: not_object", "unknown"),
+])
+async def test_fetch_day_classifies_failures_like_news(key, response, reason, kind):
+    respx.get(LIST_URL).mock(return_value=response)
+    with pytest.raises(DartError) as error:
+        await dart.fetch_day(DAY)
+    assert (error.value.reason, error.value.kind) == (reason, kind)
+
+
+@respx.mock
+async def test_fetch_day_network_failure_is_transient(key):
+    respx.get(LIST_URL).mock(side_effect=httpx.ConnectTimeout("mock timeout"))
+    with pytest.raises(DartError) as error:
+        await dart.fetch_day(DAY)
+    assert (error.value.reason, error.value.kind) == ("request_failed: ConnectTimeout", "transient")
+
+
+async def test_fetch_day_needs_a_key(monkeypatch):
+    monkeypatch.setattr(settings, "dart_api_key", "")
+    with pytest.raises(RuntimeError, match="DART_API_KEY"):
+        await dart.fetch_day(DAY)
+
+
+def test_select_items_keeps_allowed_new_disclosures_up_to_the_limit():
+    source = SourceScope("dart", enabled=True, allowed=frozenset({"005930"}), max_items=3)
+    items = parse_list([
+        raw("1"), raw("2", stock_code="000660"), raw("3"), raw("3"), raw("4"), raw("5"),
+    ])
+    result = CollectResult()
+    kept = select_items(items, source=source, known={"1"}, collected=1, result=result)
+    assert [i.rcept_no for i in kept] == ["3", "4"]  # 1 은 이미 있고, 상한 3 - 1 = 2건
+    assert result.matched == 5 and result.held == 1
+
+
+def scope(enabled=True, **values):
+    return parse_scope({
+        "period": {"start": date(2026, 10, 6), "end": date(2026, 10, 31)},
+        "sources": {"dart": {"enabled": enabled, "stock_codes": ["005930"], "max_items": 10,
+                             "terms": {"status": "미확인"}, **values}},
+    })
+
+
+def test_enabled_dart_needs_stock_codes():
+    with pytest.raises(ScopeError, match="stock_codes"):
+        scope(stock_codes=[])
+
+
+async def test_disabled_source_is_refused_before_calling_dart(monkeypatch):
+    monkeypatch.setattr(collector.dart, "fetch_day", lambda *a, **k: pytest.fail("불렀다"))
+    with pytest.raises(ScopeError, match="꺼져 있다"):
+        await collector.collect(DAY, scope=scope(enabled=False))
+
+
+async def test_day_outside_the_period_is_not_requested(monkeypatch):
+    monkeypatch.setattr(collector.dart, "fetch_day", lambda *a, **k: pytest.fail("불렀다"))
+    result = await collector.collect(date(2026, 11, 1), scope=scope())
+    assert result.out_of_period
+
+
+@respx.mock
+@pytest.mark.parametrize(("mock_body", "mock_reason"), [
+    ({}, "status"),
+    ({"status": []}, "status"),
+    ({"status": "000", "list": []}, "total_page"),
+    (page([], total_page="broken"), "total_page"),
+    (page([], total_page="²"), "total_page"),
+    (page([], total_page=True), "total_page"),
+    (page([], total_page=1.5), "total_page"),
+    (page([], total_page=0), "total_page"),
+    (page([], total_page=dart.MAX_PAGES + 1), "total_page"),
+    ({"status": "000", "total_page": 1}, "list"),
+    (page(None), "list"),
+    (page([None]), "list"),
+    (page([{"stock_code": "005930"}]), "disclosure"),
+    (page([raw(rcept_dt="invalid")]), "disclosure"),
+    (page([raw(rcept_dt="20261332")]), "disclosure"),
+    (page([raw(corp_name=42)]), "disclosure"),
+    (page([raw(stock_code=5930)]), "disclosure"),
+])
+async def test_fetch_day_normalizes_invalid_success_fields(key, mock_body, mock_reason):
+    respx.get(LIST_URL).mock(return_value=httpx.Response(200, json=mock_body))
+    with pytest.raises(DartError) as mock_error:
+        await dart.fetch_day(DAY)
+    assert mock_error.value.reason == f"invalid_response: {mock_reason}"
+    assert mock_error.value.kind == "unknown"
+
+
+@pytest.mark.parametrize(("mock_row", "mock_field"), [
+    (raw(corp_name="비밀", report_nm=42), "report_nm"),
+    (raw(corp_name="비밀", rcept_dt="20261332"), "rcept_dt"),
+])
+def test_parse_list_names_the_row_and_field_without_external_values(mock_row, mock_field):
+    with pytest.raises(DartError) as mock_error:
+        parse_list([raw(), mock_row], at="20261008 p2")
+    assert str(mock_error.value) == (
+        f"20261008 p2 row 1 field {mock_field}: invalid_response: disclosure")
+
+
+@respx.mock
+async def test_fetch_day_does_not_report_code_bugs_as_invalid_response(key, monkeypatch):
+    # 응답은 정상이고 변환 코드가 실패한다. DART 문제(DartError)로 바뀌면 안 된다.
+    def mock_broken_disclosure(**fields):
+        raise TypeError("mock bug")
+
+    monkeypatch.setattr(dart, "Disclosure", mock_broken_disclosure)
+    respx.get(LIST_URL).mock(return_value=httpx.Response(200, json=page([raw()])))
+    with pytest.raises(TypeError, match="mock bug"):
+        await dart.fetch_day(DAY)
+
+
+@respx.mock
+async def test_fetch_day_does_not_return_partial_results_after_invalid_second_page(key):
+    respx.get(LIST_URL).mock(side_effect=[
+        httpx.Response(200, json=page([raw("1")], total_page="2")),
+        httpx.Response(200, json=page(None, total_page="2")),
+    ])
+    with pytest.raises(DartError, match="invalid_response: list"):
+        await dart.fetch_day(DAY)

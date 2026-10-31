@@ -1,0 +1,36 @@
+{
+  "stock": "솔마루전자",
+  "code": "999990",
+  "target_date": "2026-09-24",
+  "cutoff": "2026-09-24T15:30:00+09:00",
+  "change_pct": -7.0,
+  "market": {
+    "index": "코스피",
+    "change_pct": -1.2,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": -1.5,
+    "peer_up": 4,
+    "peer_down": 15,
+    "peer_total": 19,
+    "excess_pct": -5.5
+  },
+  "messages": [
+    {
+      "channel": "sample_channel_a",
+      "url": "https://t.me/sample_channel_a/801",
+      "datetime_kst": "2026-09-24T08:30:00+09:00",
+      "views": "2100",
+      "text": "[샘플] 솔마루전자, 최대 고객사 신규 모델 부품 공급사에서 제외",
+      "match": "direct"
+    },
+    {
+      "channel": "sample_channel_b",
+      "url": "https://t.me/sample_channel_b/802",
+      "datetime_kst": "2026-09-24T10:15:00+09:00",
+      "views": "800",
+      "text": "[샘플] 부품 업종 재고 부담 지속에 업종 전반 약세",
+      "match": "indirect"
+    }
+  ]
+}

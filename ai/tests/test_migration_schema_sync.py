@@ -1,4 +1,4 @@
-"""`stock_move_analysis*` 네 표의 모델과 마이그레이션이 어긋나지 않았는지 본다.
+"""`stock_move_analysis*`·`telegram_message*` 표의 모델과 마이그레이션이 어긋나지 않았는지 본다.
 
 **DB 없이 돈다.** 이게 요점이다 — `tests/test_migrations.py` 의 PostgreSQL 테스트는
 `MIGRATION_TEST_ADMIN_URL` 이 없으면 전부 skip 되므로, DB 가 없는 환경에서는
@@ -7,8 +7,9 @@
 마이그레이션이 내놓을 DDL 을 받아, 같은 모델을 SQLAlchemy 로 직접 컴파일한 DDL 과
 맞춰 본다.
 
-**`analyst_reports` 는 일부러 뺐다.** 그 표는 `0001` 이 만든 뒤 `0018` 이 ALTER 로
-고치는 식으로 진화해서, "CREATE TABLE 한 방" 과 비교할 수가 없다. 그쪽 검증은
+**`analyst_reports`·`news`·`source_card` 는 일부러 뺐다.** analyst_reports 는 `0001` 이 만든
+뒤 `0018` 이 ALTER 로 고치는 식으로 진화했고, news·source_card 는 backend 첫 리비전이 만든
+표를 AI 가 ALTER 로 넘겨받았다. "CREATE TABLE 한 방" 과 비교할 수가 없다. 그쪽 검증은
 실제 DB 에 전체 리비전을 올린 뒤 `alembic check` 로 보는 test_migrations.py 담당이다.
 
 **이 테스트가 못 잡는 것:** 이미 돌고 있는 DB 의 실제 스키마와 모델의 차이.
@@ -35,14 +36,20 @@ from app.core.database import Base
 AI_DIR = Path(__file__).resolve().parents[1]
 DIALECT = postgresql.dialect()
 
-# 이 파일이 보는 표. 접두사로 고르므로 다섯 번째 표가 생겨도 자동으로 포함된다.
-PREFIX = "stock_move_analysis"
+# 이 파일이 보는 표. 마이그레이션 하나가 CREATE TABLE 로 통째로 만든 표들이다.
+# 접두사로 고르므로 같은 무리의 표가 늘어나도 자동으로 포함된다.
+PREFIXES = (
+    "stock_move_analysis", "telegram_message", "source_card_stock", "dart_disclosure",
+)
 
 
 def managed_tables() -> dict:
-    tables = {n: t for n, t in Base.metadata.tables.items() if n.startswith(PREFIX)}
+    tables = {n: t for n, t in Base.metadata.tables.items() if n.startswith(PREFIXES)}
     # 표 이름을 또 바꾸면 이 테스트가 조용히 아무것도 안 보게 된다. 그때 여기서 걸린다.
-    assert tables, f"{PREFIX}* 로 시작하는 표가 없다 — PREFIX 가 낡았다"
+    for prefix in PREFIXES:
+        assert any(n.startswith(prefix) for n in tables), (
+            f"{prefix}* 로 시작하는 표가 없다 — PREFIXES 가 낡았다"
+        )
     return tables
 
 
@@ -131,6 +138,12 @@ def test_every_model_table_is_created_by_a_migration(migration_sql: str) -> None
         for stmt in _statements(migration_sql)
         if _squash(stmt).startswith("create table ")
     }
+    # 뒤 리비전이 ALTER 로 더한 칼럼·제약도 그 표의 절로 합친다. 0024 가 출처 표에 칼럼과 FK 를
+    # 더했다. 모델은 처음부터 있던 것처럼 CREATE TABLE 한 문장에 담는다.
+    for stmt in _statements(migration_sql):
+        m = re.match(r"alter table (\S+) add (?:column )?(.*)$", _squash(stmt), re.DOTALL)
+        if m and m.group(1) in emitted:
+            emitted[m.group(1)].add(m.group(2))
     for name, table in managed_tables().items():
         assert name in emitted, f"{name} 을 만드는 마이그레이션이 없다"
         want = _table_shape(str(CreateTable(table).compile(dialect=DIALECT)))[1]
@@ -161,16 +174,22 @@ def test_managed_tables_covers_every_model_table() -> None:
     아예 보지 않는다. 마이그레이션이 없어도 check 가 '변경 없음' 이라고 해서,
     빠뜨리면 이 레포의 스키마 검증이 통째로 헛돈다.
 
+    EXTERNAL_TABLES(backend 가 관리하고 FK 대상으로만 모델에 둔 표)는 빠져도 된다.
+    대신 두 목록이 겹치면 안 된다 — 같은 표를 두 쪽이 관리하게 된다.
+
     env.py 를 import 하면 마이그레이션이 실행되므로 ast 로 읽기만 한다.
     """
     tree = ast.parse((AI_DIR / "alembic/env.py").read_text(encoding="utf-8"))
-    managed: set[str] | None = None
+    found: dict[str, set[str]] = {}
     for node in ast.walk(tree):
-        if isinstance(node, ast.Assign) and any(
-            isinstance(t, ast.Name) and t.id == "MANAGED_TABLES" for t in node.targets
-        ):
-            managed = set(ast.literal_eval(node.value))
-    assert managed is not None, "env.py 에서 MANAGED_TABLES 를 찾지 못했다"
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id in ("MANAGED_TABLES",
+                                                                  "EXTERNAL_TABLES"):
+                    found[target.id] = set(ast.literal_eval(node.value))
+    assert "MANAGED_TABLES" in found, "env.py 에서 MANAGED_TABLES 를 찾지 못했다"
+    managed, external = found["MANAGED_TABLES"], found.get("EXTERNAL_TABLES", set())
 
-    missing = set(Base.metadata.tables) - managed
+    assert not managed & external, f"양쪽에 다 있는 표: {sorted(managed & external)}"
+    missing = set(Base.metadata.tables) - managed - external
     assert not missing, f"MANAGED_TABLES 에 빠진 표: {sorted(missing)}"
