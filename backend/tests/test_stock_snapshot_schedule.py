@@ -1,10 +1,12 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select
 
 from app.collectors import stocks
 from app.models.stock import Stock, StockCollectionJob, StockCollectionState
 from app.repositories import stock as repo
+from app.repositories.market_calendar import upsert_days
+from app.services.market_calendar import KST
 
 pytest_plugins = ("tests.test_stock_detail",)
 
@@ -67,7 +69,7 @@ async def test_fresh_snapshot_is_not_requeued_until_stale(stock_db, monkeypatch)
     async with stock_db() as session:
         assert (await _snapshot_job(session, "TST001")).status == "idle"
 
-    monkeypatch.setattr(stocks, "is_quote_stale", lambda collected_at, now: True)
+    monkeypatch.setattr(stocks, "is_quote_stale", lambda collected_at, now, calendar: True)
     await _rescan(worker)
     async with stock_db() as session:
         assert (await _snapshot_job(session, "TST001")).status == "queued"
@@ -94,3 +96,33 @@ async def test_stocks_outside_fixed_list_or_inactive_are_not_queued(stock_db, mo
     async with stock_db() as session:
         assert await _snapshot_job(session, "TST001") is None
         assert await _snapshot_job(session, "TST002") is None
+
+
+async def test_holiday_daytime_does_not_queue_snapshot(stock_db, monkeypatch):
+    # 2026-12-25(금) 휴장일 11:00. 목요일 마감 이후에 받은 값은 다시 받지 않는다.
+    now = datetime(2026, 12, 25, 11, 0, tzinfo=KST)
+
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now
+
+    monkeypatch.setattr(stocks, "datetime", FixedDatetime)
+    worker = _worker(monkeypatch, stock_db)
+    async with stock_db() as session:
+        await repo.touch(session, "TST001", "snapshot", now)
+        state = await session.get(StockCollectionState, ("TST001", "snapshot"))
+        state.last_success_at = datetime(2026, 12, 24, 15, 50, tzinfo=KST)
+        await upsert_days(session, [(now.date(), False)], now - timedelta(hours=2))
+        await session.commit()
+
+    await worker.schedule_snapshots()
+    async with stock_db() as session:
+        assert await _snapshot_job(session, "TST001") is None
+        # 같은 날이 개장일이면 장중이므로 60초가 지난 값은 다시 받는다.
+        await upsert_days(session, [(now.date(), True)], now - timedelta(hours=2))
+        await session.commit()
+
+    await _rescan(worker)
+    async with stock_db() as session:
+        assert (await _snapshot_job(session, "TST001")).status == "queued"
