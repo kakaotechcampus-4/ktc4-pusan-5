@@ -85,3 +85,25 @@ jobs:
             echo "::error::배포 실패 (status: $STATUS)"
             exit 1
           fi
+
+      - name: Smoke test (외부 주소)
+        run: |
+          BASE="https://marketlit.duckdns.org"
+
+          # 배포 직후 Caddy/백엔드가 잠깐 불안정할 수 있어, 최대 12회(약 1분) 재시도한다.
+          check() {
+            url="$1"
+            for i in $(seq 1 12); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$url" || echo 000)
+              echo "[$i] $url -> $code"
+              if [ "$code" = "200" ]; then
+                return 0
+              fi
+              sleep 5
+            done
+            echo "::error::smoke test 실패: $url"
+            return 1
+          }
+
+          check "$BASE/health"
+          check "$BASE/api/concepts"
