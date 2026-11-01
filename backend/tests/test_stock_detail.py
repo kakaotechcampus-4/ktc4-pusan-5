@@ -47,7 +47,7 @@ async def stock_db():
 
 
 @respx.mock
-async def test_cold_request_enqueues_once_without_external_io(stock_db):
+async def test_cold_request_enqueues_prices_once_without_external_io(stock_db):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         for _ in range(2):
             response = await client.get("/api/stocks/TST001/overview")
@@ -55,7 +55,9 @@ async def test_cold_request_enqueues_once_without_external_io(stock_db):
             body = response.json()
             StockOverview.model_validate(body)
             assert body["quote"]["status"] == "pending"
-            assert body["quote"]["refreshing"] is True
+            # 현재가는 수집기가 정기 수집하므로 조회가 작업을 등록하지 않는다. 화면은 계속 재요청한다.
+            assert body["quote"]["refreshing"] is False
+            assert body["quote"]["retryAfterSeconds"] == 3
             assert body["quote"]["data"] is None
         for _ in range(2):
             response = await client.get("/api/stocks/TST001/prices?period=1Y")
@@ -68,7 +70,7 @@ async def test_cold_request_enqueues_once_without_external_io(stock_db):
                 select(StockCollectionJob).where(StockCollectionJob.stock_code == "TST001")
             )
         ).all()
-        assert len([j for j in jobs if j.resource == "snapshot"]) == 1
+        assert not [j for j in jobs if j.resource == "snapshot"]
         assert 4 <= len([j for j in jobs if j.resource == "prices"]) <= 6
         assert all((j.range_end - j.range_start).days <= 89 for j in jobs)
     assert len(respx.calls) == 0
@@ -148,6 +150,37 @@ async def test_complete_empty_price_range_does_not_requeue(stock_db):
         assert not result.refreshing
 
 
+async def test_overview_returns_saved_volume_change_and_null_when_missing(stock_db):
+    from app.collectors.stocks import StockWorker
+
+    now = datetime.now(UTC)
+    quote = {
+        "price": 100,
+        "change": 0,
+        "change_amount": 0,
+        "volume": 1,
+        "trading_value": 100,
+        "market_cap": 1000,
+        "source_as_of": None,
+    }
+    async with stock_db() as session:
+        await repo.save_snapshot(session, "TST001", {**quote, "volume_change": 18.76}, {}, now)
+        await StockWorker._state(session, "TST001", "quote", None, True, now)
+        await session.commit()
+    async with stock_db() as session:
+        result = await stock_detail.overview(session, "TST001")
+        assert result.quote.data.volume_change == 18.76
+    async with stock_db() as session:
+        await repo.save_snapshot(
+            session, "TST001", {**quote, "volume_change": None}, {}, now + timedelta(seconds=1)
+        )
+        await session.commit()
+    async with stock_db() as session:
+        result = await stock_detail.overview(session, "TST001")
+        assert result.quote.data.volume_change is None
+        assert result.model_dump(by_alias=True)["quote"]["data"]["volumeChange"] is None
+
+
 @pytest.mark.parametrize("incoming", ["older", "unknown"])
 async def test_snapshot_old_source_timestamp_cannot_overwrite(stock_db, incoming):
     now = datetime.now(UTC)
@@ -206,7 +239,7 @@ async def test_missing_metrics_does_not_make_fresh_quote_stale(stock_db):
         response = await stock_detail.overview(session, "TST001")
         assert response.quote.status == "ready"
         assert response.metrics.status == "pending"
-        assert response.metrics.refreshing
+        assert response.metrics.retry_after_seconds == 3
 
 
 async def test_inactive_stock_has_terminal_state_without_queueing(stock_db):

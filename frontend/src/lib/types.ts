@@ -27,6 +27,8 @@ export type StockQuoteData = {
   change: number;
   changeAmount: number;
   volume: number;
+  /** 전일 대비 거래량 변화율(%). 전일 거래량이 없거나 거래 전이면 null */
+  volumeChange: number | null;
   tradingValue: number;
   marketCap: number | null;
 };
@@ -115,6 +117,8 @@ export type InvestmentPoint = {
   operatingProfit: number | null;
   netIncome: number | null;
   epsCumulative: number | null;
+  /** 분기 BPS(원). 결산연월 기준 */
+  bps: number | null;
   roe: number | null;
   debtRatio: number | null;
   rs: number | null;

@@ -10,11 +10,29 @@
     stock_card_ids             종목 하나의 자료 중 기준 시각 이전에 나온 것의 공통 ID
     card_ids_for_urls          출처 주소 → 공통 ID (보고서 출처를 원문에 이을 때)
 
+시각 이름. 자료마다 남은 시각이 달라 무엇을 무엇과 비교하는지 섞이기 쉽다.
+    cutoff           보고서가 몇 시 시점을 기준으로 만들어지는가(기준 시각). stock_card_ids 의
+                     until 과 같은 값이다. 이 시각에 알 수 없던 것은 보고서에 쓰지 않는다
+    available_at     자료가 공개돼 있었다고 확인된 가장 이른 시각(source_card). 자료를 고를 때
+                     cutoff 와 비교한다(stock_card_ids)
+    published_at     원문이 밝힌 발행 시각(기사)·게시 시각(메시지). 모르면 비어 있다
+    write_date       PDF 작성일·공시 접수일. 시각 없이 날짜만 있다
+    collected_at     수집기가 원문 행을 처음 저장한 시각. 공시는 처음 본 시각(first_seen_at)
+    body_fetched_at  우리가 본문을 받은 시각. 발행 시각이 아니다 — 글은 나온 뒤에도 고쳐지므로
+                     저장된 본문이 언제 것인지는 이 값만 말한다. 본문을 쓸지 정할 때 cutoff 와
+                     비교한다(get_sources). 메시지는 처음 받은 글을 바꾸지 않아 collected_at 이다.
+                     본문이 없으면 비어 있다
+
 카드에는 원문을 복제하지 않는다. 원 발행처(source_name)와 채널만 적고 본문은 FK 로 읽는다.
 
 **본문은 요청할 때만 준다(include_body).** 원문은 팀 내부의 분류·검증에만 쓴다.
 출처·시각·본문 유무와 없는 사유는 늘 주고, 본문이 필요한
 코드는 include_body=True 를 적는다. 그래야 원문을 읽는 곳을 코드에서 찾을 수 있다.
+
+**기준 시각(cutoff)을 주면 그 뒤에 받은 본문은 주지 않는다.** stock_card_ids 는 자료가 기준
+시각 전에 공개됐는지를 보지만, 본문은 나중에 받았을 수 있다. 10시 기사를 18시에 받았다면
+14시 기준 보고서에 그 본문을 쓸 수 없다 — 14시 당시와 같았다는 보장이 없다.
+요약은 cutoff 를 주면 늘 뺀다. 나중에 채우거나 덮어쓰는데 그 시각을 남기지 않는다.
 """
 
 from dataclasses import dataclass, field
@@ -419,8 +437,9 @@ class SourceRecord:
     channel: str | None  # 텔레그램에서 온 자료의 채널
     published_at: datetime | None  # 기사 발행 시각·메시지 게시 시각. 모르면 None
     write_date: date | None  # PDF 작성일·공시 접수일 (시각이 없다)
-    collected_at: datetime | None
-    # 공개돼 있었다고 확인된 가장 이른 시각(source_card.available_at). 기준 시각 판단에 쓴다
+    collected_at: datetime | None  # 원문 행을 처음 저장한 시각. 공시는 first_seen_at
+    # 공개돼 있었다고 확인된 가장 이른 시각(source_card.available_at). 자료를 고를 때 기준
+    # 시각과 비교한다(stock_card_ids)
     available_at: datetime | None
     has_body: bool  # 본문이 있는가 (include_body 와 상관없이 알려준다)
     # 본문이 없으면 그 사유. 있으면 None.
@@ -429,11 +448,17 @@ class SourceRecord:
     #   empty            글자 없이 첨부만 올린 메시지
     #   not_collected    본문을 받지 않는 자료 (공시는 목록만 저장한다)
     #   purged: ...      보관 정책으로 지웠다. 재분류·과거 결과 검증에 쓸 수 없다
+    #   not_observed_at_cutoff: ...  본문은 있지만 기준 시각 이후에 받았다(또는 받은 시각을
+    #                    모른다). get_sources 에 cutoff 를 줬을 때만
     body_missing_reason: str | None
     body_status: str | None  # 원문 표의 상태 값 그대로 (기사 ok|failed|purged, PDF ok|empty|...)
     body_error: str | None
-    body_fetched_at: datetime | None  # 본문을 받은 시각
-    summary: str | None  # 네이버가 준 요약. 본문 아님
+    # 우리가 본문을 받은 시각. 발행 시각 아님. 메시지는 collected_at. 본문을 쓸 때 기준 시각과
+    # 비교한다(_hide_after_cutoff)
+    body_fetched_at: datetime | None
+    # 요약. 본문 아님. 기사·네이버 리포트는 네이버가 준 것, 텔레그램 리포트는 생성한 것
+    # (collectors/summary.py). get_sources 에 cutoff 를 주면 늘 None
+    summary: str | None
     body: str | None = None  # 저장된 정제 본문. 네이버 기사는 최대 3000자. include_body=True만
     edited: bool | None = None  # 메시지만: 수정 표시가 있었다
     edit_detected_at: datetime | None = None  # 메시지만: 다시 수집했을 때 본문이 달랐던 첫 시각
@@ -518,6 +543,25 @@ def _disclosure_record(card: SourceCard, disclosure: DartDisclosure) -> SourceRe
     )
 
 
+def _hide_after_cutoff(record: SourceRecord, cutoff: datetime) -> None:
+    """기준 시각에 볼 수 있었다고 확인되지 않는 본문·요약을 뺀다. 저장된 원문은 그대로 둔다.
+
+    본문과 요약은 남은 시각 기록이 달라 규칙이 다르다.
+        본문  body_fetched_at 을 cutoff 와 비교한다. 그 뒤에 받았거나 받은 시각을 모르면 뺀다 —
+              이전에 받았다고 할 수 없다. 원래 본문이 없던 자료는 그 사유를 그대로 둔다
+        요약  나중에 채우거나 덮어쓰는데(news.summary·analyst_reports.summary_text) 그 시각을
+              남기지 않는다. 비교할 시각이 없어 늘 뺀다
+    제목·주소·시각 같은 메타데이터는 남긴다.
+    """
+    record.summary = None
+    fetched = record.body_fetched_at
+    if not record.has_body or (fetched is not None and fetched <= cutoff):
+        return
+    when = f"{fetched.astimezone(KST):%Y-%m-%d %H:%M} KST" if fetched else "받은 시각 미상"
+    record.has_body, record.body = False, None
+    record.body_missing_reason = f"not_observed_at_cutoff: 기준 시각 이후 받은 본문 ({when})"
+
+
 async def _discoveries(session: AsyncSession, condition) -> list[tuple]:
     """(링크 행, 메시지, 채널, 메시지 카드 id, 대상 카드 id) 를 메시지 게시 순으로."""
     message_card = select(SourceCard.id).where(
@@ -548,14 +592,21 @@ def _discovery(link, message, channel, message_card_id, target_card_id) -> Disco
 
 
 async def get_sources(
-    session: AsyncSession, card_ids: list[int], *, include_body: bool = False
+    session: AsyncSession, card_ids: list[int], *, include_body: bool = False,
+    cutoff: datetime | None = None,
 ) -> list[SourceRecord]:
     """공통 ID 들로 원문을 읽는다. 결과는 넘긴 순서대로이고, 없는 ID 는 빠진다.
 
     본문은 include_body=True 일 때만 담는다(맨 위 설명). 본문이 없으면 그 사유를
     body_missing_reason 에 늘 담는다. 기사·PDF 는 그것을 공유한 텔레그램 메시지들을, 메시지는
     그 메시지가 건 링크·첨부를 discoveries 에 담는다.
+
+    cutoff 는 보고서 기준 시각이다. 주면 그 뒤에 받은 본문은 없는 것으로 보고 사유를
+    not_observed_at_cutoff 로 적고, 요약은 늘 뺀다(규칙은 _hide_after_cutoff). stock_card_ids 에
+    준 until 과 같은 값을 넘긴다. cutoff 는 시간대가 있어야 한다.
     """
+    if cutoff is not None and cutoff.utcoffset() is None:
+        raise ValueError("cutoff must be timezone-aware")
     cards = {
         card.id: card
         for card in (
@@ -629,6 +680,8 @@ async def get_sources(
             record = _disclosure_record(card, disclosures[card.dart_disclosure_id])
         else:
             continue  # 원문 표를 가리키지 않는 카드(backend 의 다른 종류)
+        if cutoff is not None:
+            _hide_after_cutoff(record, cutoff)
         record.discoveries = found.get((record.kind, record.raw_id), [])
         records.append(record)
     return records

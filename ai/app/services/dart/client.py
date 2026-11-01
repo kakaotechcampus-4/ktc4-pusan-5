@@ -25,7 +25,9 @@ from app.services.news.failure import FailureKind, dart_status, failure_kind, ht
 
 LIST_URL = "https://opendart.fss.or.kr/api/list.json"
 PAGE_COUNT = 100  # 쪽당 최대 건수
-MAX_PAGES = 50  # 하루 코스피 공시가 5천 건을 넘을 일은 없다. 넘으면 응답이 이상한 것이다
+# 하루 코스피 공시가 5천 건을 넘을 일은 없다. 넘으면 응답이 이상한 것이라
+# invalid_response: total_page 로 멈춘다(_read_page)
+MAX_PAGES = 50
 
 _STATUS_OK = "000"
 _STATUS_EMPTY = "013"  # 조회된 데이터가 없음
@@ -36,6 +38,17 @@ class DartError(Exception):
 
     reason 은 news.body_error 와 같은 형식(`http_error: 503`, `dart_status: 020` …)이고,
     kind 로 영구·요청 과다·일시 실패를 가른다(services/news/failure.py). 재시도는 하지 않는다.
+    HTTP 200 인데 응답을 믿을 수 없으면 `invalid_response: <어디가>` 다. 무엇이 왔는지 몰라
+    kind 는 unknown 이다.
+        not_json          JSON 이 아니다(점검 HTML·잘린 응답)
+        not_object        JSON 이지만 객체가 아니다(배열·문자열 등)
+        status            status 가 없거나 문자열이 아니다
+        total_page        성공인데 쪽 수가 숫자가 아니거나, 지금 쪽보다 작거나, MAX_PAGES 를 넘는다
+        list              성공인데 list 가 객체 목록이 아니다
+        disclosure        공시 행의 필드가 없거나 형식이 다르다(parse_list)
+
+    메시지는 `<위치>: <reason>` 이다. 위치는 날짜·쪽(`20261008 p2`)이고 공시 행이면 몇째 행과
+    필드 이름을 붙인다(`20261008 p2 row 1 field report_nm`). 외부 필드 값은 넣지 않는다.
     """
 
     def __init__(self, message: str, *, reason: str | None = None) -> None:
@@ -47,31 +60,92 @@ class DartError(Exception):
         return failure_kind(self.reason)
 
 
-def parse_list(rows: list[dict]) -> list[Disclosure]:
-    """list.json 의 list → Disclosure. 종목코드가 없는 행(비상장 등)은 버린다."""
+def _error(at: str, reason: str) -> DartError:
+    """메시지 양식(`<위치>: <reason>`)은 여기서만 만든다. 던지는 건 부르는 쪽이다."""
+    return DartError(f"{at}: {reason}", reason=reason)
+
+
+def _invalid(at: str, where: str) -> DartError:
+    """HTTP 200 인데 응답을 믿을 수 없다. where 는 DartError 의 표에 있는 이름이다."""
+    return _error(at, f"invalid_response: {where}")
+
+
+def _text(row: dict, key: str, at: str, *, optional: bool = False) -> str:
+    """공시 행의 문자열 필드. optional 이면 없을 때 "" 다.
+
+    문자열이 아니면(없음·숫자 등) DartError(invalid_response: disclosure). 위치에 필드 이름을
+    붙인다.
+    """
+    value = row.get(key)
+    if optional and value is None:
+        return ""
+    if not isinstance(value, str):
+        raise _invalid(f"{at} field {key}", "disclosure")
+    return value
+
+
+def _rcept_dt(value: str, at: str) -> date:
+    """접수일 YYYYMMDD → date."""
+    at = f"{at} field rcept_dt"
+    if len(value) != 8 or not value.isascii() or not value.isdigit():
+        raise _invalid(at, "disclosure")
+    try:
+        return date(int(value[:4]), int(value[4:6]), int(value[6:]))
+    except ValueError as e:  # 13월·32일처럼 없는 날짜
+        raise _invalid(at, "disclosure") from e
+
+
+def parse_list(rows: list[dict], *, at: str = "list") -> list[Disclosure]:
+    """list.json 의 list → Disclosure. 종목코드가 없는 행(비상장 등)은 버린다.
+
+    행의 필드가 없거나 형식이 다르면 DartError(invalid_response: disclosure). 필드는 읽는
+    자리에서 검사하므로 이 함수 안의 다른 예외는 응답 문제가 아니라 코드 문제다.
+    at 은 메시지 앞에 붙일 위치(날짜·쪽)다. 몇째 행인지는 여기서, 필드 이름은 _text·_rcept_dt 가
+    붙인다.
+    """
     items: list[Disclosure] = []
-    for row in rows:
-        stock_code = (row.get("stock_code") or "").strip()
+    for index, row in enumerate(rows):
+        row_at = f"{at} row {index}"
+        stock_code = _text(row, "stock_code", row_at, optional=True).strip()
         if not stock_code:
             continue
         items.append(
             Disclosure(
-                rcept_no=row["rcept_no"],
-                corp_code=row["corp_code"],
-                corp_name=row["corp_name"].strip(),
+                rcept_no=_text(row, "rcept_no", row_at),
+                corp_code=_text(row, "corp_code", row_at),
+                corp_name=_text(row, "corp_name", row_at).strip(),
                 stock_code=stock_code,
-                report_nm=" ".join(row["report_nm"].split()),
-                flr_nm=row["flr_nm"].strip(),
-                rcept_dt=date(int(row["rcept_dt"][:4]), int(row["rcept_dt"][4:6]),
-                              int(row["rcept_dt"][6:8])),
-                rm=(row.get("rm") or "").strip() or None,
+                report_nm=" ".join(_text(row, "report_nm", row_at).split()),
+                flr_nm=_text(row, "flr_nm", row_at).strip(),
+                rcept_dt=_rcept_dt(_text(row, "rcept_dt", row_at), row_at),
+                rm=_text(row, "rm", row_at, optional=True).strip() or None,
             )
         )
     return items
 
 
-async def _page(client: httpx.AsyncClient, key: str, day: date, page_no: int) -> dict:
+def _read_page(body: dict, at: str, page_no: int) -> tuple[int, list[Disclosure]]:
+    """성공(000) 응답 본문의 형식을 검사해 (쪽 수, 공시) 로."""
+    # 성공인데 쪽 수가 없으면 1쪽에서 멈춰 나머지 쪽을 빠뜨린다. 쪽 수는 정수나 숫자 문자열이고
+    # 지금 쪽 이상, MAX_PAGES 이하여야 한다. bool 은 int 의 하위형이라, "²" 는 isdigit 이 참이라
+    # 따로 막는다.
+    total = body.get("total_page")
+    if (isinstance(total, bool) or not isinstance(total, (int, str))
+            or (not str(total).isascii() or not str(total).isdigit())
+            or not page_no <= int(total) <= MAX_PAGES):
+        raise _invalid(at, "total_page")
+    rows = body.get("list")
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise _invalid(at, "list")
+    return int(total), parse_list(rows, at=at)
+
+
+async def _page(
+    client: httpx.AsyncClient, key: str, day: date, page_no: int,
+) -> tuple[int, list[Disclosure]]:
+    """한 쪽을 받아 (쪽 수, 공시) 로. 전송과 DART 상태 코드를 보고, 본문 형식은 _read_page 가 본다."""
     ymd = day.strftime("%Y%m%d")
+    at = f"{ymd} p{page_no}"
     params = {
         "crtfc_key": key,
         "bgn_de": ymd,
@@ -84,20 +158,24 @@ async def _page(client: httpx.AsyncClient, key: str, day: date, page_no: int) ->
         resp = await client.get(LIST_URL, params=params)
         resp.raise_for_status()
     except httpx.HTTPStatusError as e:
-        reason = http_error(e.response.status_code)
-        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason) from e
+        raise _error(at, http_error(e.response.status_code)) from e
     except httpx.HTTPError as e:
-        reason = f"request_failed: {type(e).__name__}"
-        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason) from e
-    body = resp.json()
+        raise _error(at, f"request_failed: {type(e).__name__}") from e
+    try:
+        body = resp.json()
+    except ValueError as e:  # JSONDecodeError·UnicodeDecodeError 둘 다 ValueError 다
+        raise _invalid(at, "not_json") from e
+    if not isinstance(body, dict):
+        raise _invalid(at, "not_object")
     status = body.get("status")
+    if not isinstance(status, str) or not status:
+        raise _invalid(at, "status")
     if status == _STATUS_EMPTY:
-        return {"list": [], "total_page": 0}
+        return 0, []
     if status != _STATUS_OK:
         # 키를 메시지에 남기지 않는다
-        reason = f"{dart_status(status)} ({body.get('message')})"
-        raise DartError(f"{ymd} p{page_no}: {reason}", reason=reason)
-    return body
+        raise _error(at, f"{dart_status(status)} ({body.get('message')})")
+    return _read_page(body, at, page_no)
 
 
 async def fetch_day(day: date) -> list[Disclosure]:
@@ -107,10 +185,7 @@ async def fetch_day(day: date) -> list[Disclosure]:
     async with httpx.AsyncClient(timeout=settings.http_timeout_sec) as client:
         page_no, total = 1, 1
         while page_no <= total:
-            body = await _page(client, key, day, page_no)
-            total = int(body.get("total_page") or 0)
-            if total > MAX_PAGES:
-                raise DartError(f"{day}: 쪽 수가 비정상이다 ({total})")
-            items.extend(parse_list(body.get("list", [])))
+            total, parsed = await _page(client, key, day, page_no)
+            items.extend(parsed)
             page_no += 1
     return items

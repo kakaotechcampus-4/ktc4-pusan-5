@@ -45,3 +45,12 @@ Revision `20260920_05` adds `stock_period_market` for historical market cap and
 relative strength values, plus `krx_historical_cache`, a shared market/date
 response cache for KRX stock and index requests. It permits `history_cap` and
 `history_rs` jobs and removes those jobs/state rows on downgrade.
+
+Revision `20261027_01` adds nullable `volume_change` to `stock_quote_snapshot`. It
+stores the day-over-day volume change in percent, derived from KIS
+`prdy_vrss_vol_rate` (previous day = 100) minus 100. Existing rows stay null and
+fill in on the next snapshot refresh (at most one hour). Downgrade drops the column.
+
+Revision `20261027_02` adds nullable `bps` to `stock_quarterly_ratio` and clears
+`last_success_at` of `quarter_ratios` state rows, so the new field is fetched on
+the next view instead of after the 24 hour TTL. Downgrade drops the column.
