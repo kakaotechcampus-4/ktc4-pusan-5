@@ -20,7 +20,7 @@ DIRECT 판정은 source_card_stocks 에 tagged_by = classification 으로도 들
 
 아직 정하지 않은 것 (CLASSIFICATION_DB_DRAFT 11절)
     - 사건 형식·role 최종안: 실험 E2·E3 결과로 정한다(전제 P10). 지금 프롬프트는 첫 안이다
-    - 기준 JSON 은 사실 확인 전 초안이다(2026-10-30-draft). 확인이 끝나면 새 날짜 파일로 만든다
+    - 기준 JSON 은 사실 확인 전 초안이다(지금은 2026-10-30-draft2). 확인이 끝나면 새 날짜 파일로 만든다
     - 긴 자료(PDF 본문 2만 자 초과)를 나눠 보내는 법. 지금은 건너뛴다(skipped)
     - 수집기 끝에 분류를 붙일지. 지금은 run 명령을 따로 돌린다
 """
