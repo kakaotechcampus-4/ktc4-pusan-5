@@ -17,9 +17,9 @@ from app.services.market_data import (
     IndexDaily,
     StockDaily,
     build_market_context,
+    context,
     groups_of,
 )
-from app.services.market_data import context
 from app.services.market_data.context import (
     KOSPI_FOLLOW_THRESHOLD_PP,
     common_base,
