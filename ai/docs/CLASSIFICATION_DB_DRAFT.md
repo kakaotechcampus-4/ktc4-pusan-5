@@ -296,7 +296,7 @@ company_relations.industry_code → industries.code
   - `coalesce(array_ndims(...), 1) = 1` — PostgreSQL 의 `integer[]` 는 `{{1,2},{3,4}}` 같은 2차원 배열도 받는다. 빈 배열은 차원이 NULL 이라 1 로 본다.
   - 번호가 `sentence_count` 이하인지, 번호가 겹치지 않는지는 CHECK 로 못 한다(다른 표의 값·부분 질의). 저장하는 코드가 정렬·중복 제거·범위 검사를 한다.
 - 인덱스: `(run_id)` — PostgreSQL 은 FK 에 인덱스를 자동으로 만들지 않는다. 조인과 CASCADE 삭제에 필요하다.
-- **근거 위치:** 원문은 한 번 확보하면 바뀌지 않으므로 "회차의 `splitter_version` 으로 원문을 나눈 뒤 이 번호의 문장" 이 곧 근거 위치다. 글자 위치 칼럼은 두지 않는다. 원문이 바뀌었는지는 `input_sha256` 으로 확인한다. **지금은 이 전제가 PDF 에서 깨질 수 있고 해시를 비교하는 코드도 없다**([CLASSIFICATION_TUNING.md](CLASSIFICATION_TUNING.md) 2-10).
+- **근거 위치:** 원문은 한 번 확보하면 바뀌지 않으므로 "회차의 `splitter_version` 으로 원문을 나눈 뒤 이 번호의 문장" 이 곧 근거 위치다. 글자 위치 칼럼은 두지 않는다. 기사·메시지·PDF 모두 저장 코드가 정상 본문을 덮어쓰지 않는다. `input_sha256` 은 원문이 그때와 같은지 맞춰 볼 값으로 남기지만 **지금은 비교하는 코드가 없다**([CLASSIFICATION_TUNING.md](CLASSIFICATION_TUNING.md) 2-10).
 - **근거 구절 원문을 복사해 두지 않는다.** 복사하면 보관 정책으로 원문을 지워도 사본이 남는다(전제 P8). 원문이 지워진 뒤에는 "원문 없음" 으로 표시한다.
 
 ### 4-5. `classification_event_entities` — 표기 → 종목·산업·외부 기업

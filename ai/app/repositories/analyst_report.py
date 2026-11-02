@@ -47,7 +47,8 @@ async def upsert_analyst_reports(session: AsyncSession, rows: list[dict]) -> int
     **category 가 아니라 source_category 다.** category 는 우리가 정하는 값이라 바뀔 수 있다.
 
     텔레그램의 기존 메시지는 보존하고, 네이버는 조회 수와 제공 요약을 갱신한다.
-    네이버 PDF 재수집에 실패해도 기존 정상 본문과 PDF 정보를 보존한다.
+    한 번 받은 정상 본문과 PDF 정보는 네이버 재수집이 성공해도 바꾸지 않는다. 분류 결과의 문장 번호와
+    본문 확보 시각이 이 본문을 가리킨다(CLASSIFICATION_DB_DRAFT 4-4). 실패했던 본문은 새로 채운다.
     보관 정책으로 본문을 지운 행(purged)은 다시 받은 PDF 로 되살리지 않는다.
 
     네이버에 같은 PDF가 있으면 텔레그램 행은 저장하지 않는다.
@@ -85,10 +86,7 @@ async def upsert_analyst_reports(session: AsyncSession, rows: list[dict]) -> int
             "attach_url", "pdf_sha256", "pdf_bytes", "pdf_pages", "body_text", "body_chars",
             "body_status", "body_extractor", "body_error", "body_fetched_at",
         }
-        # 보관 정책으로 본문을 지운 행(purged)은 다시 받은 PDF 로 되살리지 않는다.
-        preserve_pdf = ((AnalystReport.body_status == "ok") & (
-            stmt.excluded.body_status.in_(("pending", "failed", "empty", "skipped", "unusable"))
-        )) | (AnalystReport.body_status == "purged")
+        preserve_pdf = AnalystReport.body_status.in_(("ok", "purged"))
         updates = {
             c: case((preserve_pdf, getattr(AnalystReport, c)),
                     else_=getattr(stmt.excluded, c)) if c in pdf_fields
