@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from dataclasses import asdict
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlalchemy import and_, select
@@ -19,8 +19,8 @@ from app.repositories.stock_history import save_history
 from app.schemas.stock import MetricsData, QuoteData
 from app.services import stock_data, stock_financials, stock_history
 from app.services.krx_history import krx_rows
-from app.services.market_calendar import KST
-from app.services.market_data import MarketDataError
+from app.services.market_calendar import KST, market_close_at
+from app.services.market_data import MarketDataError, classify_upstream_error
 from app.services.quote_freshness import is_investor_stale, is_quote_stale
 
 logger = logging.getLogger(__name__)
@@ -236,14 +236,10 @@ class StockWorker:
                     value = await stock_data.fetch_prices(
                         self.kis, job.stock_code, job.range_start, job.range_end
                     )
-        except MarketDataError as exc:
-            error = str(exc)
-        except httpx.HTTPStatusError as exc:
-            error = f"UPSTREAM_HTTP_{exc.response.status_code}"
-        except TimeoutError:
-            error = "UPSTREAM_TIMEOUT"
-        except (httpx.RequestError, ValueError, KeyError, TypeError, IndexError):
-            error = "INVALID_RESPONSE"
+        except Exception as exc:
+            error = classify_upstream_error(exc)
+            if error is None:
+                raise
         if error:
             value = None
         now = datetime.now(UTC)
@@ -294,10 +290,8 @@ class StockWorker:
                 )
             elif not error and job.resource == "investor":
                 # 장중이면 아직 오지 않은 마감 시각으로 기록하지 않는다.
-                close = datetime.combine(value.trade_date, time(15, 30), KST)
-                if not await repo.save_investor(
-                    session, job.stock_code, value, min(close, now), now
-                ):
+                as_of = min(market_close_at(value.trade_date), now)
+                if not await repo.save_investor(session, job.stock_code, value, as_of, now):
                     error = "OUTDATED_RESPONSE"
             elif not error:
                 await repo.save_prices(

@@ -23,7 +23,7 @@ from app.schemas.market_flow import FLOW_KINDS, FlowItem
 from app.schemas.ranking import ACTIVE_RANKINGS, RankingItem
 from app.services import fred, krx
 from app.services.kis import KisClient
-from app.services.market_data import INDICATORS, MarketDataError, Quote
+from app.services.market_data import INDICATORS, Quote, classify_upstream_error
 
 logger = logging.getLogger(__name__)
 LOCK_ID = 4927105
@@ -37,14 +37,10 @@ async def fetch_result(code: str, fetch: Callable[[], Awaitable[Result]]):
     try:
         async with asyncio.timeout(FETCH_TIMEOUT):
             value = await fetch()
-    except MarketDataError as exc:
-        error = str(exc)
-    except httpx.HTTPStatusError as exc:
-        error = f"UPSTREAM_HTTP_{exc.response.status_code}"
-    except TimeoutError:
-        error = "UPSTREAM_TIMEOUT"
-    except (httpx.RequestError, ValueError, KeyError, TypeError, IndexError):
-        error = "INVALID_OR_UNREACHABLE_UPSTREAM"
+    except Exception as exc:
+        error = classify_upstream_error(exc)
+        if error is None:
+            raise
     return code, value, error
 
 

@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
+import httpx
+
 
 @dataclass(frozen=True)
 class Indicator:
@@ -28,6 +30,26 @@ INDICATORS = (
 
 class MarketDataError(Exception):
     """응답 원문이나 인증키가 로그에 남지 않는 고정 오류 코드."""
+
+
+def classify_upstream_error(exc: BaseException) -> str | None:
+    """수집 중 난 예외를 저장용 error_code 로 분류한다.
+
+    원인이 다르면 코드도 달라야 한다. 상태 코드는 HTTP 응답이 온 경우, 시간 초과·연결 실패는
+    응답이 없는 경우, INVALID_RESPONSE 는 응답은 왔으나 해석하지 못한 경우다.
+    모르는 예외는 None 을 돌려주므로 호출한 쪽에서 다시 던져 버그를 가리지 않는다.
+    """
+    if isinstance(exc, MarketDataError):
+        return str(exc)
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"UPSTREAM_HTTP_{exc.response.status_code}"
+    if isinstance(exc, (TimeoutError, httpx.TimeoutException)):
+        return "UPSTREAM_TIMEOUT"
+    if isinstance(exc, httpx.RequestError):
+        return "UPSTREAM_UNREACHABLE"
+    if isinstance(exc, (ValueError, KeyError, TypeError, IndexError)):
+        return "INVALID_RESPONSE"
+    return None
 
 
 def number(raw: object) -> Decimal:
