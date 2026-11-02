@@ -59,7 +59,9 @@ class KisClient:
         if not isinstance(body, dict) or not isinstance(body.get("access_token"), str):
             raise MarketDataError("INVALID_RESPONSE")
         self.token = body["access_token"]
-        self.expires_at = datetime.now(UTC) + timedelta(seconds=int(body["expires_in"]) - 60)
+        self.expires_at = datetime.now(UTC) + timedelta(
+            seconds=int(body["expires_in"]) - 60
+        )
 
     async def get(self, path: str, tr_id: str, params: dict[str, str]) -> dict:
         async with self.lock:
@@ -166,6 +168,40 @@ class KisClient:
         )
         return parse_flow(body["output"], kind)
 
+    async def fetch_market_calendar(self, day: date) -> list[tuple[date, bool]]:
+        """국내휴장일조회. 기준일부터 앞으로 24일치(주말 포함)의 개장 여부(opnd_yn)를 준다.
+
+        KIS 안내대로 하루 한 번만 부른다. 연속조회는 하지 않고 첫 페이지만 쓴다.
+        """
+        body = await self.get(
+            "/uapi/domestic-stock/v1/quotations/chk-holiday",
+            "CTCA0903R",
+            {"BASS_DT": day.strftime("%Y%m%d"), "CTX_AREA_NK": "", "CTX_AREA_FK": ""},
+        )
+        output = body.get("output")
+        if (
+            not isinstance(output, list)
+            or not output
+            or any(not isinstance(row, dict) for row in output)
+        ):
+            raise MarketDataError("INVALID_RESPONSE")
+        days = []
+        for row in output:
+            raw, opened = row.get("bass_dt"), row.get("opnd_yn")
+            if (
+                not isinstance(raw, str)
+                or len(raw) != 8
+                or not (raw.isascii() and raw.isdigit())
+                or opened not in ("Y", "N")
+            ):
+                raise MarketDataError("INVALID_RESPONSE")
+            try:
+                parsed = date.fromisoformat(raw)  # YYYYMMDD 형식
+            except ValueError:
+                raise MarketDataError("INVALID_RESPONSE") from None
+            days.append((parsed, opened == "Y"))
+        return days
+
     async def fetch_quote(self) -> Quote:
         today = datetime.now(ZoneInfo("Asia/Seoul")).date()
         body = await self.get(
@@ -180,7 +216,9 @@ class KisClient:
             },
         )
         output = body.get("output2")
-        if not isinstance(output, list) or any(not isinstance(row, dict) for row in output):
+        if not isinstance(output, list) or any(
+            not isinstance(row, dict) for row in output
+        ):
             raise MarketDataError("INVALID_RESPONSE")
         rows = sorted(
             (row for row in output if row.get("stck_bsop_date")),
@@ -190,7 +228,9 @@ class KisClient:
         if len(rows) < 2:
             raise MarketDataError("NO_DATA")
         # output1 현재가에는 시각이 없으므로 날짜가 붙은 최신 시계열 값으로 표시한다.
-        current, previous = number(rows[0]["ovrs_nmix_prpr"]), number(rows[1]["ovrs_nmix_prpr"])
+        current, previous = number(rows[0]["ovrs_nmix_prpr"]), number(
+            rows[1]["ovrs_nmix_prpr"]
+        )
         if previous <= 0:
             raise MarketDataError("INVALID_RESPONSE")
         return Quote(
@@ -212,7 +252,9 @@ class KisClient:
             },
         )
         output = body.get("output")
-        if not isinstance(output, list) or any(not isinstance(row, dict) for row in output):
+        if not isinstance(output, list) or any(
+            not isinstance(row, dict) for row in output
+        ):
             raise MarketDataError("INVALID_RESPONSE")
         rows = sorted(
             (row for row in output if row.get("stck_bsop_date")),
