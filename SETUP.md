@@ -99,3 +99,68 @@ npm run check          # lint + 디자인 규칙
 - Tailwind CSS IntelliSense — 토큰 유틸리티(`bg-surface`, `text-h2`)를 자동완성해준다. 이거 없으면 토큰 이름을 외워야 한다.
 
 저장 시 자동 포맷·자동 수정은 `.vscode/settings.json` 에 이미 설정돼 있다.
+
+## 7. 서버 DB 백업과 복구 (배포 담당)
+
+팀원 전원이 할 일이 아니다. EC2 서버를 관리하는 사람이 맞춰 두는 설정이다.
+DB 데이터는 서버 디스크(`pgdata` 볼륨)에만 있어서, 서버를 삭제하거나 디스크가 사라지면 같이 사라진다.
+그래서 배포 때마다 DB 사본을 서버 밖(S3)에 남긴다. 마이그레이션은 테이블 구조만 다시 만들 뿐 데이터는 되살리지 못한다.
+
+### 사전 준비 (서버에 한 번)
+
+- AWS CLI v2 를 ubuntu 사용자가 쓸 수 있게 설치한다. `aws --version` 으로 확인한다.
+- S3 버킷 `basis-db-backup-marketlit` (서울 리전, 퍼블릭 액세스 모두 차단).
+  수명 주기 규칙으로 30일이 지난 파일을 지운다. 배포가 30일 이상 없으면 백업이 모두 지워질 수 있다.
+- EC2 에 붙은 IAM 역할(`ktc-ec2`)이 이 버킷에 읽기·쓰기·삭제를 할 수 있어야 한다. 별도 키는 저장하지 않는다.
+
+### 동작
+
+`backend-deploy.yml` 이 컨테이너를 바꾸기 전에 `scripts/backup-db.sh` 를 실행한다.
+
+- `pg_dump` 결과를 `s3://basis-db-backup-marketlit/basis_<날짜시각>_<배포 전 SHA>.sql` 로 올린다.
+- 서버의 임시 파일은 바로 지운다.
+- db 컨테이너가 없으면(첫 배포) 건너뛴다. 그 외 단계가 실패하면 배포를 멈춘다.
+
+덤프에는 사용자 데이터가 들어 있다. 저장소에 커밋하지 않고, 서버에 파일로 남길 때는 권한을 600 으로 둔다.
+
+### 복구
+
+서버를 새로 만든 경우다. 서버의 `/home/ubuntu/ktc4-pusan-5` 에서 ubuntu 사용자로 한 줄씩 실행한다.
+
+```bash
+# 1. 저장소를 받고 .env 를 준비한 뒤 db 만 띄운다. backend 를 먼저 띄우면 마이그레이션이 테이블을 만들어 복구가 충돌한다.
+docker compose up -d db
+
+# 2. 백업 목록에서 복구할 파일을 고른다. 이름의 날짜가 가장 최근인 것이 보통이다.
+aws s3 ls s3://basis-db-backup-marketlit/ --region ap-northeast-2
+
+# 3. 받아서 권한을 600 으로 둔다.
+(umask 077; aws s3 cp s3://basis-db-backup-marketlit/<파일 이름> ~/restore.sql --region ap-northeast-2)
+
+# 4. 빈 DB 에 복구한다.
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -q -v ON_ERROR_STOP=1' < ~/restore.sql
+
+# 5. 확인한다. 마이그레이션 버전과 테이블 수를 본다.
+echo "select version_num from alembic_version;" | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At'
+
+# 6. 전체를 띄우고 복구 파일을 지운다.
+docker compose up -d --build
+rm ~/restore.sql
+```
+
+복구 후 마이그레이션 버전이 백업 시점의 값과 같아야 한다. 코드가 그보다 새 마이그레이션을 가지고 있으면
+6번에서 backend 가 시작하면서 나머지를 적용한다.
+
+### 복구 시험
+
+운영 DB 를 건드리지 않고 확인하려면 같은 Postgres 안에 임시 DB 를 만들어 복구한 뒤 지운다.
+
+```bash
+echo "CREATE DATABASE restore_test;" | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d postgres'
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d restore_test -q -v ON_ERROR_STOP=1' < ~/restore.sql
+echo "DROP DATABASE restore_test;" | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d postgres'
+```
+
+2026-11-02 에 이 방법으로 `pg_dump` → S3 업로드 → 다운로드 → 임시 DB 복구를 확인했다.
+테이블 수(26)와 마이그레이션 버전(`20261005_01`)이 운영 DB 와 같았다.
+새 서버에서 처음부터 복구하는 전체 과정은 시험하지 않았다.
