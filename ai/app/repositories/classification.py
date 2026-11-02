@@ -13,11 +13,11 @@
 
 from datetime import datetime
 
-from sqlalchemy import and_, delete, exists, func, literal, not_, null, or_, select, union, update
+from sqlalchemy import and_, delete, exists, func, literal, not_, null, select, union, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import SourceCard, SourceCardStock
+from app.models import SourceCard
 from app.models.classification import (
     ClassificationEvent,
     ClassificationEventApplicability,
@@ -28,7 +28,12 @@ from app.models.classification import (
     Industry,
     StockIndustry,
 )
-from app.repositories.source_card import available_within, get_sources
+from app.repositories.source_card import (
+    available_since,
+    available_within,
+    get_sources,
+    replace_stock_tags,
+)
 from app.services.classification.basis import Basis
 from app.services.classification.pipeline import ClassificationResult
 
@@ -129,8 +134,7 @@ async def cards_to_classify(
             runs = runs.where(ClassificationRun.is_current)
         query = query.where(not_(exists(runs)))
     if since is not None:
-        query = query.where(or_(SourceCard.available_at >= since, and_(
-            SourceCard.available_at.is_(None), SourceCard.event_date >= since.date())))
+        query = query.where(available_since(since))
     query = query.order_by(SourceCard.available_at.desc().nulls_last(), SourceCard.id.desc())
     if limit is not None:
         query = query.limit(limit)
@@ -209,16 +213,7 @@ async def save_run(session: AsyncSession, card_id: int, result: ClassificationRe
 
     if current:
         # 이 자료의 분류 색인만 바꾼다. 리포트·공시가 정한 종목(다른 tagged_by)은 건드리지 않는다
-        await session.execute(delete(SourceCardStock).where(
-            SourceCardStock.source_card_id == card_id, SourceCardStock.tagged_by == TAGGED_BY))
-        direct = sorted(result.direct_stocks())
-        if direct:
-            await session.execute(
-                insert(SourceCardStock)
-                .values([{"source_card_id": card_id, "stock_code": code, "tagged_by": TAGGED_BY}
-                         for code in direct])
-                .on_conflict_do_nothing()  # 이미 리포트·공시로 이어진 (자료, 종목)은 그 연결이 있다
-            )
+        await replace_stock_tags(session, card_id, TAGGED_BY, sorted(result.direct_stocks()))
     return run.id
 
 

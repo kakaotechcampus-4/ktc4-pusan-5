@@ -39,6 +39,14 @@ from app.repositories.source_card.read_model import (
 )
 
 
+def available_since(since: datetime):
+    """카드가 since 이후에 공개됐다는 조건. 공개 시각을 모르는 자료는 날짜(KST)로 판단한다."""
+    return or_(SourceCard.available_at >= since, and_(
+        SourceCard.available_at.is_(None),
+        SourceCard.event_date >= since.astimezone(KST).date(),
+    ))
+
+
 def available_within(until: datetime, since: datetime | None = None):
     """카드가 기준 시각(until) 이전에, since 이후에 공개됐다는 조건. 종목 조회 두 곳이 같이 쓴다
     (이 함수의 stock_card_ids 와 repositories/classification.py 의 classified_sources).
@@ -51,12 +59,7 @@ def available_within(until: datetime, since: datetime | None = None):
         SourceCard.available_at.is_(None),
         SourceCard.event_date < until.astimezone(KST).date(),
     ))
-    if since is not None:
-        condition = and_(condition, or_(SourceCard.available_at >= since, and_(
-            SourceCard.available_at.is_(None),
-            SourceCard.event_date >= since.astimezone(KST).date(),
-        )))
-    return condition
+    return condition if since is None else and_(condition, available_since(since))
 
 
 async def stock_card_ids(

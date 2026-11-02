@@ -14,6 +14,8 @@
     get_sources                공통 ID 로 원문·메타데이터·발견 경로를 읽는다
     stock_card_ids             종목 하나의 자료 중 기준 시각 이전에 나온 것의 공통 ID
     available_within           카드가 기준 시각 이전에(since 를 주면 그 이후에) 공개됐다는 조회 조건
+    available_since            카드가 since 이후에 공개됐다는 조회 조건
+    replace_stock_tags         자료 하나에서 한 방식(tagged_by)이 정한 종목을 바꾼다
     card_ids_for_urls          출처 주소 → 공통 ID (보고서 출처를 원문에 이을 때)
 
 시각 이름. 자료마다 남은 시각이 달라 무엇을 무엇과 비교하는지 섞이기 쉽다.
@@ -32,12 +34,18 @@
 카드에는 원문을 복제하지 않는다. 원 발행처(source_name)와 채널만 적고 본문은 FK 로 읽는다.
 """
 
-from app.repositories.source_card.query import available_within, get_sources, stock_card_ids
+from app.repositories.source_card.query import (
+    available_since,
+    available_within,
+    get_sources,
+    stock_card_ids,
+)
 from app.repositories.source_card.read_model import Discovery, SourceRecord
 from app.repositories.source_card.registration import (
     CanonicalBackfill,
     backfill_canonical_urls,
     register_missing_sources,
+    replace_stock_tags,
 )
 from app.repositories.source_card.url import card_ids_for_urls
 
@@ -45,10 +53,12 @@ __all__ = [
     "CanonicalBackfill",
     "Discovery",
     "SourceRecord",
+    "available_since",
     "available_within",
     "backfill_canonical_urls",
     "card_ids_for_urls",
     "get_sources",
     "register_missing_sources",
+    "replace_stock_tags",
     "stock_card_ids",
 ]

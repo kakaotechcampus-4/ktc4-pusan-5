@@ -109,6 +109,17 @@ def test_basis_sync_counts_versions_and_retires(database):
     assert in_session(database, stored_basis_versions) == {"v2"}
 
 
+def test_cards_to_classify_since_compares_unknown_time_by_kst_date(database):
+    """공개 시각을 모르는 자료는 since 의 KST 날짜로 판단한다(stock_card_ids 와 같은 규칙)."""
+    card_id = setup(database)
+    query(database, "UPDATE source_card SET available_at = NULL, event_date = '2026-10-27'"
+                    " WHERE id = $1", card_id)
+    kst_1028 = datetime(2026, 10, 27, 16, 0, tzinfo=UTC)  # KST 10-28 01:00
+    kst_1027 = datetime(2026, 10, 26, 16, 0, tzinfo=UTC)  # KST 10-27 01:00
+    assert in_session(database, lambda s: cards_to_classify(s, since=kst_1028)) == []
+    assert in_session(database, lambda s: cards_to_classify(s, since=kst_1027)) == [card_id]
+
+
 def test_save_run_makes_current_and_indexes_direct(database, monkeypatch):
     card_id = setup(database)
     assert in_session(database, lambda s: cards_to_classify(s)) == [card_id]
