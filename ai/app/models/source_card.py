@@ -17,7 +17,7 @@ report_citation 으로 인용만 한다. 위의 칼럼은 backend 모델 그대�
 경로는 텔레그램 첨부다. 기업·산업 분류는 여기 두지 않는다 — 원문 저장과 분리한다.
 
 raw_text·cleaned_text·source_url 은 backend 가 원문을 직접 담던 카드용이다. 위 네 종류의
-카드는 비워 둔다. 원문은 FK 로 따라가 읽는다(repositories/source_card.py 의 get_sources).
+카드는 비워 둔다. 원문은 FK 로 따라가 읽는다(repositories/source_card/query.py 의 get_sources).
 
 종목 브리핑은 "이 종목에 관한 자료 중 기준 시각 이전에 나온 것" 을 찾는다. 그 색인이 둘이다.
     available_at        이 자료가 공개돼 있었다고 확인된 가장 이른 시각
@@ -118,6 +118,7 @@ class SourceCard(Base):
     # 모르면 NULL 이다. 수집 시각으로 대신 채우지 않는다. 날짜는 event_date(KST)에도 적는다 —
     # 시각을 모르는 네이버 리포트는 event_date 에 작성일만, 공시는 접수일만 있다.
     # 본문을 언제 받았는지(기준 시각 이후 수정이 섞였는지)는 원문 표의 body_fetched_at 이 말한다.
+    # 기준 시각 이후에 받은 본문은 get_sources(cutoff=) 가 뺀다.
     available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

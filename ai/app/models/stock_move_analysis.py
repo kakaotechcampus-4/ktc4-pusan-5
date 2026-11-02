@@ -244,7 +244,7 @@ class StockMoveAnalysisFactorSource(Base):
     # 이 출처의 공통 자료 ID. url 로 DB 에 저장된 원문을 찾아 적재 때 채운다(텔레그램 메시지는
     # telegram_messages.url, 기사는 news 의 정규화 주소). 못 찾으면 NULL 이고 url 은 그대로 남는다.
     # 원문을 나중에 수집했으면 `python -m app.collectors.sources register` 가 다시 찾아 채운다.
-    # 이 ID 로 원문·발행처·발견 경로를 읽는다(repositories/source_card.py 의 get_sources).
+    # 이 ID 로 원문·발행처·발견 경로를 읽는다(repositories/source_card/query.py 의 get_sources).
     source_card_id: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey("source_card.id", name="fk_stock_move_analysis_source_card_id"),
