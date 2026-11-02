@@ -1,3 +1,10 @@
+# 로그가 디스크를 채우지 않게 파일 크기와 개수를 제한한다. collector 와 backend 에 적용한다.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
     image: postgres:16
@@ -17,6 +24,8 @@ services:
 
   backend:
     build: ./backend
+    # collector 가 같은 이미지를 쓰므로 이름을 붙인다. 빌드는 backend 만 한다.
+    image: ktc4-backend:latest
     restart: unless-stopped
     env_file:
       - ./backend/.env
@@ -38,6 +47,35 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 60s
+    logging: *default-logging
+
+  # 시세·지수·랭킹·종목 상세 수집. API 는 외부를 호출하지 않으므로 별도 프로세스로 상시 실행한다.
+  # 한 번에 하나만 돈다(DB advisory lock). 배포는 scripts/deploy.sh 가 마이그레이션 전에 멈추고 backend 가 healthy 가 된 뒤 띄운다.
+  collector:
+    image: ktc4-backend:latest
+    # PID 1 이 종료 신호를 무시하지 않게 해서 배포 때 10초 기다렸다 강제 종료되는 것을 막는다.
+    init: true
+    restart: unless-stopped
+    command: ["/app/.venv/bin/python", "-m", "app.collectors.market", "--loop"]
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+    depends_on:
+      backend:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    mem_limit: 1g
+    logging: *default-logging
+    # 수집 루프가 한 바퀴 끝까지 돌 때마다 갱신하는 /tmp/collector-heartbeat 가 5분 안에 갱신됐는지 본다.
+    # unhealthy 가 되어도 도커는 재시작하지 않는다. 배포는 이 상태를 로그(collector-unhealthy)로만 알린다.
+    healthcheck:
+      test: ["CMD-SHELL", "find /tmp/collector-heartbeat -mmin -5 2>/dev/null | grep -q ."]
+      interval: 30s
+      timeout: 5s
+      retries: 3
       start_period: 60s
 
   caddy:
