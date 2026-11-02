@@ -49,9 +49,12 @@ deploy_core() {
 }
 
 # 수집기(collector)가 compose 에 있을 때만 다룬다. 수집기 이상은 배포 실패로 치지 않는다.
+# 멈추기만 하면 종료된 컨테이너가 프로젝트에 남아, 뒤이은 `up --wait` 가 그것을 어떻게 취급하는지에 기대게 된다.
+# 컨테이너를 제거하면 그런 상태 자체가 없다. 수집기는 상태를 컨테이너에 두지 않고(작업 큐는 DB) 새 이미지로
+# 어차피 다시 만들어지므로 추가 비용이 없다. 이전 컨테이너의 로그만 사라진다.
 stop_collector() {
   if has_service collector; then
-    docker compose stop collector || true
+    docker compose rm -s -f collector || true
   fi
 }
 
