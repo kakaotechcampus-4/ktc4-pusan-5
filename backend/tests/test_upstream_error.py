@@ -26,6 +26,7 @@ def _status(code):
         (httpx.ReadTimeout("slow", request=REQUEST), "UPSTREAM_TIMEOUT"),
         (httpx.ConnectTimeout("slow", request=REQUEST), "UPSTREAM_TIMEOUT"),
         (httpx.ConnectError("refused", request=REQUEST), "UPSTREAM_UNREACHABLE"),
+        (ConnectionResetError(), "UPSTREAM_UNREACHABLE"),
         # 응답은 왔으나 해석하지 못한 경우
         (KeyError("output"), "INVALID_RESPONSE"),
         (TypeError(), "INVALID_RESPONSE"),

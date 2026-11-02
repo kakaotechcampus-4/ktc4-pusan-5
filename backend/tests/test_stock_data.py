@@ -197,3 +197,42 @@ async def test_investor_flow_keeps_missing_value_as_none_and_rejects_unusable_bo
             await fetch_investor_flow(FakeKis(body), "005930")
     with pytest.raises(MarketDataError):
         await fetch_investor_flow(FakeKis({"output": []}), "bad")
+
+
+class _FailingHttp:
+    def __init__(self, error):
+        self.error = error
+
+    async def get(self, url):
+        raise self.error
+
+
+def _status_error(code):
+    import httpx
+
+    request = httpx.Request("GET", "http://master.test")
+    return httpx.HTTPStatusError(
+        "boom", request=request, response=httpx.Response(code, request=request)
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("make_error", "expected"),
+    [
+        (lambda: _status_error(404), "UPSTREAM_HTTP_404"),
+        (lambda: _status_error(503), "UPSTREAM_HTTP_503"),
+        (lambda: __import__("httpx").ConnectError("refused"), "UPSTREAM_UNREACHABLE"),
+        (lambda: __import__("httpx").ReadTimeout("slow"), "UPSTREAM_TIMEOUT"),
+        (lambda: ConnectionResetError(), "UPSTREAM_UNREACHABLE"),
+    ],
+)
+async def test_catalog_download_failures_keep_their_cause(make_error, expected):
+    with pytest.raises(MarketDataError, match=expected):
+        await fetch_catalog(_FailingHttp(make_error()))
+
+
+@pytest.mark.asyncio
+async def test_catalog_does_not_hide_programming_errors():
+    with pytest.raises(AttributeError):
+        await fetch_catalog(_FailingHttp(AttributeError("bug")))

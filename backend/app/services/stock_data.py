@@ -15,9 +15,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Protocol
 
-import httpx
-
-from app.services.market_data import MarketDataError
+from app.services.market_data import MarketDataError, classify_upstream_error
 
 
 class _KisGetter(Protocol):
@@ -321,10 +319,13 @@ async def fetch_catalog(client: Any) -> list[StockCatalogItem]:
                 raise MarketDataError("INVALID_RESPONSE")
             seen.update(item.code for item in items)
             all_items.extend(items)
-    except MarketDataError:
-        raise
-    except (httpx.HTTPError, OSError, AttributeError, TypeError, ValueError):
-        raise MarketDataError("UPSTREAM_ERROR") from None
+    except Exception as exc:
+        # 네트워크 실패를 영구 오류인 UPSTREAM_ERROR 로 뭉뚱그리지 않고 원인대로 분류한다.
+        # 분류할 수 없는 예외(코드 버그)는 가리지 않고 그대로 올린다.
+        code = classify_upstream_error(exc)
+        if code is None:
+            raise
+        raise MarketDataError(code) from None
     if not all_items:
         raise MarketDataError("NO_DATA")
     return all_items
