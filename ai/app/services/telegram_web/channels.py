@@ -11,7 +11,7 @@ SK하이닉스 근거는 0건 늘고 수집량만 15,000자 늘었다. 새 채�
     B    실명 운영자·기관성 채널. 출처를 밝혀 인용한다
     C·D  인용하지 않는다
 
-지금 넣은 셋은 모두 A 등급이고, PR #34 발췌 실험에 쓴 텔레그램 기사 20건이 나온 채널이다.
+지금 넣은 채널은 모두 A 등급이다. 처음 넣은 셋(skitteam·merITz_tech·KISGregKim)은 PR #34 발췌 실험에 쓴 텔레그램 기사 20건이 나온채널이다.
 링크 열기·정제를 이미 한 번 돌려 봤다.
 """
 
@@ -33,6 +33,10 @@ CHANNELS: tuple[Channel, ...] = (
     Channel("skitteam", "[ IT는 SK ]", "SK증권 리서치 IT팀", "A"),
     Channel("merITz_tech", "[메리츠 Tech 김선우, 양승수, 김동관]", "메리츠증권 리서치", "A"),
     Channel("KISGregKim", "KOREA DAILY INSIGHT - KIS GREG KIM", "한국투자증권", "A"),
+    Channel("bio_shinhan", "[신한 리서치본부] 제약/바이오", "신한투자증권 리서치", "A"),
+    Channel("hedgecat0301", "키움증권 전략/시황 한지영", "키움증권 리서치", "A"),
+    Channel("globalmktinsight", "[미래에셋증권 시황] 김석환, 김주연", "미래에셋증권 리서치", "A"),
+    Channel("KISemicon", "[한투 테크팀] 남채민/황준태/김정찬/김연준", "한국투자증권 리서치", "A"),
 )
 
 
