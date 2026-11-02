@@ -2,7 +2,7 @@
 # 서버에서 하는 배포 전체. 워크플로가 git fetch/reset 으로 코드를 맞춘 뒤 호출한다.
 #   사용: bash scripts/deploy.sh <배포할 커밋 전체 SHA> <reset 전 서버 HEAD>
 #
-# 순서: 백업 → 수집기 정지 → 빌드 → 핵심 서비스 기동(healthy 까지 대기) → 수집기 기동
+# 순서: 백업 → 빌드 → 수집기 정지 → 핵심 서비스 기동(healthy 까지 대기) → 수집기 기동 → 이전 이미지 정리
 #   성공하면 "마지막 성공" 기록(SHA + DB 마이그레이션 버전)을 갱신한다.
 #   기동에 실패하면:
 #     - DB 마이그레이션 버전이 마지막 성공 때와 같으면 마지막 성공 SHA 로 자동 롤백한다.
@@ -25,9 +25,6 @@ main() {
     return 1
   fi
 
-  # 옛 수집기가 마이그레이션 도중에 DB 를 쓰지 않게 먼저 멈춘다.
-  stop_collector
-
   local rc=0
   deploy_core || rc=$?
 
@@ -39,13 +36,13 @@ main() {
     fi
     write_state "$sha" "$rev"
     start_collector
+    prune_docker
     echo "deploy: 성공"
     return 0
   fi
 
   if [ "$rc" -eq 2 ]; then
-    echo "deploy: 빌드 실패. 실행 중인 컨테이너는 바뀌지 않았습니다." >&2
-    start_collector
+    echo "deploy: 빌드 실패. 실행 중인 컨테이너(수집기 포함)는 바뀌지 않았습니다." >&2
     return 1
   fi
 
