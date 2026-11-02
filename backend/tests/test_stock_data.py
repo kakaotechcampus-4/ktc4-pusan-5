@@ -158,3 +158,42 @@ async def test_catalog_is_combined_atomically():
         ("005930", "KOSPI", "삼성전자"), ("035720", "KOSDAQ", "카카오")
     ]
     assert result[0].listed_at == date(1975, 1, 13)
+
+
+def _flow_row(day, qty, value):
+    return {"stck_bsop_date": day, "orgn_ntby_qty": qty, "orgn_ntby_tr_pbmn": value}
+
+
+@pytest.mark.asyncio
+async def test_investor_flow_uses_latest_filled_row_and_converts_million_won():
+    from app.services.stock_data import InvestorFlow, fetch_investor_flow
+
+    kis = FakeKis({"output": [
+        _flow_row("20261103", "", ""),  # 장중 당일 행은 비어 있을 수 있다
+        _flow_row("20261030", "-1,250", "-85"),
+        _flow_row("20261029", "900", "60"),
+    ]})
+    result = await fetch_investor_flow(kis, "005930")
+    assert result == InvestorFlow(date(2026, 10, 30), -1250, Decimal(-85_000_000))
+    path, tr_id, params = kis.calls[0]
+    assert path.endswith("/inquire-investor") and tr_id == "FHKST01010900"
+    assert params["FID_INPUT_ISCD"] == "005930"
+
+
+@pytest.mark.asyncio
+async def test_investor_flow_keeps_missing_value_as_none_and_rejects_unusable_bodies():
+    from app.services.stock_data import fetch_investor_flow
+
+    ok = await fetch_investor_flow(FakeKis({"output": [_flow_row("20261030", "10", "")]}), "005930")
+    assert ok.institution_net_qty == 10 and ok.institution_net_value is None
+    for body in (
+        {"output": []},
+        {"output": [_flow_row("20261030", "", "")]},
+        {"output": {}},
+        {"output": [_flow_row("20261030", "1.5", "1")]},
+        {"output": [_flow_row("2026-10-30", "1", "1")]},
+    ):
+        with pytest.raises(MarketDataError):
+            await fetch_investor_flow(FakeKis(body), "005930")
+    with pytest.raises(MarketDataError):
+        await fetch_investor_flow(FakeKis({"output": []}), "bad")
