@@ -71,10 +71,18 @@ class Candle(CamelModel):
     volume: int
 
 
+class InvestorFlowData(CamelModel):
+    trade_date: date
+    # 순매도는 음수. 수량은 주, 대금은 원
+    institution_net_qty: int = Field(ge=-9007199254740991, le=9007199254740991)
+    institution_net_value: FiniteFloat | None = None
+
+
 class StockOverview(CamelModel):
     stock: StockIdentity
     quote: Resource[QuoteData]
     metrics: Resource[MetricsData]
+    investor_flow: Resource[InvestorFlowData]
 
 
 class Coverage(CamelModel):
