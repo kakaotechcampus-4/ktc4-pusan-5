@@ -530,7 +530,7 @@ company_relations.industry_code → industries.code
 ```
 
 - `card_label` 순서: `DIRECT` > `INDIRECT_CONTEXT` > `UNKNOWN` > `NOT_APPLICABLE`. 생성 쪽 `match` 는 메시지 단위이고 "한 줄이라도 이 종목을 직접 다루면 direct" 라서, 사건 판정 중 가장 강한 값이 그대로 대표값이 된다. 새 표 없이 조회할 때 계산한다.
-- 원문(메시지 `text`·기사 본문)은 넣지 않는다. `source_card_id` 로 원문 표를 따라가 읽는다(`repositories/source_card.py` 의 `get_sources`).
+- 원문(메시지 `text`·기사 본문)은 넣지 않는다. `source_card_id` 로 원문 표를 따라가 읽는다(`repositories/source_card/query.py` 의 `get_sources`).
 - `body_status` 는 자료 종류마다 다른 칸에서 만든다. 텔레그램 메시지 표에는 이 칸이 없다.
 
   | card_type | 값을 만드는 곳 |
@@ -677,7 +677,8 @@ develop 의 `docs/stock_analysis_io.md`(PR #36, 10-27 병합) 입력 기준이�
 | `financial_holding` | 금융지주 | `krx_finance` | 금융지주, 밸류업, 주주환원 |
 | `holding` | 지주·투자 | `krx_finance` | 지주사, 지주회사 |
 | `securities` | 증권 | `krx_finance` | 증권사, 브로커리지, IB |
-| `card_payment` | 카드·결제 | `krx_finance` | 카드사, 가맹점 수수료, 간편결제 |
+| `card` | 카드 | `krx_finance` | 카드사, 가맹점 수수료, 카드론 |
+| `payment` | 간편결제 | `krx_finance` | 간편결제, 전자결제 |
 | `krx_insurance` | 보험 | — | |
 | `life_insurance` | 생명보험 | `krx_insurance` | 생명보험, 생보사 |
 | `non_life_insurance` | 손해보험 | `krx_insurance` | 손해보험, 손보사, 자동차보험 |
