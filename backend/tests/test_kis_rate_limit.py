@@ -74,3 +74,26 @@ async def test_requests_keep_configured_interval(kis_keys):
         for _ in range(3):
             await kis.get(PATH, "FHKST01010100", {})
     assert all(b - a >= INTERVAL * 0.9 for a, b in pairwise(starts))
+
+
+@pytest.mark.parametrize(
+    ("msg_cd", "expected"),
+    [
+        ("EGW00121", "UPSTREAM_AUTH"),
+        ("EGW00123", "UPSTREAM_AUTH"),
+        ("EGW00201", "UPSTREAM_RATE_LIMITED"),
+        ("OPSQ0002", "UPSTREAM_ERROR"),
+    ],
+)
+@respx.mock
+async def test_business_errors_are_split_into_transient_and_permanent_codes(
+    kis_keys, msg_cd, expected
+):
+    from app.services.market_data import MarketDataError
+
+    respx.get(settings.kis_api_base_url + PATH).mock(
+        return_value=httpx.Response(200, json={"rt_cd": "1", "msg_cd": msg_cd, "msg1": "x"})
+    )
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(MarketDataError, match=expected):
+            await KisClient(client).get(PATH, "FHKST01010100", {})

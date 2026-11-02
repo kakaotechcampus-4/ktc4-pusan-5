@@ -50,3 +50,44 @@ def test_market_close_at_uses_calendar_close_time():
     close = market_close_at(date(2026, 10, 30))
     assert close.tzinfo is KST or close.utcoffset() == KST.utcoffset(None)
     assert (close.hour, close.minute) == (15, 40)
+
+
+@pytest.mark.parametrize("status", [400, 403, 404, 405, 410, 422])
+def test_client_errors_are_permanent(status):
+    from app.core.retry_policy import is_permanent_error
+
+    assert is_permanent_error(classify_upstream_error(_status(status)))
+
+
+@pytest.mark.parametrize("status", [401, 408, 429, 500, 502, 503, 504])
+def test_auth_rate_limit_and_server_errors_are_transient(status):
+    from app.core.retry_policy import is_permanent_error
+
+    assert not is_permanent_error(classify_upstream_error(_status(status)))
+
+
+@pytest.mark.parametrize(
+    "code", ["MISSING_KEY", "UNSUPPORTED_ENV", "UPSTREAM_ERROR"]
+)
+def test_config_and_business_errors_are_permanent(code):
+    from app.core.retry_policy import is_permanent_error
+
+    assert is_permanent_error(code)
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "UPSTREAM_TIMEOUT",
+        "UPSTREAM_UNREACHABLE",
+        "UPSTREAM_AUTH",
+        "UPSTREAM_RATE_LIMITED",
+        "INVALID_RESPONSE",
+        "AUTH_COOLDOWN",
+        None,
+    ],
+)
+def test_other_errors_stay_transient(code):
+    from app.core.retry_policy import is_permanent_error
+
+    assert not is_permanent_error(code)

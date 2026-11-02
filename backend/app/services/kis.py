@@ -96,8 +96,14 @@ class KisClient:
                     break
             response.raise_for_status()
             if body.get("rt_cd") != "0":
-                if body.get("msg_cd") in ("EGW00121", "EGW00123"):
+                # 토큰 만료와 호출 제한은 시간이 지나면 풀리는 일시 오류라서
+                # 영구 오류인 UPSTREAM_ERROR 와 코드를 나눈다.
+                msg_cd = body.get("msg_cd")
+                if msg_cd in ("EGW00121", "EGW00123"):
                     self.expires_at = datetime.min.replace(tzinfo=UTC)
+                    raise MarketDataError("UPSTREAM_AUTH")
+                if msg_cd == "EGW00201":
+                    raise MarketDataError("UPSTREAM_RATE_LIMITED")
                 raise MarketDataError("UPSTREAM_ERROR")
             return body
 

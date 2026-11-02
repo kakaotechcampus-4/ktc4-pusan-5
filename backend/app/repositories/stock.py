@@ -7,6 +7,7 @@ from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.retry_policy import MAX_ATTEMPTS, PERMANENT_ERROR_CODES, PERMANENT_MAX_ATTEMPTS
 from app.models.stock import (
     Stock,
     StockCollectionJob,
@@ -67,6 +68,14 @@ async def enqueue(
     )
 
 
+def _retry_budget_left():
+    permanent = func.coalesce(StockCollectionJob.error_code, "").in_(PERMANENT_ERROR_CODES)
+    return or_(
+        and_(permanent, StockCollectionJob.attempts < PERMANENT_MAX_ATTEMPTS),
+        and_(~permanent, StockCollectionJob.attempts < MAX_ATTEMPTS),
+    )
+
+
 async def claim(session: AsyncSession, now: datetime) -> StockCollectionJob | None:
     job = await session.scalar(
         select(StockCollectionJob)
@@ -77,9 +86,7 @@ async def claim(session: AsyncSession, now: datetime) -> StockCollectionJob | No
                 and_(
                     or_(
                         StockCollectionJob.status == "queued",
-                        and_(
-                            StockCollectionJob.status == "failed", StockCollectionJob.attempts < 5
-                        ),
+                        and_(StockCollectionJob.status == "failed", _retry_budget_left()),
                     ),
                     StockCollectionJob.next_run_at <= now,
                 ),
