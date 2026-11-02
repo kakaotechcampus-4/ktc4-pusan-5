@@ -35,8 +35,11 @@ checkout_sha() {
 }
 
 # 빌드 + 핵심 서비스 기동. 빌드 실패는 2(실행 중인 컨테이너는 그대로), 기동 실패는 1.
+# 마이그레이션은 backend 가 시작할 때 적용된다. 옛 수집기가 그 사이에 DB 를 쓰지 않도록 빌드가 끝난 뒤, 기동 직전에 멈춘다.
+# 빌드하는 동안에는 수집기가 계속 돈다. 빌드가 실패하면 수집기는 건드리지 않았으므로 되살릴 필요도 없다.
 deploy_core() {
   docker compose build || return 2
+  stop_collector
   echo "up-wait-start: $(date +%T)"
   local rc=0
   # shellcheck disable=SC2086
@@ -56,4 +59,12 @@ start_collector() {
   if has_service collector; then
     docker compose up -d --wait --wait-timeout 180 collector || echo "collector-unhealthy"
   fi
+}
+
+# 배포가 성공한 뒤 이전 버전 이미지(이름 없는 이미지)와 7일 지난 빌드 캐시를 지운다.
+# 실행 중인 컨테이너가 쓰는 이미지는 지워지지 않는다. 실패해도 배포 결과에는 영향이 없다.
+# `docker image prune -a` 는 빌드 기반 이미지까지 지워 다음 빌드가 느려지므로 쓰지 않는다.
+prune_docker() {
+  docker image prune -f > /dev/null 2>&1 || true
+  docker builder prune -f --filter until=168h > /dev/null 2>&1 || true
 }

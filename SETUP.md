@@ -127,13 +127,15 @@ cat ~/.basis-deploy-last-good
 `backend-deploy.yml` 은 코드를 서버에 맞춘 뒤 `scripts/deploy.sh` 를 호출한다. 서버에서의 배포는 이 스크립트가 한다.
 
 ```
-백업(S3) → 수집기 정지(있으면) → 빌드 → db·backend·caddy 기동(healthy 까지 대기) → 수집기 기동(있으면)
+백업(S3) → 빌드 → 수집기 정지(있으면) → db·backend·caddy 기동(healthy 까지 대기) → 수집기 기동(있으면) → 이전 이미지 정리
 ```
 
 - 백업: `pg_dump` 결과를 `s3://basis-db-backup-marketlit/basis_<날짜시각>_<마지막 성공 SHA 7자>_<DB 마이그레이션 버전>.sql` 로 올린다.
   서버의 임시 파일은 바로 지운다. db 컨테이너가 없으면(첫 배포) 건너뛰고, 그 외 단계가 실패하면 아무것도 바꾸지 않고 배포를 멈춘다.
+- 수집기는 빌드가 끝난 뒤, backend 를 시작(마이그레이션)하기 직전에 멈춘다. 빌드하는 동안에는 계속 돈다.
 - 성공하면 `~/.basis-deploy-last-good` 에 "이 커밋 + 그때의 DB 버전"을 적는다. 서버의 `HEAD` 는 실패한 배포도 가리킬 수 있어서 되돌릴 곳으로 쓰지 않는다.
 - 수집기 이상(unhealthy)은 로그에 `collector-unhealthy` 만 남기고 배포 실패로 치지 않는다.
+- 성공하면 이전 버전 이미지(이름 없는 이미지)와 7일 지난 빌드 캐시를 지운다(`docker image prune -f`, `docker builder prune --filter until=168h`). 실행 중인 컨테이너의 이미지는 지워지지 않는다.
 
 덤프에는 사용자 데이터가 들어 있다. 저장소에 커밋하지 않고, 서버에 파일로 남길 때는 권한을 600 으로 둔다.
 
