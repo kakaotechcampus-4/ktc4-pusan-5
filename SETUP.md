@@ -112,16 +112,70 @@ DB 데이터는 서버 디스크(`pgdata` 볼륨)에만 있어서, 서버를 삭
 - S3 버킷 `basis-db-backup-marketlit` (서울 리전, 퍼블릭 액세스 모두 차단).
   수명 주기 규칙으로 30일이 지난 파일을 지운다. 배포가 30일 이상 없으면 백업이 모두 지워질 수 있다.
 - EC2 에 붙은 IAM 역할(`ktc-ec2`)이 이 버킷에 읽기·쓰기·삭제를 할 수 있어야 한다. 별도 키는 저장하지 않는다.
+- 롤백이 되돌아갈 곳을 적은 파일 `~/.basis-deploy-last-good` 을 한 번 만든다. 내용은 "지금 배포돼 있는 커밋 전체 SHA 와 DB 마이그레이션 버전" 한 줄이다.
+  배포가 성공할 때마다 `scripts/deploy.sh` 가 갱신하지만, 처음 성공하기 전에 실패하면 자동 롤백이 안 되므로 미리 적어 둔다.
+  서버가 지금 배포된 커밋(`git rev-parse HEAD`)인지 먼저 확인한다.
+
+```bash
+cd ~/ktc4-pusan-5
+echo "$(git rev-parse HEAD) $(echo 'select version_num from alembic_version;' | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At')" > ~/.basis-deploy-last-good
+cat ~/.basis-deploy-last-good
+```
 
 ### 동작
 
-`backend-deploy.yml` 이 컨테이너를 바꾸기 전에 `scripts/backup-db.sh` 를 실행한다.
+`backend-deploy.yml` 은 코드를 서버에 맞춘 뒤 `scripts/deploy.sh` 를 호출한다. 서버에서의 배포는 이 스크립트가 한다.
 
-- `pg_dump` 결과를 `s3://basis-db-backup-marketlit/basis_<날짜시각>_<배포 전 SHA>.sql` 로 올린다.
-- 서버의 임시 파일은 바로 지운다.
-- db 컨테이너가 없으면(첫 배포) 건너뛴다. 그 외 단계가 실패하면 배포를 멈춘다.
+```
+백업(S3) → 수집기 정지(있으면) → 빌드 → db·backend·caddy 기동(healthy 까지 대기) → 수집기 기동(있으면)
+```
+
+- 백업: `pg_dump` 결과를 `s3://basis-db-backup-marketlit/basis_<날짜시각>_<마지막 성공 SHA 7자>_<DB 마이그레이션 버전>.sql` 로 올린다.
+  서버의 임시 파일은 바로 지운다. db 컨테이너가 없으면(첫 배포) 건너뛰고, 그 외 단계가 실패하면 아무것도 바꾸지 않고 배포를 멈춘다.
+- 성공하면 `~/.basis-deploy-last-good` 에 "이 커밋 + 그때의 DB 버전"을 적는다. 서버의 `HEAD` 는 실패한 배포도 가리킬 수 있어서 되돌릴 곳으로 쓰지 않는다.
+- 수집기 이상(unhealthy)은 로그에 `collector-unhealthy` 만 남기고 배포 실패로 치지 않는다.
 
 덤프에는 사용자 데이터가 들어 있다. 저장소에 커밋하지 않고, 서버에 파일로 남길 때는 권한을 600 으로 둔다.
+
+### 롤백
+
+기동에 실패했을 때 DB 마이그레이션 버전이 "마지막 성공" 때와 같은지로 갈린다.
+
+| 상황 | DB 구조 | 옛 코드가 시작하나 | 처리 |
+|---|---|---|---|
+| 빌드 실패 | 그대로 | (컨테이너가 안 바뀜) | 롤백 없음 |
+| 새 코드가 이상함, 마이그레이션 없음 | 그대로 | 된다 | **자동**으로 마지막 성공 SHA 를 다시 배포한다 |
+| 마이그레이션 도중 실패 | 그대로 (트랜잭션으로 되돌려짐) | 된다 | **자동** |
+| 마이그레이션이 적용된 뒤 새 코드가 이상함 | 새 구조 | **안 된다** (옛 backend 가 시작 때 `alembic upgrade head` 에서 "Can't locate revision" 으로 실패) | 자동으로 하지 않는다. 아래 수동 롤백 |
+
+자동 롤백으로 사이트가 살아나도 새 버전 배포는 실패이므로 Actions 는 실패로 끝난다. 마지막 성공 기록이 없거나 DB 버전을 읽지 못하면 자동 롤백하지 않는다.
+
+**수동 롤백** — 서버의 `~/ktc4-pusan-5` 에서 ubuntu 사용자로 실행한다.
+
+```bash
+bash scripts/rollback.sh          # DB 버전이 같으면 코드만 되돌린다
+bash scripts/rollback.sh --yes    # DB 버전이 다르면 alembic downgrade 로 구조를 되돌린 뒤 마지막 성공 SHA 를 배포한다
+```
+
+- `downgrade` 는 새 버전이 만든 컬럼·표의 **데이터를 지운다.** 그래서 `--yes` 없이는 진행하지 않는다. 기존 데이터는 남는다.
+- 새 backend 를 멈추고, 지금 빌드된 새 이미지로 `downgrade` 를 한다(새 마이그레이션 파일이 그 이미지에 있다).
+- `downgrade` 가 실패하면 backend 는 멈춘 상태로 남는다. 아래 "최후 수단"을 따른다.
+
+**최후 수단: 운영 DB 를 백업으로 되돌리기** — `downgrade` 가 안 될 때만 한다. **백업 이후에 쌓인 데이터는 모두 사라진다.**
+백업 파일 이름의 SHA 와 버전이 되돌아갈 곳이다. 한 줄씩 실행한다.
+
+```bash
+docker compose stop backend collector
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE \"$POSTGRES_DB\" WITH (FORCE)" -c "CREATE DATABASE \"$POSTGRES_DB\""'
+(umask 077; aws s3 cp s3://basis-db-backup-marketlit/<파일 이름> ~/restore.sql --region ap-northeast-2)
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -q -v ON_ERROR_STOP=1' < ~/restore.sql
+rm ~/restore.sql
+# ~/.basis-deploy-last-good 의 첫 번째 값(전체 SHA)으로 코드를 맞춘다. 백업 파일 이름의 SHA 는 7자라 fetch 에 쓸 수 없다.
+git fetch origin <전체 SHA> && git reset --hard <전체 SHA>
+docker compose up -d --build
+```
+
+이 절차의 DB 삭제·재생성 부분은 시험하지 않았다. 백업을 빈 DB 에 복원하는 부분만 임시 DB 로 시험했다.
 
 ### 복구
 
