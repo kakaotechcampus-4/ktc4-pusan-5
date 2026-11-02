@@ -32,7 +32,12 @@ main() {
   deploy_core || rc=$?
 
   if [ "$rc" -eq 0 ]; then
-    write_state "$sha" "$(db_revision)"
+    local rev
+    rev="$(db_revision)"
+    if [ -z "$rev" ]; then
+      echo "deploy: 경고 - DB 버전을 읽지 못해 마지막 성공 기록에 버전이 비었습니다. 다음 배포의 자동 롤백이 동작하지 않습니다." >&2
+    fi
+    write_state "$sha" "$rev"
     start_collector
     echo "deploy: 성공"
     return 0
