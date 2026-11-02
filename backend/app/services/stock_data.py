@@ -43,6 +43,13 @@ class DailyPrice:
 
 
 @dataclass(frozen=True)
+class InvestorFlow:
+    trade_date: date
+    institution_net_qty: int
+    institution_net_value: Decimal | None
+
+
+@dataclass(frozen=True)
 class StockCatalogItem:
     code: str
     name: str
@@ -54,6 +61,7 @@ _MARKET_CAP_WON = Decimal(100_000_000)  # KIS hts_avls is in 100 million KRW.
 _STOCK_CODE_RE = r"[0-9A-Z]{6}"
 _CATALOG_CODE_RE = r"[0-9A-Z]{6}"
 _MAX_SAFE_INTEGER = Decimal(9007199254740991)
+_WON_PER_MILLION = Decimal(1_000_000)  # KIS orgn_ntby_tr_pbmn is in million KRW.
 
 
 def _text(value: object) -> str:
@@ -94,6 +102,14 @@ def _integer(value: object, *, optional: bool = False) -> int | None:
         return int(result)
     except (OverflowError, ValueError):
         raise MarketDataError("INVALID_RESPONSE") from None
+
+
+def _signed_integer(value: object) -> int:
+    """순매수 수량처럼 음수가 정상인 정수."""
+    result = _decimal(value)
+    if result != result.to_integral_value() or abs(result) > _MAX_SAFE_INTEGER:
+        raise MarketDataError("INVALID_RESPONSE")
+    return int(result)
 
 
 def _volume_change(raw: object) -> Decimal | None:
@@ -163,6 +179,31 @@ async def fetch_snapshot(kis: _KisGetter, code: str) -> StockSnapshot:
         metrics=metrics,
         quote_error=quote_error,
         metrics_error=metrics_error,
+    )
+
+
+async def fetch_investor_flow(kis: _KisGetter, code: str) -> InvestorFlow:
+    """최근 거래일의 기관 순매수. KIS 는 최근 30거래일을 주므로 값이 있는 가장 최근 행을 쓴다."""
+    if not re.fullmatch(_STOCK_CODE_RE, code):
+        raise MarketDataError("INVALID_RESPONSE")
+    body = await kis.get(
+        "/uapi/domestic-stock/v1/quotations/inquire-investor",
+        "FHKST01010900",
+        {"FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": code},
+    )
+    rows = body.get("output")
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+        raise MarketDataError("INVALID_RESPONSE")
+    # 장중 당일 행은 값이 비어 있을 수 있어 건너뛴다.
+    ready = [row for row in rows if _text(row.get("orgn_ntby_qty"))]
+    if not ready:
+        raise MarketDataError("INVALID_RESPONSE")
+    latest = max(ready, key=lambda row: _trade_date(row.get("stck_bsop_date")))
+    value = _decimal(latest.get("orgn_ntby_tr_pbmn"), optional=True)
+    return InvestorFlow(
+        trade_date=_trade_date(latest.get("stck_bsop_date")),
+        institution_net_qty=_signed_integer(latest.get("orgn_ntby_qty")),
+        institution_net_value=value * _WON_PER_MILLION if value is not None else None,
     )
 
 
