@@ -13,6 +13,7 @@ from app.models.stock import (
     StockCollectionState,
     StockDailyPrice,
     StockDataCoverage,
+    StockInvestorSnapshot,
     StockMetricSnapshot,
     StockQuoteSnapshot,
 )
@@ -164,6 +165,30 @@ async def save_snapshot(
         if result.rowcount == 0:
             rejected.add("quote" if model is StockQuoteSnapshot else "metrics")
     return rejected
+
+
+async def save_investor(
+    session: AsyncSession, code: str, flow, source_as_of: datetime, now: datetime
+) -> bool:
+    """오래된 거래일 값으로 최신 값을 되돌리지 않는다. 저장되지 않으면 False."""
+    values = {
+        "stock_code": code,
+        "trade_date": flow.trade_date,
+        "institution_net_qty": flow.institution_net_qty,
+        "institution_net_value": flow.institution_net_value,
+        "source": "KIS",
+        "source_as_of": source_as_of,
+        "collected_at": now,
+    }
+    statement = insert(StockInvestorSnapshot).values(**values)
+    result = await session.execute(
+        statement.on_conflict_do_update(
+            index_elements=["stock_code"],
+            set_={k: statement.excluded[k] for k in values if k != "stock_code"},
+            where=StockInvestorSnapshot.trade_date <= statement.excluded.trade_date,
+        )
+    )
+    return result.rowcount > 0
 
 
 async def save_prices(

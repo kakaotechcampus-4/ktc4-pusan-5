@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from dataclasses import asdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 
 import httpx
 from sqlalchemy import and_, select
@@ -21,7 +21,7 @@ from app.services import stock_data, stock_financials, stock_history
 from app.services.krx_history import krx_rows
 from app.services.market_calendar import KST
 from app.services.market_data import MarketDataError
-from app.services.quote_freshness import is_quote_stale
+from app.services.quote_freshness import is_investor_stale, is_quote_stale
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ class StockWorker:
         self.kis = kis
         self.catalog_retry_at = datetime.min.replace(tzinfo=UTC)
         self.snapshot_checked_at = datetime.min.replace(tzinfo=UTC)
+        self.investor_checked_at = datetime.min.replace(tzinfo=UTC)
         # 휴장일 달력을 확인한 KST 날짜
         self.calendar_checked_on = None
         self.calendar_retry_at = datetime.min.replace(tzinfo=UTC)
@@ -143,9 +144,38 @@ class StockWorker:
                     await schedule(session, code, "snapshot", now, priority=0)
             await session.commit()
 
+    async def schedule_investors(self):
+        # 기관 순매수는 갱신 주기가 길어 점검도 느슨하게 한다. 종목마다 성공 시각이 달라 분산된다.
+        now = datetime.now(UTC)
+        if now - self.investor_checked_at < timedelta(seconds=60):
+            return
+        self.investor_checked_at = now
+        async with SessionLocal() as session:
+            rows = (
+                await session.execute(
+                    select(Stock.code, StockCollectionState.last_success_at)
+                    .outerjoin(
+                        StockCollectionState,
+                        and_(
+                            StockCollectionState.stock_code == Stock.code,
+                            StockCollectionState.resource == "investor",
+                        ),
+                    )
+                    .where(Stock.code.in_(MVP_CODES), Stock.listing_status == "listed")
+                )
+            ).all()
+            calendar = await calendar_repo.load_calendar(session, now)
+            for code, last_success_at in rows:
+                if last_success_at is None or is_investor_stale(
+                    last_success_at, now, calendar
+                ):
+                    await schedule(session, code, "investor", now, priority=3)
+            await session.commit()
+
     async def tick(self, timeout: float = 12):
         await self.refresh_calendar()
         await self.schedule_snapshots()
+        await self.schedule_investors()
         async with SessionLocal() as session:
             job = await repo.claim(session, datetime.now(UTC))
             await session.commit()
@@ -200,6 +230,8 @@ class StockWorker:
                             job.range_start,
                             cached_rows,
                         )
+                elif job.resource == "investor":
+                    value = await stock_data.fetch_investor_flow(self.kis, job.stock_code)
                 elif job.resource == "prices":
                     value = await stock_data.fetch_prices(
                         self.kis, job.stock_code, job.range_start, job.range_end
@@ -260,6 +292,13 @@ class StockWorker:
                 await save_history(
                     session, job.stock_code, job.range_start, job.resource, value, now
                 )
+            elif not error and job.resource == "investor":
+                # 장중이면 아직 오지 않은 마감 시각으로 기록하지 않는다.
+                close = datetime.combine(value.trade_date, time(15, 30), KST)
+                if not await repo.save_investor(
+                    session, job.stock_code, value, min(close, now), now
+                ):
+                    error = "OUTDATED_RESPONSE"
             elif not error:
                 await repo.save_prices(
                     session, job, [asdict(row) for row in value], now
