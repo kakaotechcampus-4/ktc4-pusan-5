@@ -9,6 +9,8 @@ from app.services.market_calendar import TradingCalendar, last_market_close, mar
 # 장중 갱신 주기. 수집기의 현재가 수집 주기와 같은 값
 SNAPSHOT_TTL = settings.stock_quote_interval_seconds
 
+INVESTOR_TTL = settings.stock_investor_interval_seconds
+
 QuoteStatus = Literal["ready", "stale", "pending"]
 
 
@@ -29,3 +31,10 @@ def quote_status(
     if collected_at is None:
         return "pending"
     return "stale" if is_quote_stale(collected_at, now, calendar) else "ready"
+
+
+def is_investor_stale(collected_at: datetime, now: datetime, calendar: TradingCalendar) -> bool:
+    """기관 순매수도 현재가와 같은 규칙이되 장중 주기만 INVESTOR_TTL 로 길게 둔다."""
+    if market_open(now, calendar):
+        return (now - collected_at).total_seconds() >= INVESTOR_TTL
+    return collected_at < last_market_close(now, calendar)
