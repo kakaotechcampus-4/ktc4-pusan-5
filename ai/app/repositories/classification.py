@@ -31,6 +31,7 @@ from app.models.classification import (
 from app.repositories.source_card import (
     available_since,
     available_within,
+    body_observed_by,
     get_sources,
     replace_stock_tags,
 )
@@ -230,6 +231,9 @@ async def classified_sources(
 
     DIRECT 가 아닌 판정과 공통 배경은 원인으로 확정한 것이 아니다(전제 P4·P5). 원문은 넣지 않는다 —
     source_card_id 로 get_sources 를 부른다.
+
+    사건은 본문에서 나왔다. 공개는 until 전이어도 본문을 그 뒤에 받았거나 받은 시각을 모르면 그 시점에는
+    알 수 없던 내용이라 sources 에서 빼고 not_observed 로 센다(get_sources 의 cutoff 와 같은 규칙).
     """
     window = available_within(until, since)
     base = (
@@ -267,9 +271,13 @@ async def classified_sources(
     records = {r.id: r for r in await get_sources(session, card_ids)}
 
     sources = []
+    not_observed = 0
     for card_id in card_ids:
         record = records.get(card_id)
         if record is None:
+            continue
+        if not body_observed_by(record, until):
+            not_observed += 1
             continue
         items = sorted(((events[event_id], label, path) for (card, event_id), (label, path)
                         in picked.items() if card == card_id), key=lambda x: x[0].order_index)
@@ -283,12 +291,14 @@ async def classified_sources(
             "events": [{
                 "event_id": event.id, "run_id": run_ids[event.id], "scope": event.scope,
                 "role": event.role, "tense": event.tense,
-                "sentence_indices": list(event.sentence_indices), "label": label, "path": path,
+                "sentence_indices": list(event.sentence_indices),
+                "context_indices": list(event.context_indices), "label": label, "path": path,
             } for event, label, path in items],
         })
 
     unclassified, failed = await _missing_counts(session, window)
-    return {"sources": sources, "unclassified": unclassified, "failed": failed}
+    return {"sources": sources, "unclassified": unclassified, "failed": failed,
+            "not_observed": not_observed}
 
 
 async def _missing_counts(session: AsyncSession, window) -> tuple[int, int]:

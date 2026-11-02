@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from app.services.classification.basis import load_basis
 from app.services.classification.link import (
     Unresolved,
@@ -48,3 +50,18 @@ def test_llm_choice_is_limited_to_listed_codes_and_asked_mentions() -> None:
     links = parse_link_response(text, asked, BASIS)
     assert list(links) == [1]
     assert links[1][0].industry_code == "memory" and links[1][0].linked_by == "llm_code"
+
+
+@pytest.mark.parametrize("row", [
+    None,
+    "문자열",
+    {"event": [], "mention": "메모리 업체들", "code": "memory"},  # 배열은 집합에서 찾을 수 없다
+    {"event": True, "mention": "메모리 업체들", "code": "memory"},
+    {"event": 1, "mention": {}, "code": "memory"},
+    {"mention": "메모리 업체들", "code": "memory"},
+])
+def test_malformed_row_is_a_format_error(row) -> None:
+    """ValueError 라야 회차가 failed 로 남는다. 조용히 버리면 표기가 연결되지 않은 채 ok 가 된다."""
+    text = json.dumps({"links": [row]}, ensure_ascii=False)
+    with pytest.raises(ValueError, match="links 의 행|알아볼 수 없다"):
+        parse_link_response(text, [Unresolved(1, "메모리 업체들")], BASIS)

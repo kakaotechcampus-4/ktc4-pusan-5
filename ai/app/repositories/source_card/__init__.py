@@ -40,7 +40,7 @@ from app.repositories.source_card.query import (
     get_sources,
     stock_card_ids,
 )
-from app.repositories.source_card.read_model import Discovery, SourceRecord
+from app.repositories.source_card.read_model import Discovery, SourceRecord, body_observed_by
 from app.repositories.source_card.registration import (
     CanonicalBackfill,
     backfill_canonical_urls,
@@ -56,6 +56,7 @@ __all__ = [
     "available_since",
     "available_within",
     "backfill_canonical_urls",
+    "body_observed_by",
     "card_ids_for_urls",
     "get_sources",
     "register_missing_sources",

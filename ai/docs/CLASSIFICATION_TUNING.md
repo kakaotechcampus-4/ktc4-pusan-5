@@ -5,7 +5,7 @@
 - 상태: **과제 기록. 브랜치 구성은 3절의 제안이고 아직 확정 전이다.**
 - 설계는 [CLASSIFICATION_DB_DRAFT.md](CLASSIFICATION_DB_DRAFT.md), 기준 데이터 검증은 [INDUSTRY_REVIEW.md](INDUSTRY_REVIEW.md)·[RELATION_REVIEW.md](RELATION_REVIEW.md) 다.
 
-아래 과제는 모두 분류 파이프라인이 동작한 뒤의 품질·비용 문제다. 저장·조회가 깨지는 문제는 없었다. 다만 1번은 생성 쪽이 `classified_sources` 를 읽기 전에 고친다. 지금은 읽는 코드가 없어 보고서에 영향이 없다.
+아래 과제는 분류기 첫 PR 뒤로 미룬 품질·비용·운영 문제다. 2-1 과 2-10 은 생성 쪽이 `classified_sources` 를 읽기 전에 고친다. 지금은 읽는 코드가 없어 보고서에 영향이 없다. 외부 리뷰에서 나온 키 노출, 응답 타입 오류로 인한 배치 중단, 기준 시각 뒤 본문 포함, 문맥 번호 누락은 첫 PR 에서 고쳤다.
 
 ## 1. 실행 조건과 결과
 
@@ -81,7 +81,7 @@
 ### 2-8. 긴 자료
 
 - 2만 자를 넘는 PDF 는 건너뛴다(본문 있는 PDF 257건 중 19건).
-- 사건 상한 8개에 닿은 자료가 2건이다(929, 379). 시황 리포트처럼 여러 종목을 다루는 자료는 뒷부분이 빠질 수 있다.
+- 사건이 8개 나온 자료가 2건이다(929, 379). 8개는 프롬프트의 지시이고 코드는 자르지 않는다(파서는 9개도 받는다). 모델이 지시를 따르느라 뺀 사건이 있는지는 원문과 대조해야 안다. 시황 리포트처럼 여러 종목을 다루는 자료는 뒷부분이 빠질 수 있다.
 - 줄바꿈마다 문장이 나뉘어 자료 929 는 410문장이다.
 - 방법: 나눠 보내는 단위를 먼저 설계한다. CLASSIFICATION_DB_DRAFT 11절의 미정 항목과 같은 문제다.
 
@@ -89,17 +89,43 @@
 
 `classified_sources` 에는 개수 상한이 없고, macro·market 사건은 모든 종목에 붙는다. 표본 20건 중 4건에 그런 사건이 있었다. 전체 자료를 돌린 뒤 입력이 얼마나 커지는지 재고, 판정 라벨·시간 기준으로 몇 건까지 넘길지 생성 담당과 정한다.
 
+### 2-10. PDF 본문이 바뀌어도 이전 판정이 남는다 (생성 연결 전)
+
+설계는 "원문은 한 번 확보하면 바뀌지 않는다" 를 전제로 문장 번호를 근거로 쓴다. 그런데 네이버 PDF 저장(`repositories/analyst_report.py`)은 정상 본문을 새 정상 본문으로 덮어쓸 수 있다. 현재 회차가 있으면 `--retry` 도 고르지 않고, `input_sha256` 은 저장만 하고 비교하지 않는다.
+
+- 영향: 본문이 바뀌면 이전 문장 번호와 판정이 새 본문을 가리킨다. PDF 교체나 추출기 변경 때 일어날 수 있다. 실제로 몇 건이나 바뀌었는지는 재지 않았다.
+- 정할 것: 최초 정상 본문을 보존할지, 변경 시 회차를 무효화하고 재분류 대상으로 넣을지. 어느 쪽이든 조회에서 해시 불일치를 검출할 방법을 함께 본다.
+
+### 2-11. 사용량을 모르는 호출이 ₩0 으로 합산된다
+
+`cost_detail` 은 사용량이 없으면 `(0.0, "unavailable")` 로 구분하지만, `ClassificationResult.cost` 와 CLI 합계는 숫자만 더한다. 표본 20건의 합계에는 해당 호출이 없어 영향이 없었다.
+
+- 방법: 미확인 호출 수를 함께 세고 합계를 "확인된 비용" 으로 표시한다.
+
+### 2-12. 관계가 없는 기준은 동기화에 실패한다
+
+`sync_basis` 가 빈 목록에도 INSERT 를 실행해 `DEFAULT VALUES` 가 되고 NOT NULL 제약에 걸린다. 지금 기준 파일은 관계가 있어 일어나지 않는다.
+
+- 방법: 빈 목록이면 INSERT 를 건너뛴다. 빈 기준을 금지할 생각이면 `parse_basis` 에서 거부한다.
+
+### 2-13. 표기 연결 LLM 의 오연결
+
+코드 선택 결과는 목록 안의 코드인지만 본다. LLM 이 "CXMT" 를 `005930` 으로 고르면 삼성전자가 `company`, `direct_allowed = true` 후보가 된다. 프롬프트가 막고 있지만 코드 방어는 없다.
+
+- 먼저 할 일: 표본의 `linked_by = llm_code` 28건을 사람이 대조해 실제로 틀린 연결이 있는지 본다. **아직 대조하지 않았다.**
+- 방법: 종목·외부 기업으로 이어진 `llm_code` 연결은 DIRECT 를 막거나, 표기가 그 회사 이름과 닮았는지 코드로 확인한다.
+
 ## 3. 브랜치 구성 (제안, 확정 전)
 
 바꾸는 파일이 겹치지 않도록 나눴다. 분류기 PR 이 병합되기 전이면 `feature/data-classification` 에서, 병합 뒤면 develop 에서 만든다.
 
 | 순서 | 브랜치 | 과제 | 주로 바꾸는 곳 |
 | --- | --- | --- | --- |
-| 1 | `feature/classification-accuracy` | 2-1, 2-2, 2-4 | `candidates.py`, `link.py`, 추출·판정 프롬프트 |
-| 2 | `feature/classification-basis-draft3` | 2-3, 2-5 | 새 기준 JSON, REVIEW 문서 |
-| 3 | `feature/classification-concurrency` | 2-7 | `__main__.py` |
+| 1 | `feature/classification-accuracy` | 2-1, 2-2, 2-4, 2-13 | `candidates.py`, `link.py`, 추출·판정 프롬프트 |
+| 2 | `feature/classification-basis-draft3` | 2-3, 2-5, 2-12 | 새 기준 JSON, REVIEW 문서, `sync_basis` |
+| 3 | `feature/classification-concurrency` | 2-7, 2-11 | `__main__.py`, `pipeline.py` |
 | 4 | `feature/classification-dedupe` | 2-6 | 새 묶기 단계, 저장·조회 |
-| 5 | `feature/classification-long-docs` | 2-8 | 추출·문장 분리. 설계 먼저 |
+| 5 | `feature/classification-long-docs` | 2-8, 2-10 | 추출·문장 분리, PDF 저장. 설계 먼저 |
 
 - 2-9 는 생성 담당과 협의할 일이라 이 표에 넣지 않는다.
 - 모델 비교(Gemini 등)는 코드 변경이 없어 브랜치가 필요 없다. 1·2번 뒤에 `eval` 로 한다. 프롬프트와 기준을 고치기 전에 비교하면 다시 해야 한다.

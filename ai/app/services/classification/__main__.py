@@ -183,7 +183,8 @@ async def run_show(args: argparse.Namespace) -> None:
         print(f"  자료 {source['source_card_id']:<7} {source['card_type']:<8} "
               f"{source['card_label'] or '공통 배경':<17} {source['available_at'] or '-':<26} "
               f"{dict(paths)}  {source['source_name'] or ''}")
-    print(f"자료 {len(found['sources'])} · 미분류 {found['unclassified']} · 실패 {found['failed']}")
+    print(f"자료 {len(found['sources'])} · 미분류 {found['unclassified']} · 실패 {found['failed']}"
+          f" · 기준 시각 뒤 본문 {found['not_observed']}")
 
 
 # ── DB 를 쓰지 않는 명령 ──────────────────────────────────────────────────

@@ -39,7 +39,7 @@ TITLE = "SK하이닉스, D램 가격 급등에 실적 기대"
 BODY = "D램 가격이 급등했다. 회사는 3분기 실적 개선을 예고했다. 미국 금리가 내렸다."
 EVENTS = {"events": [
     {"scope": "industry", "role": "cause", "tense": "past", "sentences": [1], "mentions": ["D램"]},
-    {"scope": "company", "role": "outlook", "tense": "future", "sentences": [2],
+    {"scope": "company", "role": "outlook", "tense": "future", "sentences": [2], "context": [1],
      "mentions": ["SK하이닉스"]},
     {"scope": "macro", "role": "cause", "tense": "past", "sentences": [3], "mentions": ["미국 금리"]},
 ]}
@@ -150,6 +150,25 @@ def test_save_run_makes_current_and_indexes_direct(database, monkeypatch):
     assert query(database, "SELECT count(*) AS n FROM classification_runs")[0]["n"] == 2
 
 
+@pytest.mark.parametrize("fetched_at", [datetime(2026, 10, 29, 9, 0, tzinfo=UTC), None])
+def test_classified_sources_leaves_out_body_not_observed_by_until(database, monkeypatch, fetched_at):
+    """기사는 until 전에 공개됐지만 본문을 그 뒤에 받았거나 받은 시각을 모르면 그때는 알 수 없던 내용이다."""
+    card_id = setup(database)
+    save(database, card_id, classify_with(monkeypatch, judgments(e1_000660="DIRECT")))
+    query(database, "UPDATE news SET body_fetched_at = $1", fetched_at)
+
+    hidden = in_session(database, lambda s: classified_sources(s, "000660", until=UNTIL))
+    assert hidden["sources"] == [] and hidden["not_observed"] == 1
+
+    later = datetime(2026, 10, 30, tzinfo=UTC)
+    shown = in_session(database, lambda s: classified_sources(s, "000660", until=later))
+    if fetched_at is None:  # 받은 시각을 모르면 언제 조회해도 뺀다
+        assert shown["sources"] == [] and shown["not_observed"] == 1
+    else:
+        assert [s["source_card_id"] for s in shown["sources"]] == [card_id]
+        assert shown["not_observed"] == 0
+
+
 def test_failed_and_experiment_runs_keep_the_current_one(database, monkeypatch):
     card_id = setup(database)
     ok_id = save(database, card_id, classify_with(monkeypatch, judgments(e1_005930="DIRECT")))
@@ -182,6 +201,10 @@ def test_classified_sources_for_a_stock(database, monkeypatch):
     assert source["card_type"] == "news" and source["body_status"] == "ok"
     assert [(e["path"], e["label"]) for e in source["events"]] == [
         ("industry", "DIRECT"), ("company", "DIRECT"), ("macro", None)]
+    # 근거 문장만으로 뜻이 안 통하는 사건은 문맥 번호까지 넘겨야 생성 쪽이 읽을 수 있다
+    assert source["events"][1]["sentence_indices"] == [2]
+    assert source["events"][1]["context_indices"] == [1]
+    assert hynix["not_observed"] == 0
 
     # 후보가 아닌 종목에도 거시 사건은 공통 배경으로 붙는다
     lg = in_session(database, lambda s: classified_sources(s, "066570", until=UNTIL))

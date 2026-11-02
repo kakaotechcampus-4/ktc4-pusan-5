@@ -222,7 +222,7 @@ async def complete(
                     if r.is_error:
                         await r.aread()  # 오류 본문을 메시지에 남기려면 먼저 읽어야 한다
                     r.raise_for_status()
-                    text, finish_reason, usage = await _read_stream(r)
+                    text, finish_reason, usage = await _read_stream(r, key)
             else:
                 r = await client.post(url, json=payload, headers=headers)
                 r.raise_for_status()
@@ -256,7 +256,7 @@ async def complete(
     return text, usage
 
 
-async def _read_stream(response: httpx.Response) -> tuple[str, str | None, dict]:
+async def _read_stream(response: httpx.Response, key: str) -> tuple[str, str | None, dict]:
     """SSE 를 끝까지 읽어 (본문, finish_reason, usage).
 
     `data:` 로 시작하지 않는 줄은 건너뛴다. 빈 줄은 이벤트 구분이고, `:` 로 시작하는 줄은
@@ -264,15 +264,21 @@ async def _read_stream(response: httpx.Response) -> tuple[str, str | None, dict]
 
     끊긴 것으로 보는 경우 — 모두 StreamInterrupted 다.
         - 읽는 중 연결 오류(httpx.TransportError: 끊김·프로토콜 오류·읽기 시간 초과)
-        - 이벤트가 JSON 이 아님, 또는 이벤트에 error 가 실려 옴(헤더가 이미 200 이라 HTTP
-          상태로는 못 알린다)
+        - 이벤트가 JSON 이 아니거나 모양이 다름, 또는 이벤트에 error 가 실려 옴(헤더가 이미
+          200 이라 HTTP 상태로는 못 알린다). error 는 오류 문구에 남으므로 키를 지운다
         - finish_reason 없이 스트림이 끝남
     finish_reason 까지 받았으면 끝난 것이다. 그 뒤 usage 이벤트가 안 와도 끊김이 아니라
     usage 누락이다(빈 dict 를 돌려준다).
+
+    호출부는 LLMError 만 잡는다. 모양이 다른 이벤트가 AttributeError 로 새면 배치 전체가 멈춘다.
     """
     parts: list[str] = []
     finish_reason: str | None = None
     usage: dict = {}
+
+    def malformed(what: str) -> StreamInterrupted:
+        return StreamInterrupted(f"스트림 이벤트 형식 오류: {what}", len("".join(parts)))
+
     try:
         async for line in response.aiter_lines():
             line = line.strip()
@@ -282,12 +288,25 @@ async def _read_stream(response: httpx.Response) -> tuple[str, str | None, dict]
             if data == "[DONE]":
                 break
             event = json.loads(data)
+            if not isinstance(event, dict):
+                raise malformed("JSON 객체가 아니다")
             if event.get("error"):
                 raise StreamInterrupted(
-                    f"스트림 중 오류: {str(event['error'])[:ERROR_BODY_MAX_CHARS]}",
+                    f"스트림 중 오류: {_error_detail(str(event['error']), key)}",
                     len("".join(parts)))
-            for choice in event.get("choices") or []:
-                parts.append((choice.get("delta") or {}).get("content") or "")
+            choices = event.get("choices") or []
+            if not isinstance(choices, list):
+                raise malformed("choices 가 배열이 아니다")
+            for choice in choices:
+                if not isinstance(choice, dict):
+                    raise malformed("choice 가 객체가 아니다")
+                delta = choice.get("delta") or {}
+                if not isinstance(delta, dict):
+                    raise malformed("delta 가 객체가 아니다")
+                content = delta.get("content") or ""
+                if not isinstance(content, str):
+                    raise malformed("content 가 문자열이 아니다")
+                parts.append(content)
                 finish_reason = choice.get("finish_reason") or finish_reason
             if isinstance(event.get("usage"), dict):
                 usage = dict(event["usage"])

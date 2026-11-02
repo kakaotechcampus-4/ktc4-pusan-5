@@ -116,7 +116,10 @@ def build_link_message(items: list[Unresolved], events: dict[int, Event], senten
 
 
 def parse_link_response(text: str, items: list[Unresolved], basis: Basis) -> dict[int, list[EntityLink]]:
-    """목록 밖 코드·요청하지 않은 표기는 버린다. 형식이 깨지면 ValueError."""
+    """목록 밖 코드·요청하지 않은 표기는 버린다. 코드 null 은 "맞는 대상 없음" 이다.
+
+    형식이 깨지면 ValueError. 잘못된 행을 조용히 버리면 표기가 연결되지 않은 채 ok 로 저장된다.
+    """
     data = json.loads(strip_fence(text))
     if not isinstance(data, dict) or not isinstance(data.get("links"), list):
         raise ValueError("최상위에 links 배열이 없다")  # noqa: TRY004 — 응답 형식 오류로 함께 잡는다
@@ -126,8 +129,12 @@ def parse_link_response(text: str, items: list[Unresolved], basis: Basis) -> dic
     seen = set()
     for item in data["links"]:
         if not isinstance(item, dict):
-            continue
+            raise ValueError("links 의 행이 객체가 아니다")  # noqa: TRY004 — 위와 같다
         key = (item.get("event"), item.get("mention"))
+        # bool 은 int 의 하위 타입이라 따로 막는다. 배열·객체는 집합에서 찾을 수 없어 먼저 거른다
+        if (not isinstance(key[0], int) or isinstance(key[0], bool)
+                or not isinstance(key[1], str)):
+            raise ValueError(f"사건 번호·표기를 알아볼 수 없다: {key!r}")  # noqa: TRY004 — 위와 같다
         code = item.get("code")
         if key not in asked or not isinstance(code, str) or key in seen:
             continue
