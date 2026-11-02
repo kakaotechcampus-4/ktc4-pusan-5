@@ -138,6 +138,14 @@ def test_real_report_background_is_normalized() -> None:
     assert any(item["watch"] for item in neutral)
 
 
+def test_legacy_source_match_is_stored_as_mention_value() -> None:
+    """실제 산출물은 mention 이름을 바꾸기 전이라 출처가 match: direct 다. 칼럼(match)에는 새 값으로 넣는다."""
+    analysis = build_analysis(parse_analysis_file(SAMSUNG))
+    sources = [s for f in analysis.factors for s in f.sources]
+    assert sources and all(s.match == "mentioned" for s in sources)
+    assert analysis.raw_json["factors"][0]["sources"][0]["match"] == "direct"  # 원본은 raw_json 에 그대로 남는다
+
+
 def test_null_counter_is_a_valid_value() -> None:
     """방향이 어긋나는 재료가 없는 날과 no_clear_cause 인 날은 counter 가 null 이다.
     빈 문자열로 바꾸면 화면이 '없음'과 '못 채움'을 구분하지 못한다."""

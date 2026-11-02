@@ -16,8 +16,8 @@ DIRECT, INDIRECT = "https://t.me/a/1", "https://t.me/a/2"
 def payload(code="999999", change=-1.5, peer=-1.4, excess=-0.1):
     return {"code": code, "stock": "테스트", "change_pct": change,
             "market": {"peer_median_pct": peer, "excess_pct": excess},
-            "messages": [{"url": DIRECT, "match": "direct", "kind": "news", "text": "가"},
-                         {"url": INDIRECT, "match": "indirect", "kind": "news", "text": "나"}]}
+            "messages": [{"url": DIRECT, "mention": "mentioned", "kind": "news", "text": "가"},
+                         {"url": INDIRECT, "mention": "not_mentioned", "kind": "news", "text": "나"}]}
 
 
 def factor(urls, *links, unconfirmed=False):
@@ -98,7 +98,7 @@ def test_other_days_are_untouched():
 
 
 def test_strength_follows_issue_messages_not_sources():
-    """사건의 이슈가 direct 메시지에서 나왔으면 출처에 indirect 만 달아도 sufficient. issue_trace 가 없으면 출처로 본다."""
+    """사건의 이슈가 mentioned 메시지에서 나왔으면 출처에 not_mentioned 만 달아도 sufficient. issue_trace 가 없으면 출처로 본다."""
     p = payload(change=-3.0, peer=-0.5, excess=-2.5)
     trace = [{"id": "m1", "issues": [{"id": "i1", "relation": "direct", "issue": "x"}]},
              {"id": "m2", "issues": [{"id": "i2", "relation": "sector", "issue": "y"}]}]

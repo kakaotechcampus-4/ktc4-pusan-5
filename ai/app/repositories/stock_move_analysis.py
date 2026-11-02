@@ -3,7 +3,7 @@
 ## 이 모듈이 파이프라인의 어디인가
 
     ① 텔레그램 수집       증권 채널 메시지를 긁는다
-    ② 필터 · 태깅         종목·시각으로 거르고 메시지마다 direct/indirect 를 붙인다
+    ② 필터 · 태깅         종목·시각으로 거르고 메시지마다 mention(mentioned/not_mentioned)을 붙인다
     ③ 보고서 생성 (LLM)   입력 JSON 하나를 주고 보고서 JSON 하나를 받는다
     ④ 실행 기록 래핑      러너가 보고서를 실행 지표로 감싸 runs/<타임스탬프>/parsed/ 에 쓴다
     ⑤ 근거 검증 · 점검    quote 가 원문에 정말 있는지, 상한을 지켰는지 본다
@@ -96,6 +96,7 @@ from app.models.stock_move_analysis import (
     StockMoveAnalysisFactorSource,
 )
 from app.repositories.source_card import card_ids_for_urls
+from app.services.stock_analysis.verify import mention_of
 
 logger = logging.getLogger(__name__)
 
@@ -547,10 +548,11 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveAna
                     # 검증기가 이 문자열을 원본 메시지에서 찾아보고, 한 글자라도
                     # 다르면 환각으로 본다. 그래서 적재가 다듬으면 안 된다.
                     quote=_as_str(s.get("quote")),
-                    # 이 메시지가 종목을 직접 다루는지(direct), 업황·경쟁사만
-                    # 다루는지(indirect). indirect 만으로 세운 원인은 size_fit 이
-                    # partial 을 넘을 수 없다.
-                    match=_as_str(s.get("match")),
+                    # 보고서 칸 mention: 이 메시지가 종목을 직접 다루는지(mentioned),
+                    # 업황·경쟁사만 다루는지(not_mentioned). not_mentioned 만으로 세운
+                    # 원인은 strength 가 partial 을 넘을 수 없다. 옛 보고서의 match:
+                    # direct|indirect 는 새 값으로 옮겨 넣는다. 칼럼 이름은 match 그대로다.
+                    match=_as_str(mention_of(s)),
                     # "코스피 마감 시황" 류. 결과를 적은 것이지 원인이 아니라서,
                     # 이게 근거로 쓰이면 "내려서 내렸다" 는 순환 논리가 된다.
                     is_market_recap=_as_bool(s.get("is_market_recap")),

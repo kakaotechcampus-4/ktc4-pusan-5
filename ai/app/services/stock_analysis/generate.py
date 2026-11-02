@@ -27,7 +27,7 @@
 
 ## 직접 언급이 0건이면 LLM 을 부르지 않는다
 
-`match: "direct"` 메시지와 `kind: "theme_recap"` 메시지가 하나도 없으면(시장 시황만 있어도) 정형 보고서를
+`mention: "mentioned"` 메시지와 `kind: "theme_recap"` 메시지가 하나도 없으면(시장 시황만 있어도) 정형 보고서를
 낸다(canned_report, needs_llm). 테마 동향은 업종 단락이 sector 근거가 될 수 있어 있으면 LLM 을 부른다. 원인 칸은 비우고 "수집된 소식 없음" 을 적는다. 래퍼 skipped_llm 으로 가른다.
 
 ## 실패를 예외로 올리지 않는다
@@ -71,10 +71,12 @@ from app.services.stock_analysis.verify import (
     judge_layers,
     main_cause_sentences,
     market_led,
+    mention_of,
     message_ids,
     move_case,
     move_comparison,
     move_strength_cap,
+    normalize_payload,
     split_messages,
 )
 
@@ -159,7 +161,9 @@ def model_input(payload: dict[str, Any]) -> dict[str, Any]:
       market 이 null 이면 넣을 자리가 없어 그대로 둔다.
     러너는 이 함수에 넘기는 입력을 inputs_used/ 사본으로 남긴다. 그 사본으로 언제든 다시 만들 수 있다.
     inputs/ 사본은 받은 바이트 그대로라 시장 맥락을 넣고 KRX 로 덮어쓰기 전 값이다.
+    - 메시지의 옛 칸 match(direct|indirect)는 mention(mentioned|not_mentioned)으로 옮겨 보낸다(verify.normalize_payload).
     """
+    payload = normalize_payload(payload)
     out = {k: v for k, v in payload.items() if k != "messages"}
     # 업종 라벨(러너 종목 표). 테마 동향의 업종 단락과 relation: sector 판단에 쓴다(프롬프트 1부).
     out["sector"] = sector(payload.get("code"))
@@ -178,21 +182,21 @@ def model_input(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def direct_message_count(payload: dict[str, Any]) -> int:
-    """`match: "direct"` 메시지 수. 공통 시황처럼 indirect 로만 들어온 메시지는 세지 않는다."""
+    """`mention: "mentioned"` 메시지 수. 공통 시황처럼 not_mentioned 로만 들어온 메시지는 세지 않는다."""
     messages = payload.get("messages")
-    return sum(isinstance(m, dict) and m.get("match") == "direct"
+    return sum(isinstance(m, dict) and mention_of(m) == "mentioned"
                for m in (messages if isinstance(messages, list) else []))
 
 
 def needs_llm(payload: dict[str, Any]) -> bool:
-    """LLM 을 부를 입력인가. 근거 칸(messages)에 direct 메시지나 theme_recap 메시지가 있으면 부른다.
+    """LLM 을 부를 입력인가. 근거 칸(messages)에 mentioned 메시지나 theme_recap 메시지가 있으면 부른다.
 
     테마 동향은 이 종목 업종 단락이면 sector 근거가 될 수 있어(프롬프트 1부) 직접 언급이 없어도 부른다.
     market_context(시장 시황·전날 장 설명)와 flow(매매 순위)는 근거가 될 수 없어 세지 않는다.
     둘 다 없으면 정형 보고서를 낸다.
     """
     messages = split_messages(payload)["messages"]
-    return any(m.get("match") == "direct" or m.get("kind") == THEME_RECAP_KIND for m in messages)
+    return any(mention_of(m) == "mentioned" or m.get("kind") == THEME_RECAP_KIND for m in messages)
 
 
 def _topic_josa(word: str) -> str:
@@ -278,7 +282,7 @@ def canned_report(payload: dict[str, Any]) -> dict[str, Any]:
         "summary": {"move": _canned_move(payload), "main_cause": main_cause, "relative": None,
                     "counter": None, "unexplained": "이 종목을 직접 다룬 소식이 수집되지 않았습니다."},
         "factors": [], "terms": [], "background": {"bullish": [], "bearish": [], "neutral": []},
-        "not_found": [("직접 언급(match: direct)·테마 동향(kind: theme_recap) 메시지가 0건이라 LLM 을 부르지 않고 "
+        "not_found": [("직접 언급(mention: mentioned)·테마 동향(kind: theme_recap) 메시지가 0건이라 LLM 을 부르지 않고 "
                        "정형 보고서를 냈다")],
         "events": [],
     }

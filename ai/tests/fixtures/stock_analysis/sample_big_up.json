@@ -22,7 +22,7 @@
       "datetime_kst": "2026-09-25T08:20:00+09:00",
       "views": "3100",
       "text": "[샘플] 솔마루전자, 대형 고객사와 3년 부품 공급 계약 체결… 계약 규모 1조 2천억원",
-      "match": "direct"
+      "mention": "mentioned"
     },
     {
       "channel": "sample_channel_b",
@@ -30,7 +30,7 @@
       "datetime_kst": "2026-09-25T11:40:00+09:00",
       "views": "700",
       "text": "[샘플] 부품 업종 재고 부담 이어져 업종 전반 약보합",
-      "match": "indirect"
+      "mention": "not_mentioned"
     }
   ]
 }

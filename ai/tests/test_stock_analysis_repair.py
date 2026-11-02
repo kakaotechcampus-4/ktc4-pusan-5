@@ -19,13 +19,13 @@ from app.services.stock_analysis.verify import (
 
 URL = "https://t.me/ch/1"
 PAYLOAD = {"messages": [{"channel": "ch", "url": URL, "datetime_kst": "2026-10-14T11:40:00+09:00",
-                         "match": "indirect", "text": "미국의 전력망 보안 행정명령은 BESS를 규제 대상 장비로 명시"}]}
+                         "mention": "not_mentioned", "text": "미국의 전력망 보안 행정명령은 BESS를 규제 대상 장비로 명시"}]}
 USAGE = {"prompt_tokens": 100, "completion_tokens": 50, "cost": 0.5, "finish_reason": "stop"}
 
 
 def source(quote):
     return {"channel": "ch", "url": URL, "datetime_kst": "2026-10-14T11:40:00+09:00",
-            "quote": quote, "match": "indirect", "is_market_recap": False}
+            "quote": quote, "mention": "not_mentioned", "is_market_recap": False}
 
 
 def report(quote):

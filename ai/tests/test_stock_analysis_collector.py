@@ -49,7 +49,7 @@ def report_for(payload: dict) -> dict:
             "direction_match": True, "size_fit": "sufficient", "unconfirmed": False,
             "sources": [{"channel": msg["channel"], "url": msg["url"],
                          "datetime_kst": msg["datetime_kst"], "quote": msg["text"][:20],
-                         "match": msg["match"], "is_market_recap": False}],
+                         "mention": msg["mention"], "is_market_recap": False}],
         }],
         "terms": [], "background": {"bullish": [], "bearish": [], "neutral": []}, "not_found": [],
     }
@@ -534,7 +534,7 @@ def _factor(payload, k, layer, size_fit):
     msg = payload["messages"][k]
     f = report["factors"][0]
     f["sources"][0].update(channel=msg["channel"], url=msg["url"], datetime_kst=msg["datetime_kst"],
-                           quote=msg["text"][:20], match=msg["match"])
+                           quote=msg["text"][:20], mention=msg["mention"])
     return {**f, "layer": layer, "size_fit": size_fit}
 
 

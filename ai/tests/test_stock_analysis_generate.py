@@ -354,7 +354,7 @@ async def test_no_judge_retry_when_layers_are_kept_or_report_unopened(fake_compl
 
 
 def _kb(change, peer, excess, messages=None):
-    """직접 언급이 없는 KB금융 입력. 공통 시장 시황만 indirect 로 들어온다(테마 동향 없음)."""
+    """직접 언급이 없는 KB금융 입력. 공통 시장 시황만 not_mentioned 로 들어온다(테마 동향 없음)."""
     return {"stock": "KB금융", "code": "105560", "target_date": "2026-10-23",
             "cutoff": "2026-10-23T15:30:00+09:00", "change_pct": change,
             "market": {"index": "코스피", "change_pct": 0.3, "as_of": "15:30", "url": "",
@@ -362,7 +362,7 @@ def _kb(change, peer, excess, messages=None):
                        "excess_pct": excess},
             "messages": messages if messages is not None else [
                 {"channel": "c", "url": "https://t.me/c/1", "datetime_kst": "2026-10-23T11:00:00+09:00",
-                 "text": "코스피 마감 시황", "match": "indirect", "kind": "market_recap"}]}
+                 "text": "코스피 마감 시황", "mention": "not_mentioned", "kind": "market_recap"}]}
 
 
 async def test_no_direct_or_theme_message_gives_canned_report_without_llm(fake_complete):
@@ -399,9 +399,9 @@ async def test_canned_move_relation_and_common_move(fake_complete, change, peer,
 
 
 @pytest.mark.parametrize("extra", [
-    {"match": "direct", "kind": "news"},
+    {"mention": "mentioned", "kind": "news"},
     # 직접 언급이 없어도 테마 동향이 있으면 부른다. 업종 단락이 sector 근거가 될 수 있다
-    {"match": "indirect", "kind": "theme_recap"},
+    {"mention": "not_mentioned", "kind": "theme_recap"},
 ])
 async def test_direct_or_theme_recap_message_calls_llm(fake_complete, extra):
     payload = _kb(-3.1, -1.57, -1.53)
@@ -420,13 +420,13 @@ def test_canned_report_without_market_or_messages():
     assert report["as_of"] == "11:00"
 
 
-def _msg(n, kind, match="indirect", **kw):
+def _msg(n, kind, mention="not_mentioned", **kw):
     return {"channel": "c", "url": f"https://t.me/c/{n}", "datetime_kst": "2026-10-23T11:00:00+09:00",
-            "text": "t", "match": match, "kind": kind, "after_prev_close": False, "first_seen_kst": None, **kw}
+            "text": "t", "mention": mention, "kind": kind, "after_prev_close": False, "first_seen_kst": None, **kw}
 
 
 def test_model_input_splits_messages_into_three_columns():
-    msgs = [_msg(1, "news", "direct"), _msg(2, "market_recap", "direct"), _msg(3, "flow_rank", "direct"),
+    msgs = [_msg(1, "news", "mentioned"), _msg(2, "market_recap", "mentioned"), _msg(3, "flow_rank", "mentioned"),
             _msg(4, "theme_recap"), _msg(5, "theme_recap", after_prev_close=True), _msg(6, "disclosure"),
             {**_msg(7, None), "kind": None}]
     payload = {**_kb(-3.1, -1.57, -1.53, messages=msgs), "market": {**_kb(-3.1, -1.57, -1.53)["market"],
@@ -441,12 +441,33 @@ def test_model_input_splits_messages_into_three_columns():
     assert len(payload["messages"]) == 7  # 원본은 그대로
 
 
+def _legacy_msg(n, kind, match):
+    """mention 이름을 바꾸기 전 입력 메시지. match: direct|indirect."""
+    m = _msg(n, kind)
+    del m["mention"]
+    return {**m, "match": match}
+
+
+def test_model_input_moves_legacy_match_to_mention():
+    """옛 입력의 match 는 세 칸 모두 mention 으로 옮겨 보낸다 — 프롬프트는 mention 만 설명한다."""
+    payload = _kb(-3.1, -1.57, -1.53, messages=[
+        _legacy_msg(1, "news", "direct"), _legacy_msg(2, "market_recap", "indirect"),
+        _legacy_msg(3, "flow_rank", "indirect")])
+    sent = gen.model_input(payload)
+    got = [(m["url"][-1], m["mention"]) for k in ("messages", "market_context", "flow") for m in sent[k]]
+    assert got == [("1", "mentioned"), ("2", "not_mentioned"), ("3", "not_mentioned")]
+    assert not any("match" in m for k in ("messages", "market_context", "flow") for m in sent[k])
+    assert "match" in payload["messages"][0]  # 원본은 그대로
+    assert gen.needs_llm(payload) and gen.direct_message_count(payload) == 1
+    assert not gen.needs_llm(_kb(-3.1, -1.57, -1.53, messages=[_legacy_msg(1, "news", "indirect")]))
+
+
 @pytest.mark.parametrize(("msgs", "llm"), [
-    ([_msg(1, "market_recap", "direct")], False),                  # 시황은 direct 여도 근거 칸이 아니다
-    ([_msg(1, "flow_rank", "direct")], False),
+    ([_msg(1, "market_recap", "mentioned")], False),                  # 시황은 mentioned 여도 근거 칸이 아니다
+    ([_msg(1, "flow_rank", "mentioned")], False),
     ([_msg(1, "theme_recap", after_prev_close=True)], False),       # 전날 장 설명인 테마 동향은 참고만
     ([_msg(1, "theme_recap")], True),
-    ([_msg(1, "news", "direct")], True),
+    ([_msg(1, "news", "mentioned")], True),
 ])
 def test_needs_llm_counts_only_messages_column(msgs, llm):
     assert gen.needs_llm(_kb(-3.1, -1.57, -1.53, messages=msgs)) is llm
@@ -471,13 +492,13 @@ async def test_move_strength_cap_violation_is_retried(fake_complete):
     """대형주 몫이 절반 이상인 날 등락 층 종목 고유 재료를 sufficient 로 달면 같은 입력으로 한 번 더 부른다."""
     share = json.loads((FIXTURES / "sample_market_share_down.json").read_text(encoding="utf-8"))
     msg = share["messages"][0]
-    assert msg["match"] == "direct"
+    assert msg["mention"] == "mentioned"
     def report(strength):
         return json.dumps({"ticker": share["code"], "verdict": "explained" if strength == "sufficient" else "partially_explained",
                            "relative_verdict": "no_clear_cause",
                            "factors": [{"event": "e", "stance": "bearish", "links": [
                                {"layer": "move", "note": "n", "direction_match": True, "strength": strength}],
-                               "sources": [{"url": msg["url"], "match": "direct"}]}]}, ensure_ascii=False)
+                               "sources": [{"url": msg["url"], "mention": "mentioned"}]}]}, ensure_ascii=False)
     fake_complete.side_effect = [(report("sufficient"), USAGE), (report("partial"), USAGE)]
     w = await gen.generate(share, system="SYS", prompt_hash="abc", run_id="r1")
     assert fake_complete.await_count == 2 and w["judge_retry"]["retried"] is True

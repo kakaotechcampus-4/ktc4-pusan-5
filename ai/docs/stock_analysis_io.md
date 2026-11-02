@@ -90,7 +90,8 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
       "datetime_kst": "2026-09-18T08:10:00+09:00",
       "views": "1200",
       "text": "솔마루전자, 3분기 영업이익 잠정치 412억원… 시장 예상치 590억원 30% 하회",
-      "match": "direct",                      // direct: 이 종목을 직접 다룸(여러 소식 중 한 줄이라도) | indirect: 업황·경쟁사·전방산업만
+      "mention": "mentioned",                 // mentioned: 이 종목을 직접 다룸(여러 소식 중 한 줄이라도) | not_mentioned: 업황·경쟁사·전방산업만
+                                              // 옛 이름 match: direct|indirect 도 받는다(아래 「이전 형식 호환」)
       "kind": "news",                         // flow_rank | market_recap | theme_recap | news_digest | disclosure | news | other
       "after_prev_close": false,              // true 면 직전 거래일 장을 정리한 시황(오늘 원인이 아님)
       "first_seen_kst": null,                 // 직전 구간에 같은 내용이 처음 나온 시각. 없으면 null
@@ -120,7 +121,7 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
   `target_date` 는 run_id 를 거쳐 파일 이름이 되므로 형식이 틀리면 경로에 들어가기 전에 막는다.
 
 - `kind`·`after_prev_close`·`first_seen_kst` 는 입력 생성 단계가 붙인다. 러너 `check_input()` 은 보지 않는다.
-  그날 시장 시황·테마 동향 메시지가 종목과 상관없이 `match: indirect` 로 최대 3건 함께 들어온다.
+  그날 시장 시황·테마 동향 메시지가 종목과 상관없이 `mention: not_mentioned` 로 최대 3건 함께 들어온다.
 
 ### 러너가 모델에 보내는 입력 — `generate.model_input()`
 
@@ -267,7 +268,7 @@ judge 재시도 대상이다.
 
 ### 직접 언급·테마 동향이 0건이면 — 정형 보고서
 
-`messages` 칸에 `match: "direct"` 메시지와 `kind: "theme_recap"` 메시지가 하나도 없으면(시장 시황·매매 순위만 있어도) LLM 을 부르지 않고
+`messages` 칸에 `mention: "mentioned"` 메시지와 `kind: "theme_recap"` 메시지가 하나도 없으면(시장 시황·매매 순위만 있어도) LLM 을 부르지 않고
 `generate.canned_report()` 로 정형 보고서를 낸다. 두 판정 `no_clear_cause`, `factors`·`background`·`terms`·`events` 는 비고,
 `summary.move` 는 입력 숫자로 채운 문장, `main_cause` 는 "제공된 메시지에서 확인된 원인은 없습니다."(`common_move` 날은
 앞에 "대형주 전반이 함께 오른/내린 날이었습니다."), `unexplained` 는 "이 종목을 직접 다룬 소식이 수집되지 않았습니다."
@@ -324,7 +325,7 @@ LLM 을 부른다(`generate.needs_llm`).
           "url": "https://t.me/sample_channel_a/101",  // 입력 messages[].url 그대로
           "datetime_kst": "2026-09-18T08:10:00+09:00",
           "quote": "3분기 영업이익 잠정치 412억원",      // 메시지 text 글자 그대로, 40자 이내
-          "match": "direct",                           // 입력 값 그대로
+          "mention": "mentioned",                      // 입력 값 그대로
           "is_market_recap": false                     // 입력 kind 가 market_recap·theme_recap 이면 true. 검증은 입력 kind 를 본다
         }
       ],
@@ -371,8 +372,8 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verdict`, `relative_verdict` | `explained`, `partially_explained`, `no_clear_cause` | 그 층 link 중 `sufficient` 1개 이상 → `explained`, link 는 있으나 전부 `partial`/`insufficient` → `partially_explained`, link 없음 → `no_clear_cause` |
 | `factors[].stance` | `bullish`, `bearish`, `neutral` | |
 | `links[].layer` | `move`, `relative` | |
-| `links[].strength` | `sufficient`, `partial`, `insufficient` | 모델에는 "출처 중 하나라도 direct 이고 방향이 맞으면 `sufficient`, 아니면 `partial`" 로 쓰게 한다. **최종 값은 러너가 다시 정한다** — 사건의 이슈가 direct 메시지에서 나왔는가 기준(아래 「러너가 정하는 칸」 `strength_recomputed`). 반대 재료는 낮추지 않는다(counter 로). `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial` 이 상한 |
-| `sources[].match` | `direct`, `indirect` | |
+| `links[].strength` | `sufficient`, `partial`, `insufficient` | 모델에는 "출처 중 하나라도 mentioned 이고 방향이 맞으면 `sufficient`, 아니면 `partial`" 로 쓰게 한다. **최종 값은 러너가 다시 정한다** — 사건의 이슈가 mentioned 메시지에서 나왔는가 기준(아래 「러너가 정하는 칸」 `strength_recomputed`). 반대 재료는 낮추지 않는다(counter 로). `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial` 이 상한 |
+| `sources[].mention` | `mentioned`, `not_mentioned` | 옛 값 `match: direct\|indirect` 는 검증 전에 옮긴다(「이전 형식 호환」) |
 | `events[].placed` | `factors`, `background`, `dropped` | 모델은 `factors`·`background` 만. `dropped` 는 러너가 quote 실패로 뺀 항목 |
 | `events[].reason` | `quote_verify_fail` | `dropped` 일 때만. 러너만 쓴다(repair) |
 
@@ -401,6 +402,29 @@ LLM 을 부른다(`generate.needs_llm`).
 
 옛 보고서처럼 factor 에 `links` 대신 `layer`·`size_fit`·`direction_match`·`claim` 이 직접 있으면,
 검증 전에 `normalize_report()` 가 `links` 하나로 옮긴다(`note: null`, `converted: true`).
+
+**`match` → `mention` (2026-11).** 메시지·출처의 `match: direct|indirect` 를 `mention: mentioned|not_mentioned` 로
+바꿨다. 뜻은 같다. 분류 모듈(PR #81)의 `DIRECT` 는 산업 기사도 포함해 뜻이 다른데 이름이 같아 헷갈렸다.
+옛 값은 읽을 때 새 값으로 옮긴다. 규칙은 `verify.LEGACY_MENTIONS` 한 곳에 있다.
+
+| 옛 값 | 새 값 |
+| --- | --- |
+| `match: "direct"` | `mention: "mentioned"` |
+| `match: "indirect"` | `mention: "not_mentioned"` |
+
+- `mention` 이 있으면 그것을 쓰고 `match` 는 무시한다. 둘 다 없으면 값이 없는 것이다(스키마가 `SCHEMA_MISSING`).
+- 위 표 밖의 옛 값은 바꾸지 않고 `mention` 으로만 옮긴다. 스키마가 `SCHEMA_VALUE` 로 잡는다.
+- 보고서 — `normalize_report()` 가 factor·background 출처의 `match` 를 같은 자리의 `mention` 으로 옮긴다.
+  검증 함수마다 처음에 부르므로 옛 보고서도 같은 규칙으로 판정한다. 원본은 고치지 않는다. 출처를 읽는
+  나머지 곳(repair 의 다시 쓰기 입력, 적재)은 `mention_of()` 로 읽는다.
+- 입력 — `generate.model_input()` 이 `verify.normalize_payload()` 로 세 칸 메시지 모두 `mention` 으로 옮겨 보낸다
+  (프롬프트는 `mention` 만 설명한다). 검증은 메시지를 `verify.mention_of()` 로 읽어 옛 입력도 같은 값으로 본다.
+  `inputs/`·`inputs_used/` 사본은 받은 그대로라 옛 입력이면 `match` 가 남는다.
+- DB — `stock_move_analysis_factor_sources.match` 칼럼 이름은 그대로다. 적재(`repositories.stock_move_analysis`)는
+  `mention_of()` 로 읽어 새 값을 넣는다. 이름을 바꾸기 전에 적재한 행에는 `direct`·`indirect` 가 남아 있으니,
+  이 칼럼을 읽는 쪽은 위 표로 옮겨 읽는다. `raw_json` 은 보고서 원본 그대로다(옛 보고서면 `match`).
+- 바꾸지 않은 이름 — 경고 코드 `DIRECT_SOURCE_MISSING`, 래퍼 `skipped_llm: "NO_DIRECT_MESSAGES"` 는 쌓인 래퍼·DB
+  `verify_error` 와 집계가 이어지도록 그대로 둔다. 이슈의 `relation: "direct"` 는 다른 칸(1-2 이슈 관련)이라 그대로다.
 
 ---
 
@@ -435,7 +459,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verify_status` | `passed` / `failed`. 스키마·규칙·근거 중 하나라도 걸리면 failed |
 | `verify_problems` | `"<코드>: <상세>"` 문자열 배열 (예: `QUOTE_NOT_IN_SOURCE: factors[0].sources[0] ...`) |
 | `events_status` / `events_problems` | `events` 칸 검사. `passed` / `failed` / `missing`. 판정과 별개. 형식(`SCHEMA_*`, `EVENT_REASON_MISMATCH`)과 실제 칸 대조: `EVENT_BACKGROUND_REF_MISSING`·`_REF_DUPLICATE`·`_UNREFERENCED`(background 항목과 사건이 하나씩 짝), `EVENT_FACTOR_COUNT`·`_REF_MISSING`·`_DUPLICATE`, `ISSUE_ID_DUPLICATE` |
-| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`·`RELATIVE_STALE`(근거를 뺐는데 그 칸을 다시 쓰지 못함), `REPAIR_SKIPPED_OVER_CAP`(개수 상한을 넘어 quote 고쳐 쓰기를 하지 않음), `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 direct 메시지에서 나왔는데 출처에 direct 가 없음), `MAIN_CAUSE_TOO_LONG`(최종 main_cause 가 러너 고정 문장 포함 3문장 초과. 자르지 않음), `STRENGTH_MISMATCH`(모델 strength 가 정의와 어긋남 — 사건 이슈가 direct(입력 match) 메시지에서 나왔는데 partial, 아닌데 sufficient. issue_trace 가 없으면 출처로 봄. 미확인·대형주 몫 상한은 예외), `COMPARE_META_PHRASE`(독자가 읽는 칸 — summary, factor event·detail·links note, background text — 에 비교 판정의 안쪽 말 "판정하기 어렵"·"기준 시장"·"비교 종목이 하나뿐" 이 있음. quote 는 보지 않음) |
+| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`·`RELATIVE_STALE`(근거를 뺐는데 그 칸을 다시 쓰지 못함), `REPAIR_SKIPPED_OVER_CAP`(개수 상한을 넘어 quote 고쳐 쓰기를 하지 않음), `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 mentioned 메시지에서 나왔는데 출처에 mentioned 가 없음), `MAIN_CAUSE_TOO_LONG`(최종 main_cause 가 러너 고정 문장 포함 3문장 초과. 자르지 않음), `STRENGTH_MISMATCH`(모델 strength 가 정의와 어긋남 — 사건 이슈가 mentioned(입력 mention) 메시지에서 나왔는데 partial, 아닌데 sufficient. issue_trace 가 없으면 출처로 봄. 미확인·대형주 몫 상한은 예외), `COMPARE_META_PHRASE`(독자가 읽는 칸 — summary, factor event·detail·links note, background text — 에 비교 판정의 안쪽 말 "판정하기 어렵"·"기준 시장"·"비교 종목이 하나뿐" 이 있음. quote 는 보지 않음) |
 | `issue_trace_warnings` / `issue_trace_stats` | `ISSUE_TRACE_MISSING_URL`(messages 칸 누락)·`ISSUE_ID_UNKNOWN` 경고와 집계(`messages_traced`, `messages_total`, `relations`, `issues_used`) |
 
 ### 재시도·고쳐 쓰기 기록
@@ -457,7 +481,7 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
 
 | 키 | 뜻 |
 | --- | --- |
-| `strength_recomputed` | link 마다 `{factor, layer, model, final, basis}`. 그 factor 사건의 이슈(`events.issue_ids` → `issue_trace`)가 하나라도 입력 match=direct 메시지에서 나왔으면 `sufficient`, 아니면 `partial`(`basis: "issues"`, DIRECT_SOURCE_MISSING 과 같은 판단 `verify.factor_has_direct`). issue_trace 가 없거나 사건에 issue_ids 가 없으면 출처로 본다(`basis: "sources"`). `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial`. `insufficient`·`direction_match: false` link 는 그대로 둔다. 경고 `STRENGTH_MISMATCH` 는 `model` 값을 같은 정의로 본다 |
+| `strength_recomputed` | link 마다 `{factor, layer, model, final, basis}`. 그 factor 사건의 이슈(`events.issue_ids` → `issue_trace`)가 하나라도 입력 mention=mentioned 메시지에서 나왔으면 `sufficient`, 아니면 `partial`(`basis: "issues"`, DIRECT_SOURCE_MISSING 과 같은 판단 `verify.factor_has_direct`). issue_trace 가 없거나 사건에 issue_ids 가 없으면 출처로 본다(`basis: "sources"`). `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial`. `insufficient`·`direction_match: false` link 는 그대로 둔다. 경고 `STRENGTH_MISMATCH` 는 `model` 값을 같은 정의로 본다 |
 | `verdict_recomputed` | `[{key: verdict\|relative_verdict, model, final}]`. 검증 판정표 그대로 — 그 층 link 에 `sufficient` 가 있으면 `explained`, link 가 있으면 `partially_explained`, 없으면 `no_clear_cause`(`finalize.layer_verdict`). `judge_layers` 가 false 인 층은 link 가 없으면 이 표로도 `no_clear_cause` 다. link 가 남아 있으면 판정만 바꾸지 않는다 — 판정만 no_clear_cause 로 두면 검증 사유가 실제 잘못(그 층 link, `FLAT_*`)이 아니라 `VERDICT_SIZE_FIT` 로 바뀌어 가려진다 |
 | `main_cause_fixed` | `common_move`·`market_led` 날 `{before, after}`, 그 밖 null. 앞에 "대형주 전반이 함께 오른(내린) 날이었습니다.", `common_move` 날은 끝에 "이 종목만의 원인은 따로 확인되지 않았습니다." 를 붙인다. 모델이 같은 문장을 썼으면 지우고 한 번만 붙인다 |
 
@@ -512,4 +536,4 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
   `links` 를 담는 칼럼이 없다. 새 칸은 `raw_json` 에만 들어간다. 백엔드가 두 층을 화면에 내려면 적재 쪽 스키마 정리가 먼저 필요하다.
 - 보고서 JSON 키는 **snake_case** 다. 루트 CLAUDE.md 의 camelCase 규약은 백엔드 응답 직렬화에서 맞춘다.
 - `as_of` 는 `"HH:MM"` 문자열이다. 적재 시 `target_date` 와 합쳐 KST aware datetime 으로 저장한다.
-- `not_found`, `events`, `sources[].match`, `sources[].is_market_recap` 은 검수용이라 화면에 내지 않는다.
+- `not_found`, `events`, `sources[].mention`, `sources[].is_market_recap` 은 검수용이라 화면에 내지 않는다.

@@ -48,6 +48,7 @@ from app.services.stock_analysis.verify import (
     _messages,
     _sources,
     layer_pct,
+    mention_of,
     normalize_report,
 )
 
@@ -71,7 +72,7 @@ _QUOTE_RULES = """\
 sources 의 url 은 아래 원문 메시지 url 중에서만 고릅니다.
 """
 _SOURCE_SHAPE = ('{"channel": "", "url": "", "datetime_kst": "", "quote": "", '
-                 '"match": "direct|indirect", "is_market_recap": false}')
+                 '"mention": "mentioned|not_mentioned", "is_market_recap": false}')
 
 REPAIR_SYSTEM = """\
 주가 변동 보고서의 근거(factor) 하나를 고칩니다.
@@ -104,7 +105,7 @@ def _repair_user(kind: str, item: dict[str, Any], failures: list[str],
                  messages: list[dict[str, Any]]) -> str:
     urls = {s.get("url") for s in _sources(item)}
     scope = [{"channel": m.get("channel"), "url": m.get("url"), "datetime_kst": m.get("datetime_kst"),
-              "match": m.get("match"), "text": m.get("text")}
+              "mention": mention_of(m), "text": m.get("text")}
              for m in messages if m.get("url") in urls]
     return json.dumps({kind: item, "failed_quotes": failures, "messages": scope},
                       ensure_ascii=False, indent=2)
@@ -293,7 +294,7 @@ _SUMMARY_SYSTEM = """\
 - 최대 max_sentences 문장, 줄글입니다. {layer_name} link({layer}_link)의 strength 가 높은 것부터 씁니다.
   strength 가 insufficient 인 근거는 넣지 않습니다.
 - {empty}
-- 간접 근거(sources 의 match 가 모두 indirect)나 미확인(unconfirmed: true)에서 온 원인은
+- 간접 근거(sources 의 mention 이 모두 not_mentioned)나 미확인(unconfirmed: true)에서 온 원인은
   추정·미확인임이 드러나게 씁니다("…가 부담이 됐을 수 있습니다").
 - 지금 {field} 의 문장 중 남은 근거를 말하는 부분은 표현을 되도록 그대로 둡니다.
 - 방향이 반대인 재료를 섞지 않습니다.
@@ -377,7 +378,7 @@ def _remaining(report: dict[str, Any], layer: str) -> list[dict[str, Any]]:
         if link is not None:
             out.append({"event": f.get("event"), "detail": f.get("detail"),
                         "stance": f.get("stance"), "unconfirmed": f.get("unconfirmed"),
-                        "source_matches": [s.get("match") for s in _sources(f)],
+                        "source_mentions": [mention_of(s) for s in _sources(f)],
                         f"{layer}_link": {"note": link.get("note"), "strength": link.get("strength")}})
     return out
 

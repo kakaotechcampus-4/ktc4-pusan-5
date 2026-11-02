@@ -1,6 +1,6 @@
 """모델 출력 뒤 러너가 정하는 칸. 모델이 판단할 필요가 없는 값은 러너가 다시 계산하거나 직접 넣는다.
 
-    recompute_strength   link strength 를 5단계 정의(출처의 입력 match·상한)로 다시 정한다
+    recompute_strength   link strength 를 5단계 정의(출처의 입력 mention·상한)로 다시 정한다
     recompute_verdicts   층별 판정을 검증 판정표(verify._check_verdict_tables)로 다시 정한다
     fix_main_cause       common_move·market_led 날 main_cause 의 앞뒤 고정 문장을 붙인다
 
@@ -38,7 +38,7 @@ _TAIL_RE = re.compile(re.escape(TAIL_SENTENCE[:-1]) + r"\.?")
 
 
 def defined_strength(factor: dict[str, Any], layer: str, has_direct: bool, move_capped: bool) -> str:
-    """5단계 정의의 strength. 사건이 입력 match=direct 메시지에서 나왔으면(verify.factor_has_direct) sufficient, 아니면
+    """5단계 정의의 strength. 사건이 입력 mention=mentioned 메시지에서 나왔으면(verify.factor_has_direct) sufficient, 아니면
     partial. 미확인(unconfirmed) factor 와, move_strength_cap 이 partial 인 날의 등락 층은 partial 까지다."""
     capped = factor.get("unconfirmed") is True or (layer == "move" and move_capped)
     return CAPPED_SIZE_FIT if has_direct and not capped else "partial"
@@ -48,7 +48,7 @@ def recompute_strength(report: dict[str, Any], payload: dict[str, Any],
                        issue_trace: Any = None) -> list[dict[str, Any]]:
     """link 마다 strength 를 정의대로 고친다. report 를 제자리에서 고치고 [{factor, layer, model, final, basis}] 를 돌려준다.
 
-    direct 여부는 출처 목록이 아니라 그 factor 사건의 이슈(events.issue_ids → issue_trace)가 나온 메시지로 본다 —
+    mentioned 여부는 출처 목록이 아니라 그 factor 사건의 이슈(events.issue_ids → issue_trace)가 나온 메시지로 본다 —
     같은 사건에 어느 출처를 달았는지로 판정이 갈리지 않게 한다(2026-10-25, runner_v13 삼성전자 21일). issue_trace 가
     없거나 사건에 issue_ids 가 없으면 출처로 본다. basis 가 그 기준("issues" | "sources")이다.
 

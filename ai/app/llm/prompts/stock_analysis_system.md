@@ -58,7 +58,7 @@ JSON 하나를 받습니다.
 }
 
 <메시지> = { "id": "<m1, m2 … messages 칸에만 붙는다>",
-             "channel": "", "url": "", "datetime_kst": "", "text": "", "match": "direct|indirect",
+             "channel": "", "url": "", "datetime_kst": "", "text": "", "mention": "mentioned|not_mentioned",
              "kind": "", "after_prev_close": <true | false>, "first_seen_kst": "<시각 | null>",
              "dup_channels": <숫자> }
 ```
@@ -72,10 +72,11 @@ JSON 하나를 받습니다.
 | `flow` | 같은 사건 factor 의 `detail` 이나 `background` 의 보조 근거로만 쓴다. 순위만으로 factor 를 만들지 않는다 |
 
 - 메시지는 이미 종목·시간으로 걸러진 상태입니다. `cutoff` 이후 메시지는 들어오지 않습니다.
-- `match` 는 그 메시지가 이 종목을 직접 다루는지(`direct`), 업황·경쟁사·전방산업만
-  다루는지(`indirect`)입니다. 뉴스 모음 속에 이 종목 헤드라인 줄이 있으면 그 메시지는 `direct` 입니다.
-  시황·테마 동향에서 종목명이 나열된 것은 `indirect` 일 수 있습니다. `indirect` 라고 이 종목이 언급되지
-  않았다는 뜻은 아닙니다. `direct` 메시지 안에도 이 종목과 무관한 줄이 있을 수 있으므로, 이슈마다의
+- `mention` 은 그 메시지가 이 종목을 직접 다루는지(`mentioned`), 업황·경쟁사·전방산업만
+  다루는지(`not_mentioned`)입니다. 뉴스 모음 속에 이 종목 헤드라인 줄이 있으면 그 메시지는 `mentioned` 입니다.
+  시황·테마 동향에서 종목명이 나열된 것은 `not_mentioned` 일 수 있습니다. `not_mentioned` 는 종목명이 글자로
+  나오지 않는다는 뜻이 아니라 이 종목을 다룬 소식이 없다는 뜻입니다. `mentioned` 메시지 안에도 이 종목과
+  무관한 줄이 있을 수 있으므로, 이슈마다의
   관련은 1단계 1-2 에서 따로 정합니다. 판단 절차 6단계에서 씁니다.
 - `first_seen_kst` 가 있으면 전날부터 이어진 재료입니다(6단계 「그날의 정보」).
 - `dup_channels` 는 같은 내용으로 묶인 메시지들의 채널 수입니다. 묶인 것이 없으면 1 입니다.
@@ -121,7 +122,7 @@ JSON 하나를 받습니다.
 | `none` | 이 종목, 이 종목의 업종, 그날 시장 전체 등락 중 어디와도 이어지지 않는다 |
 
 `direct`·`sector`·`market` 이슈를 다음 단계로 가져갑니다. `none` 이슈는 `issue_trace` 에 개수만
-남고(`none_count`) 다른 칸에 쓰지 않습니다. `sector` 이슈는 메시지의 `match` 값과 관계없이 6단계의 간접
+남고(`none_count`) 다른 칸에 쓰지 않습니다. `sector` 이슈는 메시지의 `mention` 값과 관계없이 6단계의 간접
 근거로 다룹니다(`strength` 상한 `partial`, 추정임이 드러나게).
 `market` 이슈는 3단계(시장·업종 전체를 움직인 사건)와 3부 표에 적힌 대로 다룹니다.
 관련을 판단할 때 이슈를 새로 만들지 않습니다. "실적 기대", "투자심리 개선", "저가 매수" 처럼
@@ -305,8 +306,8 @@ JSON 하나를 받습니다.
 
 | 값 | 조건 |
 | --- | --- |
-| `sufficient` | 둘 다 — ① 출처 중 하나라도 `match: "direct"` 다 ② 그 층의 방향이 맞다 |
-| `partial` | 방향은 맞지만 출처에 `match: "direct"` 가 없다 |
+| `sufficient` | 둘 다 — ① 출처 중 하나라도 `mention: "mentioned"` 다 ② 그 층의 방향이 맞다 |
+| `partial` | 방향은 맞지만 출처에 `mention: "mentioned"` 가 없다 |
 | `insufficient` | 관련은 있으나 그 층의 움직임에 거의 닿지 않는다 |
 
 - 반대 방향 재료는 `strength` 를 낮추지 않습니다. 그런 재료는 `summary.counter` 와 `background` 로만 보여 줍니다.
@@ -320,8 +321,8 @@ JSON 하나를 받습니다.
 
 | 근거 | 무엇 | `strength` 상한 (모든 link) | 서술 |
 | --- | --- | --- | --- |
-| 직접 | `match: "direct"` 메시지 | 제한 없음 | 사실로 씁니다 |
-| 간접 | `match: "indirect"` 메시지만 있음 | **`partial`** | **추정임이 드러나게** |
+| 직접 | `mention: "mentioned"` 메시지 | 제한 없음 | 사실로 씁니다 |
+| 간접 | `mention: "not_mentioned"` 메시지만 있음 | **`partial`** | **추정임이 드러나게** |
 | 미확인 | 출처 스스로 확인되지 않았다고 밝힘 | **`partial`** | **확인되지 않았음이 드러나게** |
 
 **간접 근거.** 업황·경쟁사·전방산업만 다룬 메시지입니다. 직접 재료가 있으면 그것을 보강하는
@@ -417,7 +418,7 @@ JSON 하나를 받습니다.
 - 종목·업종 재료(경쟁사 실적 포함) → `background`
 
 **`market.market_led` 가 `true` 인 날은 등락 층 factor 를 시장·업종 재료(`relation: "market"`·`"sector"`)로만 세웁니다.**
-종목 고유 재료(`relation: "direct"`)는 출처가 `direct` 여도 등락 층 원인으로 세우지 않고 `background` 에 둡니다. 대형주와
+종목 고유 재료(`relation: "direct"`)는 출처가 `mention: "mentioned"` 여도 등락 층 원인으로 세우지 않고 `background` 에 둡니다. 대형주와
 비슷하게 움직인 날이라 고유 재료의 추가 영향은 작습니다.
 
 다른 재료가 그 영향을 상쇄했다고 쓰지 마세요. 메시지만으로는 각 재료가 얼마나 반영됐는지 알 수 없습니다.
@@ -616,7 +617,7 @@ factor 에는 **출처에서 확인할 수 있는 말**만 쓰고, **당신이 �
 - **`sources`** — 최소 1개, 최대 3개. 출처 없는 주장은 넣지 않습니다.
   - 같은 사건을 전한 메시지가 여럿이면 **서로 다른 채널**을 고르고, 테마 동향·매매 순위보다 **원 소식**을
     먼저 고릅니다. `market_context` 메시지는 출처로 쓰지 않습니다(1부).
-  - **같은 사건을 다룬 `match: "direct"` 메시지가 입력에 있으면 반드시 그 메시지를 출처에 넣습니다.**
+  - **같은 사건을 다룬 `mention: "mentioned"` 메시지가 입력에 있으면 반드시 그 메시지를 출처에 넣습니다.**
   - 1-3 에서 서로 다른 소식을 묶은 사건이면 **소식마다 출처를 하나씩** 답니다. 같은 메시지에서 나온 소식이면 같은 `url` 을 두 번 써도 되고, `quote` 는 소식마다 다른 구절을 발췌합니다.
   - `url` — **입력 메시지에 있는 URL 을 그대로.** 만들어내지 마세요.
   - `quote` — 메시지 `text` 에서 **글자 그대로** 발췌합니다(40자 이내).
@@ -624,9 +625,9 @@ factor 에는 **출처에서 확인할 수 있는 말**만 쓰고, **당신이 �
     **첫 번째 출처의 `quote` 는 `event`(background 는 `text`)의 핵심 부분을 담아야 합니다.**
     사건이 있었다는 것만, 또는 미확인이라는 것만 보여주는 구절은 첫 번째 출처의 `quote` 가
     될 수 없습니다. 두 번째, 세 번째 출처는 같은 사건을 다른 채널이 전했다는 확인이면 됩니다.
-  - `match` — 입력의 값을 그대로 옮깁니다.
+  - `mention` — 입력의 값을 그대로 옮깁니다.
   - `is_market_recap` — 그 메시지의 `kind` 가 `theme_recap` 이면 `true`.
-  - `match` 와 `is_market_recap` 은 검증용이라 화면에 나가지 않습니다. 정확하게 채우되
+  - `mention` 과 `is_market_recap` 은 검증용이라 화면에 나가지 않습니다. 정확하게 채우되
     본문 서술에는 영향을 주지 마세요.
 - **`links`** — 이 사건이 어느 층의 질문에 어떻게 답하는지입니다. **최소 1개**, 층마다 최대 1개입니다
   (한 factor 에 같은 `layer` 를 두 번 쓰지 않습니다). **`market.judge_layers` 가 `false` 인 층에는 달지 않습니다**(2부 7단계).
@@ -805,7 +806,7 @@ terms  { "plain": "그때그때 거래되는 시세", "term": "스팟가격" }
           "url": "<텔레그램 메시지 URL>",
           "datetime_kst": "<메시지 게시 시각>",
           "quote": "<원문 그대로, 40자 이내>",
-          "match": "direct | indirect",
+          "mention": "mentioned | not_mentioned",
           "is_market_recap": <true | false>
         }
       ],
