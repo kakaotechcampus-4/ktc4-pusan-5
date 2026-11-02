@@ -5,6 +5,8 @@ import os
 import time
 from pathlib import Path
 
+import pytest
+
 from app.collectors.market import HEARTBEAT_PATH, touch_heartbeat
 
 
@@ -39,5 +41,7 @@ def test_unwritable_path_does_not_raise_and_logs_a_warning(tmp_path, caplog):
 
 def test_default_path_is_the_one_the_compose_healthcheck_reads():
     compose = Path(__file__).resolve().parents[2] / "docker-compose.yml"
+    if not compose.exists():
+        pytest.skip("저장소 루트의 docker-compose.yml 이 없는 환경(backend 폴더만 있는 경우)")
 
     assert HEARTBEAT_PATH.as_posix() in compose.read_text(encoding="utf-8")
