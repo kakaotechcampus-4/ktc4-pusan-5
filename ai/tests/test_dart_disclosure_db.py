@@ -15,12 +15,12 @@ import pytest
 from app.repositories.dart_disclosure import known_rcept_nos, save_disclosures
 from app.repositories.scope import count_collected
 from app.repositories.source_card import (
-    _dart_rcept_no,
     card_ids_for_urls,
     get_sources,
     register_missing_sources,
     stock_card_ids,
 )
+from app.repositories.source_card.url import _dart_rcept_no
 from app.services.dart.schema import Disclosure
 from tests.db import in_session
 from tests.test_migrations import alembic, columns, query

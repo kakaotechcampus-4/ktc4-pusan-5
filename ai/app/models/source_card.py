@@ -17,7 +17,7 @@ report_citation 으로 인용만 한다. 위의 칼럼은 backend 모델 그대�
 경로는 텔레그램 첨부다. 기업·산업 분류는 여기 두지 않는다 — 원문 저장과 분리한다.
 
 raw_text·cleaned_text·source_url 은 backend 가 원문을 직접 담던 카드용이다. 위 네 종류의
-카드는 비워 둔다. 원문은 FK 로 따라가 읽는다(repositories/source_card.py 의 get_sources).
+카드는 비워 둔다. 원문은 FK 로 따라가 읽는다(repositories/source_card/query.py 의 get_sources).
 
 종목 브리핑은 "이 종목에 관한 자료 중 기준 시각 이전에 나온 것" 을 찾는다. 그 색인이 둘이다.
     available_at        이 자료가 공개돼 있었다고 확인된 가장 이른 시각
