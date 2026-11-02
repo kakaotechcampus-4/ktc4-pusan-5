@@ -59,9 +59,19 @@ def test_llm_choice_is_limited_to_listed_codes_and_asked_mentions() -> None:
     {"event": True, "mention": "메모리 업체들", "code": "memory"},
     {"event": 1, "mention": {}, "code": "memory"},
     {"mention": "메모리 업체들", "code": "memory"},
+    {"event": 1, "mention": "메모리 업체들", "code": ["memory"]},
+    {"event": 1, "mention": "메모리 업체들", "code": {}},
+    {"event": 1, "mention": "메모리 업체들", "code": 3},
+    {"event": 1, "mention": "메모리 업체들"},  # null 과 다르다. 답을 안 준 것이다
 ])
 def test_malformed_row_is_a_format_error(row) -> None:
     """ValueError 라야 회차가 failed 로 남는다. 조용히 버리면 표기가 연결되지 않은 채 ok 가 된다."""
     text = json.dumps({"links": [row]}, ensure_ascii=False)
-    with pytest.raises(ValueError, match="links 의 행|알아볼 수 없다"):
+    with pytest.raises(ValueError, match="links 의 행|알아볼 수 없다|code 는"):
         parse_link_response(text, [Unresolved(1, "메모리 업체들")], BASIS)
+
+
+def test_null_code_means_no_match_and_is_not_an_error() -> None:
+    text = json.dumps({"links": [{"event": 1, "mention": "현대차그룹", "code": None}]},
+                      ensure_ascii=False)
+    assert parse_link_response(text, [Unresolved(1, "현대차그룹")], BASIS) == {}

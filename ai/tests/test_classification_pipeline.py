@@ -64,7 +64,12 @@ def test_user_message_numbers_body_but_not_title() -> None:
     assert build_user_message(TITLE, ["가.", "나."]) == f"[제목] {TITLE}\n\n[본문]\n[1] 가.\n[2] 나."
 
 
-@pytest.mark.parametrize("row", [None, {"event": [], "mention": "메모리 업체들", "code": "memory"}])
+@pytest.mark.parametrize("row", [
+    None,
+    {"event": [], "mention": "메모리 업체들", "code": "memory"},
+    {"event": 1, "mention": "메모리 업체들", "code": ["memory"]},
+    {"event": 1, "mention": "메모리 업체들"},
+])
 async def test_malformed_link_response_fails_this_run_only(monkeypatch, row) -> None:
     """예외가 새면 배치가 멈춰 이 자료의 실패 기록도, 뒤 자료 처리도 사라진다."""
     extract = {"events": [{"scope": "industry", "role": "cause", "tense": "past", "sentences": [1],

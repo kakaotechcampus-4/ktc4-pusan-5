@@ -135,8 +135,11 @@ def parse_link_response(text: str, items: list[Unresolved], basis: Basis) -> dic
         if (not isinstance(key[0], int) or isinstance(key[0], bool)
                 or not isinstance(key[1], str)):
             raise ValueError(f"사건 번호·표기를 알아볼 수 없다: {key!r}")  # noqa: TRY004 — 위와 같다
-        code = item.get("code")
-        if key not in asked or not isinstance(code, str) or key in seen:
+        # null 은 정상 답이고, 칸이 없거나 다른 타입이면 형식 오류다. 함께 버리면 구분이 안 된다
+        if "code" not in item or not (item["code"] is None or isinstance(item["code"], str)):
+            raise ValueError(f"code 는 문자열이나 null 이어야 한다: {item.get('code')!r}")
+        code = item["code"]
+        if key not in asked or code is None or key in seen:
             continue
         if code in basis.stocks:
             link = EntityLink(mention=key[1], stock_code=code, linked_by="llm_code")
