@@ -51,6 +51,31 @@ async def test_snapshot_keeps_quote_when_metric_is_malformed_and_treats_zero_opt
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("118.76", Decimal("18.76")),  # KIS 는 전일=100 인 비율을 준다 -> 변화율로 변환
+        ("61.90", Decimal("-38.10")),
+        ("0.00", None),  # 전일 거래량 0 또는 거래 전: -100% 로 보이지 않게 값 없음
+        ("", None),
+        ("bad", None),  # 부가 정보가 이상해도 시세는 살린다
+        (None, None),
+    ],
+)
+async def test_snapshot_converts_volume_rate_to_change_and_keeps_quote(raw, expected):
+    output = {
+        "stck_prpr": "100", "prdy_vrss": "1", "prdy_ctrt": "1", "acml_vol": "2",
+        "acml_tr_pbmn": "3", "hts_avls": "0",
+    }
+    if raw is not None:
+        output["prdy_vrss_vol_rate"] = raw
+    result = await fetch_snapshot(FakeKis({"output": output}), "005930")
+    assert result.quote_error is None
+    assert result.quote["price"] == Decimal(100)
+    assert result.quote["volume_change"] == expected
+
+
+@pytest.mark.asyncio
 async def test_snapshot_rejects_market_cap_that_exceeds_safe_integer():
     kis = FakeKis({"output": {
         "stck_prpr": "100", "prdy_vrss": "1", "prdy_ctrt": "1", "acml_vol": "2",

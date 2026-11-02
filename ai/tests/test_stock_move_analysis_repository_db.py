@@ -61,3 +61,39 @@ def test_regenerated_file_is_still_a_new_row(database, tmp_path):
     assert load(database, [SAMSUNG]) == 1
     assert load(database, [regenerated]) == 1
     assert counts(database)[0] == 2
+
+
+def test_report_sources_are_linked_to_source_cards_now_or_later(database, tmp_path):
+    """출처 주소로 저장된 원문을 찾아 공통 자료 ID 를 잇는다. 못 찾은 출처는 나중에 다시 찾는다."""
+    from app.repositories.source_card import register_missing_sources
+    from app.repositories.stock_move_analysis import link_analysis_sources
+    from tests.db import in_session
+
+    alembic(database, "upgrade", "head")
+    assert load(database, [SAMSUNG]) == 1
+    linked = "SELECT count(*) FROM stock_move_analysis_factor_sources WHERE source_card_id IS NOT NULL"
+    assert query(database, linked)[0][0] == 0, "원문이 아직 없다"
+
+    # 보고서를 적재한 뒤에 그 메시지를 수집했다
+    query(database, """
+        INSERT INTO channel (telegram_handle, name, is_public, created_at)
+        VALUES ('KISGregKim', 'KISGregKim', true, now())
+    """)
+    query(database, """
+        INSERT INTO telegram_messages (channel_id, msg_id, url, posted_at, text, collected_via)
+        SELECT id, 18692, 'https://t.me/KISGregKim/18692', '2026-09-18 09:00+09', '메시지', 'web'
+        FROM channel
+    """)
+    in_session(database, register_missing_sources)
+    wanted = query(database, "SELECT count(*) FROM stock_move_analysis_factor_sources "
+                             "WHERE url = 'https://t.me/KISGregKim/18692'")[0][0]
+    assert wanted > 0
+    assert in_session(database, link_analysis_sources) == wanted
+    assert query(database, linked)[0][0] == wanted
+    assert in_session(database, link_analysis_sources) == 0, "이미 이은 출처는 다시 보지 않는다"
+
+    # 원문이 이미 있으면 적재할 때 바로 잇는다 (재생성본은 새 행이다)
+    regenerated = tmp_path / SAMSUNG.name
+    regenerated.write_bytes(SAMSUNG.read_bytes() + b"\n")
+    assert load(database, [regenerated]) == 1
+    assert query(database, linked)[0][0] == wanted * 2

@@ -47,6 +47,7 @@ class QuoteData(CamelModel):
     change: FiniteFloat
     change_amount: FiniteFloat
     volume: int = Field(ge=0, le=9007199254740991)
+    volume_change: FiniteFloat | None = None
     trading_value: FiniteFloat = Field(ge=0)
     market_cap: FiniteFloat | None = Field(default=None, ge=0)
 

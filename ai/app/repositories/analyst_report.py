@@ -48,6 +48,7 @@ async def upsert_analyst_reports(session: AsyncSession, rows: list[dict]) -> int
 
     텔레그램의 기존 메시지는 보존하고, 네이버는 조회 수와 제공 요약을 갱신한다.
     네이버 PDF 재수집에 실패해도 기존 정상 본문과 PDF 정보를 보존한다.
+    보관 정책으로 본문을 지운 행(purged)은 다시 받은 PDF 로 되살리지 않는다.
 
     네이버에 같은 PDF가 있으면 텔레그램 행은 저장하지 않는다.
     반환값은 실제 삽입/갱신한 행 수이며 중복으로 건너뛴 행은 제외한다.
@@ -84,9 +85,10 @@ async def upsert_analyst_reports(session: AsyncSession, rows: list[dict]) -> int
             "attach_url", "pdf_sha256", "pdf_bytes", "pdf_pages", "body_text", "body_chars",
             "body_status", "body_extractor", "body_error", "body_fetched_at",
         }
-        preserve_pdf = (AnalystReport.body_status == "ok") & (
+        # 보관 정책으로 본문을 지운 행(purged)은 다시 받은 PDF 로 되살리지 않는다.
+        preserve_pdf = ((AnalystReport.body_status == "ok") & (
             stmt.excluded.body_status.in_(("pending", "failed", "empty", "skipped", "unusable"))
-        )
+        )) | (AnalystReport.body_status == "purged")
         updates = {
             c: case((preserve_pdf, getattr(AnalystReport, c)),
                     else_=getattr(stmt.excluded, c)) if c in pdf_fields

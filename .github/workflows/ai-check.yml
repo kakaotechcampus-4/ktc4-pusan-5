@@ -1,0 +1,58 @@
+name: AI checks
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'ai/**'
+      - 'backend/alembic/**'
+      - '.github/workflows/ai-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: review
+          POSTGRES_PASSWORD: review-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U review -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      MIGRATION_TEST_ADMIN_URL: postgresql://review:review-ci-only@localhost:5432/postgres
+      PYTHONIOENCODING: utf-8
+    defaults:
+      run:
+        working-directory: ai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test tools
+        run: |
+          python -m pip install uv==0.11.14
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+      - name: Install locked dependencies
+        run: uv sync --frozen
+      - name: Lint
+        run: uv run --frozen ruff check .
+      - name: Unit, repository and migration tests
+        run: uv run --frozen pytest -q -m 'not network'

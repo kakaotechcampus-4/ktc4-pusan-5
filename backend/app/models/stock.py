@@ -51,6 +51,8 @@ class StockQuoteSnapshot(Base):
     change: Mapped[Decimal] = mapped_column(Numeric(24, 8))
     change_amount: Mapped[Decimal] = mapped_column(Numeric(24, 8))
     volume: Mapped[int] = mapped_column(BigInteger)
+    # 전일 대비 거래량 변화율(%). KIS prdy_vrss_vol_rate(전일=100) 에서 100 을 뺀 값
+    volume_change: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
     trading_value: Mapped[Decimal] = mapped_column(Numeric(24, 8))
     market_cap: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
     source: Mapped[str] = mapped_column(String(12), default="KIS")

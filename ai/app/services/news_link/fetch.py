@@ -10,6 +10,7 @@
     (1) 단축 URL 을 따라가 **최종 주소와 도메인**을 알아낸다. 본문을 못 읽는 PDF 라도
         "buly.kr" 이 "file.hanaw.com" 이 되면 모델이 출처는 알아본다.
     (2) 본문 앞 몇 문장을 **잘라낸다.** 요약하지 않는다 (clean.py 참고).
+        정제한 본문 전체는 `text` 에 두고 news 표에 저장한다. 직렬화되지 않는다(schema.py 참고).
 
 **LLM 이 부르는 tool 이 아니다.** 에이전트가 링크를 만날 때마다 tool 을 부르면
 호출마다 컨텍스트가 통째로 다시 올라간다. 프로토타입에서 그렇게 돌렸더니 런당
@@ -139,8 +140,9 @@ async def ensure_public(url: str) -> None:
     호스트는 urlparse 가 아니라 httpx 로 읽는다. 검사하는 쪽과 접속하는 쪽이 주소를
     다르게 읽으면 그 틈으로 빠져나간다. 접속할 httpx 가 읽은 그대로 검사한다.
     """
-    host = httpx.URL(url).host
-    if not host:
+    parsed = httpx.URL(url)
+    host = parsed.host
+    if parsed.scheme not in ("http", "https") or not host:
         raise BlockedAddressError(url)
     addresses = await resolve_host(host)
     if not addresses or not all(is_public_ip(address) for address in addresses):
@@ -193,6 +195,28 @@ def decode_html(content: bytes, content_type: str) -> str:
         return content.decode("utf-8", errors="replace")
 
 
+class HtmlTooLargeError(ValueError):
+    """압축 해제한 HTML이 수집 상한보다 크다."""
+
+
+async def read_limited_html(response: httpx.Response) -> bytes:
+    """헤더와 실제 수신량을 모두 검사한다. 네이버·텔레그램 본문 요청이 같은 제한을 쓴다.
+
+    httpx가 압축을 푼 조각을 준다. 한 조각을 푸는 순간의 메모리 사용량은 상한보다 클 수 있다.
+    """
+    length = response.headers.get("content-length")
+    if length and length.isdigit() and int(length) > MAX_HTML_BYTES:
+        raise HtmlTooLargeError
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in response.aiter_bytes():
+        size += len(chunk)
+        if size > MAX_HTML_BYTES:
+            raise HtmlTooLargeError
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 async def fetch_link(
     client: httpx.AsyncClient,
     url: str,
@@ -225,31 +249,11 @@ async def fetch_link(
                 body.content_type = content_type or None
                 return body
 
-            # 서버가 알려준 크기(Content-Length)가 기준치보다 크면 본문을 받지 않고 바로 끊는다.
-            length = response.headers.get("content-length")
-            if length and length.isdigit() and int(length) > MAX_HTML_BYTES:
+            try:
+                content = await read_limited_html(response)
+            except HtmlTooLargeError:
                 body.status = "too_large"
                 return body
-
-            # 헤더만 믿지 않는다. content-length 를 안 주는 서버가 있고, 압축된 응답은
-            # 압축된 크기를 적어서 풀면 몇십 배가 된다. 그래서 받으면서 세다가 넘는 순간
-            # 끊는다. 다 받고 나서 재면 그 전에 이미 메모리에 다 올라가 있다.
-            # aiter_bytes 는 압축을 푼 조각을 준다(aiter_raw 는 압축된 크기라 폭탄을 놓친다).
-            #
-            # 막지 못하는 것: 압축된 조각 하나는 httpx 가 한 번에 풀어서 넘긴다. 그래서
-            # 압축 응답은 상한(3MB)이 아니라 "조각 하나가 풀린 크기" 만큼 순간적으로 올라갈
-            # 수 있다. 다음 조각부터는 받지 않으므로 끝없이 늘지는 않는다(2026-10-01 실측:
-            # 풀면 80GB 인 끝없는 gzip 스트림이 21.5MB 에서 멈춤). 정확히 3MB 로 묶으려면
-            # aiter_raw 로 받아 zlib 로 직접 조금씩 풀어야 한다.
-            chunks: list[bytes] = []
-            size = 0
-            async for chunk in response.aiter_bytes():
-                size += len(chunk)
-                if size > MAX_HTML_BYTES:
-                    body.status = "too_large"
-                    return body
-                chunks.append(chunk)
-            content = b"".join(chunks)
 
         html_text = decode_html(content, raw_content_type)
         # bs4 파싱은 CPU 를 오래 쥔다. 다른 링크의 응답을 기다리게 하지 않는다.
@@ -261,6 +265,7 @@ async def fetch_link(
         excerpt = first_sentences(article, sentences, max_chars)
         body.excerpt = excerpt or None
         body.chars = len(excerpt)
+        body.text = article
         body.status = "ok" if excerpt else "no_body"
     except BlockedAddressError as exc:
         # 어디로 가려 했는지 남긴다. 정상 뉴스 링크는 내부 주소로 가지 않으므로, 막혔다면

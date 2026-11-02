@@ -30,13 +30,23 @@ target_metadata = Base.metadata
 # ... etc.
 
 
+# 첫 리비전(99dbfe02fd98)이 만들었지만 그 뒤의 구조 변경은 ai/alembic 이 하는 표.
+# ai/ 가 칼럼·제약을 더하므로 여기서 비교하면 그걸 지우라는 마이그레이션이 생긴다.
+# ai/alembic/env.py 의 MANAGED_TABLES 와 짝이다. 이 표를 바꿀 일이 있으면 ai/ 에서 한다.
+AI_MANAGED_TABLES = {"news", "source_card"}
+
+
 def include_object(obj, name, type_, reflected, compare_to) -> bool:
-    """이 프로젝트의 metadata 에 없는 표는 autogenerate 대상에서 뺀다.
+    """이 프로젝트의 metadata 에 없는 표와 ai/ 가 관리하는 표는 autogenerate 대상에서 뺀다.
 
     backend 와 ai/ 는 같은 DB 를 쓰지만 서로의 Base 를 모른다. 이 필터가 없으면
     ai/ 가 만든 표(analyst_reports, stock_move_report …)를 여기서 "모델에 없으니
     지워라" 로 판단해 DROP 이 찍힌다. ai/ 쪽 env.py 에도 같은 필터가 있다.
+
+    source_card 는 report_citation 이 FK 로 가리켜서 모델은 남겨 두었다. 비교만 하지 않는다.
     """
+    if type_ == "table" and name in AI_MANAGED_TABLES:
+        return False
     return not (type_ == "table" and reflected and name not in target_metadata.tables)
 
 

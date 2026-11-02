@@ -36,6 +36,7 @@ class InvestmentPoint(CamelModel):
     operating_profit: FiniteFloat | None = None
     net_income: FiniteFloat | None = None
     eps_cumulative: FiniteFloat | None = None
+    bps: FiniteFloat | None = None
     roe: FiniteFloat | None = None
     debt_ratio: FiniteFloat | None = None
     rs: FiniteFloat | None = None

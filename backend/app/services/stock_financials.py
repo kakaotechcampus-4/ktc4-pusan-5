@@ -41,6 +41,11 @@ class AnnualEps:
 
 
 @dataclass(frozen=True)
+class QuarterlyRatio(AnnualEps):
+    bps: Decimal | None = None
+
+
+@dataclass(frozen=True)
 class AnnualStability:
     period_end: date
     current_ratio: Decimal | None
@@ -126,7 +131,9 @@ async def _fetch_income(kis: _Getter, code: str, period_selector: str) -> list[A
     return sorted(result, key=lambda x: x.period_end)
 
 
-async def _fetch_ratios(kis: _Getter, code: str, period_selector: str) -> list[AnnualEps]:
+async def _fetch_ratios(
+    kis: _Getter, code: str, period_selector: str, *, quarterly: bool = False
+) -> list[AnnualEps]:
     if not re.fullmatch(r"[0-9A-Z]{6}", code):
         raise MarketDataError("INVALID_RESPONSE")
     body = await kis.get(
@@ -147,13 +154,15 @@ async def _fetch_ratios(kis: _Getter, code: str, period_selector: str) -> list[A
         if period in seen:
             raise MarketDataError("INVALID_RESPONSE")
         seen.add(period)
+        values = (
+            period,
+            _number(row.get("eps")),
+            _number(row.get("roe_val")),
+            _number(row.get("lblt_rate")),
+        )
+        # BPS 는 분기 재무비율에서만 쓴다. 연간 EPS 저장 모델에는 bps 컬럼이 없다.
         result.append(
-            AnnualEps(
-                period,
-                _number(row.get("eps")),
-                _number(row.get("roe_val")),
-                _number(row.get("lblt_rate")),
-            )
+            QuarterlyRatio(*values, _number(row.get("bps"))) if quarterly else AnnualEps(*values)
         )
     return sorted(result, key=lambda x: x.period_end)
 
@@ -192,9 +201,9 @@ async def fetch_quarterly_income(kis: _Getter, code: str) -> list[QuarterlyIncom
     ]
 
 
-async def fetch_quarterly_ratios(kis: _Getter, code: str) -> list[AnnualEps]:
+async def fetch_quarterly_ratios(kis: _Getter, code: str) -> list[QuarterlyRatio]:
     """Fetch quarterly ratios; values are preserved exactly as KIS reports them."""
-    return await _fetch_ratios(kis, code, "1")
+    return await _fetch_ratios(kis, code, "1", quarterly=True)
 
 
 async def fetch_stability(kis: _Getter, code: str) -> list[AnnualStability]:

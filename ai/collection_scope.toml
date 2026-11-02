@@ -1,0 +1,108 @@
+# 수집 범위와 출처별 이용 조건 (읽는 코드: app/core/scope.py)
+#
+# 수집기는 여기 적은 범위 안에서만 수집·저장한다.
+#   - 켜지 않은 출처(enabled = false)는 수집하지 않는다
+#   - 목록에 없는 검색어·채널·분류는 거부한다
+#   - 기간 밖의 자료는 받지 않는다 (자료 날짜 기준, KST, 양 끝 포함)
+#   - max_items(그 경로로 DB 에 쌓인 행 수의 누적 상한)에 닿으면 새 자료를 받지 않는다
+#
+# 아직 팀이 범위를 정하지 않아 모든 출처가 꺼져 있다. 그래서 지금은 어떤 수집기도 돌지 않는다.
+# 출처를 켜려면 기간·목록·max_items·이용 조건(terms)을 모두 적어야 한다. 하나라도 비면 수집기가
+# 무엇을 채워야 하는지 알려주고 멈춘다.
+#
+# 이용 조건(terms)은 출처마다 따로 적는다. 확인하지 않았으면 status = "미확인" 으로 적는다.
+# 텔레그램 운영자에게 받은 허락은 그 채널의 글(telegram_web·telegram_client 의 메시지)에만
+# 해당한다. 메시지에 걸린 외부 기사(telegram_link)나 첨부 PDF 의 발행처에는 해당하지 않는다.
+# 이 기록은 이용 허락이나 공정이용을 확인했다는 뜻이 아니다.
+
+[period]
+# start = 2026-10-06
+# end = 2026-10-31
+
+# 네이버 뉴스 검색 (python -m app.collectors.news <검색어>)
+[sources.naver_news]
+enabled = false
+queries = []            # 허용 검색어(종목명). 예: ["삼성전자", "SK하이닉스"]
+max_items = 0           # news 중 네이버 검색으로 들어온 행 수 상한
+
+[sources.naver_news.terms]
+status = "미확인"        # 확인 | 미확인 | 미확정
+basis = ""              # 확인한 근거 (약관·이용 조건 문서 위치)
+checked_on = ""         # 확인한 날짜 (YYYY-MM-DD)
+open_issues = []        # 미확정 사항
+
+# 텔레그램 공개 채널 메시지 (python -m app.collectors.news_channels)
+[sources.telegram_web]
+enabled = false
+channels = []           # 허용 채널. services/telegram_web/channels.py 목록에 있어야 한다
+max_items = 0           # telegram_messages 중 공개 채널에서 받은 행 수 상한
+
+[sources.telegram_web.terms]
+status = "미확인"
+basis = ""
+checked_on = ""
+open_issues = []
+
+# 공개 채널 메시지에 걸린 외부 기사를 열어 저장하는 경로. 꺼 두면 링크를 열지 않고 발견 기록만 남긴다
+[sources.telegram_link]
+enabled = false
+max_items = 0           # news 중 텔레그램 링크로 들어온 행 수 상한. 한 번에 여는 링크 수도 남은 만큼으로 줄인다
+
+[sources.telegram_link.terms]
+status = "미확인"
+basis = ""
+checked_on = ""
+open_issues = []
+
+# 로그인 계정으로 받는 텔레그램 PDF (python -m app.collectors.telegram)
+[sources.telegram_client]
+enabled = false
+channels = []           # 허용 채널 이름 (--channel 의 이름 부분)
+max_items = 0           # analyst_reports 중 텔레그램에서 받은 행 수 상한
+
+[sources.telegram_client.terms]
+status = "미확인"
+basis = ""
+checked_on = ""
+open_issues = []
+
+# 네이버 증권 리서치 (python -m app.collectors.analyst_report)
+[sources.naver_research]
+enabled = false
+categories = []         # 허용 API 분류: company | industry | economy | invest | daily
+item_codes = []         # company 리포트는 이 종목만 받는다. 예: ["005930", "000660"]
+max_items = 0           # analyst_reports 중 네이버에서 받은 행 수 상한
+
+[sources.naver_research.terms]
+status = "미확인"
+basis = ""
+checked_on = ""
+open_issues = []
+
+# DART 공시 목록 (python -m app.collectors.disclosure)
+# 하루치 코스피 공시를 받아 아래 종목만 남긴다. 목록은 backend/app/core/mvp_stocks.py(develop)의
+# 코스피 시가총액 상위 100개를 2026-10-09 에 옮긴 것이다. 그쪽 목록이 바뀌면 여기도 바꾼다.
+# 우선주(005935·005387)는 DART 에 따로 공시가 없다. 보통주(005930·005380) 공시를 본다.
+[sources.dart]
+enabled = false
+stock_codes = [
+    "005930", "000660", "005935", "402340", "009150", "373220", "005380", "207940", "105560",
+    "032830", "028260", "012450", "034020", "055550", "329180", "000270", "006400", "068270",
+    "034730", "086790", "066570", "012330", "010120", "035420", "000810", "298040", "042700",
+    "096770", "316140", "005490", "267260", "042660", "009540", "010130", "000150", "138040",
+    "011200", "015760", "017670", "010950", "051910", "033780", "010140", "006800", "018260",
+    "003550", "079550", "003670", "024110", "267250", "272210", "086280", "035720", "278470",
+    "011070", "030200", "047810", "000720", "064350", "005830", "003490", "307950", "443060",
+    "071050", "047050", "005940", "078930", "000500", "323410", "028050", "006260", "259960",
+    "003230", "0126Z0", "007660", "180640", "009830", "016360", "090430", "161390", "353200",
+    "047040", "021240", "064400", "062040", "000880", "039490", "352820", "128940", "032640",
+    "001440", "000990", "005387", "326030", "267270", "000100", "377300", "175330", "241560",
+    "011790"
+]
+max_items = 0           # dart_disclosures 행 수 상한
+
+[sources.dart.terms]
+status = "미확인"
+basis = ""
+checked_on = ""
+open_issues = []

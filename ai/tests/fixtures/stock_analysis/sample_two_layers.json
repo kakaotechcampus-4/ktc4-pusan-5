@@ -1,0 +1,36 @@
+{
+  "stock": "솔마루전자",
+  "code": "999990",
+  "target_date": "2026-09-23",
+  "cutoff": "2026-09-23T15:30:00+09:00",
+  "change_pct": -1.2,
+  "market": {
+    "index": "코스피",
+    "change_pct": -2.1,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": -2.41,
+    "peer_up": 2,
+    "peer_down": 17,
+    "peer_total": 19,
+    "excess_pct": 1.21
+  },
+  "messages": [
+    {
+      "channel": "sample_channel_b",
+      "url": "https://t.me/sample_channel_b/701",
+      "datetime_kst": "2026-09-23T09:10:00+09:00",
+      "views": "900",
+      "text": "[샘플] 전방 스마트폰 출하 전망 하향에 카메라 모듈 부품 업종 전반 약세",
+      "match": "indirect"
+    },
+    {
+      "channel": "sample_channel_a",
+      "url": "https://t.me/sample_channel_a/702",
+      "datetime_kst": "2026-09-23T13:40:00+09:00",
+      "views": "1300",
+      "text": "[샘플] 솔마루전자, 500억원 규모 자사주 매입·소각 결정 공시",
+      "match": "direct"
+    }
+  ]
+}

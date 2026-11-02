@@ -1,0 +1,36 @@
+{
+  "stock": "하늬결화학",
+  "code": "999980",
+  "target_date": "2026-09-25",
+  "cutoff": "2026-09-25T15:30:00+09:00",
+  "change_pct": -3.57,
+  "market": {
+    "index": "코스피",
+    "change_pct": -2.4,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": -2.62,
+    "peer_up": 1,
+    "peer_down": 18,
+    "peer_total": 19,
+    "excess_pct": -0.95
+  },
+  "messages": [
+    {
+      "channel": "sample_channel_a",
+      "url": "https://t.me/sample_channel_a/911",
+      "datetime_kst": "2026-09-25T09:10:00+09:00",
+      "views": "1500",
+      "text": "[샘플] 하늬결화학, 2공장 정기 보수 일정 앞당겨… 이달 출하량 일부 감소 예상",
+      "match": "direct"
+    },
+    {
+      "channel": "sample_channel_b",
+      "url": "https://t.me/sample_channel_b/912",
+      "datetime_kst": "2026-09-25T10:30:00+09:00",
+      "views": "4200",
+      "text": "[샘플] 해외 금리 급등에 외국인 대규모 매도… 대형주 일제히 약세",
+      "match": "indirect"
+    }
+  ]
+}

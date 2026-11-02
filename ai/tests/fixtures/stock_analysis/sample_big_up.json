@@ -1,0 +1,36 @@
+{
+  "stock": "솔마루전자",
+  "code": "999990",
+  "target_date": "2026-09-25",
+  "cutoff": "2026-09-25T15:30:00+09:00",
+  "change_pct": 6.5,
+  "market": {
+    "index": "코스피",
+    "change_pct": -0.3,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": -0.6,
+    "peer_up": 6,
+    "peer_down": 13,
+    "peer_total": 19,
+    "excess_pct": 7.1
+  },
+  "messages": [
+    {
+      "channel": "sample_channel_a",
+      "url": "https://t.me/sample_channel_a/901",
+      "datetime_kst": "2026-09-25T08:20:00+09:00",
+      "views": "3100",
+      "text": "[샘플] 솔마루전자, 대형 고객사와 3년 부품 공급 계약 체결… 계약 규모 1조 2천억원",
+      "match": "direct"
+    },
+    {
+      "channel": "sample_channel_b",
+      "url": "https://t.me/sample_channel_b/902",
+      "datetime_kst": "2026-09-25T11:40:00+09:00",
+      "views": "700",
+      "text": "[샘플] 부품 업종 재고 부담 이어져 업종 전반 약보합",
+      "match": "indirect"
+    }
+  ]
+}

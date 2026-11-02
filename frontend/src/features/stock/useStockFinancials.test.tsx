@@ -154,6 +154,7 @@ describe('useStockFinancials', () => {
       operatingProfit: null,
       netIncome: -1,
       epsCumulative: index,
+      bps: null,
       roe: 1,
       debtRatio: 2,
       rs: index === 0 ? 1.25 : null,

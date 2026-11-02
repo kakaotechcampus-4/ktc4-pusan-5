@@ -159,10 +159,10 @@ async def test_list_returns_503_when_catalog_is_not_ready(monkeypatch):
 
 
 def test_mvp_stocks_definition_is_consistent():
-    assert len(MVP_STOCKS) == 100
-    assert [m.rank for m in MVP_STOCKS] == list(range(1, 101))
-    assert len({m.code for m in MVP_STOCKS}) == 100
-    assert len({m.name for m in MVP_STOCKS}) == 100
+    assert len(MVP_STOCKS) == 30
+    assert [m.rank for m in MVP_STOCKS] == list(range(1, 31))
+    assert len({m.code for m in MVP_STOCKS}) == 30
+    assert len({m.name for m in MVP_STOCKS}) == 30
     assert MVP_CODES == {m.code for m in MVP_STOCKS}
     assert all(re.fullmatch(r"[0-9A-Z]{6}", m.code) for m in MVP_STOCKS)
 

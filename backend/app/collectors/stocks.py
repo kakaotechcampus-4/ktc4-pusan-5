@@ -6,21 +6,35 @@ from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.core.database import SessionLocal
+from app.core.mvp_stocks import MVP_CODES
 from app.models.stock import Stock, StockCollectionState
+from app.repositories import market_calendar as calendar_repo
 from app.repositories import stock as repo
 from app.repositories.stock_financials import save_periods
 from app.repositories.stock_history import save_history
 from app.schemas.stock import MetricsData, QuoteData
 from app.services import stock_data, stock_financials, stock_history
 from app.services.krx_history import krx_rows
+from app.services.market_calendar import KST
 from app.services.market_data import MarketDataError
-from app.services.stock_detail import ACTIVE_WINDOW, snapshot_ttl
+from app.services.quote_freshness import is_quote_stale
 
 logger = logging.getLogger(__name__)
+
+
+async def schedule(session, code, resource, now, priority):
+    """정기 수집 작업은 이 함수로만 등록한다.
+
+    repo.finish() 는 stock_collection_state 행을 UPDATE 만 하므로 행이 없으면 성공 시각이 남지 않고,
+    다음 확인 때 또 만기로 보여 계속 다시 등록된다. touch() 로 행을 먼저 만든다.
+    이때 last_requested_at 은 사용자 조회 시각이 아니라 수집기가 등록한 시각이다.
+    """
+    await repo.touch(session, code, resource, now)
+    await repo.enqueue(session, code, resource, now, priority=priority)
 
 
 class StockWorker:
@@ -28,7 +42,10 @@ class StockWorker:
         self.client = client
         self.kis = kis
         self.catalog_retry_at = datetime.min.replace(tzinfo=UTC)
-        self.active_checked_at = datetime.min.replace(tzinfo=UTC)
+        self.snapshot_checked_at = datetime.min.replace(tzinfo=UTC)
+        # 휴장일 달력을 확인한 KST 날짜
+        self.calendar_checked_on = None
+        self.calendar_retry_at = datetime.min.replace(tzinfo=UTC)
 
     async def catalog(self):
         now = datetime.now(UTC)
@@ -48,35 +65,87 @@ class StockWorker:
                 await session.commit()
             self.catalog_retry_at = now + timedelta(days=1)
             logger.info("stock catalog: %d saved", len(rows))
-        except (MarketDataError, httpx.HTTPError, TimeoutError, ValueError, KeyError, TypeError):
+        except (
+            MarketDataError,
+            httpx.HTTPError,
+            TimeoutError,
+            ValueError,
+            KeyError,
+            TypeError,
+        ):
             logger.warning("stock catalog: refresh failed; previous catalog retained")
 
-    async def schedule_active(self):
+    async def refresh_calendar(self):
+        # KIS 안내대로 휴장일조회는 하루 한 번만 부르고, 재시작해도 DB 의 받은 기록으로 한 번을 지킨다.
         now = datetime.now(UTC)
-        if now - self.active_checked_at < timedelta(seconds=15):
+        today = now.astimezone(KST).date()
+        if self.calendar_checked_on == today or now < self.calendar_retry_at:
             return
-        self.active_checked_at = now
         async with SessionLocal() as session:
-            states = (
-                await session.scalars(
-                    select(StockCollectionState)
-                    .join(Stock, Stock.code == StockCollectionState.stock_code)
-                    .where(
-                        StockCollectionState.resource == "snapshot",
-                        Stock.listing_status == "listed",
-                        StockCollectionState.last_requested_at > now - ACTIVE_WINDOW,
+            if await calendar_repo.fetched_on(session, today):
+                self.calendar_checked_on = today
+                return
+        # 시도 전에 재시도 시각을 건다. 예외 종류와 상관없이 실패하면 1시간 동안 다시 부르지 않는다.
+        self.calendar_retry_at = now + timedelta(hours=1)
+        try:
+            async with asyncio.timeout(12):
+                days = await self.kis.fetch_market_calendar(today)
+            async with SessionLocal() as session:
+                await calendar_repo.upsert_days(session, days, now)
+                await session.commit()
+            self.calendar_checked_on = today
+            logger.info("market calendar: %d days saved", len(days))
+        # KIS 쪽 오류만 여기서 잡는다. DB 오류는 삼키지 않고 수집기 루프로 보낸다.
+        # 그 tick 의 schedule_snapshots() 는 건너뛰지만 DB 장애면 거기서도 실패하므로 따로 막지 않는다.
+        except (
+            MarketDataError,
+            httpx.HTTPError,
+            TimeoutError,
+            ValueError,
+            KeyError,
+            TypeError,
+        ):
+            logger.warning("market calendar: refresh failed; retry in 1 hour")
+            # 로그용 조회. 여기서 나는 DB 오류는 상위 루프로 올린다.
+            async with SessionLocal() as session:
+                calendar = await calendar_repo.load_calendar(session, now)
+            if today not in calendar.days:
+                logger.warning(
+                    "market calendar: no row for %s; judging by weekdays", today
+                )
+
+    async def schedule_snapshots(self):
+        # 사용자 조회와 무관하게 고정 목록 전체의 현재가를 갱신 기준이 지난 것만 넣는다.
+        # 종목마다 성공 시각이 달라 다음 만기도 흩어지므로 한 번에 몰리지 않는다.
+        now = datetime.now(UTC)
+        if now - self.snapshot_checked_at < timedelta(seconds=15):
+            return
+        self.snapshot_checked_at = now
+        async with SessionLocal() as session:
+            rows = (
+                await session.execute(
+                    select(Stock.code, StockCollectionState.last_success_at)
+                    .outerjoin(
+                        StockCollectionState,
+                        and_(
+                            StockCollectionState.stock_code == Stock.code,
+                            StockCollectionState.resource == "snapshot",
+                        ),
                     )
+                    .where(Stock.code.in_(MVP_CODES), Stock.listing_status == "listed")
                 )
             ).all()
-            for state in states:
-                if not state.last_success_at or (
-                    now - state.last_success_at
-                ).total_seconds() >= snapshot_ttl(now):
-                    await repo.enqueue(session, state.stock_code, "snapshot", now, priority=0)
+            calendar = await calendar_repo.load_calendar(session, now)
+            for code, last_success_at in rows:
+                if last_success_at is None or is_quote_stale(
+                    last_success_at, now, calendar
+                ):
+                    await schedule(session, code, "snapshot", now, priority=0)
             await session.commit()
 
     async def tick(self, timeout: float = 12):
-        await self.schedule_active()
+        await self.refresh_calendar()
+        await self.schedule_snapshots()
         async with SessionLocal() as session:
             job = await repo.claim(session, datetime.now(UTC))
             await session.commit()
@@ -117,11 +186,19 @@ class StockWorker:
 
                     if job.resource == "history_cap":
                         value = await stock_history.fetch_cap(
-                            self.client, job.stock_code, market, job.range_start, cached_rows
+                            self.client,
+                            job.stock_code,
+                            market,
+                            job.range_start,
+                            cached_rows,
                         )
                     else:
                         value = await stock_history.fetch_rs(
-                            self.kis, job.stock_code, market, job.range_start, cached_rows
+                            self.kis,
+                            job.stock_code,
+                            market,
+                            job.range_start,
+                            cached_rows,
                         )
                 elif job.resource == "prices":
                     value = await stock_data.fetch_prices(
@@ -173,17 +250,25 @@ class StockWorker:
                 "quarter_ratios",
             ):
                 error = await save_periods(
-                    session, job.stock_code, job.resource, [asdict(row) for row in value], now
+                    session,
+                    job.stock_code,
+                    job.resource,
+                    [asdict(row) for row in value],
+                    now,
                 )
             elif not error and job.resource in ("history_cap", "history_rs"):
                 await save_history(
                     session, job.stock_code, job.range_start, job.resource, value, now
                 )
             elif not error:
-                await repo.save_prices(session, job, [asdict(row) for row in value], now)
+                await repo.save_prices(
+                    session, job, [asdict(row) for row in value], now
+                )
             if error and job.resource == "snapshot" and value is None:
                 for resource in ("quote", "metrics"):
-                    await self._state(session, job.stock_code, resource, error, False, now)
+                    await self._state(
+                        session, job.stock_code, resource, error, False, now
+                    )
             await repo.finish(session, owned, error, now)
             await session.commit()
         logger.info("stock %s %s: %s", job.stock_code, job.resource, error or "saved")

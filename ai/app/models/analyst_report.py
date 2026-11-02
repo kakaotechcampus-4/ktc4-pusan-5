@@ -149,10 +149,14 @@ class AnalystReport(Base):
     body_chars: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # pending: 미수집 / ok / empty: 텍스트 없음 / unusable: 본문 부족·워터마크
     # failed: 추출 오류 / skipped: 첨부 없음. ok도 요약 전 길이·내용 검증이 필요하다.
+    # purged: 보관 정책으로 본문을 지웠다. 다시 수집해도 되살리지 않는다(아래 purged_at).
     body_status: Mapped[str] = mapped_column(String(16), default="pending")
     body_extractor: Mapped[str | None] = mapped_column(String(16), nullable=True)  # pdftotext|pypdf
     body_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     body_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 보관 정책으로 본문을 지운 시각과 사유(repositories/retention.py). 행·식별키·PDF 해시는 남긴다.
+    purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    purge_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # --- 수집 이력 ---------------------------------------------------
     collected_at: Mapped[datetime] = mapped_column(
