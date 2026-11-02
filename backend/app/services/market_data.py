@@ -45,7 +45,7 @@ def classify_upstream_error(exc: BaseException) -> str | None:
         return f"UPSTREAM_HTTP_{exc.response.status_code}"
     if isinstance(exc, (TimeoutError, httpx.TimeoutException)):
         return "UPSTREAM_TIMEOUT"
-    if isinstance(exc, httpx.RequestError):
+    if isinstance(exc, (httpx.RequestError, OSError)):
         return "UPSTREAM_UNREACHABLE"
     if isinstance(exc, (ValueError, KeyError, TypeError, IndexError)):
         return "INVALID_RESPONSE"
