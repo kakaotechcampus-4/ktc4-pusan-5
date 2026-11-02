@@ -97,3 +97,19 @@ async def test_business_errors_are_split_into_transient_and_permanent_codes(
     async with httpx.AsyncClient() as client:
         with pytest.raises(MarketDataError, match=expected):
             await KisClient(client).get(PATH, "FHKST01010100", {})
+
+
+@pytest.mark.parametrize("status", [401, 403, 500])
+@respx.mock
+async def test_token_issue_failure_is_a_transient_auth_error(monkeypatch, status):
+    from app.services.market_data import MarketDataError
+
+    monkeypatch.setattr(settings, "kis_app_key", "test-only")
+    monkeypatch.setattr(settings, "kis_app_secret", "test-only")
+    monkeypatch.setattr(settings, "kis_request_interval_seconds", INTERVAL)
+    respx.post(settings.kis_api_base_url + "/oauth2/tokenP").mock(
+        return_value=httpx.Response(status, json={"error_code": "EGW00133"})
+    )
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(MarketDataError, match="UPSTREAM_AUTH"):
+            await KisClient(client).get(PATH, "FHKST01010100", {})
