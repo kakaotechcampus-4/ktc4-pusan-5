@@ -87,8 +87,13 @@ jobs:
           fi
 
       - name: Smoke test (외부 주소)
+        env:
+          API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
         run: |
-          BASE="https://marketlit.duckdns.org"
+          # 프론트가 호출하는 API 주소(VITE_API_BASE_URL)와 같은 값을 쓴다. 변수가 비어 있으면 운영 도메인으로 대체한다.
+          BASE="${API_BASE_URL:-https://marketlit.duckdns.org}"
+          # 끝의 슬래시를 떼서 //health 가 되는 것을 막는다.
+          BASE="${BASE%/}"
 
           # 배포 직후 Caddy/백엔드가 잠깐 불안정할 수 있어, 최대 12회(약 1분) 재시도한다.
           check() {
