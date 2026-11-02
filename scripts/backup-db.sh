@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # 배포 직전에 DB를 pg_dump 로 떠서 S3 에 올린다.
 # 서버에서 ubuntu 사용자로, 저장소 루트(docker-compose.yml 이 있는 곳)에서 실행한다.
-#   사용: bash scripts/backup-db.sh <현재 실행 중인 커밋 SHA>
+#   사용: bash scripts/backup-db.sh <마지막으로 성공한 커밋 SHA>
+# 파일 이름: basis_<날짜시각>_<SHA 앞 7자>_<DB 마이그레이션 버전>.sql
+# 그 SHA 와 버전이 롤백 때 되돌아갈 곳이다.
 #
 # - db 컨테이너가 떠 있지 않으면(첫 배포 등) 건너뛴다.
 # - 그 외의 실패(덤프 실패, 빈 파일, 업로드 실패)는 exit 1 로 끝내 배포를 멈춘다.
 # - 덤프에는 사용자 데이터가 들어 있다. 임시 파일은 권한 600 으로 만들고 끝나면 지운다. 저장소에 커밋하지 않는다.
 set -euo pipefail
 umask 077
+. "$(dirname "$0")/deploy-lib.sh"
 
 BUCKET="basis-db-backup-marketlit"
 REGION="ap-northeast-2"
@@ -18,7 +21,9 @@ if [ -z "$(docker compose ps --status running -q db)" ]; then
   exit 0
 fi
 
-KEY="basis_$(date +%Y%m%d-%H%M%S)_${PREV_SHA}.sql"
+REVISION="$(db_revision)"
+KEY="basis_$(date +%Y%m%d-%H%M%S)_${PREV_SHA:0:7}_${REVISION:-unknown}.sql"
+KEY="${KEY//,/+}"
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 
