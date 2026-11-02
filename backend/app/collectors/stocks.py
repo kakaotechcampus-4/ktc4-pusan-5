@@ -95,6 +95,8 @@ class StockWorker:
                 await session.commit()
             self.calendar_checked_on = today
             logger.info("market calendar: %d days saved", len(days))
+        # KIS 쪽 오류만 여기서 잡는다. DB 오류는 삼키지 않고 수집기 루프로 보낸다.
+        # 그 tick 의 schedule_snapshots() 는 건너뛰지만 DB 장애면 거기서도 실패하므로 따로 막지 않는다.
         except (
             MarketDataError,
             httpx.HTTPError,
@@ -104,6 +106,7 @@ class StockWorker:
             TypeError,
         ):
             logger.warning("market calendar: refresh failed; retry in 1 hour")
+            # 로그용 조회. 여기서 나는 DB 오류는 상위 루프로 올린다.
             async with SessionLocal() as session:
                 calendar = await calendar_repo.load_calendar(session, now)
             if today not in calendar.days:
