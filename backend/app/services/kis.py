@@ -54,7 +54,12 @@ class KisClient:
                 "appsecret": settings.kis_app_secret,
             },
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError:
+            # 토큰 발급 거절(재발급 제한 등)은 시간이 지나면 풀리는 인증 단계 오류다.
+            # 데이터 요청의 403 처럼 영구 오류(UPSTREAM_HTTP_403)로 읽히지 않게 코드를 나눈다.
+            raise MarketDataError("UPSTREAM_AUTH") from None
         body = response.json()
         if not isinstance(body, dict) or not isinstance(body.get("access_token"), str):
             raise MarketDataError("INVALID_RESPONSE")
