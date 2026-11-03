@@ -81,9 +81,10 @@ def previous_close(day: date, open_days: Mapping[date, bool] | None = None) -> d
 
 
 async def read_open_days(session: AsyncSession, day: date) -> dict[date, bool] | None:
-    """market_calendar 의 day 이전 MAX_LOOKBACK_DAYS 일 개장 여부. 표가 없거나 못 읽으면 None.
+    """market_calendar 의 day 이전 MAX_LOOKBACK_DAYS 일 개장 여부. 표가 없거나 못 읽거나 그 기간에 행이 없으면 None.
 
     backend 표라 ai 쪽 모델이 없어 SQL 로 읽는다. 실패해도 세션의 트랜잭션을 깨지 않게 savepoint 안에서 읽는다.
+    행이 없을 때도 None 인 이유: 빈 표로 고른 since 는 평일 규칙으로 고른 것인데 meta 에 market_calendar 로 남는다.
     """
     try:
         async with session.begin_nested():
@@ -93,7 +94,7 @@ async def read_open_days(session: AsyncSession, day: date) -> dict[date, bool] |
             )).all()
     except SQLAlchemyError:
         return None
-    return {row[0]: row[1] for row in rows}
+    return {row[0]: row[1] for row in rows} or None
 
 
 # ── 입력 만들기 ────────────────────────────────────────────────────────────

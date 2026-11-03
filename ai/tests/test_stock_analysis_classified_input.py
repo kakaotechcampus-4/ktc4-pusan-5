@@ -197,6 +197,7 @@ class FakeSession:
 
 @pytest.mark.parametrize(("rows", "basis", "since"), [
     (None, "weekday_fallback", datetime(2026, 11, 2, 15, 30, tzinfo=KST)),
+    ([], "weekday_fallback", datetime(2026, 11, 2, 15, 30, tzinfo=KST)),  # 표는 있지만 그 기간에 행이 없다
     ([(date(2026, 11, 2), False)], "market_calendar", datetime(2026, 10, 30, 15, 30, tzinfo=KST)),
 ])
 def test_load_input_default_since(monkeypatch, rows, basis, since):
