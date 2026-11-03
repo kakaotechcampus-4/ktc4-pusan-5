@@ -424,9 +424,10 @@ LLM 을 부른다(`generate.needs_llm`).
 - 입력 — `generate.model_input()` 이 `verify.normalize_payload()` 로 세 칸 메시지 모두 `mention` 으로 옮겨 보낸다
   (프롬프트는 `mention` 만 설명한다). 검증은 메시지를 `verify.mention_of()` 로 읽어 옛 입력도 같은 값으로 본다.
   `inputs/`·`inputs_used/` 사본은 받은 그대로라 옛 입력이면 `match` 가 남는다.
-- DB — `stock_move_analysis_factor_sources.match` 칼럼 이름은 그대로다. 적재(`repositories.stock_move_analysis`)는
-  `mention_of()` 로 읽어 새 값을 넣는다. 이름을 바꾸기 전에 적재한 행에는 `direct`·`indirect` 가 남아 있으니,
-  이 칼럼을 읽는 쪽은 위 표로 옮겨 읽는다. `raw_json` 은 보고서 원본 그대로다(옛 보고서면 `match`).
+- DB — `stock_move_analysis_factor_sources.match` 칼럼은 이름도 값도 옛 그대로(`direct`·`indirect`)다. 적재
+  (`repositories.stock_move_analysis`)는 `mention_of()` 로 읽은 값을 위 표의 반대 방향으로 바꿔 넣는다(`MENTION_TO_MATCH`).
+  이름을 바꾸기 전에 적재한 행과 한 칼럼에 두 어휘가 섞이지 않아, 읽는 쪽은 바꿔 읽지 않아도 된다. 목록 밖 값은 그대로
+  들어간다. `raw_json` 은 보고서 원본 그대로다(새 보고서면 `mention`, 옛 보고서면 `match`).
 - 바꾸지 않은 이름 — 경고 코드 `DIRECT_SOURCE_MISSING`, 래퍼 `skipped_llm: "NO_DIRECT_MESSAGES"` 는 쌓인 래퍼·DB
   `verify_error` 와 집계가 이어지도록 그대로 둔다. 이슈의 `relation: "direct"` 는 다른 칸(1-2 이슈 관련)이라 그대로다.
 

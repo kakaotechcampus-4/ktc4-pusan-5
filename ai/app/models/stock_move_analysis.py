@@ -239,8 +239,9 @@ class StockMoveAnalysisFactorSource(Base):
     datetime_kst: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # 원문 그대로 40자 이내 발췌. 한 글자만 달라도 근거 검증에서 떨어진다.
     quote: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # 보고서 출처의 mention 값(mentioned | not_mentioned). 이름을 바꾸기 전에 적재한 행은 옛 값
-    # direct | indirect 가 남아 있다 — 읽을 때 verify.LEGACY_MENTIONS 로 옮겨 읽는다.
+    # 이 출처가 종목을 직접 다루는지. 값은 옛 이름 direct | indirect 로 고정이다. 보고서 칸은
+    # mention(mentioned | not_mentioned)으로 바뀌었지만 적재가 옛 값으로 바꿔 넣는다
+    # (repositories.stock_move_analysis.MENTION_TO_MATCH). 그래서 읽는 쪽은 바꿔 읽지 않아도 된다.
     match: Mapped[str | None] = mapped_column(String(16), nullable=True)
     is_market_recap: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 

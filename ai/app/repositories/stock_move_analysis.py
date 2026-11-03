@@ -96,9 +96,13 @@ from app.models.stock_move_analysis import (
     StockMoveAnalysisFactorSource,
 )
 from app.repositories.source_card import card_ids_for_urls
-from app.services.stock_analysis.verify import mention_of
+from app.services.stock_analysis.verify import LEGACY_MENTIONS, mention_of
 
 logger = logging.getLogger(__name__)
+
+# 출처 칼럼 match 의 값. 보고서 칸 이름이 match(direct|indirect) → mention(mentioned|not_mentioned)으로 바뀌었지만
+# 칼럼은 옛 값 그대로 둔다 — 이미 쌓인 행과 한 칼럼에 두 어휘가 섞이지 않게, 적재할 때 옛 값으로 바꿔 넣는다.
+MENTION_TO_MATCH = {new: old for old, new in LEGACY_MENTIONS.items()}
 
 # 옛 보고서의 as_of 는 "HH:MM" 뿐이라 날짜와 합칠 때 타임존을 우리가 붙여야 한다. 시간대 없는 ISO 시각도 같다.
 # 대상이 한국 증시 장중 시각이므로 KST 고정이다. 루트 CLAUDE.md 가 naive datetime 을 금지한다.
@@ -308,6 +312,11 @@ def _as_decimal(value: Any) -> Decimal | None:
         return Decimal(str(value))
     except InvalidOperation:
         return None
+
+
+def _match_value(mention: Any) -> Any:
+    """보고서 mention 값을 칼럼 match 의 옛 값으로. 목록 밖 값은 그대로 둔다(raw_json 과 대조할 수 있게)."""
+    return MENTION_TO_MATCH.get(mention, mention) if isinstance(mention, str) else mention
 
 
 def _parse_kst_datetime(value: Any) -> datetime | None:
@@ -557,9 +566,10 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveAna
                     quote=_as_str(s.get("quote")),
                     # 보고서 칸 mention: 이 메시지가 종목을 직접 다루는지(mentioned),
                     # 업황·경쟁사만 다루는지(not_mentioned). not_mentioned 만으로 세운
-                    # 원인은 strength 가 partial 을 넘을 수 없다. 옛 보고서의 match:
-                    # direct|indirect 는 새 값으로 옮겨 넣는다. 칼럼 이름은 match 그대로다.
-                    match=_as_str(mention_of(s)),
+                    # 원인은 strength 가 partial 을 넘을 수 없다. 칼럼은 이름도 값도 옛 그대로라
+                    # mentioned → direct, not_mentioned → indirect 로 바꿔 넣는다(MENTION_TO_MATCH).
+                    # 옛 보고서의 match: direct|indirect 는 그대로 들어간다. 목록 밖 값은 바꾸지 않는다.
+                    match=_as_str(_match_value(mention_of(s))),
                     # "코스피 마감 시황" 류. 결과를 적은 것이지 원인이 아니라서,
                     # 이게 근거로 쓰이면 "내려서 내렸다" 는 순환 논리가 된다.
                     is_market_recap=_as_bool(s.get("is_market_recap")),

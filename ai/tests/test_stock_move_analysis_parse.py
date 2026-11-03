@@ -140,12 +140,24 @@ def test_real_report_background_is_normalized() -> None:
     assert any(item["watch"] for item in neutral)
 
 
-def test_legacy_source_match_is_stored_as_mention_value() -> None:
-    """실제 산출물은 mention 이름을 바꾸기 전이라 출처가 match: direct 다. 칼럼(match)에는 새 값으로 넣는다."""
+def test_legacy_source_match_is_stored_as_is() -> None:
+    """실제 산출물은 mention 이름을 바꾸기 전이라 출처가 match: direct 다. 칼럼(match)은 옛 값 그대로 받는다."""
     analysis = build_analysis(parse_analysis_file(SAMSUNG))
     sources = [s for f in analysis.factors for s in f.sources]
-    assert sources and all(s.match == "mentioned" for s in sources)
+    assert sources and all(s.match == "direct" for s in sources)
     assert analysis.raw_json["factors"][0]["sources"][0]["match"] == "direct"  # 원본은 raw_json 에 그대로 남는다
+
+
+@pytest.mark.parametrize(("mention", "stored"), [
+    ("mentioned", "direct"), ("not_mentioned", "indirect"),
+    ("sideways", "sideways"),  # 목록 밖 값은 바꾸지 않는다(raw_json 과 대조할 수 있게)
+])
+def test_mention_is_stored_as_legacy_match_value(mention: str, stored: str) -> None:
+    """칼럼 match 는 옛 값(direct|indirect)만 담는다. 새 보고서의 mention 은 적재할 때 옛 값으로 바꾼다."""
+    report = {"ticker": "105560", "date": "2026-11-02", "summary": {},
+              "factors": [{"claim": "c", "sources": [{"url": "https://t.me/c/1", "mention": mention}]}]}
+    analysis = build_analysis(parse_wrapper({"run_id": "r", "final_text": json.dumps(report)}))
+    assert [s.match for f in analysis.factors for s in f.sources] == [stored]
 
 
 def test_null_counter_is_a_valid_value() -> None:
