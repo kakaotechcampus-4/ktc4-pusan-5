@@ -3,12 +3,11 @@ import { formatCompactKRW, formatMarketDate } from '@/lib/format';
 import type { Resource, StockInvestorFlowData } from '@/lib/types';
 import { NO_VALUE } from '../financialUtils';
 
-/** 수량 아래에 붙는 보조 문구: 대금 · 기준일 [· 갱신 지연] */
-function institutionDetail(flow: StockInvestorFlowData, stale: boolean): string {
+/** 수량 아래에 붙는 보조 문구: 대금 · 기준일 */
+function institutionDetail(flow: StockInvestorFlowData): string {
   return [
     flow.institutionNetValue === null ? null : formatCompactKRW(flow.institutionNetValue),
     `${formatMarketDate(flow.tradeDate)} 기준`,
-    stale ? '갱신 지연' : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -32,9 +31,7 @@ export function InstitutionNetBuyValue({
         <Change value={flow.institutionNetQty} unit="price" />
         <span className="text-xs text-neutral-600">주</span>
       </span>
-      <span className="num text-xs text-neutral-600">
-        {institutionDetail(flow, investorFlow?.status === 'stale')}
-      </span>
+      <span className="num text-xs text-neutral-600">{institutionDetail(flow)}</span>
     </span>
   );
 }
