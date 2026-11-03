@@ -97,6 +97,7 @@ export function StockBriefingPage() {
           <AtAGlanceCard
             quote={overview.quote}
             metrics={overview.metrics}
+            investorFlow={overview.investorFlow}
             financials={financials}
             financialsError={financialsError}
             onRetryFinancials={retryFinancials}
