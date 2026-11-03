@@ -95,7 +95,7 @@ def waits(monkeypatch) -> AsyncMock:
     return sleep
 
 
-async def test_rate_limited_call_is_sent_again(monkeypatch, waits):
+async def test_rate_limited_call_is_sent_again(monkeypatch, waits, caplog):
     complete = AsyncMock(side_effect=[LLMRateLimited("HTTP 429"), LLMRateLimited("HTTP 429"),
                                       ("응답", {"finish_reason": "stop"})])
     monkeypatch.setattr(llm, "complete", complete)
@@ -103,6 +103,8 @@ async def test_rate_limited_call_is_sent_again(monkeypatch, waits):
     assert result.ok and result.raw_response == "응답"
     assert complete.await_count == 3
     assert waits.await_count == 2
+    # 성공한 재시도는 결과에 남지 않으므로 로그로 세어 본다
+    assert [r.getMessage().split(":")[0] for r in caplog.records] == ["429 extract"] * 2
 
 
 async def test_rate_limit_that_never_clears_becomes_the_step_error(monkeypatch, waits):

@@ -17,12 +17,14 @@ Elice 는 스트리밍이 아닌 요청의 출력 상한을 2,000 토큰으로 �
 
 import asyncio
 import hashlib
+import logging
 import random
 from dataclasses import dataclass, field
 
 from app.core.config import settings
 from app.llm.client import LLMError, LLMRateLimited, complete, cost_detail, load_prompt
 
+logger = logging.getLogger(__name__)
 STEPS = ("extract", "link", "judge")
 # 429 뒤 기다리는 초. 동시에 거절된 호출이 한꺼번에 다시 몰리지 않게 실제로는 1~1.5배로 흩는다
 RATE_LIMIT_WAITS = (5, 20, 60)
@@ -76,7 +78,10 @@ async def call(step: str, prompt_name: str, user: str, *, model: str | None = No
             if wait is None:
                 result.error = f"{step}: {exc}"
                 return result
-            await asyncio.sleep(wait * random.uniform(1, 1.5))
+            delay = wait * random.uniform(1, 1.5)
+            # 재시도가 성공하면 결과에 흔적이 없다. 동시 수를 올릴 때 429 를 알아채려고 남긴다
+            logger.warning("429 %s: %.0f초 뒤 다시 보낸다", step, delay)
+            await asyncio.sleep(delay)
             continue
         result.raw_response, result.usage = text, usage
         return result
