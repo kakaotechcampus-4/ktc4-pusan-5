@@ -29,6 +29,7 @@ KRX 를 두 번 부른다(코스피 지수, 유가증권 전 종목). 계산은 
 
 from collections.abc import Iterable, Mapping
 from datetime import date
+from statistics import median
 from typing import Literal
 
 import httpx
@@ -144,7 +145,11 @@ def peer_comparisons(
     group_names: Iterable[str],
     groups: Mapping[str, Mapping[str, str]] = GROUPS,
 ) -> list[PeerComparison]:
-    """그룹마다 단순 평균과 초과분. 자기 자신·거래정지·응답에 없는 종목은 평균에서 뺀다."""
+    """그룹마다 중앙값과 초과분. 자기 자신·거래정지·응답에 없는 종목은 중앙값에서 뺀다.
+
+    평균이 아니라 중앙값이다. 한 종목만 튀어도(예: 9% 급등) 평균은 그쪽으로 끌려가 판정이 뒤집힌다.
+    비교 종목이 둘 이하면 중앙값과 평균이 같다.
+    """
     by_code = {s.code: s for s in stocks}
     result = []
     for group in group_names:
@@ -167,13 +172,13 @@ def peer_comparisons(
                 continue
             excluded.append(PeerExclusion(code=code, name=name, reason=reason))
 
-        avg = sum(rates) / len(rates) if rates else None
+        center = median(rates) if rates else None
         excess = None
-        if avg is not None and not stock.no_trades and stock.change_rate is not None:
-            excess = round(stock.change_rate - avg, RATE_DECIMALS)
+        if center is not None and not stock.no_trades and stock.change_rate is not None:
+            excess = round(stock.change_rate - center, RATE_DECIMALS)
         result.append(PeerComparison(
             group=group,
-            avg_change_rate_pct=_round(avg, RATE_DECIMALS),
+            median_change_rate_pct=_round(center, RATE_DECIMALS),
             excess_vs_group_pp=excess,
             peer_count=len(used),
             relation=group_relation(excess, len(used)),

@@ -106,7 +106,7 @@ class KospiComparison(BaseModel):
 
 
 class PeerExclusion(BaseModel):
-    """그룹 평균에서 뺀 구성원과 그 이유."""
+    """그룹 중앙값에서 뺀 구성원과 그 이유."""
 
     code: str
     name: str  # peer_groups.py 에 적힌 이름
@@ -115,18 +115,18 @@ class PeerExclusion(BaseModel):
 
 
 class PeerComparison(BaseModel):
-    """동종 그룹 하나와 비교. 평균은 시총가중이 아닌 단순 평균이다."""
+    """동종 그룹 하나와 비교. 그룹 등락률은 평균이 아닌 중앙값이다(시총가중 아님)."""
 
     group: str
-    avg_change_rate_pct: float | None  # 그룹 단순 평균 등락률 (%). 쓸 구성원이 없으면 None
-    excess_vs_group_pp: float | None  # 종목 − 그룹 평균 (%p). 대상이 거래정지면 None
-    peer_count: int  # 평균에 쓴 종목 수 (= len(members_used))
+    median_change_rate_pct: float | None  # 그룹 등락률 중앙값 (%). 쓸 구성원이 없으면 None
+    excess_vs_group_pp: float | None  # 종목 − 그룹 중앙값 (%p). 대상이 거래정지면 None
+    peer_count: int  # 중앙값에 쓴 종목 수 (= len(members_used))
     # follows      |초과분| ≤ GROUP_FOLLOW_THRESHOLD_PP. 그룹 흐름을 따라갔다
     # diverges     기준 초과이고 peer_count ≥ 2. 그룹과 크게 달랐다
     # inconclusive 기준 초과이고 peer_count 1. 차이가 비교 종목 쪽 사정일 수 있다
-    # None         초과분이 없다(평균을 못 냈거나 대상이 거래정지)
+    # None         초과분이 없다(중앙값을 못 냈거나 대상이 거래정지)
     relation: Literal["follows", "diverges", "inconclusive"] | None
-    members_used: list[str] = Field(default_factory=list)  # 평균에 쓴 종목 코드
+    members_used: list[str] = Field(default_factory=list)  # 중앙값에 쓴 종목 코드
     members_excluded: list[PeerExclusion] = Field(default_factory=list)
 
 
@@ -137,7 +137,7 @@ class MarketContext(BaseModel):
         ok               계산 완료
         no_data          기준일 KRX 데이터가 없다(당일·휴장일). kospi·peers 가 비어 있다
         stock_not_found  그날 유가증권 응답에 없는 종목이다. kospi·peers 가 비어 있다
-        no_trades        거래정지(거래량 0). 초과분·기여도가 None 이고, 그룹 평균은 있다
+        no_trades        거래정지(거래량 0). 초과분·기여도가 None 이고, 그룹 중앙값은 있다
     """
 
     bas_dd: date

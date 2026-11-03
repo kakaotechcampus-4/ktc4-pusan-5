@@ -223,16 +223,16 @@ def test_kospi_relation_none_when_target_has_no_trades(weight_pct: float, basis:
 # --- 동종 그룹 ---------------------------------------------------------------------------------
 
 
-def test_self_is_left_out_of_group_average() -> None:
-    """KB금융: 나머지 3사 (0.35 + 0.80 − 1.37) / 3 = −0.0733% → 초과분 0.27 − (−0.0733) = +0.34%p."""
+def test_self_is_left_out_of_group_median() -> None:
+    """KB금융: 나머지 3사 0.35·0.80·−1.37 의 중앙값 0.35% → 초과분 0.27 − 0.35 = −0.08%p."""
     ctx = build_market_context("105560", DAY, KOSPI, STOCKS)
 
     [peer] = ctx.peers
     assert peer.group == "은행지주"
     assert peer.members_used == ["055550", "086790", "316140"]
     assert [(e.code, e.reason) for e in peer.members_excluded] == [("105560", "self")]
-    assert peer.avg_change_rate_pct == -0.07
-    assert peer.excess_vs_group_pp == 0.34
+    assert peer.median_change_rate_pct == 0.35
+    assert peer.excess_vs_group_pp == -0.08
     assert peer.peer_count == 3
     assert peer.relation == "follows"
 
@@ -243,14 +243,14 @@ def test_two_member_group_compares_with_the_other() -> None:
     [peer] = ctx.peers
     assert peer.group == "메모리반도체"
     assert peer.members_used == ["000660"]
-    assert peer.avg_change_rate_pct == 5.18
+    assert peer.median_change_rate_pct == 5.18
     assert peer.excess_vs_group_pp == -0.95  # 4.23 − 5.18
     assert peer.peer_count == 1
     assert peer.relation == "follows"
 
 
-def test_no_trades_member_is_left_out_of_group_average() -> None:
-    """DH오토넥스(2026-10-27 거래량 0, 등락률 0.00)가 평균에 들어가면 평균이 내려간다."""
+def test_no_trades_member_is_left_out_of_group_median() -> None:
+    """DH오토넥스(2026-10-27 거래량 0, 등락률 0.00)가 들어가면 그룹 등락률이 내려간다."""
     groups = {"시험": {"005930": "삼성전자", "000300": "DH오토넥스", "000660": "SK하이닉스"}}
     ctx = build_market_context("005930", DAY, KOSPI, STOCKS, groups=groups,
                                stock_groups={"005930": ("시험",)})
@@ -259,11 +259,11 @@ def test_no_trades_member_is_left_out_of_group_average() -> None:
     assert peer.members_used == ["000660"]
     assert [(e.code, e.reason) for e in peer.members_excluded] == [
         ("005930", "self"), ("000300", "no_trades")]
-    assert peer.avg_change_rate_pct == 5.18  # 0.00 을 넣었다면 2.59
+    assert peer.median_change_rate_pct == 5.18  # 0.00 을 넣었다면 2.59
 
 
 def test_missing_member_is_marked_and_skipped() -> None:
-    """삼성생명의 보험 그룹: 삼성화재·메리츠는 fixture(=응답)에 없다. 쓸 종목이 없으면 평균도 없다."""
+    """삼성생명의 보험 그룹: 삼성화재·메리츠는 fixture(=응답)에 없다. 쓸 종목이 없으면 중앙값도 없다."""
     ctx = build_market_context("032830", DAY, KOSPI, STOCKS)
 
     insurance, samsung_linked = ctx.peers
@@ -271,12 +271,13 @@ def test_missing_member_is_marked_and_skipped() -> None:
     assert insurance.members_used == []
     assert [(e.code, e.reason) for e in insurance.members_excluded] == [
         ("032830", "self"), ("000810", "missing"), ("138040", "missing")]
-    assert insurance.avg_change_rate_pct is None and insurance.excess_vs_group_pp is None
+    assert insurance.median_change_rate_pct is None and insurance.excess_vs_group_pp is None
     assert insurance.peer_count == 0 and insurance.relation is None
 
     assert samsung_linked.group == "삼성전자 연동"
     assert samsung_linked.members_used == ["005930", "028260"]
-    assert samsung_linked.avg_change_rate_pct == pytest.approx((4.23 + 3.08) / 2, abs=0.005)
+    # 두 종목이면 중앙값 = 두 값의 평균
+    assert samsung_linked.median_change_rate_pct == pytest.approx((4.23 + 3.08) / 2, abs=0.005)
     assert samsung_linked.excess_vs_group_pp == pytest.approx(3.45 - (4.23 + 3.08) / 2, abs=0.005)
 
 
@@ -317,8 +318,25 @@ def test_group_relation_judges_the_rounded_excess() -> None:
     assert peer.relation == "follows"
 
 
-def test_group_relation_none_without_average() -> None:
-    """비교 종목이 전부 응답에 없으면 평균이 없고 판정도 없다."""
+@pytest.mark.parametrize(("target_rate", "peer_rates", "center", "excess", "relation"), [
+    # 평균(3.43)이면 초과분 −2.43%p 로 diverges. 튀는 9.00 하나에 끌려가지 않는다
+    (1.00, [0.50, 0.80, 9.00], 0.80, 0.20, "follows"),
+    # 평균(3.17)이면 초과분 −0.17%p 로 follows. 튀는 값이 차이를 가리지 않는다
+    (3.00, [0.00, 0.50, 9.00], 0.50, 2.50, "diverges"),
+    # 짝수 개면 가운데 두 값(0.80·1.20)의 평균
+    (1.50, [0.50, 0.80, 1.20, 9.00], 1.00, 0.50, "follows"),
+])
+def test_group_uses_median_against_outlier(
+    target_rate: float, peer_rates: list[float], center: float, excess: float, relation: str,
+) -> None:
+    peer = _group_ctx(target_rate, peer_rates)
+    assert peer.median_change_rate_pct == center
+    assert peer.excess_vs_group_pp == excess
+    assert peer.relation == relation
+
+
+def test_group_relation_none_without_median() -> None:
+    """비교 종목이 전부 응답에 없으면 중앙값이 없고 판정도 없다."""
     target = stock("000010", 100, 2.0)
     other = stock("000090", 100, 0.0)  # 그룹 밖 종목. 시장이 대상 하나뿐이면 비중이 100% 가 된다
     groups = {"시험": {"000010": "대상", "000020": "없음1", "000030": "없음2"}}
@@ -326,15 +344,15 @@ def test_group_relation_none_without_average() -> None:
                                stock_groups={"000010": ("시험",)})
 
     [peer] = ctx.peers
-    assert peer.avg_change_rate_pct is None
+    assert peer.median_change_rate_pct is None
     assert peer.peer_count == 0
     assert peer.relation is None
 
 
 def test_group_relation_none_when_target_has_no_trades() -> None:
-    """평균은 있어도 대상이 거래정지면 초과분이 없어 판정하지 않는다."""
+    """중앙값은 있어도 대상이 거래정지면 초과분이 없어 판정하지 않는다."""
     peer = _group_ctx(0.0, [0.50, 1.50], target_volume=0)
-    assert peer.avg_change_rate_pct == 1.00
+    assert peer.median_change_rate_pct == 1.00
     assert peer.peer_count == 2
     assert peer.excess_vs_group_pp is None
     assert peer.relation is None
@@ -364,7 +382,7 @@ def test_no_trades_target_has_no_excess_or_contribution() -> None:
     assert k.kospi_weight_pct is not None  # 비중은 거래와 관계없이 있다
     assert k.kospi_relation is None
     [peer] = ctx.peers
-    assert peer.avg_change_rate_pct is not None  # 그룹 평균은 낸다
+    assert peer.median_change_rate_pct is not None  # 그룹 중앙값은 낸다
     assert peer.excess_vs_group_pp is None
 
 
