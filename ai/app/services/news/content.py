@@ -21,12 +21,12 @@ from app.services.news_link.fetch import (
     BlockedAddressError,
     HtmlTooLargeError,
     decode_html,
-    open_public,
+    open_with_backoff,
     read_limited_html,
 )
 
 _MIN_CHARS = 100  # 이보다 짧으면 본문이 아니라 상용구만 잡힌 것으로 본다
-BODY_TIMEOUT_SEC = 15.0  # DNS·리다이렉트·본문 수신을 합친 전체 제한
+BODY_TIMEOUT_SEC = 15.0  # 시도 한 번의 DNS·리다이렉트·본문 수신을 합친 제한
 
 
 def _extract(html_text: str, url: str) -> str | None:
@@ -42,7 +42,7 @@ def _extract(html_text: str, url: str) -> str | None:
 async def fetch_body(client: httpx.AsyncClient, url: str) -> tuple[str | None, str | None]:
     """(본문, 실패사유). 성공하면 사유는 None."""
     try:
-        async with asyncio.timeout(BODY_TIMEOUT_SEC), open_public(client, url) as resp:
+        async with open_with_backoff(client, url, timeout=BODY_TIMEOUT_SEC) as resp:
             if resp.status_code != 200:
                 return None, http_error(resp.status_code)
             content_type = resp.headers.get("content-type", "")

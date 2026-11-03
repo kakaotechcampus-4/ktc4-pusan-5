@@ -36,6 +36,7 @@ tool 호출 8~11회에 2분·$0.72 였다. 수집할 때 코드로 미리 열어
 import asyncio
 import ipaddress
 import logging
+import random
 import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -68,6 +69,9 @@ MAX_HTML_BYTES = 3_000_000
 DEFAULT_TIMEOUT_SEC = 12.0
 # 단축 URL 은 한두 번이면 끝난다(buly.kr → 기사). 그보다 길게 도는 건 정상 경로가 아니다.
 MAX_REDIRECTS = 5
+# 429 뒤 같은 실행에서 다시 열기까지 기다리는 초. 다 쓰면 실패로 남고 다음 실행이 다시 연다.
+RATE_LIMIT_WAITS = (2, 4, 8, 16, 32, 60)
+RATE_LIMIT_MAX_WAIT = RATE_LIMIT_WAITS[-1]
 
 # <meta charset> 은 <head> 에 있다. 뒤까지 뒤지면 본문에 인용된 charset 문자열을
 # 인코딩으로 착각한다.
@@ -175,6 +179,41 @@ async def open_public(client: httpx.AsyncClient, url: str) -> AsyncIterator[http
     raise httpx.TooManyRedirects(f"리다이렉트 {MAX_REDIRECTS}회 초과", request=response.request)
 
 
+def _rate_limit_delay(response: httpx.Response, wait: float) -> float | None:
+    """429 뒤 기다릴 초. 서버가 상한보다 오래 기다리라고 하면 None 이고 이번 실행에서는 포기한다.
+
+    동시에 거절된 요청이 한꺼번에 다시 몰리지 않게 1~1.5배로 흩는다. Retry-After 는 초 단위만
+    읽는다. 날짜 형식이면 헤더가 없는 것처럼 wait 만 쓴다.
+    """
+    value = response.headers.get("retry-after", "")
+    retry_after = float(value) if value.isdecimal() else 0.0
+    if retry_after > RATE_LIMIT_MAX_WAIT:
+        return None
+    return max(retry_after, min(wait * random.uniform(1, 1.5), RATE_LIMIT_MAX_WAIT))
+
+
+@asynccontextmanager
+async def open_with_backoff(
+    client: httpx.AsyncClient, url: str, *, timeout: float | None = None,
+) -> AsyncIterator[httpx.Response]:
+    """open_public 에 429 재시도를 더한다. 끝내 429 면 그 응답을 그대로 넘긴다.
+
+    timeout 은 시도 한 번의 제한이라 기다리는 시간은 들어가지 않는다. 기다리는 동안 응답은
+    닫는다. 호출 측의 동시 수 자리는 쥔 채로 기다려서, 거절이 이어지면 다른 요청도 함께 늦춘다.
+    """
+    for wait in (*RATE_LIMIT_WAITS, None):
+        async with asyncio.timeout(timeout), open_public(client, url) as response:
+            delay = None
+            if wait is not None and response.status_code == httpx.codes.TOO_MANY_REQUESTS:
+                delay = _rate_limit_delay(response, wait)
+            if delay is None:
+                yield response
+                return
+        # 재시도가 성공하면 결과에 흔적이 없다. 429 가 잦은지 알아채려고 남긴다
+        logger.warning("429 %s: %.0f초 뒤 다시 연다", url, delay)
+        await asyncio.sleep(delay)
+
+
 def decode_html(content: bytes, content_type: str) -> str:
     """바이트를 글자로. **국내 매체에는 아직 EUC-KR 이 있다.**
 
@@ -229,7 +268,8 @@ async def fetch_link(
     try:
         # 스트림으로 연다. 응답 헤더만 보고 PDF·거대 페이지를 끝까지 받지 않고 끊는다.
         # 리다이렉트는 open_public 이 한 단계씩 검사하며 따라간다.
-        async with open_public(client, url) as response:
+        async with open_with_backoff(client, url) as response:
+            body.fetched_at = utcnow()  # 다음 실행의 429 대기는 마지막 시도부터 잰다
             body.final_url = str(response.url)
             body.domain = urlparse(str(response.url)).netloc
             if response.status_code != httpx.codes.OK:

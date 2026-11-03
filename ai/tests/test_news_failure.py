@@ -8,11 +8,11 @@ from app.services.news.failure import failure_kind, http_error, is_retryable, re
 
 
 @pytest.mark.parametrize("error", ["http_error: 429", "http_429"])
-def test_rate_limit_waits_one_hour(error):
+def test_rate_limit_waits_one_minute(error):
     mock_now = datetime(2026, 10, 28, tzinfo=UTC)
     assert not retry_due(error, mock_now, now=mock_now)
-    assert not retry_due(error, mock_now - timedelta(minutes=59), now=mock_now)
-    assert retry_due(error, mock_now - timedelta(hours=1), now=mock_now)
+    assert not retry_due(error, mock_now - timedelta(seconds=59), now=mock_now)
+    assert retry_due(error, mock_now - timedelta(minutes=1), now=mock_now)
     assert retry_due(error, None, now=mock_now)
     assert retry_due("http_error: 503", mock_now, now=mock_now)
     assert not retry_due("http_error: 404", None, now=mock_now)
