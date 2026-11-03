@@ -26,8 +26,8 @@ LLM 은 ② 가 넘긴 메시지 묶음 **안에서만** 근거를 찾는다(웹
 
 칸은 여섯이고 화면에서 가는 곳이 다르다.
 
-    verdict      판정. 화면 맨 위
-    summary      맨 위 요약 네 칸 (move / main_cause / counter / unexplained)
+    verdict      판정. 화면 맨 위. 상대 층(코스피·대형주 대비) 판정은 relative_verdict
+    summary      맨 위 요약 다섯 칸 (move / main_cause / relative / counter / unexplained)
     factors      아래 「이유」 절. main_cause 의 상세판이다. 원인 한 문장은 지금 event, 옛 회차는 claim
     terms        본문의 풀어 쓴 표현에 색을 입히고, 올리면 원래 전문용어를 띄운다
     background   「참고」 절. 원인은 아니지만 그날 있었던 재료. 지금 보고서는 항목마다 출처가 있다
@@ -47,13 +47,14 @@ LLM 은 ② 가 넘긴 메시지 묶음 **안에서만** 근거를 찾는다(웹
 들어 있다. 래퍼를 열고 → final_text 를 다시 파싱한다. 한 번만 파싱하면 보고서가
 아니라 실행 지표가 나온다.
 
-래퍼에서 읽는 것은 다섯 개뿐이다.
+래퍼에서 읽는 것은 여섯 개뿐이다.
 
     final_text       보고서 JSON 문자열. 적재 대상
     json_status      러너가 본 파싱 상태. clean 이 정상
     schema_problems  점검 스크립트가 찾은 스키마 위반 목록
     is_error         실행 자체가 실패
     asked_question   모델이 사람에게 되물었다. 자동 실행이라 답할 사람이 없어 금지돼 있다
+    skipped_llm      LLM 을 부르지 않고 낸 정형 보고서의 사유. 화면 표시용이라 칼럼에 넣는다
 
 나머지는 의도적으로 흘려보낸다.
 
@@ -64,7 +65,7 @@ LLM 은 ② 가 넘긴 메시지 묶음 **안에서만** 근거를 찾는다(웹
     - duration_ms·cost_usd 는 운영 지표라 보고서 표에 넣지 않는다
 
 래퍼는 실험 환경 산출물이라 필드가 늘거나 준다. 모르는 필드에 걸려 죽으면 적재가
-통째로 멈추므로 위 다섯 개만 보고 나머지는 쳐다보지 않는다.
+통째로 멈추므로 위 여섯 개만 보고 나머지는 쳐다보지 않는다.
 
 ## 깨진 건도 버리지 않는다
 
@@ -147,6 +148,9 @@ class ParsedAnalysis:
         # 산출물 파일 바이트의 sha256. 같은 파일의 재적재를 막는 키다(insert_analysis 참고).
         # 파일 없이 parse_wrapper 를 직접 부르면 None 이고, 그때는 중복을 막지 않는다.
         self.source_file_sha256 = source_file_sha256
+        # 래퍼 skipped_llm. 정형 보고서면 사유(NO_DIRECT_MESSAGES), LLM 보고서면 None.
+        # 보고서 본문이 아니라 래퍼의 칸이라 raw_json 에 남지 않는다 — 여기서 따로 들고 간다.
+        self.skipped_llm: str | None = None
 
 
 def _failed(run_id: str | None, raw_json: dict[str, Any], reason: str) -> ParsedAnalysis:
@@ -188,8 +192,14 @@ def _parse_file_text(path: Path, text: str) -> ParsedAnalysis:
 
 
 def parse_wrapper(wrapper: dict[str, Any], *, fallback_run_id: str | None = None) -> ParsedAnalysis:
-    """실행 기록 래퍼에서 보고서 JSON 을 꺼낸다. 다섯 필드만 본다(모듈 docstring 참고)."""
-    run_id = wrapper.get("run_id") or fallback_run_id
+    """실행 기록 래퍼에서 보고서 JSON 을 꺼낸다. 여섯 필드만 본다(모듈 docstring 참고)."""
+    parsed = _open_final_text(wrapper, wrapper.get("run_id") or fallback_run_id)
+    # 파싱이 깨져도 읽는다. 래퍼의 칸이라 final_text 와 무관하다.
+    parsed.skipped_llm = _as_str(wrapper.get("skipped_llm"))
+    return parsed
+
+
+def _open_final_text(wrapper: dict[str, Any], run_id: str | None) -> ParsedAnalysis:
 
     # 프롬프트가 "첫 글자는 { 이고 마지막 글자는 }" 라고 못박아 뒀지만 모델이 코드펜스나
     # 머리말을 붙이는 날이 있다. 그러면 여기서 파싱이 깨진다 — 그것도 적재 대상이다.
@@ -491,15 +501,21 @@ def build_analysis(
         name=_as_str(r.get("name")),
         target_date=target_date,
         as_of=_as_of_datetime(target_date, r.get("as_of")),
+        # 화면 기준 시각은 러너가 isoformat() 으로 적는다. 오프셋이 없으면 KST 로 본다(출처 시각과 같은 규칙).
+        display_as_of=_parse_kst_datetime(r.get("display_as_of")),
+        display_is_close=_as_bool(r.get("display_is_close")),
         change_pct=_as_decimal(r.get("change_pct")),
         verdict=_as_str(r.get("verdict")),
-        # summary 네 칸. 화면 맨 위에 칸마다 따로 나간다.
+        relative_verdict=_as_str(r.get("relative_verdict")),
+        # summary 다섯 칸. 화면 맨 위에 칸마다 따로 나간다.
         #   move        기준 시각·종목 등락률·시장 등락률·시장 대비 초과분
         #   main_cause  원인 요약. factors 를 줄글로 묶은 것이라 중복이 아니다
+        #   relative    코스피·대형주 대비 해석. 상대 층을 판단하지 않는 날은 null
         #   counter     방향이 어긋나는 재료
         #   unexplained 설명되지 않는 폭과, 이 보고서에만 해당하는 한계
         summary_move=_as_str(summary.get("move")),
         summary_main_cause=_as_str(summary.get("main_cause")),
+        summary_relative=_as_str(summary.get("relative")),
         # counter 는 null 이 정상값이다. 등락 방향과 어긋나는 재료가 실제로 있을 때만
         # 채워지고, no_clear_cause 인 날은 "어긋난다" 는 개념 자체가 없어 항상 null 이다.
         # 빈 문자열로 바꾸지 않는다 — 화면이 "없음" 과 "못 채움" 을 구분해야 한다.
@@ -512,6 +528,7 @@ def build_analysis(
         source_file_sha256=parsed.source_file_sha256,
         parse_status=parsed.parse_status,
         parse_error=parsed.parse_error,
+        skipped_llm=parsed.skipped_llm,
         verify_status=verify_status,
         verify_error=verify_error,
         prompt_version=prompt_version,
@@ -547,9 +564,11 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveAna
         unconfirmed      "~설", 커뮤니티 전언처럼 출처가 스스로 확인되지 않았다고
                          밝힌 정보에 기댄 원인인가
 
-    지금 보고서는 direction_match·size_fit 을 factor 가 아니라 links 의 층마다 단다.
-    그래서 지금 보고서의 행은 이 두 칼럼이 NULL 이다.
+        links            지금 보고서의 층별 연결 [{layer, note, strength, direction_match}].
+                         direction_match·size_fit 을 factor 가 아니라 여기 층마다 단다.
+                         그래서 지금 보고서의 행은 위 두 칼럼이 NULL 이고, 옛 보고서는 links 가 NULL 이다
     """
+    links = f.get("links")
     factor = StockMoveAnalysisFactor(
         order_index=index,  # 배열 순서가 곧 중요도 순이다
         # event 칸이 있으면 그 값만 본다. 문자열이 아니어도 claim 으로 넘어가지 않는다 —
@@ -560,6 +579,8 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveAna
         direction_match=_as_bool(f.get("direction_match")),
         size_fit=_as_str(f.get("size_fit")),
         unconfirmed=_as_bool(f.get("unconfirmed")),
+        # 객체가 아닌 link 는 버린다. 원본은 raw_json 에 있다.
+        links=[link for link in links if isinstance(link, dict)] if isinstance(links, list) else None,
     )
 
     # 출처 없는 주장은 프롬프트가 금지하므로 최소 1개가 정상이다. 0개면 그 자체가
