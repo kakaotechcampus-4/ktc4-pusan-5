@@ -119,4 +119,4 @@ def test_naver_search_respects_rate_limit_cooldown():
     mock_article = KnownArticle(id=1, url="u", canonical_url="u", status="failed",
                                 fetched_at=mock_now, error="http_error: 429")
     assert not needs_body(mock_article, now=mock_now)
-    assert needs_body(mock_article, now=mock_now + timedelta(minutes=1))
+    assert needs_body(mock_article, now=mock_now + timedelta(minutes=10))

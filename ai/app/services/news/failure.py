@@ -26,9 +26,9 @@ from typing import Literal
 FailureKind = Literal["permanent", "rate_limited", "transient", "extract", "unknown"]
 
 # 실행 안의 재시도(news_link/fetch.py)를 다 쓴 429는 다음 실행에서도 바로 재요청하지 않는다.
-# 기존 수집 시각을 사용하므로 스키마 변경은 없다. 1분은 실행 안 대기의 상한에 맞춘 값이고
-# 실측 근거는 없다. 수집 주기와 실제 429 기록이 쌓이면 다시 정한다.
-RATE_LIMIT_COOLDOWN = timedelta(minutes=1)
+# 기존 수집 시각을 사용하므로 스키마 변경은 없다. 10분은 실행 안 대기의 상한(1분)보다 길게 쉬려고
+# 잡은 값이고 실측 근거는 없다. 수집 주기와 실제 429 기록이 쌓이면 다시 정한다.
+RATE_LIMIT_COOLDOWN = timedelta(minutes=10)
 
 # 4xx 중 다시 요청하면 될 수 있는 것. 408 요청 시간 초과, 425 너무 이른 요청. 429 는 따로 본다.
 _RETRYABLE_4XX = frozenset({408, 425})
@@ -105,7 +105,7 @@ def retry_due(
 ) -> bool:
     """재시도 가능한 실패 중 지금 요청할 것. 시각 없는 기존 행은 한 번 더 확인한다.
 
-    429는 마지막 시도에서 최소 1분을 기다린다. Retry-After 헤더를 저장하지 않는
+    429는 마지막 시도에서 최소 10분을 기다린다. Retry-After 헤더를 저장하지 않는
     현재 구조의 기본 대기 정책이며, 호스트 전체의 요청량 제한을 대신하지 않는다.
     """
     kind = failure_kind(body_error)
