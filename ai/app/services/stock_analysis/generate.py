@@ -60,6 +60,7 @@ from app.repositories.stock_move_analysis import KST
 from app.services.stock_analysis.stock_meta import sector, universe_weight
 from app.services.stock_analysis.verify import (
     EMPTY_RESPONSE,
+    LINKED_GROUP_SUFFIX,
     LLM_ERROR,
     OUTPUT_TRUNCATED,
     STREAM_INTERRUPTED,
@@ -199,10 +200,25 @@ def needs_llm(payload: dict[str, Any]) -> bool:
     return any(mention_of(m) == "mentioned" or m.get("kind") == THEME_RECAP_KIND for m in messages)
 
 
+def _has_batchim(word: str) -> bool:
+    """마지막 글자가 받침 있는 한글인가. 받침 없음·영문·숫자는 False."""
+    last = word[-1:] if word else ""
+    return "가" <= last <= "힣" and bool((ord(last) - 0xAC00) % 28)
+
+
 def _topic_josa(word: str) -> str:
     """은/는. 마지막 글자가 받침 있는 한글이면 은, 그 밖(받침 없음·영문·숫자)은 는."""
-    last = word[-1:] if word else ""
-    return "은" if "가" <= last <= "힣" and (ord(last) - 0xAC00) % 28 else "는"
+    return "은" if _has_batchim(word) else "는"
+
+
+def _with_josa(word: str) -> str:
+    """과/와."""
+    return "과" if _has_batchim(word) else "와"
+
+
+def _object_josa(word: str) -> str:
+    """을/를."""
+    return "을" if _has_batchim(word) else "를"
 
 
 def _pct(value: Decimal) -> str:
@@ -260,13 +276,132 @@ def _canned_move(payload: dict[str, Any]) -> str:
         else:
             relation = f"대형주 전반보다 {'더' if abs(change) > abs(peer) else '덜'} {_verb(change)}습니다"
         sentences.append(f"{stock}{_topic_josa(stock)} {relation}.")
+    sentences += _canned_kospi(payload, stock)
     return " ".join(sentences)
+
+
+def _compare_ok(payload: dict[str, Any]) -> dict[str, Any] | None:
+    """입력 market_compare 가 비교 문장을 쓸 수 있는 상태(ok)면 그 칸. 아니면 None(프롬프트 3단계 「비교 수치」)."""
+    compare = payload.get("market_compare")
+    return compare if isinstance(compare, dict) and compare.get("status") == "ok" else None
+
+
+def _kospi_base(kospi: dict[str, Any], stock: str) -> tuple[str, Decimal | None]:
+    """(기준 시장 이름, 그 등락률). kospi_basis 가 kospi_ex_self 면 "<종목명>을 뺀 코스피" 다."""
+    if kospi.get("kospi_basis") == "kospi_ex_self":
+        return f"{stock}{_object_josa(stock)} 뺀 코스피", _decimal(kospi.get("kospi_ex_self_change_rate_pct"))
+    return "코스피", _decimal(kospi.get("kospi_change_rate_pct"))
+
+
+def _moved(value: Decimal | None) -> str:
+    """'올랐'·'내렸'·'움직였'(보합·모름). 뒤에 '습니다'·'고'·'지만' 을 붙인다."""
+    return "움직였" if not value else _verb(value)
+
+
+def _canned_kospi(payload: dict[str, Any], stock: str) -> list[str]:
+    """summary.move 의 코스피 판정 문장(프롬프트 4부 move, 3단계 kospi_relation 표). 판정이 없으면 []."""
+    compare = _compare_ok(payload)
+    kospi = compare.get("kospi") if compare else None
+    relation = kospi.get("kospi_relation") if isinstance(kospi, dict) else None
+    if relation is None:
+        return []
+    base, base_pct = _kospi_base(kospi, stock)
+    change = _decimal(kospi.get("stock_change_rate_pct"))
+    topic = f"{stock}{_topic_josa(stock)}"
+    out = []
+    if kospi.get("kospi_basis") == "kospi_ex_self":
+        # "삼성전자는 코스피 비중이 28.80%여서 코스피 등락 가운데 0.51%포인트를 끌어올렸습니다."
+        weight, share = _decimal(kospi.get("kospi_weight_pct")), _decimal(kospi.get("kospi_contribution_pp"))
+        if weight is not None and share:
+            out.append(f"{topic} 코스피 비중이 {_pct(weight)}여서 코스피 등락 가운데 {abs(share)}%포인트를 "
+                       f"{'끌어올렸' if share > 0 else '끌어내렸'}습니다.")
+        if base_pct is not None:  # 자기 제외 코스피 등락률은 앞 문장에 없다
+            moved = f"{_pct(base_pct)} {_verb(base_pct)}" if base_pct else "보합이었"
+            if relation == "follows":
+                return [*out, f"{base}{_topic_josa(base)} {moved}고, {topic} 시장 흐름과 비슷하게 움직였습니다."]
+            if relation == "opposite" or (change and base_pct and change * base_pct < 0):
+                link = "고" if relation == "opposite" else "지만"
+                return [*out, f"{base}{_topic_josa(base)} {moved}{link} {topic} {_moved(change)}습니다."]
+            return [*out, f"{base}{_topic_josa(base)} {moved}고, {topic} 시장 흐름과 다르게 움직였습니다."]
+    # 기준이 코스피면 두 등락률은 앞 문장에 있다. 방향과 판정만 쓴다
+    if relation == "follows":
+        return [*out, f"{topic} {base}{_with_josa(base)} 비슷하게 움직였습니다."]
+    if relation == "opposite" or (change and base_pct and change * base_pct < 0):
+        link = "고" if relation == "opposite" else "지만"
+        return [*out, f"{base}{_topic_josa(base)} {_moved(base_pct)}{link} {topic} {_moved(change)}습니다."]
+    return [*out, f"{topic} {base}{_with_josa(base)} 다르게 움직였습니다."]
+
+
+def _group_who(peer: dict[str, Any]) -> str:
+    """"같은 은행지주 그룹의 신한지주·하나금융지주", 연동 그룹은 "SK하이닉스 지분으로 이어진 SK스퀘어·SK"."""
+    group = str(peer.get("group"))
+    names = "·".join(str(m.get("name")) for m in peer.get("members_used") or [] if isinstance(m, dict))
+    if group.endswith(LINKED_GROUP_SUFFIX):
+        return f"{group.removesuffix(LINKED_GROUP_SUFFIX)} 지분으로 이어진 {names}"
+    return f"같은 {group} 그룹의 {names}"
+
+
+def _group_amount(peer: dict[str, Any], *, noun: bool) -> str:
+    """그룹 등락률. 두 종목 이상이면 "대체로 X% 안팎"(통계 용어를 쓰지 않는다), 한 종목이면 그 종목 등락률.
+    noun 이면 "대체로 3.01% 안팎 오른"(뒤에 종목이 온다), 아니면 "대체로 3.01% 안팎 올랐"."""
+    rate = _decimal(peer.get("median_change_rate_pct"))
+    many = len(peer.get("members_used") or []) >= 2
+    if not rate:
+        return ("대체로 " if many else "") + ("보합인" if noun else "보합이었")
+    return ("대체로 " if many else "") + f"{_pct(rate)}" + (" 안팎" if many else "") + f" {_verb(rate, '날' if noun else '')}"
+
+
+def _canned_relative(payload: dict[str, Any]) -> str | None:
+    """summary.relative 의 코스피·그룹 비교 문장(프롬프트 4부 relative 첫 문장 표). 그룹마다 한 문장이다.
+
+    코스피는 수치 없이 말로만, 첫 번째 follows 그룹 문장에만 넣는다. 그룹 비교를 쓸 수 없으면(market_compare 가 ok 가
+    아니거나 그룹 판정이 모두 null) None 이다. 그룹이 없는 종목의 코스피 비교는 summary.move 에 있다(_canned_kospi).
+    """
+    compare = _compare_ok(payload)
+    if compare is None:
+        return None
+    stock = str(payload.get("stock") or payload.get("code") or "이 종목")
+    topic = f"{stock}{_topic_josa(stock)}"
+    kospi = compare.get("kospi") if isinstance(compare.get("kospi"), dict) else {}
+    kospi_relation = kospi.get("kospi_relation")
+    base, base_pct = _kospi_base(kospi, stock)
+    change = _decimal(kospi.get("stock_change_rate_pct"))
+    sentences = []
+    for peer in compare.get("peers") or []:
+        relation = peer.get("relation") if isinstance(peer, dict) else None
+        if relation is None:
+            continue
+        who = _group_who(peer)
+        noun = f"{_group_amount(peer, noun=True)} {who}"  # "대체로 3.01% 안팎 오른 같은 은행지주 그룹의 …"
+        with_group = f"{noun}{_with_josa(who)}"
+        if relation == "follows":
+            if kospi_relation == "follows":
+                sentence = f"{topic} {base}, 그리고 {with_group} 비슷하게 움직여 시장 전체 흐름을 따라갔습니다."
+            elif kospi_relation == "opposite":
+                sentence = f"{base}{_topic_josa(base)} {_moved(base_pct)}고 {topic} {with_group} 함께 {_moved(change)}습니다."
+            elif kospi_relation == "diverges" and change and base_pct and change * base_pct < 0:
+                sentence = f"{base}{_topic_josa(base)} {_moved(base_pct)}지만 {topic} {with_group} 함께 {_moved(change)}습니다."
+            elif kospi_relation == "diverges":
+                sentence = f"{topic} {base}{_with_josa(base)}는 다르게 {with_group} 함께 움직였습니다."
+            else:
+                sentence = f"{topic} {with_group} 함께 {_moved(change)}습니다."
+            kospi_relation = None  # 코스피는 한 번만 쓴다
+        elif relation == "diverges":
+            sentence = f"{topic} {with_group} 크게 달랐습니다."
+        elif relation == "opposite":
+            moved = f"{_pct(change)} {_verb(change)}" if change else "보합이었"
+            sentence = f"{who}{_topic_josa(who)} {_group_amount(peer, noun=False)}고, {topic} {moved}습니다."
+        else:  # inconclusive — 판정하는 말 없이 비교 종목 등락률만
+            sentence = f"{who}{_topic_josa(who)} {_group_amount(peer, noun=False)}습니다."
+        sentences.append(sentence)
+    return " ".join(sentences) or None
 
 
 def canned_report(payload: dict[str, Any]) -> dict[str, Any]:
     """직접 언급·테마 동향 메시지가 0건인 날의 정형 보고서. LLM 을 부르지 않는다(needs_llm).
 
-    두 판정은 no_clear_cause, 근거·참고 재료는 비운다. 화면은 이 보고서를 "수집된 소식 없음" 으로 보여 줄 수
+    두 판정은 no_clear_cause, 근거·참고 재료는 비운다. 소식이 없는 날일수록 코스피·그룹 흐름 설명이 필요해서, 입력
+    market_compare 의 판정으로 코스피 판정 문장(summary.move 끝)과 그룹 비교 문장(summary.relative)을 템플릿으로 쓴다. 화면은 이 보고서를 "수집된 소식 없음" 으로 보여 줄 수
     있게 래퍼 skipped_llm 칸으로 가른다. 프롬프트 4부와 같게 common_move 날은 main_cause 첫 문장에 그 사실을 쓴다.
     """
     change = _decimal(payload.get("change_pct"))
@@ -279,7 +414,7 @@ def canned_report(payload: dict[str, Any]) -> dict[str, Any]:
         "as_of": f"{hhmm[:2]}:{hhmm[2:]}" if hhmm.isdigit() else str(payload.get("cutoff")),
         "change_pct": payload.get("change_pct"),
         "verdict": "no_clear_cause", "relative_verdict": "no_clear_cause",
-        "summary": {"move": _canned_move(payload), "main_cause": main_cause, "relative": None,
+        "summary": {"move": _canned_move(payload), "main_cause": main_cause, "relative": _canned_relative(payload),
                     "counter": None, "unexplained": "이 종목을 직접 다룬 소식이 수집되지 않았습니다."},
         "factors": [], "terms": [], "background": {"bullish": [], "bearish": [], "neutral": []},
         "not_found": [("직접 언급(mention: mentioned)·테마 동향(kind: theme_recap) 메시지가 0건이라 LLM 을 부르지 않고 "

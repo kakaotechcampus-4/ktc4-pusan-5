@@ -413,6 +413,111 @@ async def test_direct_or_theme_recap_message_calls_llm(fake_complete, extra):
     assert fake_complete.await_count == 1 and "skipped_llm" not in w
 
 
+BANKS = [{"code": "055550", "name": "신한지주"}, {"code": "086790", "name": "하나금융지주"},
+         {"code": "316140", "name": "우리금융지주"}]
+
+
+def _peer(relation, median=-3.04, group="은행지주", members=BANKS):
+    return {"group": group, "median_change_rate_pct": median, "relation": relation, "members_used": members}
+
+
+def _with_compare(kospi_relation, peers, *, change=-0.5, kospi=0.3, basis="kospi", ex_self=None, status="ok"):
+    """_kb 입력에 market_compare 를 붙인다(러너가 MarketCompare.apply 로 넣는 칸)."""
+    payload = _kb(change, -0.4, change + 0.4)
+    payload["market"]["change_pct"] = kospi
+    payload["market_compare"] = {"status": status, "status_reason": None, "peers": peers, "kospi": {
+        "stock_change_rate_pct": change, "kospi_change_rate_pct": kospi, "kospi_basis": basis,
+        "kospi_relation": kospi_relation, "kospi_weight_pct": 28.8, "kospi_contribution_pp": 0.513,
+        "kospi_ex_self_change_rate_pct": ex_self}}
+    return payload
+
+
+WHO = "같은 은행지주 그룹의 신한지주·하나금융지주·우리금융지주"
+
+
+@pytest.mark.parametrize(("payload", "kospi_sentence", "relative"), [
+    (_with_compare("follows", [_peer("follows")], change=-2.5, kospi=-1.8),
+     "KB금융은 코스피와 비슷하게 움직였습니다.",
+     f"KB금융은 코스피, 그리고 대체로 3.04% 안팎 내린 {WHO}와 비슷하게 움직여 시장 전체 흐름을 따라갔습니다."),
+    (_with_compare("diverges", [_peer("follows")], change=-2.5, kospi=1.2),
+     "코스피는 올랐지만 KB금융은 내렸습니다.",
+     f"코스피는 올랐지만 KB금융은 대체로 3.04% 안팎 내린 {WHO}와 함께 내렸습니다."),
+    (_with_compare("diverges", [_peer("follows")], change=-2.5, kospi=-0.9),
+     "KB금융은 코스피와 다르게 움직였습니다.",
+     f"KB금융은 코스피와는 다르게 대체로 3.04% 안팎 내린 {WHO}와 함께 움직였습니다."),
+    (_with_compare("opposite", [_peer("follows", -0.9)], change=-0.5, kospi=0.4),
+     "코스피는 올랐고 KB금융은 내렸습니다.",
+     f"코스피는 올랐고 KB금융은 대체로 0.90% 안팎 내린 {WHO}와 함께 내렸습니다."),
+    (_with_compare("follows", [_peer("diverges")]),
+     "KB금융은 코스피와 비슷하게 움직였습니다.",
+     f"KB금융은 대체로 3.04% 안팎 내린 {WHO}와 크게 달랐습니다."),
+    (_with_compare("follows", [_peer("opposite", 0.41)], change=-0.32),
+     "KB금융은 코스피와 비슷하게 움직였습니다.",
+     f"{WHO}는 대체로 0.41% 안팎 올랐고, KB금융은 0.32% 내렸습니다."),
+    (_with_compare("follows", [_peer("inconclusive", -5.49, "메모리반도체", [{"code": "000660", "name": "SK하이닉스"}])]),
+     "KB금융은 코스피와 비슷하게 움직였습니다.",
+     "같은 메모리반도체 그룹의 SK하이닉스는 5.49% 내렸습니다."),
+    # 연동 그룹은 지분으로 이어진 관계로 쓴다
+    (_with_compare("follows", [_peer("follows", 1.2, "SK하이닉스 연동",
+                                     [{"code": "000660", "name": "SK하이닉스"}, {"code": "034730", "name": "SK"}])],
+                   change=1.0, kospi=0.8),
+     "KB금융은 코스피와 비슷하게 움직였습니다.",
+     ("KB금융은 코스피, 그리고 대체로 1.20% 안팎 오른 SK하이닉스 지분으로 이어진 SK하이닉스·SK와 비슷하게 움직여 "
+      "시장 전체 흐름을 따라갔습니다.")),
+    # 그룹이 없는 종목도 코스피 비교는 move 에 나온다
+    (_with_compare("follows", []), "KB금융은 코스피와 비슷하게 움직였습니다.", None),
+    # 그룹 판정이 null 이면 그룹 문장이 없다
+    (_with_compare("diverges", [_peer(None)], change=-2.5, kospi=1.2), "코스피는 올랐지만 KB금융은 내렸습니다.", None),
+])
+def test_canned_report_writes_compare_sentences_that_pass_verify(payload, kospi_sentence, relative):
+    from app.services.stock_analysis.verify import (
+        COMPARE_META_PHRASE,
+        COMPARE_OPPOSITE_WORDING,
+        check_warnings,
+        code_of,
+        verify,
+    )
+
+    report = gen.canned_report(payload)
+    assert report["summary"]["move"].endswith(" " + kospi_sentence)
+    assert report["summary"]["relative"] == relative
+    assert verify(report, payload) == ("passed", [])
+    warned = {code_of(w) for w in check_warnings(report, payload)}
+    assert not warned & {COMPARE_META_PHRASE, COMPARE_OPPOSITE_WORDING}
+
+
+def test_canned_kospi_ex_self_writes_weight_share_and_ex_self():
+    """비중이 큰 종목은 프롬프트 4부 move 처럼 비중·기여도·자기 제외 코스피와 판정을 쓴다."""
+    payload = _with_compare("diverges", [_peer("follows", 5.81, "메모리반도체", [{"code": "000660", "name": "SK하이닉스"}])],
+                            change=4.9, kospi=3.0, basis="kospi_ex_self", ex_self=2.4)
+    payload["stock"] = "삼성전자"
+    report = gen.canned_report(payload)
+    assert report["summary"]["move"].endswith(
+        " 삼성전자는 코스피 비중이 28.80%여서 코스피 등락 가운데 0.513%포인트를 끌어올렸습니다."
+        " 삼성전자를 뺀 코스피는 2.40% 올랐고, 삼성전자는 시장 흐름과 다르게 움직였습니다.")
+    assert report["summary"]["relative"] == (
+        "삼성전자는 삼성전자를 뺀 코스피와는 다르게 5.81% 오른 같은 메모리반도체 그룹의 SK하이닉스와 함께 움직였습니다.")
+
+
+def test_canned_two_groups_mention_kospi_once():
+    """그룹마다 한 문장. 코스피는 첫 follows 그룹 문장에만 쓴다."""
+    payload = _with_compare("diverges", [_peer("follows"), _peer("follows", 1.2, "보험", [{"code": "000810", "name": "삼성화재"}])],
+                            change=-2.5, kospi=1.2)
+    assert gen.canned_report(payload)["summary"]["relative"] == (
+        f"코스피는 올랐지만 KB금융은 대체로 3.04% 안팎 내린 {WHO}와 함께 내렸습니다. "
+        "KB금융은 1.20% 오른 같은 보험 그룹의 삼성화재와 함께 내렸습니다.")
+
+
+@pytest.mark.parametrize("status", ["no_data", "no_trades", "stock_not_found"])
+def test_canned_report_has_no_compare_sentence_unless_ok(status):
+    payload = _with_compare("follows", [_peer("follows")], status=status)
+    report = gen.canned_report(payload)
+    assert report["summary"]["relative"] is None
+    assert "코스피와" not in report["summary"]["move"]
+    payload.pop("market_compare")
+    assert gen.canned_report(payload)["summary"]["relative"] is None
+
+
 def test_canned_report_without_market_or_messages():
     payload = {**_kb(0, None, None, messages=[]), "market": None, "cutoff": "2026-10-23T11:00:00+09:00"}
     report = gen.canned_report(payload)
