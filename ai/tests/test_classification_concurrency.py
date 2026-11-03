@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -19,7 +20,18 @@ BASIS = load_basis(Path(__file__).parent / "fixtures" / "mock_classification_bas
 
 def fake_run(monkeypatch, card_ids: list[int], *, failed: tuple[int, ...] = ()) -> SimpleNamespace:
     """DB·LLM 자리를 바꿔 끼우고, 동시에 몇 건이 돌았는지와 무엇이 저장됐는지 모은다."""
-    seen = SimpleNamespace(active=0, peak=0, started=[], saved={})
+    seen = SimpleNamespace(active=0, peak=0, started=[], saved={}, order=[], locks=[])
+
+    @asynccontextmanager
+    async def collection_locks(session_factory, *sources):
+        seen.locks.append(sources)
+        seen.order.append("잠금")
+        yield
+        seen.order.append("해제")
+
+    async def cards_to_classify(session, **kwargs):
+        seen.order.append("선택")
+        return card_ids
 
     async def get_sources(session, ids, include_body):
         return [SimpleNamespace(id=ids[0], kind="news", title="제목", body=f"본문 {ids[0]}",
@@ -37,13 +49,15 @@ def fake_run(monkeypatch, card_ids: list[int], *, failed: tuple[int, ...] = ()) 
 
     async def save_run(session, card_id, result, *, make_current):
         seen.saved[card_id] = result.input_sha256
+        seen.order.append("저장")
         return card_id * 10
 
     monkeypatch.setattr(cli, "load_basis", lambda path: BASIS)
     monkeypatch.setattr(cli, "endpoint", lambda: None)
     monkeypatch.setattr(cli, "SessionLocal", MagicMock(return_value=AsyncMock()))
     monkeypatch.setattr(cli, "stored_basis_versions", AsyncMock(return_value={BASIS.version}))
-    monkeypatch.setattr(cli, "cards_to_classify", AsyncMock(return_value=card_ids))
+    monkeypatch.setattr(cli, "collection_locks", collection_locks)
+    monkeypatch.setattr(cli, "cards_to_classify", cards_to_classify)
     monkeypatch.setattr(cli, "get_sources", get_sources)
     monkeypatch.setattr(cli, "classify", classify)
     monkeypatch.setattr(cli, "save_run", save_run)
@@ -80,6 +94,23 @@ async def test_failed_card_does_not_stop_the_others(monkeypatch, capsys):
     assert set(seen.saved) == {1, 2, 3, 4}
     out = capsys.readouterr().out
     assert "ok 3" in out and "failed 1" in out
+
+
+async def test_lock_is_held_from_selection_until_every_card_is_saved(monkeypatch):
+    seen = fake_run(monkeypatch, [1, 2])
+    await cli.run_classify(run_args(2))
+    assert seen.locks == [("classification",)]
+    # 고르는 동안만 잠그면 겹친 실행이 아직 회차가 없는 같은 자료를 또 고른다
+    assert seen.order == ["잠금", "선택", "저장", "저장", "해제"]
+
+
+async def test_explicit_ids_do_not_wait_for_the_lock(monkeypatch):
+    seen = fake_run(monkeypatch, [1, 2])
+    args = run_args(2)
+    args.ids = [1, 2]
+    await cli.run_classify(args)
+    assert seen.locks == []
+    assert set(seen.saved) == {1, 2}
 
 
 def test_concurrency_below_one_is_rejected(monkeypatch):

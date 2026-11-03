@@ -9,6 +9,7 @@ DB 에 쓰는 명령
     … run --ids 101 --experiment --judge-model <모델>
                                            # 저장하되 조회에 쓰는 회차는 바꾸지 않는다(모델 비교)
     … run --limit 20 --concurrency 8       # 자료 8건을 동시에. 비용은 같고 시간만 준다
+                                           # --ids 없는 run 은 한 번에 하나만 돈다. 나중 실행은 기다린다
     uv run python -m app.services.classification show 005930 --days 3
                                            # 종목 하나의 판정 자료·공통 배경 (생성 쪽에 넘기는 것)
 
@@ -46,6 +47,7 @@ from app.repositories.classification import (
     stored_basis_versions,
     sync_basis,
 )
+from app.repositories.scope import collection_locks
 from app.repositories.source_card import get_sources
 from app.services.classification import splitter
 from app.services.classification.basis import Basis, BasisError, load_basis
@@ -133,6 +135,17 @@ async def run_basis(path: Path | None, check_only: bool) -> None:
 async def run_classify(args: argparse.Namespace) -> None:
     basis = load_basis(args.basis)
     endpoint()  # 키가 없으면 자료를 읽기 전에 멈춘다
+    # --ids 는 직접 고른 자료라 막지 않는다. 막으면 전체 분류 중에는 모델 비교도 몇 시간씩 멈춘다
+    if args.ids is not None:
+        await classify_cards(args, basis)
+        return
+    print("다른 분류 실행이 있으면 끝날 때까지 기다린다", flush=True)
+    # 고르기 전에 잡아 전부 저장할 때까지 쥔다. 회차는 분류 뒤에 생겨서, 겹친 실행은 같은 자료를 또 고른다
+    async with collection_locks(SessionLocal, "classification"):
+        await classify_cards(args, basis)
+
+
+async def classify_cards(args: argparse.Namespace, basis: Basis) -> None:
     async with SessionLocal() as session:
         stored = await stored_basis_versions(session)
         if stored != {basis.version}:
