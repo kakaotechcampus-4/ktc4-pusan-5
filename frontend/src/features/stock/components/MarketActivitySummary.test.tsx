@@ -127,7 +127,7 @@ describe('기관 순매수', () => {
     expect(row).not.toContain('NaN');
   });
 
-  it('keeps the value and says it is delayed when stale', () => {
+  it('keeps showing the last value without a delay label when stale', () => {
     const { container } = renderWithFlow(
       flowWith('stale', {
         tradeDate: '2026-11-02',
@@ -135,7 +135,8 @@ describe('기관 순매수', () => {
         institutionNetValue: null,
       }),
     );
-    expect(institutionRow(container)).toContain('갱신 지연');
+    expect(institutionRow(container)).toContain('5');
+    expect(institutionRow(container)).not.toContain('갱신 지연');
   });
 
   it('holds the place with a skeleton while the collector is still working', () => {
