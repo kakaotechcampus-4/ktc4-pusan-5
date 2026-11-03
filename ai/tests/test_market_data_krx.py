@@ -254,6 +254,29 @@ async def test_index_row_without_name_is_error(how: str) -> None:
             await fetch_kospi_index_daily(client, DAY)
 
 
+@pytest.mark.parametrize(("field", "how"), [("FLUC_RT", "N/A"), ("IDX_NM", "missing")])
+async def test_kospi_survives_broken_other_index_row(field: str, how: str) -> None:
+    """업종지수 행(전기전자)이 깨져도 코스피 행은 받는다."""
+    body = fixture("krx_kospi_dd_trd.json")
+    [electronics] = [r for r in body["OutBlock_1"] if r["IDX_NM"] == "전기전자"]
+    _break_field(electronics, field, how)
+
+    async with _client(_serve_body(body)) as client:
+        kospi = await fetch_kospi(client, DAY)
+
+    assert kospi is not None
+    assert kospi.name == "코스피"
+    assert kospi.close == 5638.34
+
+
+async def test_kospi_row_missing_is_none() -> None:
+    body = fixture("krx_kospi_dd_trd.json")
+    body["OutBlock_1"] = [r for r in body["OutBlock_1"] if r["IDX_NM"] != "코스피"]
+
+    async with _client(_serve_body(body)) as client:
+        assert await fetch_kospi(client, DAY) is None
+
+
 async def test_missing_key_stops_before_request(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "krx_auth_key", None)
 

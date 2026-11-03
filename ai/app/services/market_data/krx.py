@@ -54,10 +54,13 @@ async def fetch_kospi_index_daily(client: httpx.AsyncClient, bas_dd: date) -> li
 
 
 async def fetch_kospi(client: httpx.AsyncClient, bas_dd: date) -> IndexDaily | None:
-    """코스피 종합지수 한 행. 데이터가 없는 날은 None."""
-    for index in await fetch_kospi_index_daily(client, bas_dd):
-        if index.name == KOSPI_INDEX_NAME:
-            return index
+    """코스피 종합지수 한 행. 데이터가 없는 날은 None.
+
+    원본 행에서 코스피를 먼저 고르고 그 행만 변환한다. 업종지수 행 하나가 깨져도 코스피는 받는다.
+    """
+    for row in await _post(client, KOSPI_INDEX_PATH, bas_dd):
+        if row.get("IDX_NM") == KOSPI_INDEX_NAME:
+            return _index_row(row)
     return None
 
 
