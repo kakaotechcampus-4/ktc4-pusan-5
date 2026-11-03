@@ -75,10 +75,11 @@ async def fetch_stock(client: httpx.AsyncClient, bas_dd: date, code: str) -> Sto
 
     KRX 에는 종목 하나만 묻는 API 가 없다. 전 종목을 받아서 고른다.
     여러 종목을 볼 때는 fetch_stock_daily 를 한 번 부르고 거기서 고른다.
+    원본 행에서 먼저 고르고 그 행만 변환한다. 다른 종목 행 하나가 깨져도 이 종목은 받는다.
     """
-    for stock in await fetch_stock_daily(client, bas_dd):
-        if stock.code == code:
-            return stock
+    for row in await _post(client, KOSPI_STOCK_PATH, bas_dd):
+        if row.get("ISU_CD") == code:
+            return _stock_row(row)
     return None
 
 

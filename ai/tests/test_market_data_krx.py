@@ -277,6 +277,21 @@ async def test_kospi_row_missing_is_none() -> None:
         assert await fetch_kospi(client, DAY) is None
 
 
+@pytest.mark.parametrize(("field", "how"), [("ISU_CD", "missing"), ("FLUC_RT", "N/A")])
+async def test_stock_survives_broken_other_stock_row(field: str, how: str) -> None:
+    """다른 종목(AJ네트웍스) 행이 깨져도 삼성전자 행은 받는다."""
+    body = fixture("krx_stk_bydd_trd.json")
+    [other] = [r for r in body["OutBlock_1"] if r["ISU_CD"] == "095570"]
+    _break_field(other, field, how)
+
+    async with _client(_serve_body(body)) as client:
+        stock = await fetch_stock(client, DAY, "005930")
+
+    assert stock is not None
+    assert stock.code == "005930"
+    assert (stock.open, stock.high, stock.low) == (222000, 225500, 220000)
+
+
 async def test_missing_key_stops_before_request(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "krx_auth_key", None)
 
