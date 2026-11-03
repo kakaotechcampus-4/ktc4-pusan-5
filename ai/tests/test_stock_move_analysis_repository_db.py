@@ -6,12 +6,13 @@
 
 import asyncio
 import json
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.repositories.stock_move_analysis import insert_analysis_files
-from tests.test_migrations import alembic, query
+from tests.test_migrations import alembic, columns, query
 
 FIXTURES = Path(__file__).parent / "fixtures" / "reports"
 SAMSUNG = FIXTURES / "삼성전자-2026-09-18-with-indirect__B__r1.json"
@@ -143,3 +144,91 @@ def test_current_report_keeps_event_and_background_sources(database):
                ON r.i = c.i
     """)[0]
     assert same["n"] > 0 and same["same"]
+
+
+DISPLAY_COLUMNS = ("display_as_of", "display_is_close", "relative_verdict", "summary_relative")
+
+
+def test_display_columns_are_backfilled_like_the_loader(database):
+    """0028 은 기존 행의 화면 칼럼을 raw_json 으로 채운다. 채운 값이 적재(build_analysis)가 같은 보고서로
+    채우는 값과 같아야 한다 — 다르면 리비전 전후에 적재된 행이 화면에서 다르게 보인다.
+    downgrade 하면 칼럼이 지워지고, 다시 upgrade 하면 같은 값으로 채워진다."""
+    from app.repositories.stock_move_analysis import build_analysis, parse_wrapper
+
+    alembic(database, "upgrade", "0027_classification")
+
+    odd = {  # 타입이 어긋난 칸, 시간대 없는 시각, 객체가 아닌 factor·link
+        "ticker": "105560", "date": "2026-11-02", "summary": ["배열"],
+        "display_as_of": "2026-11-02T15:30:00", "display_is_close": "true", "relative_verdict": 1,
+        "factors": ["문자열 factor", {"event": "e", "links": [{"layer": "move", "strength": "partial"}, "x"]},
+                    {"event": "links 가 객체", "links": {"layer": "move"}}],
+    }
+    wrappers = [json.loads(CURRENT.read_text(encoding="utf-8")), json.loads(SAMSUNG.read_text(encoding="utf-8"))]
+    wrappers += [{"run_id": f"r{i}", "final_text": json.dumps(r, ensure_ascii=False)} for i, r in enumerate([
+        odd,
+        {"summary": {"relative": "상대 문장"}, "display_as_of": "오후", "display_is_close": False},
+        {"summary": {}, "display_as_of": "2026-13-45T25:00:00+09:00", "relative_verdict": "explained"},
+    ])]
+    # 파싱이 깨진 행은 raw_json 이 래퍼다. 래퍼에 보고서 칸 이름이 있어도 채우지 않는다.
+    wrappers.append({"run_id": "broken", "final_text": "{깨짐", "relative_verdict": "explained",
+                     "summary": {"relative": "래퍼"}})
+
+    expected = {}
+    for w in wrappers:
+        a = build_analysis(parse_wrapper(w))
+        expected[a.run_id] = ({c: getattr(a, c) for c in DISPLAY_COLUMNS}, {f.order_index: f.links for f in a.factors})
+        analysis_id = query(database, "INSERT INTO stock_move_analyses (run_id, raw_json, parse_status, verify_status) "
+                                      "VALUES ($1, $2::jsonb, $3, 'not_verified') RETURNING id",
+                            a.run_id, json.dumps(a.raw_json, ensure_ascii=False), a.parse_status)[0]["id"]
+        for f in a.factors:
+            query(database, "INSERT INTO stock_move_analysis_factors (analysis_id, order_index) VALUES ($1, $2)",
+                  analysis_id, f.order_index)
+    assert expected["r0"][0]["display_as_of"] is not None and expected["r0"][1] == {
+        1: [{"layer": "move", "strength": "partial"}], 2: None}, "odd 보고서가 의도한 경우를 덮지 못한다"
+
+    def stored():
+        rows = query(database, f"SELECT id, run_id, {', '.join(DISPLAY_COLUMNS)}, skipped_llm FROM stock_move_analyses")
+        links = query(database, "SELECT analysis_id, order_index, links FROM stock_move_analysis_factors")
+        got = {}
+        for r in rows:
+            factor_links = {f["order_index"]: json.loads(f["links"]) if f["links"] else None
+                            for f in links if f["analysis_id"] == r["id"]}
+            assert r["skipped_llm"] is None  # raw_json 에 없는 칸이라 채우지 않는다
+            got[r["run_id"]] = ({c: r[c] for c in DISPLAY_COLUMNS}, factor_links)
+        return got
+
+    alembic(database, "upgrade", "head")
+    assert stored() == expected
+    assert expected["SK하이닉스-2026-11-03-1845__r1"][0]["display_is_close"] is True
+
+    alembic(database, "downgrade", "0027_classification")
+    assert not set(DISPLAY_COLUMNS) & set(columns(database, "stock_move_analyses"))
+    assert "links" not in columns(database, "stock_move_analysis_factors")
+    alembic(database, "upgrade", "head")
+    assert stored() == expected
+    alembic(database, "check")
+
+
+def test_loader_fills_display_columns_and_skipped_llm(database, tmp_path):
+    """적재가 새 칼럼을 채운다. skipped_llm 은 보고서가 아니라 래퍼에서 읽는다."""
+    alembic(database, "upgrade", "head")
+    canned = tmp_path / "canned.json"
+    report = {"ticker": "005930", "date": "2026-10-30", "verdict": "no_clear_cause",
+              "relative_verdict": "no_clear_cause", "summary": {"relative": None}, "factors": []}
+    canned.write_text(json.dumps({"run_id": "canned", "final_text": json.dumps(report),
+                                  "skipped_llm": "NO_DIRECT_MESSAGES"}), encoding="utf-8")
+    assert load(database, [CURRENT, canned]) == 2
+
+    rows = {r["run_id"]: r for r in query(database, "SELECT * FROM stock_move_analyses")}
+    current = rows["SK하이닉스-2026-11-03-1845__r1"]
+    raw = json.loads(current["raw_json"])
+    assert current["skipped_llm"] is None
+    assert current["relative_verdict"] == raw["relative_verdict"]
+    assert current["summary_relative"] == raw["summary"]["relative"]
+    assert current["display_as_of"] == datetime.fromisoformat(raw["display_as_of"])  # 같은 시각(asyncpg 는 UTC 로 준다)
+    assert current["display_is_close"] is raw["display_is_close"]
+    assert rows["canned"]["skipped_llm"] == "NO_DIRECT_MESSAGES"
+
+    links = query(database, "SELECT f.links FROM stock_move_analysis_factors f WHERE f.analysis_id = $1 "
+                            "ORDER BY f.order_index", current["id"])
+    assert [json.loads(r["links"]) for r in links] == [f["links"] for f in raw["factors"]]
