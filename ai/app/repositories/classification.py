@@ -41,7 +41,7 @@ from app.services.classification.pipeline import ClassificationResult
 CLASSIFIABLE_CARD_TYPES = ("news", "pdf", "message")
 TAGGED_BY = "classification"
 DEFAULT_LABELS = ("DIRECT", "INDIRECT_CONTEXT")
-# 자료 대표값(card_label)을 고르는 순서. 생성 쪽 match 는 "한 줄이라도 직접 다루면 direct" 다
+# 자료 대표값(card_label)을 고르는 순서. 생성 쪽 mention(옛 이름 match)은 이 값이 아니라 사건의 path 로 정한다
 LABEL_STRENGTH = ("DIRECT", "INDIRECT_CONTEXT", "UNKNOWN", "NOT_APPLICABLE")
 
 

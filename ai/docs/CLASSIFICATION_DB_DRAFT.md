@@ -34,7 +34,7 @@
 | P10 | 사건 형식은 실험으로 확정한다. E2(역할을 나눈 출력)로 원인 재현율이 오르는지 보고, E3(기사 단위 사건 추출 → 종목별 조립)이 기존 종목별 문장 선택만큼 기업 직접 원인을 잡으면서 업황 배경 후보를 더 얻으면 채택한다. 역할 목록의 최종안과 증권사 의견(`analyst_view`)을 원인으로 볼지는 아직 정하지 않았다 | 팀 결정 |
 | P11 | **소속과 적용을 나눈다.** "이 회사가 이 산업에 속한다·이 회사와 관계가 있다"(기준표, 고정)와 "이번 사건이 이 회사에 해당한다"(자료마다 판정)는 다른 질문이다. 산업·기업 관계는 근거가 아니라 **후보를 만드는 데만** 쓰고, 해당 여부는 사건마다 DIRECT / INDIRECT_CONTEXT / NOT_APPLICABLE / UNKNOWN 으로 판정해 저장한다. 같은 산업이라는 이유만으로 모든 종목에 붙이지 않는다(예: "중·저사양 FC-BGA 공급 부족" 을 모든 기판 회사에 붙이지 않는다) | 멘토 피드백 (2026-10) |
 | P12 | 기업 관계는 1-hop 까지만 넓힌다. 관계에는 종류(supplier / customer / competitor / ownership)·방향·근거 출처를 둔다. 유효 기간·중요도·confidence 는 근거 있게 채울 수 있을 때 더한다 | 멘토 피드백 (2026-10), 팀 결정 |
-| P13 | 분류 결과는 보고서 생성 입력(PR #36 으로 develop 에 들어온 `docs/stock_analysis_io.md` 의 `messages[].match`)으로 이어진다. 연결(입력 JSON 구성)은 생성 담당이 하고, 이 설계는 연결에 필요한 값을 조회 결과로 내는 데까지다(5절) | 팀 결정 |
+| P13 | 분류 결과는 보고서 생성 입력(PR #36 으로 develop 에 들어온 `docs/stock_analysis_io.md` 의 `messages[].mention`, 옛 이름 `match`)으로 이어진다. 연결(입력 JSON 구성)은 생성 담당이 하고, 이 설계는 연결에 필요한 값을 조회 결과로 내는 데까지다(5절) | 팀 결정 |
 | P14 | **회사–산업 소속의 기준은 사업 관련성이다.** 주가 동행은 소속 기준이 아니다(P5). 연결마다 경로(직접 영위 / 비상장 자회사 / 상장사 지분)·경유 회사·단계(영위 중 / 진출 예정)·역할·근거를 둔다. 상장사 지분·진출 예정 연결로 들어온 후보는 최대 INDIRECT_CONTEXT 다. 넣는 범위와 노드 규칙은 [INDUSTRY_REVIEW.md](INDUSTRY_REVIEW.md) 2-2 ~ 2-5 | 외부 검토 (2026-10-28), 팀 결정 |
 | P15 | **30종목 밖 기업은 후보가 아니라 출발점이다.** 엔비디아·TSMC 같은 해외 기업, 한화오션 같은 30종목 밖 상장사는 외부 기업 기준표에 두고, 사건에 언급되면 기업 관계를 따라 30종목 후보를 만드는 데만 쓴다. 외부 기업 자체는 판정·브리핑 대상이 아니다. 비상장 연결 자회사(SK온, 삼성디스플레이 …)는 외부 기업이 아니라 **모회사의 별칭**으로 둔다(P14 의 `subsidiary` 와 같은 논리) | 팀 결정 (2026-10-28) |
 
@@ -533,7 +533,7 @@ company_relations.industry_code → industries.code
 }
 ```
 
-- `card_label` 순서: `DIRECT` > `INDIRECT_CONTEXT` > `UNKNOWN` > `NOT_APPLICABLE`. 생성 쪽 `match` 는 메시지 단위이고 "한 줄이라도 이 종목을 직접 다루면 direct" 라서, 사건 판정 중 가장 강한 값이 그대로 대표값이 된다. 새 표 없이 조회할 때 계산한다.
+- `card_label` 순서: `DIRECT` > `INDIRECT_CONTEXT` > `UNKNOWN` > `NOT_APPLICABLE`. 이 자료 안 사건 판정 중 가장 강한 값이 대표값이고, 새 표 없이 조회할 때 계산한다. 생성 쪽 `mention` 은 이 값이 아니라 `events[].path` 로 정한다(5-3). `DIRECT` 에는 industry 경로도 들어가서 "이 종목을 직접 다룸" 과 뜻이 다르다.
 - 원문(메시지 `text`·기사 본문)은 넣지 않는다. `source_card_id` 로 원문 표를 따라가 읽는다(`repositories/source_card/query.py` 의 `get_sources`).
 - `body_status` 는 자료 종류마다 다른 칸에서 만든다. 텔레그램 메시지 표에는 이 칸이 없다.
 
@@ -545,12 +545,12 @@ company_relations.industry_code → industries.code
 
 ### 5-3. 보고서 생성 입력과의 대응 (연결은 생성 담당)
 
-develop 의 `docs/stock_analysis_io.md`(PR #36, 10-27 병합) 입력 기준이다. 연결 코드는 생성 담당이 만든다(전제 P13).
+develop 의 `docs/stock_analysis_io.md`(PR #36, 10-27 병합) 입력 기준이다. 연결 코드는 생성 담당이 만든다(전제 P13). `match` → `mention` 이름 변경은 생성 담당이 할 예정이라, 그 문서와 코드에는 아직 `match` 로 남아 있다.
 
 | 생성 입력 칸 | 이 조회 결과에서 |
 | --- | --- |
-| `messages[].match = "direct"` | `card_label = "DIRECT"` |
-| `messages[].match = "indirect"` | `card_label = "INDIRECT_CONTEXT"`. 공통 배경 사건만 있는 자료(`card_label = null`)는 연결 쪽이 정한다 |
+| `messages[].mention = "mentioned"` | 이 종목 판정 중 `path = "company"` 인 사건이 있는 자료 (옛 이름 `match = "direct"`) |
+| `messages[].mention = "not_mentioned"` | 그 밖의 `DIRECT`·`INDIRECT_CONTEXT` (industry·relation 경로). 공통 배경 사건만 있는 자료(`card_label = null`)는 연결 쪽이 정한다 |
 | (넣지 않음) | `NOT_APPLICABLE`, `UNKNOWN` |
 | `channel`·`url`·`datetime_kst`·`text` | `source_card_id` → `telegram_messages` |
 | `sector` | `stock_industries` (지금은 `stock_meta.json`. 9절로 합친 뒤 옮긴다) |
@@ -755,7 +755,7 @@ develop 의 `docs/stock_analysis_io.md`(PR #36, 10-27 병합) 입력 기준이�
 | 11 | ~~마이그레이션 시점~~ | | **정함 (10-30)**: 지금 만든다(`0027_classification`). 수집 → 분류 → 조회를 먼저 이어 놓고 모델·프롬프트를 시험하기로 했다. 사건 형식이 바뀌면 새 리비전으로 고친다 |
 | 12 | PDF 본문(`analyst_reports.body_text`)이 없을 때 요약(`summary_text`)으로 분류할지 | 허용 / 불허 | 허용하되 `purged` 는 제외, 회차에 어느 글로 분류했는지 기록. 뉴스 요약은 지금처럼 쓰지 않는다(4-3) |
 | 13 | 업종 지도 회사별 연결 | — | 규칙과 계층은 정함 (10-28, INDUSTRY_REVIEW 2절). 남은 일: 3절 `†` 항목을 DART 사업보고서의 주요 제품·서비스와 부문 정보로 확인하고 "사실 확인"·"채택" 칸을 채운다. 다 채워지면 기준 JSON 첫 버전을 만든다 |
-| 14 | 관련성 판정이 두 곳에서 일어남 | 분류 ④ 결과를 `match` 로 쓰고 생성 쪽 `issue_trace.relation` 은 점검용 / 생성 쪽에 맡김 | 생성 담당과 결정. 이 설계의 표는 어느 쪽이든 그대로다 |
+| 14 | 관련성 판정이 두 곳에서 일어남 | 분류 ④ 결과를 `mention`(옛 이름 `match`)으로 쓰고 생성 쪽 `issue_trace.relation` 은 점검용 / 생성 쪽에 맡김 | 생성 담당과 결정. 이 설계의 표는 어느 쪽이든 그대로다 |
 | 15 | ~~`company_relations` 데이터를 누가 어떤 근거로 채울지~~ | | **정함 (10-28)**: 넣는 기준과 시작 목록은 RELATION_REVIEW 2~4절. 검색·공시로 "사실 확인"(근거·기준일·`evidence`)과 "채택" 칸을 채운 뒤 기준 JSON 에 넣는다 |
 | 16 | `ownership` 관계와 `stake` 연결도 최대 INDIRECT_CONTEXT 로 둘지 | 그대로 / DIRECT 허용 | 그대로 시작. SK하이닉스 소식 → SK스퀘어 처럼 주가가 거의 같이 움직이는 경우를 평가에서 보고 판단. 바꾸면 둘을 같이 바꾼다(같은 지분을 산업 기사·회사 기사에서 다르게 보지 않게) |
 | 17 | 판정(④) 평가 방법 | — | 사람이 만든 정답 표본으로 NOT_APPLICABLE·UNKNOWN 비율과 오판을 본다. 표본 범위는 미정 |
