@@ -134,11 +134,22 @@ def _bas_dd(value: str) -> date:
         raise KrxError(f"BAS_DD 를 날짜로 못 읽음: {value!r}") from None
 
 
+def _required(row: dict, field: str) -> str:
+    """행의 식별자 칸. 비어 있으면 멈춘다.
+
+    빈 문자열로 넘기면 KRX 가 필드명을 바꿨을 때 에러 없이 "그런 종목 없음" 이 된다.
+    """
+    value = row.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise KrxError(f"KRX 응답 행에 {field} 가 없다: {str(row)[:ERROR_BODY_MAX_CHARS]}")
+    return value
+
+
 def _index_row(row: dict) -> IndexDaily:
     return IndexDaily(
         bas_dd=_bas_dd(row.get("BAS_DD")),
         series=row.get("IDX_CLSS") or "",
-        name=row.get("IDX_NM") or "",
+        name=_required(row, "IDX_NM"),
         close=to_float(row.get("CLSPRC_IDX"), field="CLSPRC_IDX"),
         change=to_float(row.get("CMPPREVDD_IDX"), field="CMPPREVDD_IDX"),
         change_rate=to_float(row.get("FLUC_RT"), field="FLUC_RT"),
@@ -154,7 +165,7 @@ def _index_row(row: dict) -> IndexDaily:
 def _stock_row(row: dict) -> StockDaily:
     stock = StockDaily(
         bas_dd=_bas_dd(row.get("BAS_DD")),
-        code=row.get("ISU_CD") or "",
+        code=_required(row, "ISU_CD"),
         name=row.get("ISU_NM") or "",
         market=row.get("MKT_NM") or "",
         close=to_int(row.get("TDD_CLSPRC"), field="TDD_CLSPRC"),

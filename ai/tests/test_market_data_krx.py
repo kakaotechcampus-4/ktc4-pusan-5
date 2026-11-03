@@ -219,6 +219,41 @@ async def test_unreadable_number_stops() -> None:
             await fetch_stock_daily(client, DAY)
 
 
+def _serve_body(body: dict):
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=body)
+
+    return handler
+
+
+def _break_field(row: dict, field: str, how: str) -> None:
+    if how == "missing":
+        del row[field]
+    else:
+        row[field] = how
+
+
+@pytest.mark.parametrize("how", ["missing", "", "  "])
+async def test_stock_row_without_code_is_error(how: str) -> None:
+    """KRX 가 필드명을 바꾸면 ISU_CD 가 빠진다. 빈 코드로 넘기면 "종목 없음" 으로 보인다."""
+    body = fixture("krx_stk_bydd_trd.json")
+    _break_field(body["OutBlock_1"][0], "ISU_CD", how)
+
+    async with _client(_serve_body(body)) as client:
+        with pytest.raises(KrxError, match="ISU_CD"):
+            await fetch_stock_daily(client, DAY)
+
+
+@pytest.mark.parametrize("how", ["missing", "", "  "])
+async def test_index_row_without_name_is_error(how: str) -> None:
+    body = fixture("krx_kospi_dd_trd.json")
+    _break_field(body["OutBlock_1"][0], "IDX_NM", how)
+
+    async with _client(_serve_body(body)) as client:
+        with pytest.raises(KrxError, match="IDX_NM"):
+            await fetch_kospi_index_daily(client, DAY)
+
+
 async def test_missing_key_stops_before_request(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "krx_auth_key", None)
 
