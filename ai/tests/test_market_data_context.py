@@ -235,6 +235,17 @@ def test_kospi_relation_judges_the_rounded_excess() -> None:
     assert k.kospi_relation == "follows"
 
 
+def test_ex_self_excess_is_shown_rate_minus_shown_ex_self() -> None:
+    """자기 제외 코스피 −1.635 는 −1.64 로 보인다. 초과분은 보이는 숫자끼리 뺀 7.99 − (−1.64) = 9.63 이어야 한다
+    (반올림 전 값과 빼면 9.62)."""
+    target = stock("000010", round(1_200_000 * 1.0799), 7.99)  # 전일 시총 비중 12%
+    rest = stock("000020", 8_800_000, 0.0)
+    k = build_market_context("000010", DAY, kospi(-0.48), [target, rest], groups={}, stock_groups={}).kospi
+    assert k.kospi_basis == "kospi_ex_self"
+    assert k.kospi_ex_self_change_rate_pct == -1.64
+    assert k.excess_vs_kospi_ex_self_pp == 9.63
+
+
 def test_preferred_stock_is_judged_against_kospi() -> None:
     """우선주는 비중이 없어(분모 밖) 코스피 그대로 비교한다. 시총이 아무리 커도 마찬가지다."""
     k = _kospi_ctx(3.00, 1.00, 50.0, code="000015").kospi
@@ -349,6 +360,15 @@ def test_group_relation_judges_the_rounded_excess() -> None:
     peer = _group_ctx(2.14, [1.14])
     assert peer.excess_vs_group_pp == 1.00
     assert peer.relation == "follows"
+
+
+def test_group_excess_is_shown_rate_minus_shown_median() -> None:
+    """−1.88·−1.83 의 중앙값 −1.855 는 −1.85 로 보인다. 독자가 보는 차이는 −2.86 − (−1.85) = −1.01%p 라 diverges 다.
+    반올림 전 중앙값과 빼면 −1.005 → −1.00 으로 follows 가 되어 보이는 숫자와 판정이 어긋난다."""
+    peer = _group_ctx(-2.86, [-1.88, -1.83])
+    assert peer.median_change_rate_pct == -1.85
+    assert peer.excess_vs_group_pp == -1.01
+    assert peer.relation == "diverges"
 
 
 @pytest.mark.parametrize(("target_rate", "peer_rates", "center", "excess", "relation"), [

@@ -113,16 +113,16 @@ def kospi_comparison(stock: StockDaily, kospi: IndexDaily, stocks: list[StockDai
     prev = prev_market_cap(stock)
     weight = prev / base if is_common(stock.code) and prev is not None else None
 
-    contribution = ex_self = excess_ex_self = None
+    contribution = ex_self = None
     if move is not None and weight is not None:
         contribution = stock.change_rate * weight  # %p
         ex_self = (kospi.change_rate - contribution) / (1 - weight)  # %
-        excess_ex_self = stock.change_rate - ex_self  # %p
 
     excess_pp = move.excess_rate if move else None
     weight_pct = _round(weight * 100 if weight is not None else None, RATE_DECIMALS)
     ex_self_pct = _round(ex_self, RATE_DECIMALS)
-    excess_ex_self_pp = _round(excess_ex_self, RATE_DECIMALS)
+    # 보이는 자기 제외 코스피 등락률(반올림 값)과 뺀다. 반올림 전 값과 빼면 1.0 경계에서 판정이 보이는 숫자와 어긋난다.
+    excess_ex_self_pp = None if ex_self_pct is None else round(stock.change_rate - ex_self_pct, RATE_DECIMALS)
     basis = kospi_basis(weight_pct)
     if basis == "kospi_ex_self":
         relation = kospi_relation(excess_ex_self_pp, stock.change_rate, ex_self_pct)
@@ -180,8 +180,9 @@ def peer_comparisons(
         center = median(rates) if rates else None
         center_pct = _round(center, RATE_DECIMALS)
         excess = None
-        if center is not None and not stock.no_trades and stock.change_rate is not None:
-            excess = round(stock.change_rate - center, RATE_DECIMALS)
+        # 보이는 중앙값(반올림 값)과 뺀다. 반올림 전 값과 빼면 1.0 경계에서 판정이 보이는 숫자와 어긋난다.
+        if center_pct is not None and not stock.no_trades and stock.change_rate is not None:
+            excess = round(stock.change_rate - center_pct, RATE_DECIMALS)
         result.append(PeerComparison(
             group=group,
             median_change_rate_pct=center_pct,
