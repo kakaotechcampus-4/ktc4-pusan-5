@@ -116,9 +116,9 @@ class StockMoveAnalysis(Base):
     # 화면이 통째로 받아 쓰는 덩어리라 행으로 쪼갤 이유가 없다.
     terms: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # [{plain, term}]
     # {bullish: [...], bearish: [...], neutral: [...]}
-    # 프롬프트는 항목을 문자열로도 {"text": ..., "watch": true} 객체로도 낸다.
-    # 둘 다 정상이므로 파서가 흡수해 여기서는 객체 형태로 통일해 둔다
-    # (정규화 규칙은 repositories/stock_move_analysis.py 참고). 원본 혼용은 raw_json 에 남는다.
+    # 옛 프롬프트는 항목을 문자열로도 {"text": ..., "watch": true} 객체로도 냈고, 지금 프롬프트는
+    # {"text", "sources", "watch"?} 객체로 낸다. 파서가 흡수해 여기서는 {text, watch, sources} 로
+    # 통일해 둔다 (정규화 규칙은 repositories/stock_move_analysis.py 참고). 원본 혼용은 raw_json 에 남는다.
     background: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # 검수용. 화면에 나가지 않지만 사후 환각 추적 수단이 이것뿐이라 반드시 넣는다.
     # 노출 제어는 backend 응답 단계에서 한다.
