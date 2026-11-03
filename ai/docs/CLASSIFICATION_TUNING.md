@@ -68,7 +68,7 @@
 
 요코하마 방문 기사는 제목이 다른 것만 최소 8건이다. 제목이 완전히 같은 뉴스는 2,276건 중 45건뿐이라 제목 일치로는 못 묶는다.
 
-- 측정 명령: `uv run python -m app.services.classification dedupe-measure` (DB 읽기만 한다). 글자 겹침으로 묶으면 입력이 얼마나 줄어드는지 잰다. 실제 분류 흐름은 바꾸지 않는다.
+- 글자 겹침 측정: 기사를 5글자 조각으로 잘라 겹치는 비율로 묶으면 입력이 얼마나 줄어드는지 쟀다. 효과가 작아 측정 코드는 합치지 않았다. 코드는 커밋 `066ddca` 에 있다.
 - 측정(2026-11-03, 본문 있는 뉴스 2,181건, 시간 범위 48시간). 절감은 분류 회차의 글자 수–비용 회귀로 추정했다(뉴스 36회차, 상관 0.28). 뉴스 전체 비용은 약 ₩5,000 으로 잡혔다:
 
 | 방식 | 기준 | 뺄 기사 | 절감 추정 | 뉴스 비용 대비 |
@@ -143,7 +143,7 @@
 | 1 | `feature/classification-accuracy` | 2-1, 2-2, 2-4, 2-13 | `candidates.py`, `link.py`, 추출·판정 프롬프트 |
 | 2 | `feature/classification-basis-draft3` | 2-3, 2-5, 2-12 | 새 기준 JSON, REVIEW 문서, `sync_basis` |
 | 3 | `feature/classification-concurrency` | 2-7, 2-11 | `__main__.py`, `pipeline.py` |
-| 4 | `feature/classification-dedupe` | 2-6 | 글자 겹침 측정 명령 `dedupe-measure`. 분류 흐름은 바꾸지 않는다 |
+| 4 | `feature/classification-dedupe` | 2-6 | 글자 겹침 측정 결과 기록. 측정 코드는 합치지 않는다 |
 | 5 | `feature/classification-long-docs` | 2-8 | 추출·문장 분리. 설계 먼저 |
 | 6 | `feature/classification-same-event` | 2-6 | 같은 사건 묶기, 판정 재사용, 저장·조회. 1·3번 뒤에 시작한다 |
 
