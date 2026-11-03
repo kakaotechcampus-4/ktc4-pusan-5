@@ -4,6 +4,7 @@ import pytest
 
 from app.services.stock_analysis.finalize import (
     finalize,
+    fix_as_of,
     fix_main_cause,
     recompute_strength,
     recompute_verdicts,
@@ -138,3 +139,23 @@ def test_finalize_normalizes_legacy_factor_and_strength_warning_uses_model_value
     assert not [w for w in check_warnings(r, p) if w.startswith("STRENGTH_MISMATCH")]
     assert [w.split(":")[0] for w in check_warnings(r, p, model_strength=out["strength_recomputed"])
             if w.startswith("STRENGTH_MISMATCH")] == ["STRENGTH_MISMATCH"]
+
+
+@pytest.mark.parametrize(("target_date", "cutoff", "model_as_of", "fixed"), [
+    # 모델이 다음 날 아침 cutoff 시각을 베꼈다 → 전날 장 마감 시각으로
+    ("2026-11-02", "2026-11-03T08:30:00+09:00", "08:30", {"before": "08:30", "after": "15:30"}),
+    ("2026-11-19", "2026-11-19T16:30:00+09:00", "15:30", {"before": "15:30", "after": "16:30"}),  # 장 마감이 늦춰진 날
+    ("2026-11-02", "2026-11-02T11:00:00+09:00", "11:00", None),  # 장중이면 cutoff 시각 그대로
+])
+def test_finalize_overwrites_as_of_with_runner_value(target_date, cutoff, model_as_of, fixed):
+    p = {**payload(), "target_date": target_date, "cutoff": cutoff}
+    r = {**report([]), "as_of": model_as_of}
+    out = finalize(r, p)
+    assert out["as_of_fixed"] == fixed
+    assert r["as_of"] == (fixed["after"] if fixed else model_as_of)
+
+
+def test_fix_as_of_leaves_report_when_time_unreadable():
+    r = {**report([]), "as_of": "15:30"}
+    assert fix_as_of(r, payload()) is None  # target_date·cutoff 가 없다
+    assert r["as_of"] == "15:30"

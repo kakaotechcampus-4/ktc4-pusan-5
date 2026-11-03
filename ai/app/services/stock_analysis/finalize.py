@@ -3,6 +3,7 @@
     recompute_strength   link strength 를 5단계 정의(출처의 입력 mention·상한)로 다시 정한다
     recompute_verdicts   층별 판정을 검증 판정표(verify._check_verdict_tables)로 다시 정한다
     fix_main_cause       common_move·market_led 날 main_cause 의 앞뒤 고정 문장을 붙인다
+    fix_as_of            as_of 를 러너가 정한 기준 시각(market_compare.report_as_of)으로 덮어쓴다
 
 같은 입력과 같은 사건 선택이면 strength·판정·고정 문장이 회차마다 같아야 하는데, 모델에 맡기면 같은 출처를
 두고도 partial·sufficient 가 갈리고 고정 문장을 빠뜨렸다(2026-10-25, runner_v12). 모델이 적은 값은 래퍼에
@@ -15,6 +16,7 @@ quote 고쳐 쓰기(repair)로 factor 가 빠질 수 있어 그 뒤, 검증 앞�
 import re
 from typing import Any
 
+from app.services.stock_analysis.market_compare import report_as_of
 from app.services.stock_analysis.verify import (
     CAPPED_SIZE_FIT,
     LAYERS,
@@ -116,15 +118,26 @@ def fix_main_cause(report: dict[str, Any], payload: dict[str, Any]) -> dict[str,
     return {"before": before, "after": after}
 
 
+def fix_as_of(report: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any] | None:
+    """as_of 를 러너가 정한 기준 시각으로 덮어쓴다. 모델이 다음 날 08:30 같은 cutoff 시각을 베끼면 적재가 target_date 와
+    합쳐 그날 장 시작 전 시각이 된다. 이미 같거나 기준 시각을 못 정하면 None, 바꿨으면 {before, after}."""
+    as_of = report_as_of(payload)
+    if as_of is None or report.get("as_of") == as_of[0]:
+        return None
+    before, report["as_of"] = report.get("as_of"), as_of[0]
+    return {"before": before, "after": as_of[0]}
+
+
 def finalize(report: dict[str, Any], payload: dict[str, Any], issue_trace: Any = None) -> dict[str, Any]:
-    """세 가지를 차례로 한다. strength 를 먼저 고쳐야 판정이 고친 strength 를 본다. 래퍼에 넣을 칸을 돌려준다.
+    """네 가지를 차례로 한다. strength 를 먼저 고쳐야 판정이 고친 strength 를 본다. 래퍼에 넣을 칸을 돌려준다.
     이전 형식 factor(layer·size_fit)는 links 형식으로 펴서 고친다 — 그대로 두면 link 가 없어 판정을 잘못 낸다."""
     if isinstance(report.get("factors"), list):
         report["factors"] = normalize_report(report)["factors"]
     return {"strength_recomputed": recompute_strength(report, payload, issue_trace),
             "verdict_recomputed": recompute_verdicts(report, payload),
-            "main_cause_fixed": fix_main_cause(report, payload)}
+            "main_cause_fixed": fix_main_cause(report, payload),
+            "as_of_fixed": fix_as_of(report, payload)}
 
 
-__all__ = ["HEAD_SENTENCE", "TAIL_SENTENCE", "defined_strength", "finalize", "fix_main_cause", "layer_verdict",
-           "recompute_strength", "recompute_verdicts"]
+__all__ = ["HEAD_SENTENCE", "TAIL_SENTENCE", "defined_strength", "finalize", "fix_as_of", "fix_main_cause",
+           "layer_verdict", "recompute_strength", "recompute_verdicts"]

@@ -25,10 +25,11 @@ JSON 하나를 받습니다.
 ```
 {
   "stock": "<종목명>", "code": "<6자리>", "sector": ["<업종 라벨>", …] | null, "main_cause_sentences": <1 | 2 | 3>,
-  "target_date": "<YYYY-MM-DD>", "cutoff": "<기준 시각. 이 시각까지의 메시지만 들어 있다>",
+  "target_date": "<YYYY-MM-DD>", "cutoff": "<이 시각까지의 메시지만 들어 있다>",
+  "as_of": "<보고서 기준 시각 HH:MM. 러너가 정한다>", "as_of_phrase": "<move 첫머리에 쓸 기준 시각 문구>",
   "change_pct": <기준 시각 기준 등락률, 하락은 음수>,
   "market": { "index": "코스피", "change_pct": <지수 등락률>,
-              "as_of": "<그 수치의 시각 HH:MM. cutoff 와 같으면 종가>", "url": "",
+              "as_of": "<그 수치의 시각 HH:MM. 입력 as_of 와 같으면 종가>", "url": "",
               "peer_median_pct": <비교 대상 종목 등락률의 중간값. 없으면 null>,
               "peer_up": <상승 종목 수>, "peer_down": <하락 종목 수>, "peer_total": <비교 종목 수>,
               "excess_pct": <change_pct − peer_median_pct. 없으면 null>,
@@ -80,6 +81,9 @@ JSON 하나를 받습니다.
   관련은 1단계 1-2 에서 따로 정합니다. 판단 절차 6단계에서 씁니다.
 - `first_seen_kst` 가 있으면 전날부터 이어진 재료입니다(6단계 「그날의 정보」).
 - `dup_channels` 는 같은 내용으로 묶인 메시지들의 채널 수입니다. 묶인 것이 없으면 1 입니다.
+- **기준 시각은 입력 `as_of` 입니다**(러너가 정합니다). `cutoff` 가 장 마감 뒤(예: 다음 날 아침)여도 이 보고서가
+  설명하는 것은 `target_date` 장 마감까지의 움직임이라 `as_of` 는 그날 장 마감 시각입니다(장 마감이 늦춰지는 날은 그 시각).
+  장 마감 전이면 `cutoff` 시각입니다. `cutoff` 의 시각을 기준 시각으로 쓰지 않습니다.
 - `change_pct` 는 **기준 시각의 값**입니다. 기준 시각이 장 마감 전이면 확정값이 아닙니다.
 - `market.peer_*` 는 분석 대상 대형주 가운데 **이 종목을 뺀 나머지**를 같은 시각에 본 값이고,
   `excess_pct` 는 그 중간값과의 차이입니다. 판단 절차 3단계에서 씁니다.
@@ -202,7 +206,7 @@ JSON 하나를 받습니다.
 
 `summary` 에서는 한 번만 자세히 쓰고, 다른 칸에서는 같은 소식이라고만 밝힙니다.
 
-- `market.as_of` 가 기준 시각보다 이르면 그 값은 장중 스냅숏입니다. 시각을 밝혀 씁니다.
+- `market.as_of` 가 기준 시각(입력 `as_of`)보다 이르면 그 값은 장중 스냅숏입니다. 시각을 밝혀 씁니다.
 - `market` 이 `null` 이거나 `excess_pct` 가 `null` 이면 시장 몫을 알 수 없습니다.
   그 사실을 `not_found` 에 적습니다.
 
@@ -505,7 +509,7 @@ JSON 하나를 받습니다.
 | `counter` | 방향이 어긋나는 재료 | 최대 3문장 | **없으면 `null`** |
 | `unexplained` | 설명되지 않는 폭과 **이 보고서에만 해당하는** 이유 | 1~2문장 | 불가 |
 
-**`move`** — 기준 시각을 밝힙니다(예: "오후 3시 30분 장 마감 기준", "오전 11시 기준").
+**`move`** — 기준 시각을 밝힙니다. 입력 `as_of_phrase` 를 그대로 씁니다(예: "오후 3시 30분 장 마감 기준", "오전 11시 기준").
 기준 시각이 장 마감 전이면 "오늘 이렇게 마감했다" 가 아니라 "기준 시각까지 이렇게 움직였다" 로 씁니다.
 다른 대형주들의 움직임은 종목 수와 중간값으로 씁니다
 (예: "같은 시각 대형주 19개 중 15개가 내렸고, 중간값은 1.2% 하락이었습니다.").
@@ -794,7 +798,7 @@ terms  { "plain": "그때그때 거래되는 시세", "term": "스팟가격" }
   "ticker": "<6자리 종목코드>",
   "name": "<종목명>",
   "date": "<YYYY-MM-DD>",
-  "as_of": "<입력 cutoff 의 시각 HH:MM>",
+  "as_of": "<입력 as_of 그대로 HH:MM>",
   "change_pct": <숫자, 하락은 음수>,
   "verdict": "explained | partially_explained | no_clear_cause",
   "relative_verdict": "explained | partially_explained | no_clear_cause",
