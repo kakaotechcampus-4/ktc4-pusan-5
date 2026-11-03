@@ -14,6 +14,12 @@
     classification_event_entities       사건의 표기 하나 → 종목·산업·외부 기업
     classification_event_applicability  (사건, 후보 종목) 판정 하나
 
+**같은 사건 묶음 3개 — 분류를 마친 뒤 별도 명령이 쌓는다(docs/CLASSIFICATION_SAME_EVENT.md).**
+
+    classification_event_clusters         묶음 하나. 대표 사건은 바뀌지 않는다
+    classification_event_cluster_members  사건의 소속. 사건 하나는 묶음 하나에만 든다
+    classification_cluster_calls          묶기 LLM 호출 기록. 부르지 않은 자료는 행이 없다
+
 기준표는 **지금 기준만** 담는다. 기준이 바뀌면 통째로 바꾸고, 예전 기준은 버전별 JSON 파일로 남는다.
 그래서 결과표는 관계 행을 FK 로 가리키지 않고, 판정 당시 넘긴 관계를 relation_refs 에 복사한다.
 
@@ -53,6 +59,7 @@ ROLES = ("cause", "price_move", "outlook", "context", "analyst_view")
 TENSES = ("past", "future")
 LABELS = ("DIRECT", "INDIRECT_CONTEXT", "NOT_APPLICABLE", "UNKNOWN")
 PATHS = ("company", "industry", "relation")
+CLUSTER_CALL_STATUSES = ("ok", "failed")
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -341,3 +348,53 @@ class ClassificationEventApplicability(Base):
     relation_refs: Mapped[list] = mapped_column(JSONB, server_default=sql_text("'[]'::jsonb"))
     direct_allowed: Mapped[bool] = mapped_column(Boolean)
     reason: Mapped[str | None] = mapped_column(Text)
+
+
+class ClassificationEventCluster(Base):
+    __tablename__ = "classification_event_clusters"
+    __table_args__ = (
+        UniqueConstraint("representative_event_id",
+                         name="uq_classification_event_clusters_representative"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    # 묶음을 처음 만든 사건. 재분류로 옛 회차가 돼도 바꾸지 않는다
+    representative_event_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("classification_events.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ClassificationClusterCall(Base):
+    __tablename__ = "classification_cluster_calls"
+    __table_args__ = (
+        CheckConstraint(_in("status", CLUSTER_CALL_STATUSES),
+                        name="ck_classification_cluster_calls_status"),
+        Index("ix_classification_cluster_calls_source_card_id", "source_card_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    source_card_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("source_card.id"))
+    status: Mapped[str] = mapped_column(String(16))
+    model: Mapped[str] = mapped_column(String(64))
+    prompt_sha256: Mapped[str] = mapped_column(String(64))
+    raw_response: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    usage: Mapped[dict] = mapped_column(JSONB, server_default=sql_text("'{}'::jsonb"))
+    # 응답 검사에서 고친 건수(후보 밖 번호 등)
+    fixes: Mapped[dict] = mapped_column(JSONB, server_default=sql_text("'{}'::jsonb"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ClassificationEventClusterMember(Base):
+    __tablename__ = "classification_event_cluster_members"
+    __table_args__ = (
+        Index("ix_classification_event_cluster_members_cluster_id", "cluster_id"),
+    )
+
+    event_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("classification_events.id"), primary_key=True)
+    cluster_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("classification_event_clusters.id"))
+    # LLM 에 보내지 않고 새 묶음을 만든 사건은 비어 있다
+    call_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("classification_cluster_calls.id"))

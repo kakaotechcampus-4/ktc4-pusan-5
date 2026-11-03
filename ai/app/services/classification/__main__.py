@@ -10,6 +10,9 @@ DB 에 쓰는 명령
                                            # 저장하되 조회에 쓰는 회차는 바꾸지 않는다(모델 비교)
     uv run python -m app.services.classification show 005930 --days 3
                                            # 종목 하나의 판정 자료·공통 배경 (생성 쪽에 넘기는 것)
+    uv run python -m app.services.classification same-event --since 2026-11-01 --limit 200
+                                           # 분류가 끝난 사건을 같은 사건끼리 묶는다
+    … same-event --since 2026-11-01 --limit 200 --dry-run   # 저장하지 않고 결과와 비용만 (LLM 은 부른다)
 
 DB 를 쓰지 않는 명령 — 프롬프트·모델을 바꿔 가며 볼 때
     uv run python -m app.services.classification try 기사.txt --title "제목"
@@ -50,6 +53,7 @@ from app.services.classification.basis import Basis, BasisError, load_basis
 from app.services.classification.evaluate import load_labels, score, write_review
 from app.services.classification.judge import LABELS
 from app.services.classification.pipeline import ClassificationResult, classify
+from app.services.classification.same_event_run import run_same_event
 
 # ── 출력 ─────────────────────────────────────────────────────────────────
 
@@ -306,6 +310,12 @@ def main() -> None:
     show.add_argument("--days", type=int, default=3, help="기준 시각에서 며칠 전까지")
     show.add_argument("--labels", nargs="+", default=list(DEFAULT_LABELS), choices=LABELS)
 
+    same_event = sub.add_parser("same-event", help="분류가 끝난 사건을 같은 사건끼리 묶는다")
+    same_event.add_argument("--since", type=_date, default=None, help="이 날짜(KST) 이후 자료")
+    same_event.add_argument("--limit", type=int, default=None, help="이번에 처리할 자료 수")
+    same_event.add_argument("--dry-run", action="store_true",
+                            help="저장하지 않고 결과와 비용만 본다. LLM 비용은 든다")
+
     try_parser = sub.add_parser("try", help="본문 파일 하나를 분류해 본다 (DB 안 씀)")
     try_parser.add_argument("file", type=Path)
     try_parser.add_argument("--title", default="")
@@ -331,6 +341,8 @@ def main() -> None:
             asyncio.run(run_classify(args))
         elif args.command == "show":
             asyncio.run(run_show(args))
+        elif args.command == "same-event":
+            asyncio.run(run_same_event(args.since, args.limit, args.dry_run))
         elif args.command == "try":
             asyncio.run(run_try(args))
         elif args.review:
