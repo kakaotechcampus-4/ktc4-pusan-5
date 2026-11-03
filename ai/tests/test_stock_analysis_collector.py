@@ -634,7 +634,7 @@ async def test_relative_rewrite_keeps_compare_sentence_through_collector(monkeyp
     """상대 층 근거가 모두 빠져도 그룹 비교가 있으면 relative 를 비우지 않고, 모델에 보낸 market_compare 로 다시 쓴다."""
     compare = {"status": "ok", "status_reason": None, "kospi": {"kospi_basis": "kospi", "kospi_relation": "diverges"},
                "peers": [{"group": "2차전지", "median_change_rate_pct": 6.1, "relation": "follows"}]}
-    sentence = "코스피와는 다르게 같은 2차전지 그룹(평균 6.10% 상승)과 함께 움직였습니다."
+    sentence = "LG에너지솔루션은 코스피와는 다르게 6.10% 오른 같은 2차전지 그룹의 삼성SDI와 함께 움직였습니다."
 
     def factors(payload):
         return [_linked(payload, 0, "없는 사건", ["relative"], quote="원문에 없는 문장"),

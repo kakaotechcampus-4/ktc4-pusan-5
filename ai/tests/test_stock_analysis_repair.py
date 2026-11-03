@@ -248,7 +248,8 @@ async def test_relative_is_cleared_without_llm_when_no_relative_factor_remains(f
 GROUP_COMPARE = {"status": "ok", "status_reason": None,
                  "kospi": {"kospi_basis": "kospi", "kospi_relation": "diverges"},
                  "peers": [{"group": "은행지주", "median_change_rate_pct": -3.04, "relation": "follows"}]}
-COMPARE_SENTENCE = "코스피는 올랐지만 KB금융은 같은 은행지주 그룹 3개 종목(평균 3.04% 하락)과 함께 내렸습니다."
+COMPARE_SENTENCE = ("코스피는 올랐지만 KB금융은 대체로 3.04% 안팎 내린 같은 은행지주 그룹의 "
+                    "신한지주·하나금융지주·우리금융지주와 함께 내렸습니다.")
 
 
 async def test_relative_keeps_compare_sentence_when_no_relative_factor_remains(fake_complete):
