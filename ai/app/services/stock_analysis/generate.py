@@ -316,28 +316,48 @@ def _canned_kospi(payload: dict[str, Any], stock: str) -> list[str]:
     base, base_pct = _kospi_base(kospi, stock)
     change = _decimal(kospi.get("stock_change_rate_pct"))
     topic = f"{stock}{_topic_josa(stock)}"
-    out = []
     if kospi.get("kospi_basis") == "kospi_ex_self":
-        # "삼성전자는 코스피 비중이 28.80%여서 코스피 등락 가운데 0.51%포인트를 끌어올렸습니다."
+        # 비중·기여도와 자기 제외 코스피 판정을 한 문장으로 쓴다. 두 문장이면 move 가 5문장까지 되어 4부 상한(최대 4문장)을
+        # 넘는다. "삼성전자는 코스피 비중이 28.80%여서 코스피 등락 가운데 0.51%포인트를 끌어올렸고, 삼성전자를 뺀 코스피는
+        # 0.20% 올라 삼성전자는 시장 흐름과 비슷하게 움직였습니다."
         weight, share = _decimal(kospi.get("kospi_weight_pct")), _decimal(kospi.get("kospi_contribution_pp"))
+        clauses = []
         if weight is not None and share:
-            out.append(f"{topic} 코스피 비중이 {_pct(weight)}여서 코스피 등락 가운데 {abs(share)}%포인트를 "
-                       f"{'끌어올렸' if share > 0 else '끌어내렸'}습니다.")
+            clauses.append(f"{topic} 코스피 비중이 {_pct(weight)}여서 코스피 등락 가운데 {abs(share)}%포인트를 "
+                           f"{'끌어올렸' if share > 0 else '끌어내렸'}")
         if base_pct is not None:  # 자기 제외 코스피 등락률은 앞 문장에 없다
-            moved = f"{_pct(base_pct)} {_verb(base_pct)}" if base_pct else "보합이었"
-            if relation == "follows":
-                return [*out, f"{base}{_topic_josa(base)} {moved}고, {topic} 시장 흐름과 비슷하게 움직였습니다."]
-            if relation == "opposite" or (change and base_pct and change * base_pct < 0):
-                link = "고" if relation == "opposite" else "지만"
-                return [*out, f"{base}{_topic_josa(base)} {moved}{link} {topic} {_moved(change)}습니다."]
-            return [*out, f"{base}{_topic_josa(base)} {moved}고, {topic} 시장 흐름과 다르게 움직였습니다."]
+            clauses.append(_ex_self_clause(relation, base, base_pct, topic, change))
+        return [f"{'고, '.join(clauses)}습니다."] if clauses else []
     # 기준이 코스피면 두 등락률은 앞 문장에 있다. 방향과 판정만 쓴다
     if relation == "follows":
-        return [*out, f"{topic} {base}{_with_josa(base)} 비슷하게 움직였습니다."]
+        return [f"{topic} {base}{_with_josa(base)} 비슷하게 움직였습니다."]
     if relation == "opposite" or (change and base_pct and change * base_pct < 0):
         link = "고" if relation == "opposite" else "지만"
-        return [*out, f"{base}{_topic_josa(base)} {_moved(base_pct)}{link} {topic} {_moved(change)}습니다."]
-    return [*out, f"{topic} {base}{_with_josa(base)} 다르게 움직였습니다."]
+        return [f"{base}{_topic_josa(base)} {_moved(base_pct)}{link} {topic} {_moved(change)}습니다."]
+    return [f"{topic} {base}{_with_josa(base)} 다르게 움직였습니다."]
+
+
+def _went(value: Decimal) -> str:
+    """'올라'·'내려'. 뒤에 이어지는 말을 붙인다."""
+    return "올라" if value > 0 else "내려"
+
+
+def _ex_self_clause(relation: str, base: str, base_pct: Decimal, topic: str, change: Decimal | None) -> str:
+    """자기 제외 코스피 판정 구절. 끝이 '움직였'·'올랐' 처럼 열려 있어 '습니다' 를 붙인다(3단계 kospi_relation 표).
+
+    follows   "삼성전자를 뺀 코스피는 0.20% 올라 삼성전자는 시장 흐름과 비슷하게 움직였"
+    opposite  "삼성전자를 뺀 코스피는 0.20% 내렸고 삼성전자는 올랐" — 판정하는 말을 쓰지 않는다
+    diverges  "… 0.20% 올라 삼성전자는 시장 흐름과 다르게 움직였", 방향이 반대면
+              "… 0.20% 내렸지만 삼성전자는 올라 시장 흐름과 다르게 움직였"
+    """
+    head = f"{base}{_topic_josa(base)}"
+    if relation == "opposite":
+        moved = f"{_pct(base_pct)} {_verb(base_pct)}" if base_pct else "보합이었"
+        return f"{head} {moved}고 {topic} {_moved(change)}"
+    if change and base_pct and change * base_pct < 0:
+        return f"{head} {_pct(base_pct)} {_verb(base_pct)}지만 {topic} {_went(change)} 시장 흐름과 다르게 움직였"
+    went = f"{_pct(base_pct)} {_went(base_pct)}" if base_pct else "보합이라"
+    return f"{head} {went} {topic} 시장 흐름과 {'비슷하게' if relation == 'follows' else '다르게'} 움직였"
 
 
 def _group_who(peer: dict[str, Any]) -> str:

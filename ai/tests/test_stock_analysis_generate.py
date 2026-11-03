@@ -1,6 +1,7 @@
 """③ 생성 · ④ 래핑. complete() 를 바꿔 끼워 실제 API 를 부르지 않는다."""
 
 import json
+import re
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -496,10 +497,48 @@ def test_canned_kospi_ex_self_writes_weight_share_and_ex_self():
     payload["stock"] = "삼성전자"
     report = gen.canned_report(payload)
     assert report["summary"]["move"].endswith(
-        " 삼성전자는 코스피 비중이 28.80%여서 코스피 등락 가운데 0.513%포인트를 끌어올렸습니다."
-        " 삼성전자를 뺀 코스피는 2.40% 올랐고, 삼성전자는 시장 흐름과 다르게 움직였습니다.")
+        " 삼성전자는 코스피 비중이 28.80%여서 코스피 등락 가운데 0.513%포인트를 끌어올렸고,"
+        " 삼성전자를 뺀 코스피는 2.40% 올라 삼성전자는 시장 흐름과 다르게 움직였습니다.")
     assert report["summary"]["relative"] == (
         "삼성전자는 삼성전자를 뺀 코스피와는 다르게 5.81% 오른 같은 메모리반도체 그룹의 SK하이닉스와 함께 움직였습니다.")
+
+
+EX_SELF_HEAD = "삼성전자는 코스피 비중이 28.80%여서 코스피 등락 가운데 "
+
+
+@pytest.mark.parametrize(("relation", "change", "kospi", "ex_self", "share", "sentence"), [
+    ("follows", 2.9, 3.0, 2.4, 0.513,
+     "0.513%포인트를 끌어올렸고, 삼성전자를 뺀 코스피는 2.40% 올라 삼성전자는 시장 흐름과 비슷하게 움직였습니다."),
+    # diverges 인데 방향이 반대면 각자의 방향을 쓰고 판정을 붙인다(프롬프트 3단계 kospi_relation 표)
+    ("diverges", 1.2, 0.1, -0.2, 0.346,
+     "0.346%포인트를 끌어올렸고, 삼성전자를 뺀 코스피는 0.20% 내렸지만 삼성전자는 올라 시장 흐름과 다르게 움직였습니다."),
+    # opposite 는 판정하는 말 없이 방향만
+    ("opposite", 0.3, -0.06, -0.2, 0.086, "0.086%포인트를 끌어올렸고, 삼성전자를 뺀 코스피는 0.20% 내렸고 삼성전자는 올랐습니다."),
+    # 이 종목이 코스피를 끌어내린 날
+    ("follows", -2.0, -2.0, -1.5, -0.576,
+     "0.576%포인트를 끌어내렸고, 삼성전자를 뺀 코스피는 1.50% 내려 삼성전자는 시장 흐름과 비슷하게 움직였습니다."),
+])
+def test_canned_kospi_ex_self_is_one_sentence_and_move_stays_within_four(relation, change, kospi, ex_self, share,
+                                                                          sentence):
+    """비중·기여도와 자기 제외 코스피 판정을 한 문장으로 합친다. move 는 프롬프트 4부 상한(최대 4문장) 안이다."""
+    from app.services.stock_analysis.verify import (
+        COMPARE_OPPOSITE_WORDING,
+        check_warnings,
+        code_of,
+        verify,
+    )
+
+    payload = _with_compare(relation, [_peer("follows")], change=change, kospi=kospi, basis="kospi_ex_self",
+                            ex_self=ex_self)
+    payload["stock"] = "삼성전자"
+    payload["market_compare"]["kospi"]["kospi_contribution_pp"] = share
+    report = gen.canned_report(payload)
+    move = report["summary"]["move"]
+    assert move.endswith(" " + EX_SELF_HEAD + sentence)
+    # 머리 + 같은 시각 코스피·대형주 + 대형주 비교 + 코스피 판정
+    assert len(re.findall(r"다\.(?:\s|$)", move)) == 4
+    assert verify(report, payload) == ("passed", [])
+    assert COMPARE_OPPOSITE_WORDING not in {code_of(w) for w in check_warnings(report, payload)}
 
 
 def test_canned_two_groups_mention_kospi_once():
