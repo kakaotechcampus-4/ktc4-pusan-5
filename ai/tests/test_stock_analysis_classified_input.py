@@ -20,12 +20,16 @@ MESSAGE_KEYS = {"channel", "url", "datetime_kst", "text", "mention", "kind", "af
                 "first_seen_kst", "dup_channels"}
 
 
-def record(card_id: int, *, posted: datetime | None = None, body: str | None = "본문",
-           kind: str = "message") -> SourceRecord:
+DEFAULT_BODY = object()  # 본문을 안 주면 자료마다 다른 본문 — 같은 본문은 중복으로 묶인다
+
+
+def record(card_id: int, *, posted: datetime | None = None, body: str | None | object = DEFAULT_BODY,
+           kind: str = "message", channel: str = "mock_ch") -> SourceRecord:
     posted = posted or CUTOFF - timedelta(hours=card_id)
+    body = f"본문 {card_id}" if body is DEFAULT_BODY else body
     return SourceRecord(
-        id=card_id, kind=kind, raw_id=card_id, title=None, url=f"https://t.me/mock_ch/{card_id}",
-        publisher="mock 채널", collection_path="telegram_web", channel="mock_ch", published_at=posted,
+        id=card_id, kind=kind, raw_id=card_id, title=None, url=f"https://t.me/{channel}/{card_id}",
+        publisher="mock 채널", collection_path="telegram_web", channel=channel, published_at=posted,
         write_date=None, collected_at=posted, available_at=posted, has_body=body is not None,
         body_missing_reason=None if body is not None else "empty: 글자 없이 첨부만 올린 메시지",
         body_status="ok" if body is not None else "empty", body_error=None, body_fetched_at=posted,
@@ -76,7 +80,7 @@ def test_message_fields_and_defaults():
     assert set(message) == MESSAGE_KEYS  # views·link_bodies 는 넣지 않는다
     assert message == {
         "channel": "mock_ch", "url": "https://t.me/mock_ch/10", "datetime_kst": "2026-11-03T05:30:00+09:00",
-        "text": "본문", "mention": "mentioned", "kind": "other", "after_prev_close": False,
+        "text": "본문 10", "mention": "mentioned", "kind": "other", "after_prev_close": False,
         "first_seen_kst": None, "dup_channels": 1,
     }
     assert {k: payload[k] for k in ("stock", "code", "target_date", "cutoff", "change_pct", "market")} == {
@@ -126,6 +130,65 @@ def test_bundle_slot():
     ])
     assert [(m["first_seen_kst"], m["dup_channels"]) for m in payload["messages"]] == [
         ("2026-11-02T12:30:00+09:00", 3), (None, 2)]
+
+
+# ── 중복 묶기 ─────────────────────────────────────────────────────────────
+
+LONG = "[메리츠 반도체] 삼성전자: 확실한 저평가\n\n- 영업이익 107.4조원\n\n- 주주환원 계획 발표"
+
+
+@pytest.mark.parametrize(("a", "b", "same"), [
+    ("같은 글", "같은 글", True),
+    ("줄 바꿈\n\n과 공백", "줄 바꿈  과   공백", True),                       # 공백은 한 칸으로 줄여 비교
+    ("[메리츠 반도체] 삼성전자: 확실한 저평가 - 영업이익…", LONG, True),     # 「…」 뗀 나머지가 앞부분
+    (LONG, "[메리츠 반도체] 삼성전자: 확실한 저평가 - 영업이익 …", True),     # 순서와 「…」 앞 공백은 상관없다
+    ("[메리츠 반도체] 삼성전자: 확실한 저평가", LONG, False),                # 「…」 가 없으면 앞부분이어도 다른 글
+    ("…", LONG, False),                                                       # 「…」 만 있는 글
+    ("[메리츠 반도체] 삼성전자: 확실한 고평가…", LONG, False),
+])
+def test_same_text(a, b, same):
+    assert ci.same_text(a, b) is same
+
+
+def test_group_duplicates_is_transitive():
+    texts = ["A 글 전체 본문", "다른 글", "A 글…", "A 글 전체…"]
+    assert ci.group_duplicates(texts) == [[0, 2, 3], [1]]
+
+
+def test_duplicates_keep_longest_and_count_channels():
+    cut = "[메리츠 반도체] 삼성전자: 확실한 저평가 - 영업이익…"
+    sources = [source(13, event("industry")), source(12, event("company")), source(11, event("industry")),
+               source(10, event("company"))]
+    records = [record(13, body="같은 글", channel="ch_a"), record(12, body="같은 글", channel="ch_b"),
+               record(11, body=LONG, channel="ch_a"), record(10, body=cut, channel="ch_a")]
+    payload, meta = build(sources, records)
+
+    # 같은 길이면 먼저 나온 글(13)이 대표. mention 은 묶음 중 하나라도 company 경로면 mentioned
+    assert [(m["url"], m["mention"], m["dup_channels"]) for m in payload["messages"]] == [
+        ("https://t.me/ch_a/13", "mentioned", 2),   # ch_a · ch_b
+        ("https://t.me/ch_a/11", "mentioned", 1),   # 가장 긴 글이 대표. 같은 채널끼리라 1
+    ]
+    assert payload["messages"][1]["text"] == LONG
+    assert [m["duplicates"] for m in meta["messages"]] == [[12], [10]]
+    assert meta["counts"]["duplicates"] == 2
+    assert meta["counts"]["messages"] == 2
+    assert meta["dropped"] == [{"source_card_id": 12, "reason": "중복 — 대표 자료 13"},
+                               {"source_card_id": 10, "reason": "중복 — 대표 자료 11"}]
+
+
+def test_duplicate_of_evidence_stays_in_evidence_and_recap_limit_counts_after_grouping():
+    sources = [source(n, event("macro", None)) for n in (16, 15, 14, 13, 12)]
+    sources.append(source(11, event("company")))
+    records = [record(16), record(15), record(14, body="시황"), record(13, body="시황"),
+               record(12, body="시황 둘"), record(11, body="시황 둘")]
+    payload, meta = build(sources, records)
+
+    split = split_messages(payload)
+    assert [m["url"].rsplit("/", 1)[1] for m in split["messages"]] == ["12"]    # 근거 칸 글과 묶이면 근거 칸
+    # 공통 배경 4건(16·15·14·13)이 묶여서 3건 — 상한 3 안이라 다 남는다
+    assert [m["url"].rsplit("/", 1)[1] for m in split["market_context"]] == ["16", "15", "14"]
+    assert meta["counts"]["market_recap_dropped"] == 0
+    assert meta["counts"]["duplicates"] == 2
 
 
 def test_unknown_stock_is_an_error():

@@ -24,8 +24,16 @@ classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카�
                 market_context 칸으로 간다. 기준 시각에 가까운 MARKET_RECAP_LIMIT(3)건만 남기고 뺀 수는 meta 에.
                 company·industry·relation 사건이 있는 메시지는 other(messages 칸)
     after_prev_close   false. 전날 장 시황인지 가릴 정보가 없다
-    first_seen_kst / dup_channels   묶음 정보(bundle_of). 없으면 null / 1
+    first_seen_kst     묶음 정보(bundle_of). 없으면 null
+    dup_channels       아래 중복 묶음에 든 서로 다른 채널 수와 묶음 정보 중 큰 값. 없으면 1
     views·link_bodies  넣지 않는다. 조회수는 DB 에 없고, 링크 기사는 이번 범위(메시지만) 밖이다
+
+## 중복 묶기
+
+본문이 같은 메시지는 하나만 넣는다. 공백을 한 칸으로 줄여 비교하고, 끝이 「…」인 글은 「…」를 뗀 나머지가 다른
+글의 앞부분이면 같은 글로 본다(채널이 긴 글을 잘라 다시 올린 경우). 대표는 가장 긴 글(같으면 먼저 나온 글)이다.
+묶음 안에 company 경로가 하나라도 있으면 mentioned, 근거 칸 메시지가 하나라도 있으면 근거 칸(other)이다.
+나머지는 meta dropped 에 대표 자료 ID 와 함께 남긴다. 공통 배경 MARKET_RECAP_LIMIT 은 묶은 뒤에 센다.
 
 ## 조회 시작(since)
 
@@ -118,6 +126,41 @@ def bundle_of(source: dict[str, Any], since: datetime) -> tuple[str | None, int]
     return (_kst(first) if first is not None and first < since else None), bundle.get("dup_channels", 1)
 
 
+def _dedup_key(text: str) -> tuple[str, bool]:
+    """(비교할 본문, 끝이 「…」였는가). 공백은 한 칸으로 줄이고 끝의 「…」는 뗀다."""
+    normalized = " ".join(text.split())
+    trimmed = normalized.rstrip("…").rstrip()
+    return trimmed, trimmed != normalized
+
+
+def same_text(a: str, b: str) -> bool:
+    """같은 글인가. 본문이 같거나, 끝이 「…」인 쪽의 나머지가 다른 쪽의 앞부분이다."""
+    (key_a, cut_a), (key_b, cut_b) = _dedup_key(a), _dedup_key(b)
+    if key_a == key_b:
+        return True
+    return bool((cut_a and key_a and key_b.startswith(key_a)) or (cut_b and key_b and key_a.startswith(key_b)))
+
+
+def group_duplicates(texts: list[str]) -> list[list[int]]:
+    """같은 글끼리 묶은 위치 목록. 묶음은 첫 위치 순, 묶음 안은 위치 순이다. A~B, B~C 면 A·B·C 를 한 묶음으로 본다."""
+    parent = list(range(len(texts)))
+
+    def root(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for i in range(len(texts)):
+        for j in range(i + 1, len(texts)):
+            if same_text(texts[i], texts[j]):
+                parent[root(j)] = root(i)
+    groups: dict[int, list[int]] = {}
+    for i in range(len(texts)):
+        groups.setdefault(root(i), []).append(i)
+    return sorted(groups.values(), key=lambda group: group[0])
+
+
 def build_input(
     found: dict[str, Any], records: Mapping[int, SourceRecord], *, code: str, cutoff: datetime,
     change_pct: float, since: datetime,
@@ -127,7 +170,7 @@ def build_input(
     if name is None:
         raise ValueError(f"stock_meta.json 에 없는 종목: {code}")
 
-    evidence, common, dropped = [], [], []
+    items, dropped = [], []  # items: 본문 있는 메시지의 (message, trace), classified_sources 순서
     skipped_types: dict[str, int] = {}
     position = {s["source_card_id"]: n for n, s in enumerate(found["sources"])}
     for source in found["sources"]:
@@ -156,14 +199,34 @@ def build_input(
         }
         trace = {"source_card_id": card_id, "url": record.url, "card_label": source["card_label"],
                  "paths": sorted({e["path"] for e in source["events"]}), "kind": message["kind"],
-                 "mention": message["mention"]}
-        (common if is_common else evidence).append((message, trace))
+                 "mention": message["mention"], "duplicates": []}
+        items.append((message, trace))
+    no_body = len(dropped)
+
+    # 같은 글은 가장 긴 글 하나로 묶는다(맨 위 「중복 묶기」). max 는 길이가 같으면 먼저 나온 글을 고른다
+    evidence, common = [], []
+    duplicates = 0
+    for group in group_duplicates([message["text"] for message, _ in items]):
+        members = [items[i] for i in group]
+        message, trace = max(members, key=lambda item: len(item[0]["text"]))
+        others = [other for _, other in members if other is not trace]
+        if others:
+            mention = ("mentioned" if any(m["mention"] == "mentioned" for m, _ in members)
+                       else "not_mentioned")
+            kind = EVIDENCE_KIND if any(m["kind"] == EVIDENCE_KIND for m, _ in members) else COMMON_KIND
+            message = {**message, "mention": mention, "kind": kind,
+                       "dup_channels": max(message["dup_channels"], len({m["channel"] for m, _ in members}))}
+            trace = {**trace, "mention": mention, "kind": kind,
+                     "duplicates": [other["source_card_id"] for other in others]}
+            dropped += [{"source_card_id": other["source_card_id"],
+                         "reason": f"중복 — 대표 자료 {trace['source_card_id']}"} for other in others]
+            duplicates += len(others)
+        (common if message["kind"] == COMMON_KIND else evidence).append((message, trace))
 
     # 공통 배경은 기준 시각에 가까운 것만 남긴다. 남긴 것은 원래 순서(오래된 순) 그대로다
     keep = set(sorted(range(len(common)), key=lambda i: common[i][0]["datetime_kst"] or "",
                       reverse=True)[:MARKET_RECAP_LIMIT])
     common_kept = [item for i, item in enumerate(common) if i in keep]
-    no_body = len(dropped)
     dropped += [{"source_card_id": trace["source_card_id"],
                  "reason": f"공통 배경 {MARKET_RECAP_LIMIT}건 초과"}
                 for i, (_, trace) in enumerate(common) if i not in keep]
@@ -186,7 +249,7 @@ def build_input(
             "sources": len(found["sources"]), "messages": len(used),
             "evidence": len(evidence), "market_recap": len(common_kept),
             "market_recap_dropped": len(common) - len(common_kept),
-            "no_body": no_body,
+            "no_body": no_body, "duplicates": duplicates,
             "skipped_card_types": skipped_types,
         },
         "dropped": dropped,
@@ -247,7 +310,7 @@ async def main(args: argparse.Namespace) -> None:
     counts = meta["counts"]
     print(f"{path}  since {meta['since']} ({meta['since_basis']})  메시지 {counts['messages']}"
           f" (근거 {counts['evidence']} · 시황 {counts['market_recap']}, 시황 뺌 {counts['market_recap_dropped']})"
-          f"  본문 없음 {counts['no_body']}  메시지 밖 {counts['skipped_card_types']}"
+          f"  본문 없음 {counts['no_body']}  중복 뺌 {counts['duplicates']}  메시지 밖 {counts['skipped_card_types']}"
           f"  미분류 {meta['unclassified']} · 실패 {meta['failed']} · 기준 시각 뒤 본문 {meta['not_observed']}")
 
 
