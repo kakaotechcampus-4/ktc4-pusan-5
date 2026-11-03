@@ -136,6 +136,16 @@ async def test_cost_of_a_card_that_failed_to_save_stays_in_the_total(monkeypatch
     assert f"비용 {cli.format_cost(1.5)}" in capsys.readouterr().out
 
 
+async def test_summary_adds_up_rate_limit_retries_across_cards_and_steps(monkeypatch, capsys):
+    fake_run(monkeypatch, [1, 2])
+    calls = {"extract": llm.StepCall("extract", "모델", "해시", rate_limit_retries=2),
+             "judge": llm.StepCall("judge", "모델", "해시", rate_limit_retries=1)}
+    monkeypatch.setattr(cli, "classify", AsyncMock(return_value=ClassificationResult(
+        status="ok", basis_version=BASIS.version, calls=calls)))
+    await cli.run_classify(run_args(2))
+    assert "429 재시도 6회" in capsys.readouterr().out
+
+
 async def test_summary_is_printed_when_the_run_is_cancelled(monkeypatch, capsys):
     seen = fake_run(monkeypatch, [1, 2])
     task = asyncio.create_task(cli.run_classify(run_args(2)))
@@ -185,7 +195,9 @@ async def test_rate_limited_call_is_sent_again(monkeypatch, waits, caplog):
     assert result.ok and result.raw_response == "응답"
     assert complete.await_count == 3
     assert waits.await_count == 2
-    # 성공한 재시도는 결과에 남지 않으므로 로그로 세어 본다
+    assert result.rate_limit_retries == 2
+    # 회차 usage 로 저장되는 값이다. 재시도에 성공해도 나중에 횟수를 볼 수 있어야 한다
+    assert result.usage_record()["rate_limit_retries"] == 2
     assert [r.getMessage().split(":")[0] for r in caplog.records] == ["429 extract"] * 2
 
 
@@ -195,6 +207,7 @@ async def test_rate_limit_that_never_clears_becomes_the_step_error(monkeypatch, 
     result = await llm.call("judge", "classification_events", "본문")
     assert result.error == "judge: HTTP 429"
     assert complete.await_count == len(llm.RATE_LIMIT_WAITS) + 1
+    assert result.rate_limit_retries == len(llm.RATE_LIMIT_WAITS)
 
 
 async def test_other_errors_are_not_sent_again(monkeypatch, waits):
@@ -203,4 +216,5 @@ async def test_other_errors_are_not_sent_again(monkeypatch, waits):
     result = await llm.call("extract", "classification_events", "본문")
     assert result.error == "extract: HTTP 400"
     assert complete.await_count == 1
+    assert result.rate_limit_retries == 0
     waits.assert_not_awaited()

@@ -38,6 +38,7 @@ class StepCall:
     raw_response: str | None = None
     usage: dict = field(default_factory=dict)
     error: str | None = None
+    rate_limit_retries: int = 0  # 429 로 다시 보낸 횟수
 
     @property
     def ok(self) -> bool:
@@ -46,7 +47,8 @@ class StepCall:
     def usage_record(self) -> dict:
         """회차 usage 칸에 넣을 값. 모델과 비용을 함께 남긴다."""
         amount, basis = cost_detail(self.usage)
-        return {**self.usage, "model": self.model, "cost": amount, "cost_basis": basis}
+        return {**self.usage, "model": self.model, "cost": amount, "cost_basis": basis,
+                "rate_limit_retries": self.rate_limit_retries}
 
 
 def model_for(step: str, override: str | None = None) -> str:
@@ -79,7 +81,8 @@ async def call(step: str, prompt_name: str, user: str, *, model: str | None = No
                 result.error = f"{step}: {exc}"
                 return result
             delay = wait * random.uniform(1, 1.5)
-            # 재시도가 성공하면 결과에 흔적이 없다. 동시 수를 올릴 때 429 를 알아채려고 남긴다
+            result.rate_limit_retries += 1
+            # 횟수는 회차 usage 와 합계 줄에 남는다. 로그는 긴 실행 도중에 429 를 알아채려고 찍는다
             logger.warning("429 %s: %.0f초 뒤 다시 보낸다", step, delay)
             await asyncio.sleep(delay)
             continue

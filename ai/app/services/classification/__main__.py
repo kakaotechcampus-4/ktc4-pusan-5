@@ -161,12 +161,13 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> None:
 
     statuses: Counter = Counter()
     total = 0.0
+    retries = 0
     done = 0
     started = perf_counter()
     gate = asyncio.Semaphore(args.concurrency)
 
     async def work(card_id: int) -> None:
-        nonlocal total, done
+        nonlocal total, retries, done
         try:
             # 본문을 게이트 안에서 읽는다. 밖에서 읽으면 대기하는 자료의 본문이 전부 메모리에 올라온다
             async with gate:
@@ -177,7 +178,9 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> None:
                 record = records[0]
                 result = await classify(record.title, record.body if record.has_body else None,
                                         basis, models=models_of(args))
-                total += result.cost  # 저장에 실패해도 이미 쓴 비용은 합계에 남긴다
+                # 저장에 실패해도 이미 쓴 비용과 재시도는 합계에 남긴다
+                total += result.cost
+                retries += result.rate_limit_retries
                 async with SessionLocal() as session:
                     run_id = await save_run(session, card_id, result,
                                             make_current=not args.experiment)
@@ -203,7 +206,8 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> None:
     finally:
         # Ctrl+C 로 멈춰도 그때까지 쓴 비용을 남긴다
         print("\n상태 " + (", ".join(f"{k} {v}" for k, v in statuses.items()) or "없음")
-              + f"  비용 {format_cost(total)}  소요 {perf_counter() - started:,.0f}초")
+              + f"  비용 {format_cost(total)}  429 재시도 {retries}회"
+              + f"  소요 {perf_counter() - started:,.0f}초")
     if statuses["error"]:
         raise SystemExit(f"오류 {statuses['error']}건. 위 오류 줄을 확인한다")
 
