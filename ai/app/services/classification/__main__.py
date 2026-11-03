@@ -8,7 +8,7 @@ DB 에 쓰는 명령
     … run --ids 101 102                    # 이 자료만 (회차가 있어도 새 회차를 만든다)
     … run --ids 101 --experiment --judge-model <모델>
                                            # 저장하되 조회에 쓰는 회차는 바꾸지 않는다(모델 비교)
-    … run --limit 20 --concurrency 3       # 자료 3건을 동시에. 비용은 같고 시간만 준다
+    … run --limit 20 --concurrency 8       # 자료 8건을 동시에. 비용은 같고 시간만 준다
     uv run python -m app.services.classification show 005930 --days 3
                                            # 종목 하나의 판정 자료·공통 배경 (생성 쪽에 넘기는 것)
 
@@ -311,7 +311,7 @@ def main() -> None:
     run.add_argument("--experiment", action="store_true",
                      help="저장만 하고 조회에 쓰는 회차를 바꾸지 않는다")
     run.add_argument("--concurrency", type=int, default=1,
-                     help="동시에 분류할 자료 수. 속도 제한을 모르므로 3 부터 올려 본다")
+                     help="동시에 분류할 자료 수. 8 까지 재 봤다. 429 로그가 자주 보이면 낮춘다")
     add_models(run)
 
     show = sub.add_parser("show", help="종목 하나에 붙는 분류 자료를 본다")
