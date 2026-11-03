@@ -11,6 +11,10 @@ DB 에 쓰는 명령
     uv run python -m app.services.classification show 005930 --days 3
                                            # 종목 하나의 판정 자료·공통 배경 (생성 쪽에 넘기는 것)
 
+DB 를 읽기만 하는 명령
+    uv run python -m app.services.classification dedupe-measure --since 2026-10-28
+                                           # 뉴스를 묶으면 입력이 얼마나 줄고 무엇을 잃는지 잰다 (LLM 안 씀)
+
 DB 를 쓰지 않는 명령 — 프롬프트·모델을 바꿔 가며 볼 때
     uv run python -m app.services.classification try 기사.txt --title "제목"
     uv run python -m app.services.classification eval --articles eval_data/news_compare_tg/articles.json
@@ -39,6 +43,7 @@ from app.llm.client import cost_currency, endpoint, format_cost
 from app.repositories.classification import (
     DEFAULT_LABELS,
     cards_to_classify,
+    classifiable_card_ids,
     classified_sources,
     save_run,
     stored_basis_versions,
@@ -47,6 +52,14 @@ from app.repositories.classification import (
 from app.repositories.source_card import get_sources
 from app.services.classification import splitter
 from app.services.classification.basis import Basis, BasisError, load_basis
+from app.services.classification.dedupe import (
+    METRICS,
+    Article,
+    fingerprints,
+    group_articles,
+    summarize,
+    write_groups,
+)
 from app.services.classification.evaluate import load_labels, score, write_review
 from app.services.classification.judge import LABELS
 from app.services.classification.pipeline import ClassificationResult, classify
@@ -187,6 +200,50 @@ async def run_show(args: argparse.Namespace) -> None:
           f" · 기준 시각 뒤 본문 {found['not_observed']}")
 
 
+# 묶을 기준값이 정해지기 전이라 여러 값을 한 번에 본다
+DEDUPE_GRID = (("jaccard", 0.3), ("jaccard", 0.5), ("jaccard", 0.7),
+               ("containment", 0.5), ("containment", 0.7), ("containment", 0.9))
+
+
+async def run_dedupe_measure(args: argparse.Namespace) -> None:
+    basis = load_basis(args.basis)
+    since = datetime.combine(args.since, time(), KST) if args.since else None
+    async with SessionLocal() as session:
+        card_ids = await classifiable_card_ids(session, since=since)
+        records = []
+        for start in range(0, len(card_ids), 500):
+            records += await get_sources(session, card_ids[start:start + 500], include_body=True)
+    with_body = [r for r in records if r.has_body and r.body]
+    kinds, chars = Counter(), Counter()
+    for record in with_body:
+        kinds[record.kind] += 1
+        chars[record.kind] += len(record.title or "") + len(record.body)
+    print(f"본문 있는 자료 {len(with_body):,}건 · {sum(chars.values()):,}자  "
+          + "  ".join(f"{k} {kinds[k]:,}건 {chars[k]:,}자" for k in kinds))
+
+    # 리포트·메시지는 같은 이야기라도 해석이 달라 묶지 않는다. 공개 시각을 모르면 순서를 정할 수 없어 뺀다
+    articles = [Article(r.id, r.title or "", r.body, r.available_at, r.publisher)
+                for r in with_body if r.kind == "news" and r.available_at]
+    prints = fingerprints(articles)
+    window = timedelta(hours=args.window_hours)
+    total_cards, total_chars = len(with_body), sum(chars.values())
+    names = {code: stock.name for code, stock in basis.stocks.items()}
+    print(f"묶는 뉴스 {len(articles):,}건 · 시간 범위 {args.window_hours}시간\n")
+    print("방식         기준  묶음 수  뺄 기사   전체 건수  전체 글자  2건+묶음  최대  크기별  대표에 없는 종목")
+    for metric, threshold in DEDUPE_GRID:
+        s = summarize(group_articles(articles, prints, threshold=threshold, window=window,
+                                     metric=metric), names)
+        print(f"{metric:<12} {threshold:.1f}  {s.groups:>7,}  {s.removed:>7,}  "
+              f"-{s.removed / max(total_cards, 1):>7.1%}  -{s.removed_chars / max(total_chars, 1):>7.1%}  "
+              f"{s.grouped:>8,}  {s.largest:>4}  {s.sizes}  "
+              f"{s.lost_pairs:,}/{s.stock_pairs:,} ({s.lost_pairs / max(s.stock_pairs, 1):.1%})")
+
+    groups = group_articles(articles, prints, threshold=args.threshold, window=window,
+                            metric=args.metric)
+    out = args.out or Path("eval_data") / f"dedupe_{args.metric}_{args.threshold}.csv"
+    print(f"\n검토표 {write_groups(groups, names, out)}행 → {out}")
+
+
 # ── DB 를 쓰지 않는 명령 ──────────────────────────────────────────────────
 
 
@@ -306,6 +363,14 @@ def main() -> None:
     show.add_argument("--days", type=int, default=3, help="기준 시각에서 며칠 전까지")
     show.add_argument("--labels", nargs="+", default=list(DEFAULT_LABELS), choices=LABELS)
 
+    measure = sub.add_parser("dedupe-measure", help="뉴스를 묶으면 얼마나 줄고 무엇을 잃는지 잰다")
+    measure.add_argument("--basis", type=Path, default=None, help="종목 이름을 읽을 기준 JSON")
+    measure.add_argument("--since", type=_date, default=None, help="이 날짜(KST) 이후 자료")
+    measure.add_argument("--window-hours", type=int, default=48, help="대표와 이 시간 안의 기사만 묶는다")
+    measure.add_argument("--metric", choices=sorted(METRICS), default="jaccard", help="검토표의 방식")
+    measure.add_argument("--threshold", type=float, default=0.5, help="검토표의 기준값")
+    measure.add_argument("--out", type=Path, default=None, help="검토표 CSV. 비우면 eval_data 아래")
+
     try_parser = sub.add_parser("try", help="본문 파일 하나를 분류해 본다 (DB 안 씀)")
     try_parser.add_argument("file", type=Path)
     try_parser.add_argument("--title", default="")
@@ -331,6 +396,8 @@ def main() -> None:
             asyncio.run(run_classify(args))
         elif args.command == "show":
             asyncio.run(run_show(args))
+        elif args.command == "dedupe-measure":
+            asyncio.run(run_dedupe_measure(args))
         elif args.command == "try":
             asyncio.run(run_try(args))
         elif args.review:

@@ -142,6 +142,14 @@ async def cards_to_classify(
     return list((await session.execute(query)).scalars().all())
 
 
+async def classifiable_card_ids(session: AsyncSession, *, since: datetime | None = None) -> list[int]:
+    """회차 유무와 상관없는 분류 대상 전체의 공통 ID. 묶기 측정처럼 자료 전체를 봐야 할 때 쓴다."""
+    query = select(SourceCard.id).where(SourceCard.card_type.in_(CLASSIFIABLE_CARD_TYPES))
+    if since is not None:
+        query = query.where(available_since(since))
+    return list((await session.execute(query.order_by(SourceCard.id))).scalars().all())
+
+
 # ── 회차 저장 ─────────────────────────────────────────────────────────────
 
 async def save_run(session: AsyncSession, card_id: int, result: ClassificationResult, *,
