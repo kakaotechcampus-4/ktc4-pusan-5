@@ -16,6 +16,7 @@ from app.services.stock_analysis.verify import (
     CHANGE_PCT_MISMATCH,
     COMMON_MOVE_WITH_MOVE_LINK,
     COMPARE_META_PHRASE,
+    COMPARE_OPPOSITE_WORDING,
     COUNT_OVER_CAP,
     COUNTER_WITHOUT_BACKGROUND,
     DATE_MISMATCH,
@@ -1380,6 +1381,58 @@ def test_compare_meta_phrase_checks_every_reader_field_but_not_quotes():
     assert [w.split(": ", 1)[1] for w in warnings] == [
         f"factors[0].event 에 {meta!r}", f"factors[0].detail 에 {meta!r}",
         f"factors[0].links[0].note 에 {meta!r}", f"background.neutral[0].text 에 {meta!r}"]
+
+
+# --- opposite(차이는 기준 안, 방향은 반대) 비교를 판정하는 말로 썼나 ---------------------------------
+
+
+def with_compare(kospi_relation=None, peers=(), status="ok"):
+    """CAUSE 입력에 market_compare 를 붙인다. peers 는 (그룹, 판정) 목록."""
+    return {**CAUSE, "market_compare": {
+        "status": status, "status_reason": None,
+        "kospi": {"kospi_basis": "kospi", "kospi_relation": kospi_relation},
+        "peers": [{"group": g, "relation": rel_} for g, rel_ in peers]}}
+
+
+@pytest.mark.parametrize(("kospi_relation", "move", "warned"), [
+    ("opposite", "코스피와 비슷하게 움직였습니다.", True),
+    ("opposite", "삼성전자를 뺀 코스피와는 다르게 움직였습니다.", True),
+    ("opposite", "코스피 흐름을 따라갔습니다.", True),
+    ("opposite", "코스피는 올랐고 솔마루전자는 내렸습니다.", False),  # opposite 날 쓰는 꼴
+    ("opposite", "대형주 전반과 비슷하게 움직였습니다.", False),  # 대형주 비교는 다른 판정이다
+    ("follows", "코스피와 비슷하게 움직였습니다.", False),
+])
+def test_kospi_opposite_wording_warns(kospi_relation, move, warned):
+    r = cause_report(summary=summary(move=move))
+    assert (COMPARE_OPPOSITE_WORDING in codes(check_warnings(r, with_compare(kospi_relation)))) is warned
+
+
+@pytest.mark.parametrize(("peers", "relative", "warned"), [
+    ([("은행지주", "opposite")], "같은 은행지주 그룹 종목들과 함께 내렸습니다.", True),
+    ([("은행지주", "opposite")], "같은 은행지주 그룹 흐름을 따라갔습니다.", True),
+    ([("SK하이닉스 연동", "opposite")], "SK하이닉스 지분으로 이어진 SK스퀘어·SK와 비슷하게 움직였습니다.", True),
+    ([("은행지주", "opposite")], "같은 은행지주 그룹의 신한지주는 0.41% 올랐고 KB금융은 0.32% 내렸습니다.", False),
+    ([("은행지주", "follows")], "같은 은행지주 그룹 종목들과 함께 내렸습니다.", False),
+    # 다른 그룹 문장의 "함께" 는 보지 않는다
+    ([("보험", "opposite"), ("삼성전자 연동", "follows")],
+     "같은 보험 그룹의 삼성화재는 0.41% 올랐습니다. 삼성전자 지분으로 이어진 삼성물산과 함께 내렸습니다.", False),
+])
+def test_group_opposite_wording_warns(peers, relative, warned):
+    r = cause_report(summary=summary(relative=relative))
+    assert (COMPARE_OPPOSITE_WORDING in codes(check_warnings(r, with_compare(peers=peers)))) is warned
+
+
+def test_group_follows_with_kospi_opposite_is_not_warned():
+    """코스피 opposite·그룹 follows 날 쓰는 꼴. "함께" 는 그룹 쪽 말이고 코스피에는 방향만 썼다."""
+    r = cause_report(summary=summary(relative="코스피는 내렸고 솔마루전자는 같은 은행지주 그룹 종목들과 함께 올랐습니다."))
+    payload = with_compare("opposite", [("은행지주", "follows")])
+    assert COMPARE_OPPOSITE_WORDING not in codes(check_warnings(r, payload))
+
+
+def test_opposite_wording_not_checked_without_ok_compare():
+    r = cause_report(summary=summary(move="코스피와 비슷하게 움직였습니다."))
+    assert COMPARE_OPPOSITE_WORDING not in codes(check_warnings(r, with_compare("opposite", status="no_trades")))
+    assert COMPARE_OPPOSITE_WORDING not in codes(check_warnings(r, CAUSE))
 
 
 # --- strength 정의(출처 mentioned + 방향)와 mentioned 출처 누락 경고 ------------------------

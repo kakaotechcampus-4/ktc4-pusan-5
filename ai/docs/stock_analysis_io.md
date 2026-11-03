@@ -152,7 +152,8 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
 러너가 `code`·`target_date` 로 KRX 장 마감 확정 데이터(코스피 지수, 유가증권 전 종목)를 받아 계산한다
 (`market_compare.MarketCompare` → `market_data.build_market_context`). 형식은 프롬프트 1부 그대로다 — 비교 판정
 `kospi.kospi_basis`(`kospi` | `kospi_ex_self`, 코스피 비중 10% 이상이면 자기 제외 코스피)·`kospi.kospi_relation`
-(`follows` | `diverges` | null)과 그룹마다 `peers[].relation`(`follows` | `diverges` | `inconclusive` | null). 판정 기준은
+(`follows` | `opposite` | `diverges` | null)과 그룹마다 `peers[].relation`(`follows` | `opposite` | `diverges` | `inconclusive` | null).
+`opposite` 는 차이가 기준 안이지만 오르내린 방향이 반대인 날이다(보합 0.00 은 방향 없음). 판정 기준은
 `market_data/context.py` 상수(`KOSPI_EX_SELF_WEIGHT_PCT`, `KOSPI_FOLLOW_THRESHOLD_PP`, `GROUP_FOLLOW_THRESHOLD_PP`)다.
 프롬프트에 없는 계산 칸(비중 분모, 재계산 코스피, `weight_basis`)은 보내지 않고, `members_used` 는 `{code, name}` 으로 바꾼다.
 

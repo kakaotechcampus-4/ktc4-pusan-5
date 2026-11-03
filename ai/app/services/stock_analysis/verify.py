@@ -211,6 +211,16 @@ _MORE_LESS = re.compile(r"(?<![가-힣])(더|덜)\s*(크게\s*|많이\s*|적게\
 # background text)만 본다. quote 는 원문이라 보지 않는다.
 COMPARE_META_PHRASE = "COMPARE_META_PHRASE"
 COMPARE_META_PHRASES = ("판정하기 어렵", "기준 시장", "비교 종목이 하나뿐")
+# 입력 market_compare 판정이 opposite(차이는 기준 안이지만 오르내린 방향이 반대)인데 그 비교를 판정하는 말로 썼다. 그날은 두
+# 등락을 사실로만 쓴다(프롬프트 3단계 「비교 수치」). 코스피는 summary.move·relative 에서 코스피에 바로 붙은 꼴(_KOSPI_JUDGED)을
+# 찾는다. 그룹은 relative 에서 그 그룹을 가리키는 문장을 보되 코스피에 붙은 말은 빼고 COMPARE_JUDGE_WORDS 를 찾는다 — "코스피는
+# 내렸고 …는 같은 … 그룹과 함께 올랐습니다"(코스피 opposite·그룹 follows)의 "함께" 는 그룹 쪽 말이다. 한 문장에 다른 비교가
+# 섞이면 잘못 잡을 수 있어 경고다.
+COMPARE_OPPOSITE_WORDING = "COMPARE_OPPOSITE_WORDING"
+COMPARE_JUDGE_WORDS = ("비슷하게", "함께", "다르게", "따라갔")
+_KOSPI_JUDGED = re.compile(r"코스피(?:와|과)는?\s*(?:비슷하게|함께|다르게)|코스피\s*흐름을\s*따라")
+# 이름이 이것으로 끝나는 그룹은 지분으로 이어진 묶음이라 문장에 "<앞부분> 지분으로 이어진" 으로 쓴다(프롬프트 「동종 그룹」).
+LINKED_GROUP_SUFFIX = " 연동"
 
 # --- events ↔ 실제 칸 대조 (events_problems, 판정과 분리) ------------------------
 
@@ -1272,6 +1282,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     MARKET_LED_DIRECT_FACTOR    market_led 날 등락 층 factor 의 이슈가 모두 relation: direct 다. issue_trace 가 있어야 본다.
     MAIN_CAUSE_TOO_LONG         summary.main_cause 가 MAIN_CAUSE_MAX_SENTENCES 문장을 넘는다(러너 고정 문장 포함).
     COMPARE_META_PHRASE         독자가 읽는 칸에 비교 판정의 안쪽 말(COMPARE_META_PHRASES)이 있다. payload 없이 본다.
+    COMPARE_OPPOSITE_WORDING    market_compare 판정이 opposite 인 비교에 "비슷하게"·"함께"·"다르게"·"따라갔" 를 썼다.
     """
     if not isinstance(report, dict):
         return []
@@ -1306,6 +1317,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
         out.append(_p(MAIN_CAUSE_TOO_LONG, f"summary.main_cause {n}문장(최대 {MAIN_CAUSE_MAX_SENTENCES}, "
                                            f"모델 몫 {main_cause_sentences(payload)})"))
     out += _check_quote_subjects(factors, str(payload.get("stock") or ""))
+    out += _check_compare_opposite(report, payload)
     market = payload.get("market")
     summary = report.get("summary")
     move_text = summary.get("move") if isinstance(summary, dict) else None
@@ -1457,6 +1469,41 @@ def _check_compare_meta(report: dict[str, Any]) -> list[str]:
     return [_p(COMPARE_META_PHRASE, f"{path} 에 {phrase!r}")
             for path, text in texts if isinstance(text, str)
             for phrase in COMPARE_META_PHRASES if phrase in text]
+
+
+def group_mention(group: str) -> str:
+    """문장에서 그룹을 가리키는 말. "SK하이닉스 연동" → "SK하이닉스 지분으로 이어진", "은행지주" → "은행지주 그룹"."""
+    if group.endswith(LINKED_GROUP_SUFFIX):
+        return f"{group.removesuffix(LINKED_GROUP_SUFFIX)} 지분으로 이어진"
+    return f"{group} 그룹"
+
+
+def _check_compare_opposite(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
+    """market_compare 판정이 opposite 인 비교를 판정하는 말로 썼나. 칸·비교마다 경고 하나."""
+    compare = payload.get("market_compare")
+    if not isinstance(compare, dict) or compare.get("status") != "ok":
+        return []
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    out: list[str] = []
+    kospi = compare.get("kospi")
+    if isinstance(kospi, dict) and kospi.get("kospi_relation") == "opposite":
+        for key in ("move", "relative"):
+            text = summary.get(key)
+            if isinstance(text, str) and (m := _KOSPI_JUDGED.search(text)):
+                out.append(_p(COMPARE_OPPOSITE_WORDING, f"코스피와 방향이 반대인 날인데 summary.{key} 에 {m.group(0)!r}"))
+    relative = summary.get("relative")
+    if not isinstance(relative, str):
+        return out
+    sentences = [_KOSPI_JUDGED.sub("", s) for s in _SENTENCE_END.split(relative.strip())]
+    for peer in compare.get("peers") or []:
+        if not isinstance(peer, dict) or peer.get("relation") != "opposite" or not isinstance(peer.get("group"), str):
+            continue
+        mention = group_mention(peer["group"])
+        words = [w for s in sentences if mention in s for w in COMPARE_JUDGE_WORDS if w in s]
+        if words:
+            out.append(_p(COMPARE_OPPOSITE_WORDING,
+                          f"{peer['group']} 그룹과 방향이 반대인 날인데 summary.relative 에 {words[0]!r}"))
+    return out
 
 
 def _check_theme_recap_sector(report: dict[str, Any], kinds: dict[Any, Any],
