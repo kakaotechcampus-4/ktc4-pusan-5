@@ -8,6 +8,7 @@ DB 에 쓰는 명령
     … run --ids 101 102                    # 이 자료만 (회차가 있어도 새 회차를 만든다)
     … run --ids 101 --experiment --judge-model <모델>
                                            # 저장하되 조회에 쓰는 회차는 바꾸지 않는다(모델 비교)
+    … run --limit 20 --concurrency 3       # 자료 3건을 동시에. 비용은 같고 시간만 준다
     uv run python -m app.services.classification show 005930 --days 3
                                            # 종목 하나의 판정 자료·공통 배경 (생성 쪽에 넘기는 것)
 
@@ -32,6 +33,7 @@ from collections import Counter
 from dataclasses import asdict
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from time import perf_counter
 
 from app.core.database import SessionLocal
 from app.core.scope import KST
@@ -141,32 +143,42 @@ async def run_classify(args: argparse.Namespace) -> None:
         since = datetime.combine(args.since, time(), KST) if args.since else None
         card_ids = await cards_to_classify(session, card_ids=args.ids, since=since,
                                            limit=args.limit, retry=args.retry)
-    print(f"{len(card_ids)}건 · 기준 {basis.version[:12]}"
+    print(f"{len(card_ids)}건 · 기준 {basis.version[:12]} · 동시 {args.concurrency}"
           + (" · 실험(현재 회차를 바꾸지 않음)" if args.experiment else ""))
 
     statuses: Counter = Counter()
     total = 0.0
-    for n, card_id in enumerate(card_ids, start=1):
-        async with SessionLocal() as session:
-            records = await get_sources(session, [card_id], include_body=True)
-        if not records:
-            continue
-        record = records[0]
-        result = await classify(record.title, record.body if record.has_body else None, basis,
-                                models=models_of(args))
-        async with SessionLocal() as session:
-            run_id = await save_run(session, card_id, result, make_current=not args.experiment)
-            await session.commit()
+    done = 0
+    started = perf_counter()
+    gate = asyncio.Semaphore(args.concurrency)
+
+    async def work(card_id: int) -> None:
+        nonlocal total, done
+        # 본문을 게이트 안에서 읽는다. 밖에서 읽으면 대기하는 자료의 본문이 전부 메모리에 올라온다
+        async with gate:
+            async with SessionLocal() as session:
+                records = await get_sources(session, [card_id], include_body=True)
+            if not records:
+                return
+            record = records[0]
+            result = await classify(record.title, record.body if record.has_body else None, basis,
+                                    models=models_of(args))
+            async with SessionLocal() as session:
+                run_id = await save_run(session, card_id, result, make_current=not args.experiment)
+                await session.commit()
         statuses[result.status] += 1
         total += result.cost
+        done += 1
         direct = ",".join(basis.stocks[c].name for c in sorted(result.direct_stocks())) or "-"
-        print(f"[{n:>3}/{len(card_ids)}] 자료 {card_id:<7} {record.kind:<8} {result.status:<8} "
+        print(f"[{done:>3}/{len(card_ids)}] 자료 {card_id:<7} {record.kind:<8} {result.status:<8} "
               f"회차 {run_id:<6} 사건 {len(result.events):>2}  DIRECT {direct}  "
-              f"{format_cost(result.cost)}")
+              f"{format_cost(result.cost)}", flush=True)
         if result.error:
-            print(f"        오류 {result.error[:200]}")
+            print(f"        오류 {result.error[:200]}", flush=True)
+
+    await asyncio.gather(*(work(card_id) for card_id in card_ids))
     print("\n상태 " + (", ".join(f"{k} {v}" for k, v in statuses.items()) or "없음")
-          + f"  비용 {format_cost(total)}")
+          + f"  비용 {format_cost(total)}  소요 {perf_counter() - started:,.0f}초")
 
 
 async def run_show(args: argparse.Namespace) -> None:
@@ -298,6 +310,8 @@ def main() -> None:
     run.add_argument("--retry", action="store_true", help="현재 회차가 없는 자료(실패 등)도 다시")
     run.add_argument("--experiment", action="store_true",
                      help="저장만 하고 조회에 쓰는 회차를 바꾸지 않는다")
+    run.add_argument("--concurrency", type=int, default=1,
+                     help="동시에 분류할 자료 수. 속도 제한을 모르므로 3 부터 올려 본다")
     add_models(run)
 
     show = sub.add_parser("show", help="종목 하나에 붙는 분류 자료를 본다")
@@ -324,6 +338,8 @@ def main() -> None:
     if getattr(args, "limit", None) is not None and args.limit < 1:
         # 0 이 '제한 없음' 으로 읽히면 묶음 전체를 부른다
         parser.error("--limit 은 1 이상이어야 한다")
+    if getattr(args, "concurrency", 1) < 1:
+        parser.error("--concurrency 는 1 이상이어야 한다")
     try:
         if args.command == "basis":
             asyncio.run(run_basis(args.file, args.check))
