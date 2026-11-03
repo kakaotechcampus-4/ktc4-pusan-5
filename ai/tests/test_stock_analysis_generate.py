@@ -59,7 +59,7 @@ async def test_prompt_and_input_are_sent(fake_complete):
     sent = {k: v for k, v in CAUSE.items() if k != "messages"}
     numbered = [{"id": f"m{k + 1}", **m} for k, m in enumerate(CAUSE["messages"])]  # 근거 칸에 m1… id
     assert json.loads(user) == {**sent, "sector": None, "main_cause_sentences": 3,
-                                "as_of": "15:30", "as_of_phrase": "오후 3시 30분 장 마감 기준",
+                                "display_as_of": "15:30", "as_of_phrase": "오후 3시 30분 장 마감 기준",
                                 "messages": numbered, "market_context": [], "flow": [],
                                 "market": {**CAUSE["market"], "judge_layers": {"move": True, "relative": True},
                                            "common_move": False, "move_strength_cap": None, "market_led": False,
@@ -380,7 +380,8 @@ async def test_no_direct_or_theme_message_gives_canned_report_without_llm(fake_c
     assert verify(report, payload) == ("passed", [])
     assert (report["verdict"], report["relative_verdict"], report["factors"], report["events"]) == (
         "no_clear_cause", "no_clear_cause", [], [])
-    assert report["as_of"] == "15:30"
+    assert (report["as_of"], report["display_as_of"], report["display_is_close"]) == (
+        "2026-10-23T15:30:00+09:00", "2026-10-23T15:30:00+09:00", True)
     assert report["summary"]["move"] == (
         "오후 3시 30분 장 마감 기준 KB금융은 3.10% 내렸습니다. "
         "같은 시각 코스피는 0.30% 올랐고, 대형주 19개 중 14개가 내렸으며 중간값은 1.57% 하락이었습니다. "
@@ -520,7 +521,7 @@ def test_canned_report_has_no_compare_sentence_unless_ok(status):
     assert gen.canned_report(payload)["summary"]["relative"] is None
 
 
-@pytest.mark.parametrize(("target_date", "cutoff", "as_of", "phrase"), [
+@pytest.mark.parametrize(("target_date", "cutoff", "shown", "phrase"), [
     # 전날 종가를 다음 날 아침에 돌린 입력. 보고서는 전날 장 마감 기준이다
     ("2026-11-02", "2026-11-03T08:30:00+09:00", "15:30", "오후 3시 30분 장 마감 기준"),
     ("2026-11-02", "2026-11-02T15:30:00+09:00", "15:30", "오후 3시 30분 장 마감 기준"),
@@ -529,21 +530,25 @@ def test_canned_report_has_no_compare_sentence_unless_ok(status):
     ("2026-11-19", "2026-11-19T15:30:00+09:00", "15:30", "오후 3시 30분 기준"),
     ("2026-11-02", "2026-11-02T11:00:00+09:00", "11:00", "오전 11시 기준"),
 ])
-def test_as_of_is_market_close_after_close_and_cutoff_before(target_date, cutoff, as_of, phrase):
+def test_display_as_of_is_market_close_after_close_and_cutoff_before(target_date, cutoff, shown, phrase):
     payload = {**_kb(-3.1, -1.57, -1.53), "target_date": target_date, "cutoff": cutoff}
     report = gen.canned_report(payload)
-    assert report["as_of"] == as_of
+    assert report["as_of"] == cutoff  # 데이터 시각은 메시지를 자른 시각 그대로
+    assert report["display_as_of"] == f"{target_date}T{shown}:00+09:00"
+    assert report["display_is_close"] is ("장 마감" in phrase)
     assert report["summary"]["move"].startswith(f"{phrase} KB금융은 3.10% 내렸습니다.")
     sent = gen.model_input(payload)
-    assert (sent["as_of"], sent["as_of_phrase"]) == (as_of, phrase)
+    assert (sent["display_as_of"], sent["as_of_phrase"]) == (shown, phrase)
     assert sent["cutoff"] == cutoff  # 메시지를 자른 시각은 그대로 보낸다
+    assert "as_of" not in sent
 
 
 def test_canned_report_without_market_or_messages():
     payload = {**_kb(0, None, None, messages=[]), "market": None, "cutoff": "2026-10-23T11:00:00+09:00"}
     report = gen.canned_report(payload)
     assert report["summary"]["move"] == "오전 11시 기준 KB금융은 등락이 없었습니다."
-    assert report["as_of"] == "11:00"
+    assert (report["as_of"], report["display_as_of"], report["display_is_close"]) == (
+        "2026-10-23T11:00:00+09:00", "2026-10-23T11:00:00+09:00", False)
 
 
 def _msg(n, kind, mention="not_mentioned", **kw):

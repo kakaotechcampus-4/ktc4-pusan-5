@@ -81,9 +81,10 @@ class StockMoveAnalysis(Base):
     # 출력 키는 date 지만 칼럼명으로 쓰면 날짜 타입명과 겹쳐 읽기 나쁘다.
     # 프롬프트 **입력**이 같은 값을 target_date 라고 부르므로 그 이름을 썼다.
     target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    # 프롬프트 출력은 "HH:MM" 문자열이다. target_date 와 합쳐 KST aware datetime 으로
-    # 저장한다 — 루트 CLAUDE.md 가 naive datetime 을 금지하고 응답은 ISO 8601 이어야 한다.
-    # 원본 "15:30" 은 raw_json 에 그대로 남아 진실의 출처가 둘로 갈리지 않는다.
+    # 메시지를 자른 시각(cutoff). 보고서 as_of 는 ISO 8601 이라 그대로, 옛 보고서의 "HH:MM" 은
+    # target_date 와 합쳐 KST aware datetime 으로 저장한다 — 루트 CLAUDE.md 가 naive datetime 을
+    # 금지하고 응답은 ISO 8601 이어야 한다. 원본은 raw_json 에 그대로 남아 진실의 출처가 둘로 갈리지 않는다.
+    # 화면 기준 시각(장 마감 뒤면 그날 장 마감)은 칼럼이 없다 — raw_json 의 display_as_of·display_is_close 다.
     as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # float 로 받으면 -2.01 이 -2.0100000000000002 로 굳는다. 루트 CLAUDE.md 가
     # "가공하지 않은 값" 을 요구하므로 DB 가 값을 흔들면 안 된다.

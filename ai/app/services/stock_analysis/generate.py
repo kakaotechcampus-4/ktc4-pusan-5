@@ -57,7 +57,7 @@ from app.llm.client import (
     input_tokens,
 )
 from app.repositories.stock_move_analysis import KST
-from app.services.stock_analysis.market_compare import report_as_of
+from app.services.stock_analysis.market_compare import display_as_of
 from app.services.stock_analysis.stock_meta import sector, universe_weight
 from app.services.stock_analysis.verify import (
     EMPTY_RESPONSE,
@@ -171,10 +171,10 @@ def model_input(payload: dict[str, Any]) -> dict[str, Any]:
     out["sector"] = sector(payload.get("code"))
     # main_cause 에서 모델이 쓸 문장 수. 러너 고정 문장(finalize)을 더해도 3문장 이하가 되게 한다(프롬프트 4부).
     out["main_cause_sentences"] = main_cause_sentences(payload)
-    # 보고서 기준 시각과 move 첫머리 문구. cutoff 가 장 마감 뒤면 그날 장 마감 시각이다(market_compare.report_as_of).
-    # 모델이 cutoff 를 베껴도 finalize 가 as_of 를 이 값으로 덮어쓴다.
-    as_of = report_as_of(payload)
-    out["as_of"] = as_of[0] if as_of else None
+    # 화면 기준 시각(HH:MM)과 move 첫머리 문구. cutoff 가 장 마감 뒤면 그날 장 마감 시각이다(market_compare.display_as_of).
+    # 보고서 as_of 는 cutoff 그대로이고 display_as_of·display_is_close 와 함께 finalize 가 넣는다.
+    shown = display_as_of(payload)
+    out["display_as_of"] = shown[0].strftime("%H:%M") if shown else None
     out["as_of_phrase"] = as_of_phrase(payload)
     out.update(split_messages(payload))
     out["messages"] = [{"id": i, **m} for i, m in message_ids(payload)]
@@ -239,12 +239,12 @@ def _verb(value: Decimal, base: str = "") -> str:
 
 def as_of_phrase(payload: dict[str, Any]) -> str:
     """기준 시각 문구. 장 마감 이후면 '오후 3시 30분 장 마감 기준'(마감이 늦춰진 날은 '오후 4시 30분 장 마감 기준'),
-    장중이면 '오전 11시 기준' 처럼. 시각은 market_compare.report_as_of 가 정한다."""
-    as_of = report_as_of(payload)
-    if as_of is None:
+    장중이면 '오전 11시 기준' 처럼. 시각은 market_compare.display_as_of 가 정한다."""
+    shown = display_as_of(payload)
+    if shown is None:
         return "기준 시각"
-    hhmm, close = as_of
-    hour, minute = int(hhmm[:2]), int(hhmm[3:])
+    at, close = shown
+    hour, minute = at.hour, at.minute
     when = f"{'오전' if hour < 12 else '오후'} {hour if hour <= 12 else hour - 12}시" + (f" {minute}분" if minute else "")
     return f"{when} 장 마감 기준" if close else f"{when} 기준"
 
@@ -413,13 +413,16 @@ def canned_report(payload: dict[str, Any]) -> dict[str, Any]:
     있게 래퍼 skipped_llm 칸으로 가른다. 프롬프트 4부와 같게 common_move 날은 main_cause 첫 문장에 그 사실을 쓴다.
     """
     change = _decimal(payload.get("change_pct"))
-    as_of = report_as_of(payload)
+    shown = display_as_of(payload)
     main_cause = "제공된 메시지에서 확인된 원인은 없습니다."
     if common_move(payload) and change:
         main_cause = f"대형주 전반이 함께 {_verb(change, '날')} 날이었습니다. " + main_cause
     return {
         "ticker": payload.get("code"), "name": payload.get("stock"), "date": payload.get("target_date"),
-        "as_of": as_of[0] if as_of else str(payload.get("cutoff")),
+        # as_of 는 메시지를 자른 시각(cutoff) 그대로, display_* 는 화면 기준 시각이다(finalize.fix_as_of 와 같다)
+        "as_of": payload.get("cutoff"),
+        "display_as_of": shown[0].isoformat() if shown else None,
+        "display_is_close": shown[1] if shown else None,
         "change_pct": payload.get("change_pct"),
         "verdict": "no_clear_cause", "relative_verdict": "no_clear_cause",
         "summary": {"move": _canned_move(payload), "main_cause": main_cause, "relative": _canned_relative(payload),

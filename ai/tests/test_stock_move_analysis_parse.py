@@ -11,6 +11,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
+
 from app.repositories.stock_move_analysis import (
     KST,
     build_analysis,
@@ -157,12 +159,26 @@ def test_null_counter_is_a_valid_value() -> None:
 
 
 def test_as_of_is_combined_with_date_into_kst_aware() -> None:
-    """프롬프트 출력은 'HH:MM' 문자열뿐이다. 루트 CLAUDE.md 가 naive datetime 을
+    """옛 보고서의 as_of 는 'HH:MM' 문자열뿐이다. 루트 CLAUDE.md 가 naive datetime 을
     금지하므로 date 와 합쳐 타임존을 붙인다. 원본 문자열은 raw_json 에 남는다."""
     analysis = build_analysis(parse_analysis_file(SAMSUNG))
     assert analysis.target_date == date(2026, 9, 18)
     assert analysis.as_of == datetime(2026, 9, 18, 15, 30, tzinfo=KST)
     assert analysis.raw_json["as_of"] == "15:30"
+
+
+@pytest.mark.parametrize(("as_of", "stored"), [
+    # 다음 날 아침 cutoff 는 날짜째 그대로다. target_date(11-02)와 합쳐 그날 08:30 이 되면 안 된다
+    ("2026-11-03T08:30:00+09:00", datetime(2026, 11, 3, 8, 30, tzinfo=KST)),
+    ("2026-11-02T11:00:00", datetime(2026, 11, 2, 11, 0, tzinfo=KST)),  # 시간대가 없으면 KST
+    ("오후", None),
+])
+def test_iso_as_of_is_stored_as_cutoff(as_of: str, stored: datetime | None) -> None:
+    report = {"ticker": "105560", "name": "KB금융", "date": "2026-11-02", "as_of": as_of,
+              "display_as_of": "2026-11-02T15:30:00+09:00", "display_is_close": True, "summary": {}}
+    analysis = build_analysis(parse_wrapper({"run_id": "r", "final_text": json.dumps(report)}))
+    assert analysis.as_of == stored
+    assert analysis.raw_json["display_as_of"] == "2026-11-02T15:30:00+09:00"  # 화면 기준 시각은 raw_json 에만
 
 
 def test_change_pct_keeps_its_exact_value() -> None:

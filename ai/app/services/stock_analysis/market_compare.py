@@ -225,17 +225,21 @@ def after_close(payload: dict[str, Any]) -> bool:
     return cutoff >= datetime.combine(day, market_close(day), tzinfo=KST)
 
 
-def report_as_of(payload: dict[str, Any]) -> tuple[str, bool] | None:
-    """보고서 기준 시각 (HH:MM KST, 장 마감 기준인가). 독자에게 보이는 기준 시각은 여기서만 정한다.
+def display_as_of(payload: dict[str, Any]) -> tuple[datetime, bool] | None:
+    """화면·독자 문장의 기준 시각 (KST aware datetime, 장 마감 기준인가). 표시 시각은 여기서만 정한다.
 
     장 마감 이후(after_close)면 target_date 의 market_close 다. 다음 날 08:30 에 돌린 입력이어도 보고서가 설명하는 건
     target_date 장 마감까지의 움직임이라 "오전 8시 30분 기준" 이 아니라 "오후 3시 30분 장 마감 기준" 이다. 장 마감이
     늦춰지는 날(LATE_CLOSE)은 그 시각이 장 마감이다. 장중이면 cutoff 시각이다. cutoff·target_date 를 못 읽으면 None.
+
+    보고서 as_of 는 이 값이 아니라 입력 cutoff(메시지를 자른 시각) 그대로다 — 적재 자연키와 출처 시각 대조가 그 시각을
+    본다(finalize.fix_as_of).
     """
     try:
+        day = date.fromisoformat(payload["target_date"])
         if after_close(payload):
-            return market_close(date.fromisoformat(payload["target_date"])).strftime("%H:%M"), True
-        return datetime.fromisoformat(payload["cutoff"]).astimezone(KST).strftime("%H:%M"), False
+            return datetime.combine(day, market_close(day), tzinfo=KST), True
+        return datetime.fromisoformat(payload["cutoff"]).astimezone(KST), False
     except (KeyError, TypeError, ValueError):
         return None
 

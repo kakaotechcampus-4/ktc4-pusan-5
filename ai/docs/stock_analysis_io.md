@@ -302,7 +302,9 @@ LLM 을 부른다(`generate.needs_llm`).
   "ticker": "999990",
   "name": "솔마루전자",
   "date": "2026-09-18",
-  "as_of": "15:30",                       // cutoff 의 HH:MM
+  "as_of": "2026-09-18T15:30:00+09:00",   // 입력 cutoff 그대로(메시지를 자른 시각). 러너가 넣는다
+  "display_as_of": "2026-09-18T15:30:00+09:00",  // 화면 기준 시각. 장 마감 뒤면 target_date 장 마감 시각. 러너가 넣는다
+  "display_is_close": true,               // 장 마감 기준인가. 장중 cutoff 면 false
   "change_pct": -4.2,                     // 입력 값을 옮긴 것 (0.01 차이까지 허용)
   "verdict": "explained",                 // explained | partially_explained | no_clear_cause
   "relative_verdict": "partially_explained",
@@ -486,6 +488,7 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
 | `strength_recomputed` | link 마다 `{factor, layer, model, final, basis}`. 그 factor 사건의 이슈(`events.issue_ids` → `issue_trace`)가 하나라도 입력 mention=mentioned 메시지에서 나왔으면 `sufficient`, 아니면 `partial`(`basis: "issues"`, DIRECT_SOURCE_MISSING 과 같은 판단 `verify.factor_has_direct`). issue_trace 가 없거나 사건에 issue_ids 가 없으면 출처로 본다(`basis: "sources"`). `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial`. `insufficient`·`direction_match: false` link 는 그대로 둔다. 경고 `STRENGTH_MISMATCH` 는 `model` 값을 같은 정의로 본다 |
 | `verdict_recomputed` | `[{key: verdict\|relative_verdict, model, final}]`. 검증 판정표 그대로 — 그 층 link 에 `sufficient` 가 있으면 `explained`, link 가 있으면 `partially_explained`, 없으면 `no_clear_cause`(`finalize.layer_verdict`). `judge_layers` 가 false 인 층은 link 가 없으면 이 표로도 `no_clear_cause` 다. link 가 남아 있으면 판정만 바꾸지 않는다 — 판정만 no_clear_cause 로 두면 검증 사유가 실제 잘못(그 층 link, `FLAT_*`)이 아니라 `VERDICT_SIZE_FIT` 로 바뀌어 가려진다 |
 | `main_cause_fixed` | `common_move`·`market_led` 날 `{before, after}`, 그 밖 null. 앞에 "대형주 전반이 함께 오른(내린) 날이었습니다.", `common_move` 날은 끝에 "이 종목만의 원인은 따로 확인되지 않았습니다." 를 붙인다. 모델이 같은 문장을 썼으면 지우고 한 번만 붙인다 |
+| `as_of_fixed` | LLM 경로에서 모델이 적은 `as_of` 가 입력 `cutoff` 와 다르면 `{before, after}`, 같으면 null. `as_of` 는 `cutoff` 로 덮어쓰고 `display_as_of`·`display_is_close` 는 러너가 항상 넣는다 |
 
 ### 운영 지표
 
@@ -537,5 +540,8 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
 - **DB 적재는 아직 옛 형식 기준이다.** `stock_move_analyses` 에는 `relative_verdict`, `summary.relative`,
   `links` 를 담는 칼럼이 없다. 새 칸은 `raw_json` 에만 들어간다. 백엔드가 두 층을 화면에 내려면 적재 쪽 스키마 정리가 먼저 필요하다.
 - 보고서 JSON 키는 **snake_case** 다. 루트 CLAUDE.md 의 camelCase 규약은 백엔드 응답 직렬화에서 맞춘다.
-- `as_of` 는 `"HH:MM"` 문자열이다. 적재 시 `target_date` 와 합쳐 KST aware datetime 으로 저장한다.
+- `as_of` 는 입력 `cutoff` 그대로(ISO 8601)이고 적재 시 그대로 DB `as_of` 가 된다. 이전 보고서는 `"HH:MM"` 이라
+  `target_date` 와 합쳐 KST aware datetime 으로 저장한다.
+- 화면에 띄울 기준 시각은 `as_of` 가 아니라 `display_as_of`·`display_is_close` 다. cutoff 가 다음 날 08:30 이어도
+  `display_as_of` 는 target_date 장 마감 시각이다. 두 칸은 DB 칼럼이 없고 `raw_json` 에만 있다.
 - `not_found`, `events`, `sources[].mention`, `sources[].is_market_recap` 은 검수용이라 화면에 내지 않는다.

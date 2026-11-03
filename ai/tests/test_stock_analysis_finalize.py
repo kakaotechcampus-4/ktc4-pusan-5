@@ -141,21 +141,27 @@ def test_finalize_normalizes_legacy_factor_and_strength_warning_uses_model_value
             if w.startswith("STRENGTH_MISMATCH")] == ["STRENGTH_MISMATCH"]
 
 
-@pytest.mark.parametrize(("target_date", "cutoff", "model_as_of", "fixed"), [
-    # 모델이 다음 날 아침 cutoff 시각을 베꼈다 → 전날 장 마감 시각으로
-    ("2026-11-02", "2026-11-03T08:30:00+09:00", "08:30", {"before": "08:30", "after": "15:30"}),
-    ("2026-11-19", "2026-11-19T16:30:00+09:00", "15:30", {"before": "15:30", "after": "16:30"}),  # 장 마감이 늦춰진 날
-    ("2026-11-02", "2026-11-02T11:00:00+09:00", "11:00", None),  # 장중이면 cutoff 시각 그대로
+@pytest.mark.parametrize(("target_date", "cutoff", "model_as_of", "shown", "close"), [
+    # 다음 날 아침 cutoff. 화면 기준 시각은 전날 장 마감, as_of 는 cutoff 그대로(날짜가 붙어 적재가 그날 08:30 으로 읽지 않는다)
+    ("2026-11-02", "2026-11-03T08:30:00+09:00", "08:30", "2026-11-02T15:30:00+09:00", True),
+    ("2026-11-02", "2026-11-02T15:30:00+09:00", "15:30", "2026-11-02T15:30:00+09:00", True),
+    # 장 마감이 16:30 으로 늦춰지는 날(수능). 16:30 이 장 마감이고 15:30 은 아직 장중이다
+    ("2026-11-19", "2026-11-19T16:30:00+09:00", "15:30", "2026-11-19T16:30:00+09:00", True),
+    ("2026-11-19", "2026-11-19T15:30:00+09:00", "15:30", "2026-11-19T15:30:00+09:00", False),
+    ("2026-11-02", "2026-11-02T11:00:00+09:00", "11:00", "2026-11-02T11:00:00+09:00", False),  # 장중이면 cutoff 시각
 ])
-def test_finalize_overwrites_as_of_with_runner_value(target_date, cutoff, model_as_of, fixed):
+def test_finalize_keeps_cutoff_as_of_and_adds_display_time(target_date, cutoff, model_as_of, shown, close):
     p = {**payload(), "target_date": target_date, "cutoff": cutoff}
     r = {**report([]), "as_of": model_as_of}
     out = finalize(r, p)
-    assert out["as_of_fixed"] == fixed
-    assert r["as_of"] == (fixed["after"] if fixed else model_as_of)
+    assert out["as_of_fixed"] == {"before": model_as_of, "after": cutoff}
+    assert (r["as_of"], r["display_as_of"], r["display_is_close"]) == (cutoff, shown, close)
+    # 모델이 cutoff 를 그대로 적었으면 as_of 는 고치지 않는다
+    r = {**report([]), "as_of": cutoff}
+    assert finalize(r, p)["as_of_fixed"] is None and r["display_as_of"] == shown
 
 
 def test_fix_as_of_leaves_report_when_time_unreadable():
     r = {**report([]), "as_of": "15:30"}
     assert fix_as_of(r, payload()) is None  # target_date·cutoff 가 없다
-    assert r["as_of"] == "15:30"
+    assert (r["as_of"], r["display_as_of"], r["display_is_close"]) == ("15:30", None, None)

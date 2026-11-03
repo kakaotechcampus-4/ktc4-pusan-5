@@ -100,7 +100,7 @@ from app.services.stock_analysis.verify import mention_of
 
 logger = logging.getLogger(__name__)
 
-# 프롬프트의 as_of 는 "HH:MM" 뿐이라 날짜와 합칠 때 타임존을 우리가 붙여야 한다.
+# 옛 보고서의 as_of 는 "HH:MM" 뿐이라 날짜와 합칠 때 타임존을 우리가 붙여야 한다. 시간대 없는 ISO 시각도 같다.
 # 대상이 한국 증시 장중 시각이므로 KST 고정이다. 루트 CLAUDE.md 가 naive datetime 을 금지한다.
 KST = timezone(timedelta(hours=9))
 
@@ -267,22 +267,29 @@ def _as_date(value: Any) -> date | None:
 
 
 def _as_of_datetime(target_date: date | None, raw: Any) -> datetime | None:
-    """날짜 "YYYY-MM-DD" 와 시각 "HH:MM" 을 합쳐 KST aware datetime 으로 만든다.
+    """보고서 as_of 를 KST aware datetime 으로 만든다.
 
-    as_of 는 **기준 시각**이다. 이 시각까지 들어온 메시지만 보고 쓴 보고서라는 뜻이라,
-    같은 날 같은 종목이라도 11:00 판과 15:30 판은 내용이 다르다. 15:30 이면 장 마감
-    기준이고 그 전이면 확정값이 아니다. 자연키에 이 값이 들어가는 이유이기도 하다.
+    as_of 는 **메시지를 자른 시각(cutoff)** 이다. 이 시각까지 들어온 메시지만 보고 쓴 보고서라는 뜻이라,
+    같은 날 같은 종목이라도 11:00 판과 15:30 판, 다음 날 08:30 판은 내용이 다르다. 자연키에 이 값이
+    들어가는 이유이기도 하다. 화면 기준 시각(장 마감 뒤면 그날 장 마감)은 보고서 display_as_of 에
+    따로 있고 칼럼 없이 raw_json 에만 남는다.
 
-    날짜가 없으면 합칠 수 없어 NULL 이다. 원본 "15:30" 은 raw_json 에 남아 있으므로
-    여기서 놓쳐도 되살릴 수 있다.
+    지금 보고서는 날짜가 붙은 ISO 8601 시각이라 그대로 쓴다(다음 날 아침 cutoff 도 날짜가 맞다). 옛 보고서는
+    "HH:MM" 이라 target_date 와 합친다 — 날짜가 없으면 합칠 수 없어 NULL 이다. 원본은 raw_json 에 남아
+    있으므로 여기서 놓쳐도 되살릴 수 있다.
     """
-    if target_date is None or not isinstance(raw, str):
+    if not isinstance(raw, str):
         return None
+    text = raw.strip()
     try:
-        hhmm = time.fromisoformat(raw.strip())
+        hhmm = time.fromisoformat(text)
     except ValueError:
-        return None
-    return datetime.combine(target_date, hhmm, tzinfo=KST)
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=KST)
+    return None if target_date is None else datetime.combine(target_date, hhmm, tzinfo=KST)
 
 
 def _as_decimal(value: Any) -> Decimal | None:
