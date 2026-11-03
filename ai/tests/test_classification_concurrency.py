@@ -96,6 +96,57 @@ async def test_failed_card_does_not_stop_the_others(monkeypatch, capsys):
     assert "ok 3" in out and "failed 1" in out
 
 
+async def test_unexpected_error_skips_that_card_and_is_reported_at_the_end(monkeypatch, capsys):
+    seen = fake_run(monkeypatch, [1, 2, 3, 4])
+    real_save = cli.save_run
+
+    async def save_run(session, card_id, result, *, make_current):
+        if card_id == 2:
+            raise RuntimeError("연결 끊김")
+        return await real_save(session, card_id, result, make_current=make_current)
+
+    monkeypatch.setattr(cli, "save_run", save_run)
+    with pytest.raises(SystemExit) as stopped:
+        await cli.run_classify(run_args(2))
+    # 문자열로 끝나면 종료 코드가 1 이다. 0 이면 오류가 있어도 성공처럼 보인다
+    assert "오류 1건" in stopped.value.code
+    assert set(seen.saved) == {1, 3, 4}
+    out = capsys.readouterr().out
+    assert "자료 2" in out and "RuntimeError: 연결 끊김" in out
+    assert "ok 3" in out and "error 1" in out
+
+
+async def test_read_error_skips_the_llm_call(monkeypatch, capsys):
+    seen = fake_run(monkeypatch, [1])
+    monkeypatch.setattr(cli, "get_sources", AsyncMock(side_effect=RuntimeError("연결 끊김")))
+    with pytest.raises(SystemExit):
+        await cli.run_classify(run_args(1))
+    assert seen.started == []
+    assert "error 1" in capsys.readouterr().out
+
+
+async def test_cost_of_a_card_that_failed_to_save_stays_in_the_total(monkeypatch, capsys):
+    fake_run(monkeypatch, [1])
+    call = llm.StepCall("extract", "모델", "해시", usage={"cost": 1.5})
+    monkeypatch.setattr(cli, "classify", AsyncMock(return_value=ClassificationResult(
+        status="ok", basis_version=BASIS.version, calls={"extract": call})))
+    monkeypatch.setattr(cli, "save_run", AsyncMock(side_effect=RuntimeError("연결 끊김")))
+    with pytest.raises(SystemExit):
+        await cli.run_classify(run_args(1))
+    assert f"비용 {cli.format_cost(1.5)}" in capsys.readouterr().out
+
+
+async def test_summary_is_printed_when_the_run_is_cancelled(monkeypatch, capsys):
+    seen = fake_run(monkeypatch, [1, 2])
+    task = asyncio.create_task(cli.run_classify(run_args(2)))
+    while not seen.started:
+        await asyncio.sleep(0)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert "소요" in capsys.readouterr().out
+
+
 async def test_lock_is_held_from_selection_until_every_card_is_saved(monkeypatch):
     seen = fake_run(monkeypatch, [1, 2])
     await cli.run_classify(run_args(2))

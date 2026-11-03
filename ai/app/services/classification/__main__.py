@@ -167,31 +167,45 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> None:
 
     async def work(card_id: int) -> None:
         nonlocal total, done
-        # 본문을 게이트 안에서 읽는다. 밖에서 읽으면 대기하는 자료의 본문이 전부 메모리에 올라온다
-        async with gate:
-            async with SessionLocal() as session:
-                records = await get_sources(session, [card_id], include_body=True)
-            if not records:
-                return
-            record = records[0]
-            result = await classify(record.title, record.body if record.has_body else None, basis,
-                                    models=models_of(args))
-            async with SessionLocal() as session:
-                run_id = await save_run(session, card_id, result, make_current=not args.experiment)
-                await session.commit()
+        try:
+            # 본문을 게이트 안에서 읽는다. 밖에서 읽으면 대기하는 자료의 본문이 전부 메모리에 올라온다
+            async with gate:
+                async with SessionLocal() as session:
+                    records = await get_sources(session, [card_id], include_body=True)
+                if not records:
+                    return
+                record = records[0]
+                result = await classify(record.title, record.body if record.has_body else None,
+                                        basis, models=models_of(args))
+                total += result.cost  # 저장에 실패해도 이미 쓴 비용은 합계에 남긴다
+                async with SessionLocal() as session:
+                    run_id = await save_run(session, card_id, result,
+                                            make_current=not args.experiment)
+                    await session.commit()
+            direct = ",".join(basis.stocks[c].name for c in sorted(result.direct_stocks())) or "-"
+        except Exception as exc:  # noqa: BLE001 — 한 건 때문에 몇 시간짜리 실행이 멈추지 않게 한다
+            # 저장 전이면 회차가 없어 다시 돌릴 때 또 고른다
+            statuses["error"] += 1
+            done += 1
+            print(f"[{done:>3}/{len(card_ids)}] 자료 {card_id:<7} 오류 "
+                  f"{type(exc).__name__}: {str(exc)[:200]}", flush=True)
+            return
         statuses[result.status] += 1
-        total += result.cost
         done += 1
-        direct = ",".join(basis.stocks[c].name for c in sorted(result.direct_stocks())) or "-"
         print(f"[{done:>3}/{len(card_ids)}] 자료 {card_id:<7} {record.kind:<8} {result.status:<8} "
               f"회차 {run_id:<6} 사건 {len(result.events):>2}  DIRECT {direct}  "
               f"{format_cost(result.cost)}", flush=True)
         if result.error:
             print(f"        오류 {result.error[:200]}", flush=True)
 
-    await asyncio.gather(*(work(card_id) for card_id in card_ids))
-    print("\n상태 " + (", ".join(f"{k} {v}" for k, v in statuses.items()) or "없음")
-          + f"  비용 {format_cost(total)}  소요 {perf_counter() - started:,.0f}초")
+    try:
+        await asyncio.gather(*(work(card_id) for card_id in card_ids))
+    finally:
+        # Ctrl+C 로 멈춰도 그때까지 쓴 비용을 남긴다
+        print("\n상태 " + (", ".join(f"{k} {v}" for k, v in statuses.items()) or "없음")
+              + f"  비용 {format_cost(total)}  소요 {perf_counter() - started:,.0f}초")
+    if statuses["error"]:
+        raise SystemExit(f"오류 {statuses['error']}건. 위 오류 줄을 확인한다")
 
 
 async def run_show(args: argparse.Namespace) -> None:
