@@ -1,0 +1,2781 @@
+{
+  "name": "2026-11-03 산업 연결 검토 초안",
+  "about": "10-30-draft2 기반. 11월 3일 검토한 연결만 추가. 기존 초안의 미확인 항목은 그대로이며 전체 확정본이 아니다. 기아의 HMG Global 경유 투자, 해외 상장 WBTN 산업 연결, 미종결 두나무 거래는 활성 산업 연결에서 보류.",
+  "industries": [
+    {
+      "code": "krx_electronics",
+      "name": "전기전자",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "semiconductor",
+      "name": "반도체",
+      "parent": "krx_electronics",
+      "aliases": [
+        "반도체",
+        "반도체 업황",
+        "반도체주"
+      ]
+    },
+    {
+      "code": "memory",
+      "name": "메모리반도체",
+      "parent": "semiconductor",
+      "aliases": [
+        "메모리반도체",
+        "메모리 반도체",
+        "메모리",
+        "D램",
+        "DRAM",
+        "낸드",
+        "NAND",
+        "HBM"
+      ]
+    },
+    {
+      "code": "foundry",
+      "name": "파운드리·시스템반도체",
+      "parent": "semiconductor",
+      "aliases": [
+        "파운드리",
+        "반도체 위탁생산",
+        "시스템LSI",
+        "시스템반도체"
+      ]
+    },
+    {
+      "code": "display",
+      "name": "디스플레이 패널",
+      "parent": "krx_electronics",
+      "aliases": [
+        "디스플레이",
+        "OLED",
+        "디스플레이 패널"
+      ]
+    },
+    {
+      "code": "smartphone",
+      "name": "스마트폰",
+      "parent": "krx_electronics",
+      "aliases": [
+        "스마트폰",
+        "폴더블"
+      ]
+    },
+    {
+      "code": "home_appliance",
+      "name": "가전·TV",
+      "parent": "krx_electronics",
+      "aliases": [
+        "가전",
+        "TV",
+        "생활가전"
+      ]
+    },
+    {
+      "code": "hvac",
+      "name": "냉난방공조(HVAC)",
+      "parent": "krx_electronics",
+      "aliases": [
+        "HVAC",
+        "공조",
+        "냉난방공조",
+        "데이터센터 냉각",
+        "칠러"
+      ]
+    },
+    {
+      "code": "electronic_parts",
+      "name": "전자부품",
+      "parent": "krx_electronics",
+      "aliases": [
+        "전자부품"
+      ]
+    },
+    {
+      "code": "mlcc",
+      "name": "MLCC",
+      "parent": "electronic_parts",
+      "aliases": [
+        "MLCC",
+        "적층세라믹콘덴서"
+      ]
+    },
+    {
+      "code": "camera_module",
+      "name": "카메라모듈",
+      "parent": "electronic_parts",
+      "aliases": [
+        "카메라모듈"
+      ]
+    },
+    {
+      "code": "pkg_substrate",
+      "name": "반도체 패키지 기판",
+      "parent": "electronic_parts",
+      "aliases": [
+        "FC-BGA",
+        "패키지 기판",
+        "반도체 기판"
+      ]
+    },
+    {
+      "code": "electronic_materials",
+      "name": "전자재료",
+      "parent": "krx_electronics",
+      "aliases": [
+        "전자재료",
+        "반도체 소재"
+      ]
+    },
+    {
+      "code": "battery",
+      "name": "2차전지",
+      "parent": "krx_electronics",
+      "aliases": [
+        "2차전지",
+        "이차전지",
+        "배터리"
+      ]
+    },
+    {
+      "code": "ess",
+      "name": "전력저장장치(ESS)",
+      "parent": "krx_electronics",
+      "aliases": [
+        "ESS",
+        "에너지저장장치",
+        "PCS"
+      ]
+    },
+    {
+      "code": "power_grid",
+      "name": "전력설비",
+      "parent": "krx_electronics",
+      "aliases": [
+        "전력설비",
+        "변압기",
+        "전력기기",
+        "배전반"
+      ]
+    },
+    {
+      "code": "factory_automation",
+      "name": "산업자동화",
+      "parent": "krx_electronics",
+      "aliases": [
+        "PLC",
+        "산업자동화"
+      ]
+    },
+    {
+      "code": "krx_transport_equip",
+      "name": "운송장비·부품",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "auto",
+      "name": "자동차",
+      "parent": "krx_transport_equip",
+      "aliases": [
+        "자동차",
+        "자동차 업황",
+        "자동차 관세"
+      ]
+    },
+    {
+      "code": "vehicle",
+      "name": "완성차",
+      "parent": "auto",
+      "aliases": [
+        "완성차",
+        "전기차 판매",
+        "하이브리드",
+        "PBV"
+      ]
+    },
+    {
+      "code": "auto_parts",
+      "name": "자동차부품",
+      "parent": "auto",
+      "aliases": [
+        "자동차부품",
+        "A/S 부품"
+      ]
+    },
+    {
+      "code": "auto_electronics",
+      "name": "전장",
+      "parent": "auto",
+      "aliases": [
+        "전장",
+        "인포테인먼트",
+        "차량용 디스플레이"
+      ]
+    },
+    {
+      "code": "shipbuilding",
+      "name": "조선",
+      "parent": "krx_transport_equip",
+      "aliases": [
+        "조선",
+        "조선업",
+        "LNG선",
+        "컨테이너선 발주",
+        "함정",
+        "잠수함",
+        "해양플랜트"
+      ]
+    },
+    {
+      "code": "defense",
+      "name": "방위산업",
+      "parent": "krx_transport_equip",
+      "aliases": [
+        "방산",
+        "방위산업",
+        "K9",
+        "방산 수출"
+      ]
+    },
+    {
+      "code": "aerospace",
+      "name": "우주항공",
+      "parent": "krx_transport_equip",
+      "aliases": [
+        "우주항공",
+        "우주",
+        "발사체",
+        "항공엔진"
+      ]
+    },
+    {
+      "code": "krx_machinery",
+      "name": "기계·장비",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "power_equipment",
+      "name": "발전설비",
+      "parent": "krx_machinery",
+      "aliases": [
+        "발전설비"
+      ]
+    },
+    {
+      "code": "nuclear_equipment",
+      "name": "원전설비",
+      "parent": "power_equipment",
+      "aliases": [
+        "원전",
+        "원자력",
+        "원전설비",
+        "SMR"
+      ]
+    },
+    {
+      "code": "gas_turbine",
+      "name": "가스터빈",
+      "parent": "power_equipment",
+      "aliases": [
+        "가스터빈"
+      ]
+    },
+    {
+      "code": "marine_engine",
+      "name": "선박엔진",
+      "parent": "krx_machinery",
+      "aliases": [
+        "선박엔진",
+        "엔진기계"
+      ]
+    },
+    {
+      "code": "robot",
+      "name": "로봇",
+      "parent": "krx_machinery",
+      "aliases": [
+        "로봇",
+        "휴머노이드",
+        "액추에이터"
+      ]
+    },
+    {
+      "code": "krx_pharma",
+      "name": "제약",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "biopharma",
+      "name": "바이오",
+      "parent": "krx_pharma",
+      "aliases": [
+        "바이오",
+        "바이오의약품"
+      ]
+    },
+    {
+      "code": "bio_cdmo",
+      "name": "바이오 CDMO",
+      "parent": "biopharma",
+      "aliases": [
+        "CDMO",
+        "CMO",
+        "위탁개발생산",
+        "바이오 위탁생산"
+      ]
+    },
+    {
+      "code": "biosimilar",
+      "name": "바이오시밀러",
+      "parent": "biopharma",
+      "aliases": [
+        "바이오시밀러"
+      ]
+    },
+    {
+      "code": "krx_finance",
+      "name": "금융",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "bank",
+      "name": "은행",
+      "parent": "krx_finance",
+      "aliases": [
+        "은행",
+        "순이자마진",
+        "NIM",
+        "예대마진"
+      ]
+    },
+    {
+      "code": "financial_holding",
+      "name": "금융지주",
+      "parent": "krx_finance",
+      "aliases": [
+        "금융지주",
+        "밸류업",
+        "주주환원"
+      ]
+    },
+    {
+      "code": "holding",
+      "name": "지주·투자",
+      "parent": "krx_finance",
+      "aliases": [
+        "지주사",
+        "지주회사"
+      ]
+    },
+    {
+      "code": "securities",
+      "name": "증권",
+      "parent": "krx_finance",
+      "aliases": [
+        "증권사",
+        "브로커리지",
+        "IB"
+      ]
+    },
+    {
+      "code": "card",
+      "name": "카드",
+      "parent": "krx_finance",
+      "aliases": [
+        "카드사",
+        "가맹점 수수료",
+        "카드론"
+      ]
+    },
+    {
+      "code": "payment",
+      "name": "간편결제",
+      "parent": "krx_finance",
+      "aliases": [
+        "간편결제",
+        "전자결제"
+      ]
+    },
+    {
+      "code": "krx_insurance",
+      "name": "보험",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "life_insurance",
+      "name": "생명보험",
+      "parent": "krx_insurance",
+      "aliases": [
+        "생명보험",
+        "생보사"
+      ]
+    },
+    {
+      "code": "non_life_insurance",
+      "name": "손해보험",
+      "parent": "krx_insurance",
+      "aliases": [
+        "손해보험",
+        "손보사",
+        "자동차보험"
+      ]
+    },
+    {
+      "code": "krx_construction",
+      "name": "건설",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "construction",
+      "name": "건설",
+      "parent": "krx_construction",
+      "aliases": [
+        "건설",
+        "해외건설"
+      ]
+    },
+    {
+      "code": "real_estate",
+      "name": "부동산",
+      "parent": "krx_construction",
+      "aliases": [
+        "부동산 개발"
+      ]
+    },
+    {
+      "code": "krx_distribution",
+      "name": "유통",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "trading",
+      "name": "상사",
+      "parent": "krx_distribution",
+      "aliases": [
+        "종합상사",
+        "트레이딩"
+      ]
+    },
+    {
+      "code": "fashion",
+      "name": "패션",
+      "parent": "krx_distribution",
+      "aliases": [
+        "패션"
+      ]
+    },
+    {
+      "code": "leisure",
+      "name": "레저",
+      "parent": "krx_distribution",
+      "aliases": [
+        "리조트",
+        "테마파크",
+        "레저"
+      ]
+    },
+    {
+      "code": "food_service",
+      "name": "식자재·급식",
+      "parent": "krx_distribution",
+      "aliases": [
+        "단체급식",
+        "식자재"
+      ]
+    },
+    {
+      "code": "krx_it_service",
+      "name": "IT 서비스",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "internet",
+      "name": "인터넷",
+      "parent": "krx_it_service",
+      "aliases": [
+        "포털",
+        "검색",
+        "광고",
+        "커머스",
+        "웹툰",
+        "클라우드"
+      ]
+    },
+    {
+      "code": "it_service",
+      "name": "IT서비스",
+      "parent": "krx_it_service",
+      "aliases": [
+        "IT서비스",
+        "SI",
+        "AI 전환"
+      ]
+    },
+    {
+      "code": "krx_chemical",
+      "name": "화학",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "refining",
+      "name": "정유",
+      "parent": "krx_chemical",
+      "aliases": [
+        "정유",
+        "정제마진"
+      ]
+    },
+    {
+      "code": "petrochemical",
+      "name": "석유화학",
+      "parent": "krx_chemical",
+      "aliases": [
+        "석유화학",
+        "에틸렌",
+        "나프타"
+      ]
+    },
+    {
+      "code": "krx_utilities",
+      "name": "전기·가스",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "lng_power",
+      "name": "LNG·발전",
+      "parent": "krx_utilities",
+      "aliases": [
+        "LNG",
+        "도시가스",
+        "민자발전"
+      ]
+    },
+    {
+      "code": "krx_metal",
+      "name": "금속",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "steel",
+      "name": "철강",
+      "parent": "krx_metal",
+      "aliases": [
+        "철강",
+        "열연",
+        "냉연"
+      ]
+    },
+    {
+      "code": "battery_materials",
+      "name": "이차전지 소재",
+      "parent": "krx_metal",
+      "aliases": [
+        "이차전지 소재",
+        "배터리 소재"
+      ]
+    },
+    {
+      "code": "lithium",
+      "name": "리튬",
+      "parent": "battery_materials",
+      "aliases": [
+        "리튬",
+        "수산화리튬"
+      ]
+    },
+    {
+      "code": "cathode_anode",
+      "name": "양극재·음극재",
+      "parent": "battery_materials",
+      "aliases": [
+        "양극재",
+        "음극재"
+      ]
+    },
+    {
+      "code": "krx_transport",
+      "name": "운송·창고",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "shipping",
+      "name": "해운",
+      "parent": "krx_transport",
+      "aliases": [
+        "해운",
+        "운임",
+        "SCFI",
+        "컨테이너선 운임",
+        "벌크선",
+        "BDI"
+      ]
+    },
+    {
+      "code": "krx_food",
+      "name": "음식료·담배",
+      "parent": null,
+      "aliases": []
+    },
+    {
+      "code": "tobacco",
+      "name": "담배",
+      "parent": "krx_food",
+      "aliases": [
+        "담배",
+        "궐련",
+        "궐련형 전자담배",
+        "NGP"
+      ]
+    },
+    {
+      "code": "health_food",
+      "name": "건강기능식품",
+      "parent": "krx_food",
+      "aliases": [
+        "건강기능식품",
+        "홍삼"
+      ]
+    },
+    {
+      "code": "construction_equipment",
+      "name": "건설기계",
+      "parent": "krx_machinery",
+      "aliases": [
+        "건설장비"
+      ]
+    },
+    {
+      "code": "fuel_cell",
+      "name": "연료전지",
+      "parent": "krx_machinery",
+      "aliases": [
+        "발전용 연료전지"
+      ]
+    },
+    {
+      "code": "separator",
+      "name": "분리막",
+      "parent": "battery_materials",
+      "aliases": [
+        "배터리 분리막"
+      ]
+    },
+    {
+      "code": "capital_finance",
+      "name": "캐피탈",
+      "parent": "krx_finance",
+      "aliases": [
+        "할부금융"
+      ]
+    },
+    {
+      "code": "chemical_drug",
+      "name": "합성의약품",
+      "parent": "krx_pharma",
+      "aliases": [
+        "케미컬 의약품"
+      ]
+    }
+  ],
+  "supply_roles": {
+    "ess": [
+      "battery",
+      "pcs"
+    ]
+  },
+  "stocks": [
+    {
+      "code": "005930",
+      "name": "삼성전자",
+      "aliases": [
+        "삼전",
+        "Samsung Electronics"
+      ],
+      "subsidiaries": [
+        "삼성디스플레이",
+        "하만"
+      ]
+    },
+    {
+      "code": "000660",
+      "name": "SK하이닉스",
+      "aliases": [
+        "하이닉스",
+        "SK hynix"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "402340",
+      "name": "SK스퀘어",
+      "aliases": [
+        "SK Square"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "009150",
+      "name": "삼성전기",
+      "aliases": [
+        "Samsung Electro-Mechanics"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "373220",
+      "name": "LG에너지솔루션",
+      "aliases": [
+        "LG엔솔",
+        "LGES",
+        "LG Energy Solution"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "005380",
+      "name": "현대차",
+      "aliases": [
+        "현대자동차",
+        "Hyundai Motor"
+      ],
+      "subsidiaries": [
+        "현대카드",
+        "현대캐피탈"
+      ]
+    },
+    {
+      "code": "207940",
+      "name": "삼성바이오로직스",
+      "aliases": [
+        "삼성바이오",
+        "Samsung Biologics"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "105560",
+      "name": "KB금융",
+      "aliases": [
+        "KB금융지주"
+      ],
+      "subsidiaries": [
+        "KB국민은행",
+        "국민은행",
+        "KB증권",
+        "KB국민카드",
+        "KB라이프",
+        "KB라이프생명",
+        "KB손해보험"
+      ]
+    },
+    {
+      "code": "032830",
+      "name": "삼성생명",
+      "aliases": [
+        "Samsung Life"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "028260",
+      "name": "삼성물산",
+      "aliases": [
+        "Samsung C&T"
+      ],
+      "subsidiaries": [
+        "삼성웰스토리"
+      ]
+    },
+    {
+      "code": "012450",
+      "name": "한화에어로스페이스",
+      "aliases": [
+        "한화에어로"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "034020",
+      "name": "두산에너빌리티",
+      "aliases": [
+        "두산중공업",
+        "Doosan Enerbility"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "055550",
+      "name": "신한지주",
+      "aliases": [
+        "신한금융지주",
+        "신한금융"
+      ],
+      "subsidiaries": [
+        "신한은행",
+        "신한투자증권",
+        "신한카드",
+        "신한라이프",
+        "신한EZ손해보험"
+      ]
+    },
+    {
+      "code": "329180",
+      "name": "HD현대중공업",
+      "aliases": [
+        "현대중공업"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "000270",
+      "name": "기아",
+      "aliases": [
+        "기아자동차",
+        "Kia"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "006400",
+      "name": "삼성SDI",
+      "aliases": [
+        "Samsung SDI"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "068270",
+      "name": "셀트리온",
+      "aliases": [
+        "Celltrion"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "034730",
+      "name": "SK",
+      "aliases": [
+        "SK㈜",
+        "SK주식회사",
+        "SK Inc."
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "086790",
+      "name": "하나금융지주",
+      "aliases": [
+        "하나금융"
+      ],
+      "subsidiaries": [
+        "하나은행",
+        "하나증권",
+        "하나카드",
+        "하나생명",
+        "하나손해보험"
+      ]
+    },
+    {
+      "code": "066570",
+      "name": "LG전자",
+      "aliases": [
+        "LG Electronics"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "012330",
+      "name": "현대모비스",
+      "aliases": [
+        "모비스",
+        "Hyundai Mobis"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "000810",
+      "name": "삼성화재",
+      "aliases": [
+        "Samsung Fire"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "035420",
+      "name": "NAVER",
+      "aliases": [
+        "네이버"
+      ],
+      "subsidiaries": [
+        "네이버파이낸셜"
+      ]
+    },
+    {
+      "code": "096770",
+      "name": "SK이노베이션",
+      "aliases": [
+        "SK이노"
+      ],
+      "subsidiaries": [
+        "SK온",
+        "SK에너지",
+        "SK지오센트릭"
+      ]
+    },
+    {
+      "code": "010120",
+      "name": "LS ELECTRIC",
+      "aliases": [
+        "LS일렉트릭",
+        "LS산전"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "316140",
+      "name": "우리금융지주",
+      "aliases": [
+        "우리금융"
+      ],
+      "subsidiaries": [
+        "우리은행",
+        "우리투자증권",
+        "우리카드",
+        "동양생명",
+        "ABL생명"
+      ]
+    },
+    {
+      "code": "005490",
+      "name": "POSCO홀딩스",
+      "aliases": [
+        "포스코홀딩스",
+        "POSCO Holdings"
+      ],
+      "subsidiaries": [
+        "포스코",
+        "포스코아르헨티나",
+        "포스코필바라리튬솔루션",
+        "포스코이앤씨"
+      ]
+    },
+    {
+      "code": "138040",
+      "name": "메리츠금융지주",
+      "aliases": [
+        "메리츠금융"
+      ],
+      "subsidiaries": [
+        "메리츠화재",
+        "메리츠증권"
+      ]
+    },
+    {
+      "code": "011200",
+      "name": "HMM",
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "033780",
+      "name": "KT&G",
+      "aliases": [],
+      "subsidiaries": [
+        "KGC인삼공사"
+      ]
+    }
+  ],
+  "blocked_aliases": [
+    "삼성",
+    "현대",
+    "SK",
+    "LG",
+    "한화",
+    "두산",
+    "삼성그룹",
+    "SK그룹",
+    "LG그룹",
+    "현대차그룹"
+  ],
+  "external_companies": [
+    {
+      "code": "nvidia",
+      "name": "엔비디아",
+      "country": "US",
+      "stock_code": null,
+      "ticker": "NVDA",
+      "aliases": [
+        "NVIDIA",
+        "Nvidia"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "micron",
+      "name": "마이크론",
+      "country": "US",
+      "stock_code": null,
+      "ticker": "MU",
+      "aliases": [
+        "Micron",
+        "마이크론테크놀로지"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "tsmc",
+      "name": "TSMC",
+      "country": "TW",
+      "stock_code": null,
+      "ticker": "TSM",
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "apple",
+      "name": "애플",
+      "country": "US",
+      "stock_code": null,
+      "ticker": "AAPL",
+      "aliases": [
+        "Apple"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "tesla",
+      "name": "테슬라",
+      "country": "US",
+      "stock_code": null,
+      "ticker": "TSLA",
+      "aliases": [
+        "Tesla"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "gm",
+      "name": "GM",
+      "country": "US",
+      "stock_code": null,
+      "ticker": "GM",
+      "aliases": [
+        "제너럴모터스",
+        "General Motors"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "catl",
+      "name": "CATL",
+      "country": "CN",
+      "stock_code": null,
+      "ticker": "300750",
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "lonza",
+      "name": "론자",
+      "country": "CH",
+      "stock_code": null,
+      "ticker": "LONN",
+      "aliases": [
+        "Lonza"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "samsung_epis",
+      "name": "삼성에피스홀딩스",
+      "country": "KR",
+      "stock_code": "0126Z0",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": [
+        "삼성바이오에피스"
+      ]
+    },
+    {
+      "code": "hanwha_ocean",
+      "name": "한화오션",
+      "country": "KR",
+      "stock_code": "042660",
+      "ticker": null,
+      "aliases": [
+        "대우조선해양"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "posco_future_m",
+      "name": "포스코퓨처엠",
+      "country": "KR",
+      "stock_code": "003670",
+      "ticker": null,
+      "aliases": [
+        "포스코케미칼"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "doosan_bobcat",
+      "name": "두산밥캣",
+      "country": "KR",
+      "stock_code": "241560",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "lg_chem",
+      "name": "LG화학",
+      "country": "KR",
+      "stock_code": "051910",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "boston_dynamics",
+      "name": "보스턴다이내믹스",
+      "country": "US",
+      "stock_code": null,
+      "ticker": null,
+      "aliases": [
+        "Boston Dynamics"
+      ],
+      "subsidiaries": []
+    },
+    {
+      "code": "lg_display",
+      "name": "LG디스플레이",
+      "country": "KR",
+      "stock_code": "034220",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "lg_innotek",
+      "name": "LG이노텍",
+      "country": "KR",
+      "stock_code": "011070",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "rainbow_robotics",
+      "name": "레인보우로보틱스",
+      "country": "KR",
+      "stock_code": "277810",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "hyundai_rotem",
+      "name": "현대로템",
+      "country": "KR",
+      "stock_code": "064350",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "hyundai_ec",
+      "name": "현대건설",
+      "country": "KR",
+      "stock_code": "000720",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "posco_intl",
+      "name": "포스코인터내셔널",
+      "country": "KR",
+      "stock_code": "047050",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "samsung_card",
+      "name": "삼성카드",
+      "country": "KR",
+      "stock_code": "029780",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "doosan_fuelcell",
+      "name": "두산퓨얼셀",
+      "country": "KR",
+      "stock_code": "336260",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "skiet",
+      "name": "SK아이이테크놀로지",
+      "country": "KR",
+      "stock_code": "361610",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": []
+    },
+    {
+      "code": "celltrion_pharm",
+      "name": "셀트리온제약",
+      "country": "KR",
+      "stock_code": "068760",
+      "ticker": null,
+      "aliases": [],
+      "subsidiaries": []
+    }
+  ],
+  "stock_industries": [
+    {
+      "stock": "005930",
+      "industry": "memory",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 1번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "005930",
+      "industry": "foundry",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 1번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "005930",
+      "industry": "smartphone",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 1번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "005930",
+      "industry": "home_appliance",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 1번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "005930",
+      "industry": "hvac",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 1번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전. FläktGroup 경유 여부 확인"
+    },
+    {
+      "stock": "005930",
+      "industry": "display",
+      "exposure": "subsidiary",
+      "via_company": "삼성디스플레이",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 1번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "005930",
+      "industry": "auto_electronics",
+      "exposure": "subsidiary",
+      "via_company": "하만",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 1번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "000660",
+      "industry": "memory",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 2번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "402340",
+      "industry": "holding",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 3번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "402340",
+      "industry": "memory",
+      "exposure": "stake",
+      "via_company": "SK하이닉스",
+      "via_stock_code": "000660",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 2-4 상장사 지분 명시 목록",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "009150",
+      "industry": "mlcc",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 4번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "009150",
+      "industry": "camera_module",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 4번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "009150",
+      "industry": "pkg_substrate",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 4번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "373220",
+      "industry": "battery",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 5번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "373220",
+      "industry": "ess",
+      "exposure": "own",
+      "stage": "operating",
+      "supply_role": "battery",
+      "source": "INDUSTRY_REVIEW 3절 5번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "005380",
+      "industry": "vehicle",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 6번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "005380",
+      "industry": "robot",
+      "exposure": "own",
+      "stage": "planned",
+      "source": "INDUSTRY_REVIEW 3절 6번 10-30 외부 검토 3차 반영 (사실 확인 전)",
+      "source_as_of": "2026-10-30",
+      "note": "† 근거는 휴머노이드(Atlas) 양산 계획. 착용 로봇(X-ble) 판매는 주요 사업이 아니라 이 연결의 근거로 쓰지 않는다(2-4). 보스턴다이내믹스 경유 여부 미확인(INDUSTRY_REVIEW 5절 2번)"
+    },
+    {
+      "stock": "207940",
+      "industry": "bio_cdmo",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 7번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "105560",
+      "industry": "financial_holding",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 8번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "105560",
+      "industry": "bank",
+      "exposure": "subsidiary",
+      "via_company": "KB국민은행",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 8번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "105560",
+      "industry": "securities",
+      "exposure": "subsidiary",
+      "via_company": "KB증권",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 8번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "105560",
+      "industry": "card",
+      "exposure": "subsidiary",
+      "via_company": "KB국민카드",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 8번 10-30 외부 검토 3차 반영 (사실 확인 전)",
+      "source_as_of": "2026-10-30",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "105560",
+      "industry": "life_insurance",
+      "exposure": "subsidiary",
+      "via_company": "KB라이프",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 8번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "105560",
+      "industry": "non_life_insurance",
+      "exposure": "subsidiary",
+      "via_company": "KB손해보험",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 8번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "032830",
+      "industry": "life_insurance",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 9번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "028260",
+      "industry": "holding",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 10번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "028260",
+      "industry": "construction",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 10번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "028260",
+      "industry": "trading",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 10번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "028260",
+      "industry": "fashion",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 10번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "028260",
+      "industry": "leisure",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 10번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "028260",
+      "industry": "food_service",
+      "exposure": "subsidiary",
+      "via_company": "삼성웰스토리",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 10번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "028260",
+      "industry": "bio_cdmo",
+      "exposure": "stake",
+      "via_company": "삼성바이오로직스",
+      "via_stock_code": "207940",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 2-4 상장사 지분 명시 목록",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "012450",
+      "industry": "defense",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 11번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "012450",
+      "industry": "aerospace",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 11번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "012450",
+      "industry": "shipbuilding",
+      "exposure": "stake",
+      "via_company": "한화오션",
+      "via_stock_code": "042660",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 2-4 상장사 지분 명시 목록",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "034020",
+      "industry": "nuclear_equipment",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 12번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "034020",
+      "industry": "gas_turbine",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 12번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "055550",
+      "industry": "financial_holding",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 13번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "055550",
+      "industry": "bank",
+      "exposure": "subsidiary",
+      "via_company": "신한은행",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 13번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "055550",
+      "industry": "securities",
+      "exposure": "subsidiary",
+      "via_company": "신한투자증권",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 13번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "055550",
+      "industry": "card",
+      "exposure": "subsidiary",
+      "via_company": "신한카드",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 13번 10-30 외부 검토 3차 반영 (사실 확인 전)",
+      "source_as_of": "2026-10-30",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "055550",
+      "industry": "life_insurance",
+      "exposure": "subsidiary",
+      "via_company": "신한라이프",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 13번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "329180",
+      "industry": "shipbuilding",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 14번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "329180",
+      "industry": "marine_engine",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 14번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "329180",
+      "industry": "defense",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 14번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "000270",
+      "industry": "vehicle",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 15번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "006400",
+      "industry": "battery",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 16번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "006400",
+      "industry": "ess",
+      "exposure": "own",
+      "stage": "operating",
+      "supply_role": "battery",
+      "source": "INDUSTRY_REVIEW 3절 16번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "006400",
+      "industry": "electronic_materials",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 16번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "068270",
+      "industry": "biosimilar",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 17번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "068270",
+      "industry": "bio_cdmo",
+      "exposure": "own",
+      "stage": "planned",
+      "source": "INDUSTRY_REVIEW 3절 17번 10-30 외부 검토 3차 반영 (사실 확인 전)",
+      "source_as_of": "2026-10-30",
+      "note": "† CMO 계약 공식 발표(2026-03, 외부 검토 인용). 생산 주체(본사·자회사)와 생산 개시 확인 전이라 진출 예정으로 둔다. 생산이 확인되면 영위 중으로"
+    },
+    {
+      "stock": "034730",
+      "industry": "holding",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 18번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "034730",
+      "industry": "it_service",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 18번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† SK AX 의 IT서비스가 주요 사업인지 확인 전"
+    },
+    {
+      "stock": "086790",
+      "industry": "financial_holding",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 19번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "086790",
+      "industry": "bank",
+      "exposure": "subsidiary",
+      "via_company": "하나은행",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 19번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "086790",
+      "industry": "securities",
+      "exposure": "subsidiary",
+      "via_company": "하나증권",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 19번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "086790",
+      "industry": "card",
+      "exposure": "subsidiary",
+      "via_company": "하나카드",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 19번 10-30 외부 검토 3차 반영 (사실 확인 전)",
+      "source_as_of": "2026-10-30",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "066570",
+      "industry": "home_appliance",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 20번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "066570",
+      "industry": "hvac",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 20번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "066570",
+      "industry": "auto_electronics",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 20번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "066570",
+      "industry": "robot",
+      "exposure": "own",
+      "stage": "planned",
+      "source": "INDUSTRY_REVIEW 3절 20번 10-30 외부 검토 3차 반영 (사실 확인 전)",
+      "source_as_of": "2026-10-30",
+      "note": "† 홈로봇·로봇용 액추에이터 진출 공식 발표(2026-01, 외부 검토 인용). 양산·매출 확인 전. 현대모비스 로봇과 같은 기준"
+    },
+    {
+      "stock": "012330",
+      "industry": "auto_parts",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 21번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "012330",
+      "industry": "auto_electronics",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 21번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "012330",
+      "industry": "robot",
+      "exposure": "own",
+      "stage": "planned",
+      "source": "INDUSTRY_REVIEW 3절 21번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 로봇용 액추에이터 진출 공식 발표 확인 전"
+    },
+    {
+      "stock": "000810",
+      "industry": "non_life_insurance",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 22번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "035420",
+      "industry": "internet",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 23번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "035420",
+      "industry": "payment",
+      "exposure": "subsidiary",
+      "via_company": "네이버파이낸셜",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 23번 10-30 외부 검토 3차 반영 (사실 확인 전)",
+      "source_as_of": "2026-10-30",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "096770",
+      "industry": "refining",
+      "exposure": "subsidiary",
+      "via_company": "SK에너지",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 24번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "096770",
+      "industry": "petrochemical",
+      "exposure": "subsidiary",
+      "via_company": "SK지오센트릭",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 24번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "096770",
+      "industry": "battery",
+      "exposure": "subsidiary",
+      "via_company": "SK온",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 24번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "096770",
+      "industry": "lng_power",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 24번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† SK E&S 합병 뒤 직접 영위인지 확인 전"
+    },
+    {
+      "stock": "010120",
+      "industry": "power_grid",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 25번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "010120",
+      "industry": "ess",
+      "exposure": "own",
+      "stage": "operating",
+      "supply_role": "pcs",
+      "source": "INDUSTRY_REVIEW 3절 25번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "010120",
+      "industry": "factory_automation",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 25번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "316140",
+      "industry": "financial_holding",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 26번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "316140",
+      "industry": "bank",
+      "exposure": "subsidiary",
+      "via_company": "우리은행",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 26번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "316140",
+      "industry": "securities",
+      "exposure": "subsidiary",
+      "via_company": "우리투자증권",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 26번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "316140",
+      "industry": "card",
+      "exposure": "subsidiary",
+      "via_company": "우리카드",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 26번 10-30 외부 검토 3차 반영 (사실 확인 전)",
+      "source_as_of": "2026-10-30",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "316140",
+      "industry": "life_insurance",
+      "exposure": "subsidiary",
+      "via_company": "동양생명",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 26번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† ABL생명도 같은 경로. 두 회사가 상장사인지 확인 전(상장사면 stake 로)"
+    },
+    {
+      "stock": "005490",
+      "industry": "steel",
+      "exposure": "subsidiary",
+      "via_company": "포스코",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 27번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "005490",
+      "industry": "lithium",
+      "exposure": "subsidiary",
+      "via_company": "포스코아르헨티나",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 27번 10-30 외부 검토 3차 반영 (사실 확인 전)",
+      "source_as_of": "2026-10-30",
+      "note": "† 공식 홈페이지 리튬사업 소개(외부 검토 인용). 포스코필바라리튬솔루션도 같은 경로. 두 법인의 지분율·연결 여부와 가동·건설 중 설비 구분은 사업보고서로 확인 전"
+    },
+    {
+      "stock": "005490",
+      "industry": "cathode_anode",
+      "exposure": "stake",
+      "via_company": "포스코퓨처엠",
+      "via_stock_code": "003670",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 2-4 상장사 지분 명시 목록",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "138040",
+      "industry": "financial_holding",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 28번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "138040",
+      "industry": "non_life_insurance",
+      "exposure": "subsidiary",
+      "via_company": "메리츠화재",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 28번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "138040",
+      "industry": "securities",
+      "exposure": "subsidiary",
+      "via_company": "메리츠증권",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 28번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "011200",
+      "industry": "shipping",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 29번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "033780",
+      "industry": "tobacco",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 30번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "033780",
+      "industry": "health_food",
+      "exposure": "subsidiary",
+      "via_company": "KGC인삼공사",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 30번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28"
+    },
+    {
+      "stock": "033780",
+      "industry": "real_estate",
+      "exposure": "own",
+      "stage": "operating",
+      "source": "INDUSTRY_REVIEW 3절 30번 10-28 수정안 (사실 확인 전)",
+      "source_as_of": "2026-10-28",
+      "note": "† 사업보고서 확인 전"
+    },
+    {
+      "stock": "066570",
+      "industry": "display",
+      "exposure": "stake",
+      "via_company": "LG디스플레이",
+      "stage": "operating",
+      "source": "https://www.sec.gov/Archives/edgar/data/1290109/000119312526350335/26.2q_6-k_final_reportkr.htm",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "034220"
+    },
+    {
+      "stock": "066570",
+      "industry": "camera_module",
+      "exposure": "stake",
+      "via_company": "LG이노텍",
+      "stage": "operating",
+      "source": "https://kind.krx.co.kr/external/2026/06/01/000727/20260601001208/99667.htm",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "011070"
+    },
+    {
+      "stock": "066570",
+      "industry": "pkg_substrate",
+      "exposure": "stake",
+      "via_company": "LG이노텍",
+      "stage": "operating",
+      "source": "https://kind.krx.co.kr/external/2026/06/01/000727/20260601001208/99667.htm",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "011070"
+    },
+    {
+      "stock": "005930",
+      "industry": "robot",
+      "exposure": "stake",
+      "via_company": "레인보우로보틱스",
+      "stage": "operating",
+      "source": "https://news.samsung.com/kr/삼성전자-레인보우로보틱스-최대주주-지위-확보",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "277810"
+    },
+    {
+      "stock": "005380",
+      "industry": "defense",
+      "exposure": "stake",
+      "via_company": "현대로템",
+      "stage": "operating",
+      "source": "https://www.hyundai.com/content/dam/hyundai/ww/en/images/company/investor-relations/financial-Information/report-en/2026/2026-q1-consolidated-audit-report-en.pdf",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "064350"
+    },
+    {
+      "stock": "005380",
+      "industry": "construction",
+      "exposure": "stake",
+      "via_company": "현대건설",
+      "stage": "operating",
+      "source": "https://www.hdec.kr/kr/invest/composition.aspx",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "000720"
+    },
+    {
+      "stock": "005490",
+      "industry": "construction",
+      "exposure": "subsidiary",
+      "via_company": "포스코이앤씨",
+      "stage": "operating",
+      "source": "https://kind.krx.co.kr/external/2026/03/18/001058/20260318005011/11011.htm",
+      "source_as_of": "2026-11-03"
+    },
+    {
+      "stock": "005490",
+      "industry": "trading",
+      "exposure": "stake",
+      "via_company": "포스코인터내셔널",
+      "stage": "operating",
+      "source": "https://kind.krx.co.kr/external/2026/03/18/001058/20260318005011/11011.htm | https://www.poscointl.com/network",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "047050"
+    },
+    {
+      "stock": "005490",
+      "industry": "lng_power",
+      "exposure": "stake",
+      "via_company": "포스코인터내셔널",
+      "stage": "operating",
+      "source": "https://kind.krx.co.kr/external/2026/03/18/001058/20260318005011/11011.htm | https://www.poscointl.com/network",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "047050"
+    },
+    {
+      "stock": "005930",
+      "industry": "bio_cdmo",
+      "exposure": "stake",
+      "via_company": "삼성바이오로직스",
+      "stage": "operating",
+      "source": "https://samsungbiologics.com/kr/ir/stock-info/ownership-structure",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "207940"
+    },
+    {
+      "stock": "028260",
+      "industry": "biosimilar",
+      "exposure": "stake",
+      "via_company": "삼성에피스홀딩스",
+      "stage": "operating",
+      "source": "https://kind.krx.co.kr/external/2026/02/19/000417/20260219001459/00660.htm",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "0126Z0"
+    },
+    {
+      "stock": "005930",
+      "industry": "biosimilar",
+      "exposure": "stake",
+      "via_company": "삼성에피스홀딩스",
+      "stage": "operating",
+      "source": "https://kind.krx.co.kr/external/2026/02/19/000417/20260219001459/00660.htm",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "0126Z0"
+    },
+    {
+      "stock": "032830",
+      "industry": "card",
+      "exposure": "stake",
+      "via_company": "삼성카드",
+      "stage": "operating",
+      "source": "https://www.samsungcard.com/company/english/IR/corporate-governance/shareholder/UHPPCI0219M0.jsp",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "029780"
+    },
+    {
+      "stock": "005380",
+      "industry": "card",
+      "exposure": "subsidiary",
+      "via_company": "현대카드",
+      "stage": "operating",
+      "source": "https://www.hyundai.com/content/dam/hyundai/ww/en/images/company/investor-relations/financial-Information/report-en/2026/2026-q1-consolidated-audit-report-en.pdf",
+      "source_as_of": "2026-11-03"
+    },
+    {
+      "stock": "005380",
+      "industry": "capital_finance",
+      "exposure": "subsidiary",
+      "via_company": "현대캐피탈",
+      "stage": "operating",
+      "source": "https://www.hyundai.com/content/dam/hyundai/ww/en/images/company/investor-relations/financial-Information/report-en/2026/2026-q1-consolidated-audit-report-en.pdf",
+      "source_as_of": "2026-11-03"
+    },
+    {
+      "stock": "086790",
+      "industry": "life_insurance",
+      "exposure": "subsidiary",
+      "via_company": "하나생명",
+      "stage": "operating",
+      "source": "https://www.hanafn.com/info/network/hanaNetwork.do",
+      "source_as_of": "2026-11-03"
+    },
+    {
+      "stock": "086790",
+      "industry": "non_life_insurance",
+      "exposure": "subsidiary",
+      "via_company": "하나손해보험",
+      "stage": "operating",
+      "source": "https://www.hanafn.com/info/network/hanaNetwork.do",
+      "source_as_of": "2026-11-03"
+    },
+    {
+      "stock": "055550",
+      "industry": "non_life_insurance",
+      "exposure": "subsidiary",
+      "via_company": "신한EZ손해보험",
+      "stage": "operating",
+      "source": "https://www.shinhangroup.com/en/about/network/group",
+      "source_as_of": "2026-11-03"
+    },
+    {
+      "stock": "032830",
+      "industry": "non_life_insurance",
+      "exposure": "stake",
+      "via_company": "삼성화재",
+      "stage": "operating",
+      "source": "https://etfshopping.com/stock/000810/company",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "000810"
+    },
+    {
+      "stock": "034020",
+      "industry": "construction_equipment",
+      "exposure": "stake",
+      "via_company": "두산밥캣",
+      "stage": "operating",
+      "source": "https://kind.krx.co.kr/external/2026/05/14/001313/20260514002864/11013.htm",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "241560"
+    },
+    {
+      "stock": "034020",
+      "industry": "fuel_cell",
+      "exposure": "stake",
+      "via_company": "두산퓨얼셀",
+      "stage": "operating",
+      "source": "https://kind.krx.co.kr/external/2026/05/14/001313/20260514002864/11013.htm",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "336260"
+    },
+    {
+      "stock": "096770",
+      "industry": "separator",
+      "exposure": "stake",
+      "via_company": "SK아이이테크놀로지",
+      "stage": "operating",
+      "source": "https://www.skinnovation.com/ir/faq?type=etc_ir",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "361610"
+    },
+    {
+      "stock": "068270",
+      "industry": "chemical_drug",
+      "exposure": "stake",
+      "via_company": "셀트리온제약",
+      "stage": "operating",
+      "source": "https://www.celltrionph.com/en-us/business/chemical | https://www.bosoop.com/stocks/068760/",
+      "source_as_of": "2026-11-03",
+      "via_stock_code": "068760"
+    }
+  ],
+  "company_relations": [
+    {
+      "from": "402340",
+      "to": "000660",
+      "type": "ownership",
+      "industry": "memory",
+      "source": "RELATION_REVIEW 1번: SK하이닉스 증권신고 자료 (SEC 424B, 2026)",
+      "note": "범위 지분. stake 의 짝"
+    },
+    {
+      "from": "034730",
+      "to": "402340",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 2번: 1번과 같은 자료",
+      "note": "범위 지분"
+    },
+    {
+      "from": "034730",
+      "to": "096770",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 3번: SK이노베이션 기업지배구조 보고서 (2025-05-30)",
+      "note": "범위 지분. 최대주주"
+    },
+    {
+      "from": "032830",
+      "to": "005930",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 4번: 삼성전자 2026 주총 참고자료",
+      "note": "범위 지분. 주요 주주"
+    },
+    {
+      "from": "028260",
+      "to": "005930",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 5번: 4번과 같은 자료",
+      "note": "범위 지분. 주요 주주"
+    },
+    {
+      "from": "028260",
+      "to": "032830",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 6번: 삼성전자 2025 반기보고서 (2025-06-30 기준)",
+      "note": "범위 지분. 최대주주"
+    },
+    {
+      "from": "032830",
+      "to": "000810",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 7번: 삼성화재 통합보고서 2024",
+      "note": "범위 지분"
+    },
+    {
+      "from": "005930",
+      "to": "009150",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 8번: 삼성전기 IR 주주 현황",
+      "note": "범위 지분. 주요 주주"
+    },
+    {
+      "from": "005930",
+      "to": "006400",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 9번: 삼성SDI IR 주주 현황",
+      "note": "범위 지분. 주요 주주"
+    },
+    {
+      "from": "028260",
+      "to": "207940",
+      "type": "ownership",
+      "industry": "bio_cdmo",
+      "source": "RELATION_REVIEW 10번: 삼성바이오로직스 IR 주주 구성",
+      "note": "범위 지분. 분할 후에도 보유. stake 의 짝"
+    },
+    {
+      "from": "005930",
+      "to": "207940",
+      "type": "ownership",
+      "industry": "bio_cdmo",
+      "source": "RELATION_REVIEW 11번: 10번과 같은 자료",
+      "note": "범위 지분. 분할 후에도 보유"
+    },
+    {
+      "from": "005380",
+      "to": "000270",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 12번: 기아 주주 현황",
+      "note": "범위 지분. 최대주주"
+    },
+    {
+      "from": "000270",
+      "to": "012330",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 13번: 현대모비스 IR 주주 현황",
+      "note": "범위 지분"
+    },
+    {
+      "from": "012330",
+      "to": "005380",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 14번: 현대차 지속가능경영보고서 2025 지배구조편",
+      "note": "범위 지분"
+    },
+    {
+      "from": "012450",
+      "to": "hanwha_ocean",
+      "type": "ownership",
+      "industry": "shipbuilding",
+      "source": "RELATION_REVIEW 15번: 한화오션 2026년 1분기 IR (2026-04-27)",
+      "note": "범위 지분. 한화에어로스페이스 직접 보유. stake 의 짝"
+    },
+    {
+      "from": "005490",
+      "to": "posco_future_m",
+      "type": "ownership",
+      "industry": "cathode_anode",
+      "source": "RELATION_REVIEW 16번: 포스코퓨처엠 보고서 2024",
+      "note": "범위 지분. stake 의 짝"
+    },
+    {
+      "from": "034020",
+      "to": "doosan_bobcat",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 17번: 두산밥캣 연결재무제표 (2026-03-31 기준)",
+      "note": "범위 지분. 최대주주 48.17% (2026-03-31)"
+    },
+    {
+      "from": "lg_chem",
+      "to": "373220",
+      "type": "ownership",
+      "industry": "battery",
+      "source": "RELATION_REVIEW 18번: LG에너지솔루션 발행 설명서 (2026-03-25)",
+      "note": "범위 지분. 최대주주"
+    },
+    {
+      "from": "028260",
+      "to": "samsung_epis",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 53번: 삼성에피스홀딩스 IR 주주구성",
+      "note": "범위 지분. 43.1% (기준일 확인 필요)"
+    },
+    {
+      "from": "005930",
+      "to": "samsung_epis",
+      "type": "ownership",
+      "industry": null,
+      "source": "RELATION_REVIEW 54번: 53번과 같은 자료",
+      "note": "범위 지분. 31.2% (기준일 확인 필요)"
+    },
+    {
+      "from": "009150",
+      "to": "005930",
+      "type": "supplier",
+      "industry": "electronic_parts",
+      "source": "RELATION_REVIEW 20번: 삼성전기 2025 사업보고서 (2025-12-31 기준)",
+      "note": "범위 전자부품. 단계 공급 확인. 근거 official. 제품별(MLCC·카메라모듈·기판) 매출처는 미확인"
+    },
+    {
+      "from": "012330",
+      "to": "005380",
+      "type": "supplier",
+      "industry": "auto_parts",
+      "source": "RELATION_REVIEW 21번: 현대모비스 보고서 (2025-10)",
+      "note": "범위 모듈·핵심부품. 단계 공급 확인. 근거 official"
+    },
+    {
+      "from": "012330",
+      "to": "000270",
+      "type": "supplier",
+      "industry": "auto_parts",
+      "source": "RELATION_REVIEW 22번: 21번과 같은 자료",
+      "note": "범위 모듈·핵심부품. 단계 공급 확인. 근거 official"
+    },
+    {
+      "from": "000660",
+      "to": "nvidia",
+      "type": "supplier",
+      "industry": "memory",
+      "source": "RELATION_REVIEW 23a·23b번: SK하이닉스 발표 (2022), 엔비디아 블로그 (2026)",
+      "note": "23a 범위 HBM, 단계 공급 확인, 근거 official(HBM3 공급. 이후 세대는 따로 확인). 23b 범위 차세대 메모리 기술협력, 단계 협의·개발, 근거 official"
+    },
+    {
+      "from": "005930",
+      "to": "nvidia",
+      "type": "supplier",
+      "industry": "memory",
+      "source": "RELATION_REVIEW 24번: 삼성전자 2026년 1분기 실적 IR 7쪽",
+      "note": "범위 HBM4·SOCAMM2 (Vera Rubin 용). 단계 공급 확인(양산 판매 개시). 근거 official"
+    },
+    {
+      "from": "tsmc",
+      "to": "000660",
+      "type": "supplier",
+      "industry": "memory",
+      "source": "RELATION_REVIEW 25번: 보도 (2026-08-31), 보조 SK하이닉스–TSMC MOU (2024)",
+      "note": "범위 HBM4 베이스 다이. 단계 공급 확인. 근거 reported (공식 공급 계약 미확인)"
+    },
+    {
+      "from": "005930",
+      "to": "apple",
+      "type": "supplier",
+      "industry": "display",
+      "source": "RELATION_REVIEW 26a번: 디일렉 보도",
+      "note": "범위 OLED 패널. 실제 당사자 삼성디스플레이. 단계 공급 확인. 근거 reported"
+    },
+    {
+      "from": "005930",
+      "to": "apple",
+      "type": "supplier",
+      "industry": "memory",
+      "source": "RELATION_REVIEW 26b번: Reuters",
+      "note": "범위 DRAM. 단계 공급 확인. 근거 reported. NAND 공급 미확인"
+    },
+    {
+      "from": "005930",
+      "to": "tesla",
+      "type": "supplier",
+      "industry": "foundry",
+      "source": "RELATION_REVIEW 27번: 삼성전자 2025 사업보고서 (2025-12-31 기준)",
+      "note": "범위 반도체 위탁생산. 단계 계약 확인(생산·납품 개시 미확인). 근거 official. 계약 기간은 사업보고서 값"
+    },
+    {
+      "from": "373220",
+      "to": "tesla",
+      "type": "supplier",
+      "industry": "battery",
+      "source": "RELATION_REVIEW 28a번: Reuters",
+      "note": "범위 EV 원통형 셀. 단계 공급 확인. 근거 reported"
+    },
+    {
+      "from": "373220",
+      "to": "tesla",
+      "type": "supplier",
+      "industry": "ess",
+      "source": "RELATION_REVIEW 28b번: Reuters (미국 정부 확인)",
+      "note": "범위 ESS LFP 셀. 단계 계약 확인(43억 달러). 근거 reported"
+    },
+    {
+      "from": "373220",
+      "to": "gm",
+      "type": "supplier",
+      "industry": "battery",
+      "source": "RELATION_REVIEW 29번: Ultium Cells 공장 소개",
+      "note": "범위 EV 배터리 셀. 실제 당사자 Ultium Cells (합작법인). 단계 공급 확인. 근거 official"
+    },
+    {
+      "from": "373220",
+      "to": "005380",
+      "type": "supplier",
+      "industry": "battery",
+      "source": "RELATION_REVIEW 31번: 인도네시아 정부 발표·연합뉴스 (2024-07)",
+      "note": "범위 인도네시아 합작법인 생산 셀. 실제 당사자 HLI Green Power (합작법인). 단계 공급 확인. 근거 reported"
+    },
+    {
+      "from": "posco_future_m",
+      "to": "373220",
+      "type": "supplier",
+      "industry": "cathode_anode",
+      "source": "RELATION_REVIEW 32번: 포스코퓨처엠 발표",
+      "note": "범위 하이니켈 NCM·NCMA 양극재. 단계 계약 확인. 근거 official. 기간 2023~2029"
+    },
+    {
+      "from": "posco_future_m",
+      "to": "006400",
+      "type": "supplier",
+      "industry": "cathode_anode",
+      "source": "RELATION_REVIEW 50·51번: 포스코퓨처엠 발표 (2024), POSCO 뉴스룸 (2026-10)",
+      "note": "50 범위 NCA 양극재, 단계 공급 확인, 근거 official. 51 범위 LFP 양극재, 단계 계약 확인, 근거 official"
+    },
+    {
+      "from": "006400",
+      "to": "005380",
+      "type": "supplier",
+      "industry": "battery",
+      "source": "RELATION_REVIEW 52번: 삼성SDI 발표",
+      "note": "범위 유럽향 EV 각형 배터리. 단계 계약 확인. 근거 official. 기간 2026~2032"
+    },
+    {
+      "from": "012330",
+      "to": "boston_dynamics",
+      "type": "supplier",
+      "industry": "robot",
+      "source": "RELATION_REVIEW 55번: 현대모비스·보스턴다이내믹스 발표",
+      "note": "범위 Atlas 액추에이터. 단계 협의·개발(양산 시점 공급 계획). 근거 official"
+    },
+    {
+      "from": "000660",
+      "to": "apple",
+      "type": "supplier",
+      "industry": "memory",
+      "source": "RELATION_REVIEW 56번: Reuters (26b 와 같은 보도)",
+      "note": "범위 DRAM. 단계 공급 확인. 근거 reported. 채택 칸 '추가 검토'"
+    },
+    {
+      "from": "005930",
+      "to": "000660",
+      "type": "competitor",
+      "industry": "memory",
+      "source": "RELATION_REVIEW 34번: 메모리 시장 구도 (Micron 사업보고서 등)",
+      "note": "범위 D램·낸드·HBM. 근거 reported"
+    },
+    {
+      "from": "micron",
+      "to": "000660",
+      "type": "competitor",
+      "industry": "memory",
+      "source": "RELATION_REVIEW 35번: Micron 사업보고서",
+      "note": "범위 D램·HBM. 근거 official"
+    },
+    {
+      "from": "micron",
+      "to": "005930",
+      "type": "competitor",
+      "industry": "memory",
+      "source": "RELATION_REVIEW 36번: 35번과 같은 자료",
+      "note": "범위 D램·HBM. 근거 official"
+    },
+    {
+      "from": "tsmc",
+      "to": "005930",
+      "type": "competitor",
+      "industry": "foundry",
+      "source": "RELATION_REVIEW 37번: TrendForce (2026-09-09)",
+      "note": "범위 파운드리. 메모리로 넓히지 않음. 근거 reported"
+    },
+    {
+      "from": "apple",
+      "to": "005930",
+      "type": "competitor",
+      "industry": "smartphone",
+      "source": "RELATION_REVIEW 38번: IDC",
+      "note": "범위 스마트폰. 근거 reported. 26a·26b 공급과 별개"
+    },
+    {
+      "from": "005930",
+      "to": "066570",
+      "type": "competitor",
+      "industry": "home_appliance",
+      "source": "RELATION_REVIEW 39번: 전자신문 (2026-09-04)",
+      "note": "범위 가전·TV. 근거 reported"
+    },
+    {
+      "from": "373220",
+      "to": "006400",
+      "type": "competitor",
+      "industry": "battery",
+      "source": "RELATION_REVIEW 40번: 증권사 시장 비교 (2026-06-18)",
+      "note": "범위 배터리 셀. 근거 reported"
+    },
+    {
+      "from": "373220",
+      "to": "096770",
+      "type": "competitor",
+      "industry": "battery",
+      "source": "RELATION_REVIEW 41번: 40번과 같은 자료",
+      "note": "범위 배터리 셀. 실제 당사자 SK온. 근거 reported"
+    },
+    {
+      "from": "006400",
+      "to": "096770",
+      "type": "competitor",
+      "industry": "battery",
+      "source": "RELATION_REVIEW 42번: 40번과 같은 자료",
+      "note": "범위 배터리 셀. 실제 당사자 SK온. 근거 reported"
+    },
+    {
+      "from": "catl",
+      "to": "373220",
+      "type": "competitor",
+      "industry": "battery",
+      "source": "RELATION_REVIEW 43번: 40번과 같은 자료",
+      "note": "범위 배터리 셀. CATL 의 다른 사업으로 넓히지 않음. 근거 reported"
+    },
+    {
+      "from": "catl",
+      "to": "006400",
+      "type": "competitor",
+      "industry": "battery",
+      "source": "RELATION_REVIEW 44번: 40번과 같은 자료",
+      "note": "범위 배터리 셀. 근거 reported"
+    },
+    {
+      "from": "catl",
+      "to": "096770",
+      "type": "competitor",
+      "industry": "battery",
+      "source": "RELATION_REVIEW 45번: 40번과 같은 자료",
+      "note": "범위 배터리 셀. 실제 당사자 SK온. 근거 reported"
+    },
+    {
+      "from": "hanwha_ocean",
+      "to": "329180",
+      "type": "competitor",
+      "industry": "shipbuilding",
+      "source": "RELATION_REVIEW 46번: 연합뉴스 (2025-02-25)·조선업 비교 자료 (2026-01)",
+      "note": "범위 상선·함정. 협력 사업도 있음. 근거 reported"
+    },
+    {
+      "from": "lonza",
+      "to": "207940",
+      "type": "competitor",
+      "industry": "bio_cdmo",
+      "source": "RELATION_REVIEW 47번: 삼성바이오로직스 분기보고서 (2026-05-15)",
+      "note": "범위 바이오의약품 CDMO. 근거 official"
+    },
+    {
+      "from": "samsung_epis",
+      "to": "068270",
+      "type": "competitor",
+      "industry": "biosimilar",
+      "source": "RELATION_REVIEW 48번: 삼성에피스홀딩스 분기보고서 (2026-05-15)",
+      "note": "범위 바이오시밀러. 실제 당사자 삼성바이오에피스. 근거 official"
+    },
+    {
+      "from": "000810",
+      "to": "138040",
+      "type": "competitor",
+      "industry": "non_life_insurance",
+      "source": "RELATION_REVIEW 49번: 한국경제 (2026-02-12)",
+      "note": "범위 손해보험. 실제 당사자 메리츠화재. 근거 reported. MVP 채택 판단 전"
+    },
+    {
+      "from": "066570",
+      "to": "lg_display",
+      "type": "ownership",
+      "industry": "display",
+      "source": "https://www.sec.gov/Archives/edgar/data/1290109/000119312526350335/26.2q_6-k_final_reportkr.htm",
+      "note": "상장사 지분 경유. 산업 사건은 간접 맥락으로만 검토."
+    },
+    {
+      "from": "066570",
+      "to": "lg_innotek",
+      "type": "ownership",
+      "industry": null,
+      "source": "https://kind.krx.co.kr/external/2026/06/01/000727/20260601001208/99667.htm",
+      "note": "상장사 지분 경유. 산업 사건은 간접 맥락으로만 검토."
+    },
+    {
+      "from": "005930",
+      "to": "rainbow_robotics",
+      "type": "ownership",
+      "industry": "robot",
+      "source": "https://news.samsung.com/kr/삼성전자-레인보우로보틱스-최대주주-지위-확보",
+      "note": "상장사 지분 경유. 산업 사건은 간접 맥락으로만 검토."
+    },
+    {
+      "from": "005380",
+      "to": "hyundai_rotem",
+      "type": "ownership",
+      "industry": "defense",
+      "source": "https://www.hyundai.com/content/dam/hyundai/ww/en/images/company/investor-relations/financial-Information/report-en/2026/2026-q1-consolidated-audit-report-en.pdf",
+      "note": "상장사 지분 경유. 산업 사건은 간접 맥락으로만 검토."
+    },
+    {
+      "from": "005380",
+      "to": "hyundai_ec",
+      "type": "ownership",
+      "industry": "construction",
+      "source": "https://www.hdec.kr/kr/invest/composition.aspx",
+      "note": "상장사 지분 경유. 산업 사건은 간접 맥락으로만 검토."
+    },
+    {
+      "from": "005490",
+      "to": "posco_intl",
+      "type": "ownership",
+      "industry": null,
+      "source": "https://kind.krx.co.kr/external/2026/03/18/001058/20260318005011/11011.htm | https://www.poscointl.com/network",
+      "note": "상장사 지분 경유. 산업 사건은 간접 맥락으로만 검토."
+    },
+    {
+      "from": "032830",
+      "to": "samsung_card",
+      "type": "ownership",
+      "industry": "card",
+      "source": "https://www.samsungcard.com/company/english/IR/corporate-governance/shareholder/UHPPCI0219M0.jsp",
+      "note": "상장사 지분 경유. 산업 사건은 간접 맥락으로만 검토."
+    },
+    {
+      "from": "034020",
+      "to": "doosan_fuelcell",
+      "type": "ownership",
+      "industry": "fuel_cell",
+      "source": "https://kind.krx.co.kr/external/2026/05/14/001313/20260514002864/11013.htm",
+      "note": "상장사 지분 경유. 산업 사건은 간접 맥락으로만 검토."
+    },
+    {
+      "from": "096770",
+      "to": "skiet",
+      "type": "ownership",
+      "industry": "separator",
+      "source": "https://www.skinnovation.com/ir/faq?type=etc_ir",
+      "note": "상장사 지분 경유. 산업 사건은 간접 맥락으로만 검토."
+    },
+    {
+      "from": "068270",
+      "to": "celltrion_pharm",
+      "type": "ownership",
+      "industry": "chemical_drug",
+      "source": "https://www.celltrionph.com/en-us/business/chemical | https://www.bosoop.com/stocks/068760/",
+      "note": "상장사 지분 경유. 산업 사건은 간접 맥락으로만 검토."
+    }
+  ]
+}

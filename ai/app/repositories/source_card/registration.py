@@ -8,6 +8,7 @@ from sqlalchemy import (
     and_,
     case,
     cast,
+    delete,
     exists,
     func,
     literal,
@@ -235,6 +236,21 @@ async def index_cards(session: AsyncSession, condition) -> None:
         )
         .on_conflict_do_nothing()
     )
+
+
+async def replace_stock_tags(
+    session: AsyncSession, card_id: int, tagged_by: str, stock_codes: list[str],
+) -> None:
+    """자료 하나에서 tagged_by 가 정한 종목만 바꾼다. 다른 방식으로 정한 종목은 건드리지 않는다."""
+    await session.execute(delete(SourceCardStock).where(
+        SourceCardStock.source_card_id == card_id, SourceCardStock.tagged_by == tagged_by))
+    if stock_codes:
+        await session.execute(
+            insert(SourceCardStock)
+            .values([{"source_card_id": card_id, "stock_code": code, "tagged_by": tagged_by}
+                     for code in stock_codes])
+            .on_conflict_do_nothing()  # 이미 다른 방식으로 이어진 (자료, 종목)은 그 연결이 있다
+        )
 
 
 @dataclass

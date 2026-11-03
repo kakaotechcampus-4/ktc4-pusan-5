@@ -246,7 +246,7 @@ uv run python -m app.collectors.sources show 12 --body   # 본문 앞부분까�
 |---|---|---|
 | `source_card.available_at` | 공개돼 있었다고 확인된 가장 이른 시각 | 기사: 발행 시각과 그 기사를 건 메시지 게시 시각 중 가장 이른 것. PDF: 그 PDF 를 올린 메시지 게시 시각(네이버 리포트는 NULL). 메시지: 게시 시각 |
 | `source_card.event_date` | 같은 시각의 날짜(KST) | 시각을 모르는 네이버 리포트는 작성일 |
-| `source_card_stocks` | 자료 ↔ 종목 (여러 종목 가능) | 지금은 종목분석 리포트의 `item_code` 만(`tagged_by = report_item_code`). 뉴스·메시지 종목 판단은 필터·태깅 단계가 들어오면 채운다 |
+| `source_card_stocks` | 자료 ↔ 종목 (여러 종목 가능) | 종목분석 리포트의 `item_code`(`tagged_by = report_item_code`), 공시의 종목코드(`dart_stock_code`), 분류의 DIRECT 판정(`classification`, 아래 "자료 분류") |
 
 `stock_card_ids(session, "005930", until=기준시각)` 가 공통 ID 를 오래된 순서로 준다.
 시각을 모르는 자료는 기준 시각의 **전날까지** 작성된 것만 넣는다(같은 날이면 기준 시각 전인지 모른다).
@@ -273,6 +273,30 @@ uv run python -m app.collectors.sources show 12 --body   # 본문 앞부분까�
 | `empty: 글자 없이 첨부만 올린 메시지` | 메시지에 글자가 없다 |
 | `purged: 보관 정책으로 삭제 (날짜) 사유` | 보관 정책으로 지웠다. 재분류·과거 결과 검증에 쓸 수 없다 |
 | `not_observed_at_cutoff: 기준 시각 이후 받은 본문 (시각)` | 본문은 있지만 기준 시각 이후에 받았거나 받은 시각을 모른다. `cutoff` 를 줬을 때만 |
+
+## 자료 분류
+
+뉴스·PDF·메시지를 사건으로 나누고 사건마다 어느 종목에 해당하는지 판정한다. 설계는
+[docs/CLASSIFICATION_DB_DRAFT.md](docs/CLASSIFICATION_DB_DRAFT.md), 코드는 `app/services/classification/`.
+DB 가 후보 종목을 정하고(기준 JSON → 기준표), LLM 은 후보마다 해당 여부만 판정한다.
+
+```bash
+uv run alembic upgrade head                                  # 0027 이 분류 표 8개를 만든다
+uv run python -m app.services.classification basis           # 기준 JSON → 기준표 (먼저 검사한다)
+uv run python -m app.services.classification run --limit 20  # 회차가 없는 자료를 최근 것부터 분류
+uv run python -m app.services.classification show 005930 --days 3   # 종목 하나에 붙는 자료
+```
+
+- 기준 JSON 은 `app/data/classification_basis/` 의 마지막 파일이다. **한 번 만든 파일은 고치지 않는다** —
+  바꿀 일이 생기면 새 날짜 파일을 만들고 `basis` 를 다시 돌린다. 지금 파일은 사실 확인 전 초안이다.
+- 단계별 모델은 `--extract-model`·`--link-model`·`--judge-model`, 또는 `.env` 의
+  `CLASSIFICATION_EXTRACT_MODEL` 등. 비우면 `SUMMARY_MODEL` 이다. Elice 는 모델마다 주소가 달라
+  한 실행에 모델 하나만 쓸 수 있다.
+- 모델 비교는 DB 없이 `eval --articles eval_data/<폴더>/articles.json` 으로, DB 자료로 해 보려면
+  `run --ids … --experiment`(저장하되 조회에 쓰는 회차는 바꾸지 않음)로 한다.
+- DIRECT 판정은 `source_card_stocks` 에 `tagged_by = classification` 으로도 들어가므로
+  `stock_card_ids` 에도 잡힌다. INDIRECT_CONTEXT·거시·시장 자료까지 보려면
+  `app.repositories.classification.classified_sources` 를 쓴다.
 
 ## 데이터 이용 제한
 

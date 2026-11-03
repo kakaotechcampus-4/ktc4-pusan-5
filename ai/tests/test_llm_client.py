@@ -170,7 +170,41 @@ async def test_whole_request_timeout_stops_keepalive_wait(monkeypatch):
         await client.complete("test", "test")
 
 
-_OK = {"choices": [{"message": {"content": "안녕"}, "finish_reason": "stop"}], "usage": {}}
+@pytest.mark.parametrize("body", [
+    [], {}, {"choices": [None]},
+    {"choices": [{"message": {"content": ["bad"]}}]},
+    {"choices": [{"message": {"content": "ok"}}], "usage": [1]},
+])
+async def test_invalid_response_is_llm_error(monkeypatch, body):
+    """호출부는 LLMError 만 잡는다. AttributeError 로 새면 배치 전체가 멈춘다."""
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
+    _fake_http(monkeypatch, body)
+    with pytest.raises(client.LLMError, match="응답 형식 오류"):
+        await client.complete("test", "test")
+
+
+async def test_error_in_ok_response_keeps_provider_message(monkeypatch):
+    """OpenRouter 는 생성 중 오류를 HTTP 200 본문의 error 로 준다. 그 사유가 남아야 한다."""
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "mock-secret")
+    _fake_http(monkeypatch, {"error": {"code": 502, "message": "upstream failed mock-secret"}})
+    with pytest.raises(client.LLMError, match="choices 가 없다.*upstream failed") as error:
+        await client.complete("test", "test")
+    assert "mock-secret" not in str(error.value)
+
+
+async def test_http_error_redacts_echoed_key(monkeypatch):
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "mock-secret")
+    request = client.httpx.Request("POST", client.OPENROUTER_URL)
+    response = client.httpx.Response(401, request=request, text="invalid key mock-secret")
+    http = _fake_http(monkeypatch, {})
+    http.post.return_value = response
+    with pytest.raises(client.LLMError) as error:
+        await client.complete("test", "test")
+    assert "mock-secret" not in str(error.value)
+    assert "[REDACTED]" in str(error.value)
+
+
+_OK ={"choices": [{"message": {"content": "안녕"}, "finish_reason": "stop"}], "usage": {}}
 
 
 @pytest.mark.parametrize("configured, passed, expected", [
@@ -320,6 +354,34 @@ async def test_stream_interrupted_reports_only_partial_length(monkeypatch, lines
         await client.complete("s", "u", stream=True)
     assert info.value.partial_chars == partial
     assert isinstance(info.value, client.LLMError)
+
+
+async def test_stream_error_redacts_echoed_key(monkeypatch):
+    """분류기는 이 문구를 회차의 error 에 저장하고 콘솔에도 찍는다."""
+    _elice(monkeypatch)
+    key = client.settings.llm_api_key
+    _fake_stream(monkeypatch, [_sse({"error": {"message": f"invalid key {key}"}})])
+    with pytest.raises(client.StreamInterrupted) as info:
+        await client.complete("s", "u", stream=True)
+    assert key not in str(info.value)
+    assert "[REDACTED]" in str(info.value)
+
+
+@pytest.mark.parametrize("line", [
+    "data: []",
+    'data: "문자열"',
+    'data: {"choices": "x"}',
+    'data: {"choices": ["x"]}',
+    'data: {"choices": [{"delta": "x"}]}',
+    'data: {"choices": [{"delta": {"content": 1}}]}',
+])
+async def test_stream_malformed_event_is_llm_error(monkeypatch, line):
+    """호출부는 LLMError 만 잡는다. AttributeError 로 새면 분류 배치 전체가 멈춘다."""
+    _elice(monkeypatch)
+    _fake_stream(monkeypatch, [_chunk("가나"), line])
+    with pytest.raises(client.StreamInterrupted, match="형식 오류") as info:
+        await client.complete("s", "u", stream=True)
+    assert info.value.partial_chars == 2
 
 
 async def test_stream_without_usage_is_not_free(monkeypatch):
