@@ -448,6 +448,20 @@ def test_after_close_uses_late_close_day(cutoff: str, after: bool) -> None:
     assert mc.after_close({"target_date": cutoff[:10], "cutoff": cutoff}) is after
 
 
+def test_market_close_warns_once_per_year_missing_from_late_close(caplog) -> None:
+    """LATE_CLOSE 는 날짜 목록이라 해가 바뀌면 넣어야 한다. 그해 날짜가 없으면 연도마다 한 번 WARNING 을 남긴다."""
+    mc._warn_if_late_close_missing.cache_clear()
+    try:
+        with caplog.at_level("WARNING", logger=mc.__name__):
+            assert mc.market_close(date(2027, 3, 2)) == mc.MARKET_CLOSE
+            mc.market_close(date(2027, 11, 18))
+            assert mc.market_close(date(2026, 11, 19)).strftime("%H:%M") == "16:30"  # 2026년은 들어 있다
+        warnings = [r.getMessage() for r in caplog.records if "LATE_CLOSE" in r.getMessage()]
+        assert len(warnings) == 1 and "2027년" in warnings[0]
+    finally:
+        mc._warn_if_late_close_missing.cache_clear()
+
+
 # --- 공유 Task 취소와 실패 로그 ------------------------------------------------------------------
 
 

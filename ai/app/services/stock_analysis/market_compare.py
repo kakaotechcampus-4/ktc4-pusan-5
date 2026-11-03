@@ -57,6 +57,7 @@ members_used 는 코드만 있어서 그룹 정의(peer_groups)에서 이름을 
 """
 
 import asyncio
+import functools
 import logging
 import statistics
 from collections.abc import Iterable, Mapping
@@ -84,6 +85,7 @@ logger = logging.getLogger(__name__)
 # 유가증권시장 정규장 마감(KST). cutoff 가 target_date 의 이 시각과 같거나 늦으면 KRX 종가 데이터를 쓴다.
 MARKET_CLOSE = time(15, 30)
 # 장 마감이 늦춰지는 날(수능일 등)과 그날 마감 시각(KST). 매년 추가 필요 — 거래소 공지가 나오면 넣는다.
+# 규칙이 아니라 날짜 목록이라, 그해 날짜가 하나도 없으면 market_close 가 WARNING 을 남긴다(연도마다 한 번).
 LATE_CLOSE = {
     date(2026, 11, 19): time(16, 30),  # 2027학년도 수능
 }
@@ -203,7 +205,17 @@ class MarketCompare:
 
 def market_close(day: date) -> time:
     """그날 장 마감 시각(KST). LATE_CLOSE 에 있으면 그 시각, 아니면 MARKET_CLOSE."""
+    _warn_if_late_close_missing(day.year)
     return LATE_CLOSE.get(day, MARKET_CLOSE)
+
+
+@functools.cache
+def _warn_if_late_close_missing(year: int) -> None:
+    """LATE_CLOSE 에 그해 날짜가 하나도 없으면 WARNING. 넣는 걸 잊으면 수능일도 15:30 마감으로 보고 장중 값을 종가로
+    쓰게 된다. 날짜는 거래소 공지로만 알 수 있어 추측해 넣지 않는다. 연도마다 한 번만 남긴다(functools.cache)."""
+    if not any(day.year == year for day in LATE_CLOSE):
+        logger.warning("LATE_CLOSE 에 %d년 날짜가 없다. 수능일 등 장 마감이 늦춰지는 날을 거래소 공지대로 넣는다"
+                       "(넣지 않으면 그날도 %s 마감으로 본다)", year, MARKET_CLOSE.strftime("%H:%M"))
 
 
 def after_close(payload: dict[str, Any]) -> bool:
