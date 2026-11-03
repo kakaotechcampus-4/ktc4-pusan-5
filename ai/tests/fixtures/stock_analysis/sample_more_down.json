@@ -22,7 +22,7 @@
       "datetime_kst": "2026-09-24T08:30:00+09:00",
       "views": "2100",
       "text": "[샘플] 솔마루전자, 최대 고객사 신규 모델 부품 공급사에서 제외",
-      "match": "direct"
+      "mention": "mentioned"
     },
     {
       "channel": "sample_channel_b",
@@ -30,7 +30,7 @@
       "datetime_kst": "2026-09-24T10:15:00+09:00",
       "views": "800",
       "text": "[샘플] 부품 업종 재고 부담 지속에 업종 전반 약세",
-      "match": "indirect"
+      "mention": "not_mentioned"
     }
   ]
 }

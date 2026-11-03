@@ -19,13 +19,13 @@ from app.services.stock_analysis.verify import (
 
 URL = "https://t.me/ch/1"
 PAYLOAD = {"messages": [{"channel": "ch", "url": URL, "datetime_kst": "2026-10-14T11:40:00+09:00",
-                         "match": "indirect", "text": "미국의 전력망 보안 행정명령은 BESS를 규제 대상 장비로 명시"}]}
+                         "mention": "not_mentioned", "text": "미국의 전력망 보안 행정명령은 BESS를 규제 대상 장비로 명시"}]}
 USAGE = {"prompt_tokens": 100, "completion_tokens": 50, "cost": 0.5, "finish_reason": "stop"}
 
 
 def source(quote):
     return {"channel": "ch", "url": URL, "datetime_kst": "2026-10-14T11:40:00+09:00",
-            "quote": quote, "match": "indirect", "is_market_recap": False}
+            "quote": quote, "mention": "not_mentioned", "is_market_recap": False}
 
 
 def report(quote):
@@ -231,6 +231,7 @@ async def test_relative_is_rewritten_when_relative_factor_dropped_and_another_re
     sent = json.loads(fake_complete.await_args_list[1].args[1])
     assert [f["event"] for f in sent["remaining_factors"]] == ["다른 사건"]
     assert sent["relative_verdict"] == "partially_explained" and sent["max_sentences"] == 3
+    assert sent["market_compare"] is None  # 칸이 없던 날도 키는 간다
 
 
 async def test_relative_is_cleared_without_llm_when_no_relative_factor_remains(fake_complete):
@@ -241,6 +242,64 @@ async def test_relative_is_cleared_without_llm_when_no_relative_factor_remains(f
     assert rewrite["result"] == "cleared" and rewrite["after"] is None
     assert r["summary"]["relative"] is None
     assert fake_complete.await_count == 1  # quote 고쳐 쓰기 한 번뿐
+
+
+# 코스피와 다르게 같은 은행지주 그룹을 따라간 날. 비교 문장은 빠진 근거와 상관없다
+GROUP_COMPARE = {"status": "ok", "status_reason": None,
+                 "kospi": {"kospi_basis": "kospi", "kospi_relation": "diverges"},
+                 "peers": [{"group": "은행지주", "median_change_rate_pct": -3.04, "relation": "follows"}]}
+COMPARE_SENTENCE = ("코스피는 올랐지만 KB금융은 대체로 3.04% 안팎 내린 같은 은행지주 그룹의 "
+                    "신한지주·하나금융지주·우리금융지주와 함께 내렸습니다.")
+
+
+async def test_relative_keeps_compare_sentence_when_no_relative_factor_remains(fake_complete):
+    r = relative_report()
+    r["summary"]["relative"] = f"{COMPARE_SENTENCE} 행정명령 때문에 다른 대형주보다 더 내렸습니다."
+    fake_complete.side_effect = answers(json.dumps({"event": "x", "sources": [source("없는 문장")]}),
+                                        json.dumps({"relative": COMPARE_SENTENCE}))
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    rewrite = await repair.rewrite_summary(r, records, "relative", stream=True, market_compare=GROUP_COMPARE)
+    assert (rewrite["result"], rewrite["after"]) == ("rewritten", COMPARE_SENTENCE)
+    assert r["summary"]["relative"] == COMPARE_SENTENCE
+    sent = json.loads(fake_complete.await_args_list[1].args[1])
+    assert sent["remaining_factors"] == [] and sent["market_compare"] == GROUP_COMPARE
+
+
+@pytest.mark.parametrize("market_compare", [
+    None,
+    {"status": "no_data", "status_reason": "기준일 데이터 없음", "kospi": None, "peers": []},
+    {**GROUP_COMPARE, "status": "no_trades"},
+    {**GROUP_COMPARE, "peers": []},  # 코스피 판정만 있다. 코스피 판정 문장은 move 에 있다
+    {**GROUP_COMPARE, "peers": [{**GROUP_COMPARE["peers"][0], "relation": None}]},
+])
+async def test_relative_is_cleared_without_llm_when_no_group_compare_to_keep(fake_complete, market_compare):
+    r = relative_report()
+    fake_complete.return_value = (json.dumps({"event": "x", "sources": [source("없는 문장")]}), USAGE)
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    rewrite = await repair.rewrite_summary(r, records, "relative", stream=True, market_compare=market_compare)
+    assert rewrite["result"] == "cleared" and r["summary"]["relative"] is None
+    assert fake_complete.await_count == 1
+
+
+async def test_relative_rewrite_may_answer_null(fake_complete):
+    r = relative_report()
+    fake_complete.side_effect = answers(json.dumps({"event": "x", "sources": [source("없는 문장")]}),
+                                        json.dumps({"relative": None}))
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    rewrite = await repair.rewrite_summary(r, records, "relative", stream=True, market_compare=GROUP_COMPARE)
+    assert (rewrite["result"], rewrite["after"], rewrite["error"]) == ("cleared", None, None)
+    assert r["summary"]["relative"] is None
+    assert rewrite["usage"] == USAGE
+
+
+async def test_market_compare_goes_only_to_relative_rewrite(fake_complete):
+    r = cause_report()
+    fake_complete.side_effect = answers(json.dumps({"event": "x", "sources": [source("없는 문장")]}),
+                                        json.dumps({"main_cause": "다른 사건 때문입니다."}))
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    await repair.rewrite_summary(r, records, "main_cause", stream=True, market_compare=GROUP_COMPARE)
+    assert "market_compare" not in json.loads(fake_complete.await_args_list[1].args[1])
+    assert "market_compare" in repair.RELATIVE_SYSTEM and "market_compare" not in repair.MAIN_CAUSE_SYSTEM
 
 
 @pytest.mark.parametrize("factors, background", [(5, 0), (0, 7)])
@@ -370,3 +429,30 @@ async def test_rewrite_keeps_original_detail_and_links(fake_complete):
     assert records[0]["result"] == "fixed"
     assert r["factors"][0]["detail"] == "원래 부연"
     assert r["factors"][0]["sources"][0]["quote"] == "규제 대상 장비로 명시"
+
+
+async def test_relative_rewrite_gets_stock_name(fake_complete):
+    """kospi_ex_self 날 규칙이 "<종목명>을 뺀 코스피" 를 쓰라고 하므로 종목명을 함께 보낸다."""
+    r = relative_report()
+    compare = {**GROUP_COMPARE, "kospi": {"kospi_basis": "kospi_ex_self", "kospi_relation": "follows"}}
+    fake_complete.side_effect = answers(json.dumps({"event": "x", "sources": [source("없는 문장")]}),
+                                        json.dumps({"relative": COMPARE_SENTENCE}))
+    records = await repair.repair_quotes(r, PAYLOAD, stream=True)
+    await repair.rewrite_summary(r, records, "relative", stream=True, market_compare=compare, stock="삼성전자")
+    sent = json.loads(fake_complete.await_args_list[1].args[1])
+    assert sent["stock"] == "삼성전자"
+
+
+def test_relative_rules_take_meta_phrases_from_verify(monkeypatch):
+    """다시 쓰기 프롬프트의 금지 문구는 검증기(COMPARE_META_PHRASES)와 같은 목록이다. 검증기에 말을 더하면 프롬프트에도 든다."""
+    import importlib
+
+    from app.services.stock_analysis import verify
+
+    monkeypatch.setattr(verify, "COMPARE_META_PHRASES", (*verify.COMPARE_META_PHRASES, "새로 막는 말"))
+    try:
+        reloaded = importlib.reload(repair)
+        assert all(phrase in reloaded.RELATIVE_SYSTEM for phrase in verify.COMPARE_META_PHRASES)
+    finally:
+        monkeypatch.undo()
+        importlib.reload(repair)
