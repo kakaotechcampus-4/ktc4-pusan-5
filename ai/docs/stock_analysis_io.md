@@ -164,7 +164,7 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
   "kospi": { "stock_change_rate_pct": 1.82, "kospi_change_rate_pct": -1.24, "excess_vs_kospi_pp": 3.06,
              "kospi_weight_pct": 1.14, "kospi_contribution_pp": 0.021, "kospi_ex_self_change_rate_pct": -1.28,
              "excess_vs_kospi_ex_self_pp": 3.1, "kospi_basis": "kospi", "kospi_relation": "diverges" },
-  "peers": [ { "group": "은행지주", "avg_change_rate_pct": 2.54, "excess_vs_group_pp": -0.72, "peer_count": 3,
+  "peers": [ { "group": "은행지주", "median_change_rate_pct": 2.54, "excess_vs_group_pp": -0.72, "peer_count": 3,
                "relation": "follows",
                "members_used": [ { "code": "055550", "name": "신한지주" }, … ],
                "members_excluded": [ { "code": "105560", "name": "KB금융", "reason": "self" } ] } ]

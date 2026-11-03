@@ -299,7 +299,7 @@ def to_input(ctx: MarketContext, groups: Mapping[str, Mapping[str, str]] = GROUP
         "kospi": {key: getattr(ctx.kospi, key) for key in KOSPI_KEYS} if ctx.kospi else None,
         "peers": [{
             "group": p.group,
-            "avg_change_rate_pct": p.avg_change_rate_pct,
+            "median_change_rate_pct": p.median_change_rate_pct,
             "excess_vs_group_pp": p.excess_vs_group_pp,
             "peer_count": p.peer_count,
             "relation": p.relation,

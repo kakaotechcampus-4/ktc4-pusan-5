@@ -45,7 +45,7 @@ JSON 하나를 받습니다.
                                  "excess_vs_kospi_ex_self_pp": <자기 제외 코스피 대비 초과분>,
                                  "kospi_basis": "kospi | kospi_ex_self",            // 비교 기준
                                  "kospi_relation": "follows | diverges" | null } | null,   // 코스피 비교 판정
-                      "peers": [ { "group": "<동종 그룹 이름>", "avg_change_rate_pct": <그룹 평균 등락률>,
+                      "peers": [ { "group": "<동종 그룹 이름>", "median_change_rate_pct": <그룹 평균 등락률>,
                                    "excess_vs_group_pp": <그룹 대비 초과분>,
                                    "peer_count": <평균에 쓴 종목 수>,
                                    "relation": "follows | diverges | inconclusive" | null,   // 그룹 비교 판정

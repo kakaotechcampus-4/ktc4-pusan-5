@@ -247,7 +247,7 @@ async def test_relative_is_cleared_without_llm_when_no_relative_factor_remains(f
 # 코스피와 다르게 같은 은행지주 그룹을 따라간 날. 비교 문장은 빠진 근거와 상관없다
 GROUP_COMPARE = {"status": "ok", "status_reason": None,
                  "kospi": {"kospi_basis": "kospi", "kospi_relation": "diverges"},
-                 "peers": [{"group": "은행지주", "avg_change_rate_pct": -3.04, "relation": "follows"}]}
+                 "peers": [{"group": "은행지주", "median_change_rate_pct": -3.04, "relation": "follows"}]}
 COMPARE_SENTENCE = "코스피는 올랐지만 KB금융은 같은 은행지주 그룹 3개 종목(평균 3.04% 하락)과 함께 내렸습니다."
 
 
