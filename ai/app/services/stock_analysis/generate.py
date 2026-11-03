@@ -70,6 +70,7 @@ from app.services.stock_analysis.verify import (
     check_market_flags,
     check_schema,
     common_move,
+    group_mention,
     judge_layers,
     main_cause_sentences,
     market_led,
@@ -361,12 +362,13 @@ def _ex_self_clause(relation: str, base: str, base_pct: Decimal, topic: str, cha
 
 
 def _group_who(peer: dict[str, Any]) -> str:
-    """"같은 은행지주 그룹의 신한지주·하나금융지주", 연동 그룹은 "SK하이닉스 지분으로 이어진 SK스퀘어·SK"."""
+    """"같은 은행지주 그룹의 신한지주·하나금융지주", 연동 그룹은 "SK하이닉스 지분으로 이어진 SK스퀘어·SK".
+    그룹을 가리키는 말은 verify.group_mention 을 그대로 쓴다 — 경고 COMPARE_OPPOSITE_WORDING 이 같은 말을 찾는다."""
     group = str(peer.get("group"))
     names = "·".join(str(m.get("name")) for m in peer.get("members_used") or [] if isinstance(m, dict))
     if group.endswith(LINKED_GROUP_SUFFIX):
-        return f"{group.removesuffix(LINKED_GROUP_SUFFIX)} 지분으로 이어진 {names}"
-    return f"같은 {group} 그룹의 {names}"
+        return f"{group_mention(group)} {names}"
+    return f"같은 {group_mention(group)}의 {names}"
 
 
 def _group_amount(peer: dict[str, Any], *, noun: bool) -> str:
