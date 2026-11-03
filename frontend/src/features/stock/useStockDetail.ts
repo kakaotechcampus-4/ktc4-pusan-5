@@ -86,14 +86,13 @@ export function useStockDetail(code: string | undefined, period: PricePeriod) {
           if (cancelled || requestId !== generation) return;
           activeRequest = undefined;
           setOverviewState({ key: overviewKey, data, error: null });
-          if (shouldPoll(data.quote) || shouldPoll(data.metrics)) {
+          // 서버가 investorFlow 를 아직 주지 않는 경우는 폴링 대상에서 뺀다
+          const resources = [data.quote, data.metrics, data.investorFlow].filter(
+            (resource) => resource !== undefined,
+          );
+          if (resources.some(shouldPoll)) {
             fastAttempts += 1;
-            schedule(
-              Math.max(
-                retryDelay(data.quote, fastAttempts),
-                retryDelay(data.metrics, fastAttempts),
-              ),
-            );
+            schedule(Math.max(...resources.map((resource) => retryDelay(resource, fastAttempts))));
           } else schedule(60);
         })
         .catch((error: unknown) => {
@@ -216,7 +215,7 @@ export function useStockDetail(code: string | undefined, period: PricePeriod) {
   }, [canLoadEarlier, prices, priceState.error, fromDate, period, priceKey, earliestDate]);
   return useMemo(
     () => ({
-      overview: overview ?? { stock: null, quote: null, metrics: null },
+      overview: overview ?? { stock: null, quote: null, metrics: null, investorFlow: null },
       overviewError: overviewState.key === overviewKey ? overviewState.error : null,
       prices,
       priceError: priceState.key === priceKey ? priceState.error : null,

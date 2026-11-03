@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react';
-import { Change, InfoTip, SkeletonText, StatList, StatListItem } from '@/components/ui';
-import { formatCompactKRW, formatPrice, formatRatio } from '@/lib/format';
-import type { Resource, StockMetricsData, StockQuoteData } from '@/lib/types';
+import { Change, InfoTip, Skeleton, SkeletonText, StatList, StatListItem } from '@/components/ui';
+import { formatCompactKRW, formatMarketDate, formatPrice, formatRatio } from '@/lib/format';
+import type {
+  Resource,
+  StockInvestorFlowData,
+  StockMetricsData,
+  StockQuoteData,
+} from '@/lib/types';
 import { NO_VALUE } from '../financialUtils';
 
 function renderValue(value: number | null | undefined, render: (value: number) => string) {
@@ -12,12 +17,44 @@ function num(value: ReactNode) {
   return <span className="num text-sm font-semibold">{value}</span>;
 }
 
+/** 기관 순매수 수량을 등락 규칙(매수 빨강 / 매도 파랑)으로, 대금과 기준일을 보조 문구로 보여준다 */
+function InstitutionNetBuyValue({
+  investorFlow,
+}: {
+  investorFlow: Resource<StockInvestorFlowData> | null | undefined;
+}) {
+  const flow = investorFlow?.data;
+  if (!flow) {
+    // 수집 중이면 자리를 잡아두고, 미제공·빈 값·서버가 필드를 주지 않는 경우는 미제공으로 둔다
+    if (investorFlow?.status === 'pending') return <Skeleton className="h-4 w-24" />;
+    return NO_VALUE;
+  }
+  const detail = [
+    flow.institutionNetValue === null ? null : formatCompactKRW(flow.institutionNetValue),
+    `${formatMarketDate(flow.tradeDate)} 기준`,
+    investorFlow?.status === 'stale' ? '갱신 지연' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    <span className="flex flex-col items-end">
+      <span className="flex items-baseline gap-1">
+        <Change value={flow.institutionNetQty} unit="price" />
+        <span className="text-xs text-neutral-600">주</span>
+      </span>
+      <span className="num text-xs text-neutral-600">{detail}</span>
+    </span>
+  );
+}
+
 export function MarketActivitySummary({
   quote,
   metrics,
+  investorFlow,
 }: {
   quote: Resource<StockQuoteData> | null;
   metrics: Resource<StockMetricsData> | null;
+  investorFlow?: Resource<StockInvestorFlowData> | null;
 }) {
   if (!quote && !metrics) return <SkeletonText lines={5} />;
   const q = quote?.data;
@@ -48,10 +85,10 @@ export function MarketActivitySummary({
         label={
           <>
             기관 순매수{' '}
-            <InfoTip description="종목별 기관 순매수 데이터는 아직 연동되지 않았습니다." />
+            <InfoTip description="기관 투자자의 최근 거래일 순매수 수량입니다. 음수는 순매도이며, 장중 값은 달라질 수 있습니다." />
           </>
         }
-        value={<span className="text-sm font-semibold text-neutral-600">준비중</span>}
+        value={<InstitutionNetBuyValue investorFlow={investorFlow} />}
       />
     </StatList>
   );
