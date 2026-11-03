@@ -61,10 +61,21 @@ export type StockPriceResource = Resource<Candle[]> & {
   coverage: { fromDate: string; toDate: string; complete: boolean };
 };
 
+export type StockInvestorFlowData = {
+  /** 값이 속한 거래일(ISO 날짜). 시각 변환 없이 표시한다 */
+  tradeDate: string;
+  /** 기관 순매수 수량(주). 순매도는 음수 */
+  institutionNetQty: number;
+  /** 기관 순매수 대금(원). 순매도는 음수. 원천에 없으면 null */
+  institutionNetValue: number | null;
+};
+
 export type StockOverview = {
   stock: StockIdentity;
   quote: Resource<StockQuoteData>;
   metrics: Resource<StockMetricsData>;
+  /** 서버가 아직 이 필드를 주지 않는 경우(배포 순서 차이)도 화면이 깨지지 않아야 한다 */
+  investorFlow?: Resource<StockInvestorFlowData>;
 };
 
 export type FinancialIncomePoint = {
@@ -126,8 +137,12 @@ export type InvestmentPoint = {
   rsBaseDate: string | null;
   marketCap: number | null;
   marketCapAsOf: string | null;
+  /** 분기말 시가총액 ÷ 최근 4분기 순이익. 적자이거나 자료가 부족하면 null */
   per: number | null;
+  /** 분기말 종가 ÷ BPS. BPS가 0 이하이거나 분기말 종가가 없으면 null */
   pbr: number | null;
+  /** 최근 4분기 순이익 합(원). PER 계산 근거 */
+  netIncomeTtm?: number | null;
 };
 
 export type ApiErrorBody = {
