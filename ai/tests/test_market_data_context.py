@@ -184,13 +184,46 @@ def test_kospi_relation(
 def test_kospi_and_group_thresholds_are_separate(monkeypatch: pytest.MonkeyPatch) -> None:
     """코스피 판정은 KOSPI_FOLLOW_THRESHOLD_PP, 그룹 판정은 GROUP_FOLLOW_THRESHOLD_PP 만 본다."""
     monkeypatch.setattr(context, "KOSPI_FOLLOW_THRESHOLD_PP", 0.5)
-    assert kospi_relation(0.80) == "diverges"
-    assert group_relation(0.80, 2) == "follows"
+    assert kospi_relation(0.80, 1.80, 1.00) == "diverges"
+    assert group_relation(0.80, 2, 1.80, 1.00) == "follows"
 
     monkeypatch.setattr(context, "KOSPI_FOLLOW_THRESHOLD_PP", 1.0)
     monkeypatch.setattr(context, "GROUP_FOLLOW_THRESHOLD_PP", 0.5)
-    assert kospi_relation(0.80) == "follows"
-    assert group_relation(0.80, 2) == "diverges"
+    assert kospi_relation(0.80, 1.80, 1.00) == "follows"
+    assert group_relation(0.80, 2, 1.80, 1.00) == "diverges"
+
+
+@pytest.mark.parametrize(("target_rate", "kospi_rate", "excess", "relation"), [
+    (-0.30, 0.50, -0.80, "opposite"),  # 기준 안인데 코스피는 오르고 종목은 내렸다
+    (0.30, -0.50, 0.80, "opposite"),
+    (-0.50, 0.50, -1.00, "opposite"),  # 경계: 정확히 −1.00%p 도 기준 안
+    (-0.51, 0.50, -1.01, "diverges"),  # 기준을 넘으면 방향과 상관없이 diverges
+    (-0.60, 0.50, -1.10, "diverges"),
+    (0.00, 0.50, -0.50, "follows"),  # 보합(0.00)은 방향이 없다
+    (0.50, 0.00, 0.50, "follows"),
+])
+def test_kospi_relation_opposite_direction(
+    target_rate: float, kospi_rate: float, excess: float, relation: str,
+) -> None:
+    k = _kospi_ctx(target_rate, kospi_rate, 5.0).kospi
+    assert k.kospi_basis == "kospi"
+    assert k.excess_vs_kospi_pp == excess
+    assert k.kospi_relation == relation
+
+
+@pytest.mark.parametrize(("target_rate", "kospi_rate", "ex_self"), [(0.80, 0.08, -0.10), (-0.80, -0.08, 0.10)])
+def test_kospi_opposite_is_judged_against_ex_self(target_rate: float, kospi_rate: float, ex_self: float) -> None:
+    """비중 20%. 코스피와는 방향이 같지만 자기 제외 코스피와는 반대다 → 자기 제외 기준으로 opposite.
+
+    자기 제외 = (코스피 − 0.2 × 종목) / 0.8. 코스피는 종목과 자기 제외 코스피의 가중평균이라,
+    반대로 코스피와만 방향이 다르고 자기 제외와는 같은 경우는 생기지 않는다.
+    """
+    k = _kospi_ctx(target_rate, kospi_rate, 20.0).kospi
+    assert k.kospi_basis == "kospi_ex_self"
+    assert k.kospi_ex_self_change_rate_pct == ex_self
+    assert target_rate * kospi_rate > 0  # 코스피와는 같은 방향
+    assert abs(k.excess_vs_kospi_ex_self_pp) <= KOSPI_FOLLOW_THRESHOLD_PP
+    assert k.kospi_relation == "opposite"
 
 
 def test_kospi_relation_judges_the_rounded_excess() -> None:
@@ -331,6 +364,23 @@ def test_group_uses_median_against_outlier(
 ) -> None:
     peer = _group_ctx(target_rate, peer_rates)
     assert peer.median_change_rate_pct == center
+    assert peer.excess_vs_group_pp == excess
+    assert peer.relation == relation
+
+
+@pytest.mark.parametrize(("target_rate", "peer_rates", "excess", "relation"), [
+    (-0.30, [0.40, 0.50], -0.75, "opposite"),  # 기준 안인데 그룹은 오르고 종목은 내렸다
+    (-0.30, [0.45], -0.75, "opposite"),  # 비교 종목이 하나여도 기준 안이면 같은 규칙
+    (0.40, [-0.50, -0.30, 9.00], 0.70, "opposite"),  # 중앙값(−0.30)의 방향으로 본다
+    (-0.60, [0.40, 0.50], -1.05, "diverges"),  # 기준을 넘으면 방향과 상관없이 지금처럼
+    (-0.60, [0.45], -1.05, "inconclusive"),
+    (0.00, [0.40, 0.50], -0.45, "follows"),  # 보합(0.00)은 방향이 없다
+    (0.50, [-0.50, 0.00, 0.50], 0.50, "follows"),  # 그룹 중앙값이 보합
+])
+def test_group_relation_opposite_direction(
+    target_rate: float, peer_rates: list[float], excess: float, relation: str,
+) -> None:
+    peer = _group_ctx(target_rate, peer_rates)
     assert peer.excess_vs_group_pp == excess
     assert peer.relation == relation
 

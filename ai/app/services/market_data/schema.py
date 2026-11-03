@@ -94,9 +94,10 @@ class KospiComparison(BaseModel):
     # kospi          그 밖(비중이 없는 우선주 포함). excess_vs_kospi_pp 로 판정한다
     kospi_basis: Literal["kospi", "kospi_ex_self"]
     # follows   kospi_basis 초과분의 |값| ≤ KOSPI_FOLLOW_THRESHOLD_PP. 시장 흐름을 따라갔다
-    # diverges  기준 초과. 시장과 크게 달랐다
+    # opposite  기준 안이지만 kospi_basis 쪽 등락률과 방향이 반대(보합 0.00 은 방향 없음). 비슷하다고 할 수 없다
+    # diverges  기준 초과(방향과 상관없이). 시장과 크게 달랐다
     # None      초과분이 없다(대상이 거래정지)
-    kospi_relation: Literal["follows", "diverges"] | None
+    kospi_relation: Literal["follows", "opposite", "diverges"] | None
     # 비중의 분모. 보통주 전 종목의 전일 시총 합(역산) (원)
     common_prev_market_cap_krw: int
     # 보통주 전 종목 등락률을 전일 시총으로 가중해 다시 계산한 코스피 등락률 (%).
@@ -122,10 +123,11 @@ class PeerComparison(BaseModel):
     excess_vs_group_pp: float | None  # 종목 − 그룹 중앙값 (%p). 대상이 거래정지면 None
     peer_count: int  # 중앙값에 쓴 종목 수 (= len(members_used))
     # follows      |초과분| ≤ GROUP_FOLLOW_THRESHOLD_PP. 그룹 흐름을 따라갔다
+    # opposite     기준 안이지만 그룹 중앙값과 방향이 반대(보합 0.00 은 방향 없음). 함께 움직였다고 할 수 없다
     # diverges     기준 초과이고 peer_count ≥ 2. 그룹과 크게 달랐다
     # inconclusive 기준 초과이고 peer_count 1. 차이가 비교 종목 쪽 사정일 수 있다
     # None         초과분이 없다(중앙값을 못 냈거나 대상이 거래정지)
-    relation: Literal["follows", "diverges", "inconclusive"] | None
+    relation: Literal["follows", "opposite", "diverges", "inconclusive"] | None
     members_used: list[str] = Field(default_factory=list)  # 중앙값에 쓴 종목 코드
     members_excluded: list[PeerExclusion] = Field(default_factory=list)
 

@@ -60,11 +60,11 @@ NO_TRADES_REASON = (
 # 많아서 한 자리 더 둔다.
 RATE_DECIMALS = 2
 CONTRIBUTION_DECIMALS = 3
-# 그룹 대비 초과분이 이 안(경계 포함)이면 그룹 흐름을 따라갔다고 본다 (%p).
+# 그룹 대비 초과분이 이 안(경계 포함)이면 그룹 흐름을 따라갔다고 본다 (%p). 방향이 반대면 opposite.
 # 반올림한 excess_vs_group_pp 로 판정한다. 보고서에 보이는 숫자와 판정이 어긋나지 않게 하려는 것이다.
 GROUP_FOLLOW_THRESHOLD_PP = 1.0
 # 코스피 대비 초과분(kospi_basis 쪽)이 이 안(경계 포함)이면 시장 흐름을 따라갔다고 본다 (%p).
-# 그룹 판정처럼 반올림한 초과분으로 판정한다.
+# 방향이 반대면 opposite. 그룹 판정처럼 반올림한 초과분으로 판정한다.
 KOSPI_FOLLOW_THRESHOLD_PP = 1.0
 # 코스피 비중이 이 이상(%)이면 자기 제외 코스피 대비 초과분으로 판정한다. 코스피 등락률에 자기 몫이
 # 크게 섞여 있어서다. 같은 이유로 반올림한 kospi_weight_pct 로 가른다.
@@ -121,18 +121,23 @@ def kospi_comparison(stock: StockDaily, kospi: IndexDaily, stocks: list[StockDai
 
     excess_pp = move.excess_rate if move else None
     weight_pct = _round(weight * 100 if weight is not None else None, RATE_DECIMALS)
+    ex_self_pct = _round(ex_self, RATE_DECIMALS)
     excess_ex_self_pp = _round(excess_ex_self, RATE_DECIMALS)
     basis = kospi_basis(weight_pct)
+    if basis == "kospi_ex_self":
+        relation = kospi_relation(excess_ex_self_pp, stock.change_rate, ex_self_pct)
+    else:
+        relation = kospi_relation(excess_pp, stock.change_rate, kospi.change_rate)
     return KospiComparison(
         stock_change_rate_pct=stock.change_rate,
         kospi_change_rate_pct=kospi.change_rate,
         excess_vs_kospi_pp=excess_pp,
         kospi_weight_pct=weight_pct,
         kospi_contribution_pp=_round(contribution, CONTRIBUTION_DECIMALS),
-        kospi_ex_self_change_rate_pct=_round(ex_self, RATE_DECIMALS),
+        kospi_ex_self_change_rate_pct=ex_self_pct,
         excess_vs_kospi_ex_self_pp=excess_ex_self_pp,
         kospi_basis=basis,
-        kospi_relation=kospi_relation(excess_ex_self_pp if basis == "kospi_ex_self" else excess_pp),
+        kospi_relation=relation,
         common_prev_market_cap_krw=round(base),
         kospi_recomputed_change_rate_pct=round(recomputed, CONTRIBUTION_DECIMALS),
         weight_basis=WEIGHT_BASIS,
@@ -173,15 +178,16 @@ def peer_comparisons(
             excluded.append(PeerExclusion(code=code, name=name, reason=reason))
 
         center = median(rates) if rates else None
+        center_pct = _round(center, RATE_DECIMALS)
         excess = None
         if center is not None and not stock.no_trades and stock.change_rate is not None:
             excess = round(stock.change_rate - center, RATE_DECIMALS)
         result.append(PeerComparison(
             group=group,
-            median_change_rate_pct=_round(center, RATE_DECIMALS),
+            median_change_rate_pct=center_pct,
             excess_vs_group_pp=excess,
             peer_count=len(used),
-            relation=group_relation(excess, len(used)),
+            relation=group_relation(excess, len(used), stock.change_rate, center_pct),
             members_used=used,
             members_excluded=excluded,
         ))
@@ -189,13 +195,16 @@ def peer_comparisons(
 
 
 def group_relation(
-    excess_pp: float | None, peer_count: int,
-) -> Literal["follows", "diverges", "inconclusive"] | None:
-    """그룹 비교 판정. 비교 종목이 하나뿐이면 차이가 그 종목 쪽 사정일 수 있어 단정하지 않는다."""
+    excess_pp: float | None, peer_count: int, stock_rate: float | None, group_rate: float | None,
+) -> Literal["follows", "opposite", "diverges", "inconclusive"] | None:
+    """그룹 비교 판정. 비교 종목이 하나뿐이면 차이가 그 종목 쪽 사정일 수 있어 단정하지 않는다.
+
+    기준 안이어도 그룹과 오르내린 방향이 반대면 opposite 다. "같은 그룹과 함께 움직였다" 고 쓸 수 없다.
+    """
     if excess_pp is None:
         return None
     if abs(excess_pp) <= GROUP_FOLLOW_THRESHOLD_PP:
-        return "follows"
+        return "opposite" if is_opposite(stock_rate, group_rate) else "follows"
     return "diverges" if peer_count >= 2 else "inconclusive"
 
 
@@ -206,11 +215,27 @@ def kospi_basis(weight_pct: float | None) -> Literal["kospi", "kospi_ex_self"]:
     return "kospi"
 
 
-def kospi_relation(excess_pp: float | None) -> Literal["follows", "diverges"] | None:
-    """코스피 비교 판정. 초과분이 없으면(거래정지) 판정하지 않는다."""
+def kospi_relation(
+    excess_pp: float | None, stock_rate: float | None, base_rate: float | None,
+) -> Literal["follows", "opposite", "diverges"] | None:
+    """코스피 비교 판정. 초과분이 없으면(거래정지) 판정하지 않는다.
+
+    excess_pp·base_rate 는 kospi_basis 쪽 값이다(자기 제외면 자기 제외 코스피 등락률).
+    기준 안이어도 오르내린 방향이 반대면 opposite 다. "코스피와 비슷하게 움직였다" 고 쓸 수 없다.
+    """
     if excess_pp is None:
         return None
-    return "follows" if abs(excess_pp) <= KOSPI_FOLLOW_THRESHOLD_PP else "diverges"
+    if abs(excess_pp) > KOSPI_FOLLOW_THRESHOLD_PP:
+        return "diverges"
+    return "opposite" if is_opposite(stock_rate, base_rate) else "follows"
+
+
+def is_opposite(stock_rate: float | None, base_rate: float | None) -> bool:
+    """오르내린 방향이 반대인가. 0.00(보합)은 방향이 없어 어느 쪽과도 반대가 아니다.
+
+    보고서에 보이는 숫자와 어긋나지 않게 반올림한 등락률을 받는다.
+    """
+    return stock_rate is not None and base_rate is not None and stock_rate * base_rate < 0
 
 
 def is_common(code: str) -> bool:
