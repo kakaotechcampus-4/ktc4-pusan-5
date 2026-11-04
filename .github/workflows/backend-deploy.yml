@@ -87,3 +87,30 @@ jobs:
             echo "::error::배포 실패 (status: $STATUS)"
             exit 1
           fi
+
+      - name: Smoke test (외부 주소)
+        env:
+          API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: |
+          # 프론트가 호출하는 API 주소(VITE_API_BASE_URL)와 같은 값을 쓴다. 변수가 비어 있으면 운영 도메인으로 대체한다.
+          BASE="${API_BASE_URL:-https://marketlit.duckdns.org}"
+          # 끝의 슬래시를 떼서 //health 가 되는 것을 막는다.
+          BASE="${BASE%/}"
+
+          # 배포 직후 Caddy/백엔드가 잠깐 불안정할 수 있어, 최대 12회(약 1분) 재시도한다.
+          check() {
+            url="$1"
+            for i in $(seq 1 12); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$url" || echo 000)
+              echo "[$i] $url -> $code"
+              if [ "$code" = "200" ]; then
+                return 0
+              fi
+              sleep 5
+            done
+            echo "::error::smoke test 실패: $url"
+            return 1
+          }
+
+          check "$BASE/health"
+          check "$BASE/api/concepts"
