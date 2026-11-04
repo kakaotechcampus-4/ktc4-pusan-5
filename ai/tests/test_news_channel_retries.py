@@ -89,7 +89,7 @@ async def test_permanent_failure_is_not_retried_but_rate_limit_is():
         [mock_msg], mock_stats, now=NOW, per_message=0, max_links=0,
         existing={mock_gone: mock_article(mock_gone, "failed", "http_error: 404"),
                   mock_busy: replace(mock_article(mock_busy, "failed", "http_error: 429"),
-                                     fetched_at=NOW - timedelta(hours=1))},
+                                     fetched_at=NOW - timedelta(minutes=10))},
         transport=httpx.MockTransport(mock_handler),
     )
     assert mock_opened == [mock_busy]

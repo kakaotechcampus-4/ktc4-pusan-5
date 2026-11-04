@@ -32,6 +32,10 @@ class LLMTimeout(LLMError):
     """호출 전체 시간 제한(settings.summary_timeout_sec)이나 연결 시간 제한에 걸렸다. 받은 부분은 없다."""
 
 
+class LLMRateLimited(LLMError):
+    """속도 제한(HTTP 429)으로 거절됐다. 응답을 받지 못했으니 잠시 뒤 다시 보낼 수 있다."""
+
+
 class StreamInterrupted(LLMError):
     """스트림이 응답을 다 주기 전에 끊겼다. 받은 부분은 길이(글자 수)만 남긴다 —
     잘린 JSON 을 열어 보거나 저장하면 안 되므로 본문은 넘기지 않는다."""
@@ -103,6 +107,38 @@ def _payload(system: str, user: str, model: str | None, max_tokens: int | None,
     elif effort is not None:
         payload["reasoning"] = {"effort": effort}
     return payload
+
+
+def _error_detail(text: str, key: str) -> str:
+    """오류 메시지에 붙일 응답 앞부분. 프록시가 인증 정보를 되비출 수 있어 키를 지운다.
+
+    자르기 전에 지운다. 거꾸로 하면 경계에 걸린 키 앞부분이 남는다.
+    """
+    return text.replace(key, "[REDACTED]")[:ERROR_BODY_MAX_CHARS]
+
+
+def _parse_completion(data: object, key: str) -> tuple[str, str | None, dict]:
+    """비스트리밍 응답 → (본문, finish_reason, usage).
+
+    호출부는 LLMError 만 잡는다. 모양이 다른 응답이 AttributeError 로 새면 배치 전체가 멈춘다.
+    """
+    if not isinstance(data, dict):
+        raise LLMError("LLM 응답 형식 오류: JSON 객체가 아니다")
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        # OpenRouter 는 생성 중에 난 오류를 HTTP 200 본문의 error 로 준다. 그 사유를 남긴다
+        error = data.get("error")
+        detail = _error_detail(json.dumps(error, ensure_ascii=False), key) if error else ""
+        raise LLMError(f"LLM 응답 형식 오류: choices 가 없다 {detail}".rstrip())
+    choice = choices[0]
+    message = choice.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(message, dict) or not isinstance(content, str | None):
+        raise LLMError("LLM 응답 형식 오류: message.content 가 문자열이 아니다")
+    usage = data.get("usage") or {}
+    if not isinstance(usage, dict):
+        raise LLMError("LLM 응답 형식 오류: usage 가 객체가 아니다")
+    return content or "", choice.get("finish_reason"), dict(usage)
 
 
 # 캐시 쓰기가 있는 호출에서 prompt_tokens 에 얹히는 몫(쓰기 토큰 대비). 2026-10-09 Elice
@@ -190,22 +226,18 @@ async def complete(
                     if r.is_error:
                         await r.aread()  # 오류 본문을 메시지에 남기려면 먼저 읽어야 한다
                     r.raise_for_status()
-                    text, finish_reason, usage = await _read_stream(r)
+                    text, finish_reason, usage = await _read_stream(r, key)
             else:
                 r = await client.post(url, json=payload, headers=headers)
                 r.raise_for_status()
-                data = r.json()
-                choice = (data.get("choices") or [{}])[0]
-                text = (choice.get("message") or {}).get("content") or ""
-                finish_reason = choice.get("finish_reason")
-                usage = dict(data.get("usage") or {})
+                text, finish_reason, usage = _parse_completion(r.json(), key)
     except httpx.HTTPStatusError as exc:
         # 상태 코드와 응답 앞부분을 남긴다. 예외 이름만 남기면 429(속도 제한)인지
         # 400(매개변수 거절)인지 몰라서 고칠 곳을 못 찾는다 — Elice 첫 실행에서 겪었다.
-        # 응답 본문은 프로바이더의 오류 메시지라 키가 들어 있지 않다.
-        raise LLMError(
+        error = LLMRateLimited if exc.response.status_code == 429 else LLMError
+        raise error(
             f"LLM 호출 실패: HTTP {exc.response.status_code} "
-            f"{exc.response.text[:ERROR_BODY_MAX_CHARS]}"
+            f"{_error_detail(exc.response.text, key)}"
         ) from exc
     except (TimeoutError, httpx.TimeoutException) as exc:
         # 스트림을 읽는 중의 읽기 시간 초과는 _read_stream 이 StreamInterrupted 로 올린다. 여기 오는 것은
@@ -229,7 +261,7 @@ async def complete(
     return text, usage
 
 
-async def _read_stream(response: httpx.Response) -> tuple[str, str | None, dict]:
+async def _read_stream(response: httpx.Response, key: str) -> tuple[str, str | None, dict]:
     """SSE 를 끝까지 읽어 (본문, finish_reason, usage).
 
     `data:` 로 시작하지 않는 줄은 건너뛴다. 빈 줄은 이벤트 구분이고, `:` 로 시작하는 줄은
@@ -237,15 +269,21 @@ async def _read_stream(response: httpx.Response) -> tuple[str, str | None, dict]
 
     끊긴 것으로 보는 경우 — 모두 StreamInterrupted 다.
         - 읽는 중 연결 오류(httpx.TransportError: 끊김·프로토콜 오류·읽기 시간 초과)
-        - 이벤트가 JSON 이 아님, 또는 이벤트에 error 가 실려 옴(헤더가 이미 200 이라 HTTP
-          상태로는 못 알린다)
+        - 이벤트가 JSON 이 아니거나 모양이 다름, 또는 이벤트에 error 가 실려 옴(헤더가 이미
+          200 이라 HTTP 상태로는 못 알린다). error 는 오류 문구에 남으므로 키를 지운다
         - finish_reason 없이 스트림이 끝남
     finish_reason 까지 받았으면 끝난 것이다. 그 뒤 usage 이벤트가 안 와도 끊김이 아니라
     usage 누락이다(빈 dict 를 돌려준다).
+
+    호출부는 LLMError 만 잡는다. 모양이 다른 이벤트가 AttributeError 로 새면 배치 전체가 멈춘다.
     """
     parts: list[str] = []
     finish_reason: str | None = None
     usage: dict = {}
+
+    def malformed(what: str) -> StreamInterrupted:
+        return StreamInterrupted(f"스트림 이벤트 형식 오류: {what}", len("".join(parts)))
+
     try:
         async for line in response.aiter_lines():
             line = line.strip()
@@ -255,12 +293,25 @@ async def _read_stream(response: httpx.Response) -> tuple[str, str | None, dict]
             if data == "[DONE]":
                 break
             event = json.loads(data)
+            if not isinstance(event, dict):
+                raise malformed("JSON 객체가 아니다")
             if event.get("error"):
                 raise StreamInterrupted(
-                    f"스트림 중 오류: {str(event['error'])[:ERROR_BODY_MAX_CHARS]}",
+                    f"스트림 중 오류: {_error_detail(str(event['error']), key)}",
                     len("".join(parts)))
-            for choice in event.get("choices") or []:
-                parts.append((choice.get("delta") or {}).get("content") or "")
+            choices = event.get("choices") or []
+            if not isinstance(choices, list):
+                raise malformed("choices 가 배열이 아니다")
+            for choice in choices:
+                if not isinstance(choice, dict):
+                    raise malformed("choice 가 객체가 아니다")
+                delta = choice.get("delta") or {}
+                if not isinstance(delta, dict):
+                    raise malformed("delta 가 객체가 아니다")
+                content = delta.get("content") or ""
+                if not isinstance(content, str):
+                    raise malformed("content 가 문자열이 아니다")
+                parts.append(content)
                 finish_reason = choice.get("finish_reason") or finish_reason
             if isinstance(event.get("usage"), dict):
                 usage = dict(event["usage"])

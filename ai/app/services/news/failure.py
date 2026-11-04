@@ -6,7 +6,7 @@ body_status 는 ok·failed·purged 만 둔다. 실패의 종류는 body_error �
 
     permanent     다시 열어도 같은 결과다. 재시도하지 않는다
                   4xx(408·425·429 제외), HTML 아님, 크기 초과, 내부 주소, 잘못된 주소
-    rate_limited  429. 요청을 너무 많이 보냈다는 응답이라 일시 실패와 따로 센다. 재시도한다
+    rate_limited  429. 요청을 너무 많이 보냈다는 응답이라 일시 실패와 따로 센다. 대기 후 재시도한다
     transient     5xx, 408·425, 타임아웃·연결 실패. 재시도한다
     extract       페이지는 받았는데 본문을 못 뽑았다. 봇 확인 페이지가 섞이므로 재시도한다
     unknown       사유가 없거나(이관 전 행 unrecorded) 처음 보는 사유. 재시도한다
@@ -14,8 +14,9 @@ body_status 는 ok·failed·purged 만 둔다. 실패의 종류는 body_error �
 HTTP 오류는 `http_error: 404` 로 적는다. 예전 네이버 행의 `http_404` 도 같은 뜻으로 읽는다.
 
 DART 공시 목록 호출(services/dart/client.py)도 같은 형식·같은 종류를 쓴다. DART 는 HTTP 200
-안에 자기 상태 코드를 주므로 `dart_status: 020` 으로 적고 아래 표로 가른다. 재시도·대기는 아직
-어느 경로에도 없다. 종류는 다시 돌려도 되는지 판단하는 데만 쓴다.
+안에 자기 상태 코드를 주므로 `dart_status: 020` 으로 적고 아래 표로 가른다. 대기는 기사 본문
+요청(news_link/fetch.py 의 open_with_backoff, 아래 retry_due)에만 있다. DART·API 호출에는
+재시도·대기가 아직 없어, 종류는 다시 돌려도 되는지 판단하는 데만 쓴다.
 """
 
 import re
@@ -24,8 +25,10 @@ from typing import Literal
 
 FailureKind = Literal["permanent", "rate_limited", "transient", "extract", "unknown"]
 
-# 429는 다음 실행에서도 바로 재요청하지 않는다. 기존 수집 시각을 사용하므로 스키마 변경은 없다.
-RATE_LIMIT_COOLDOWN = timedelta(hours=1)
+# 실행 안의 재시도(news_link/fetch.py)를 다 쓴 429는 다음 실행에서도 바로 재요청하지 않는다.
+# 기존 수집 시각을 사용하므로 스키마 변경은 없다. 10분은 실행 안 대기의 상한(1분)보다 길게 쉬려고
+# 잡은 값이고 실측 근거는 없다. 수집 주기와 실제 429 기록이 쌓이면 다시 정한다.
+RATE_LIMIT_COOLDOWN = timedelta(minutes=10)
 
 # 4xx 중 다시 요청하면 될 수 있는 것. 408 요청 시간 초과, 425 너무 이른 요청. 429 는 따로 본다.
 _RETRYABLE_4XX = frozenset({408, 425})
@@ -102,7 +105,7 @@ def retry_due(
 ) -> bool:
     """재시도 가능한 실패 중 지금 요청할 것. 시각 없는 기존 행은 한 번 더 확인한다.
 
-    429는 마지막 시도에서 최소 한 시간을 기다린다. Retry-After 헤더를 저장하지 않는
+    429는 마지막 시도에서 최소 10분을 기다린다. Retry-After 헤더를 저장하지 않는
     현재 구조의 기본 대기 정책이며, 호스트 전체의 요청량 제한을 대신하지 않는다.
     """
     kind = failure_kind(body_error)

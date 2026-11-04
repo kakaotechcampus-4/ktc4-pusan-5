@@ -17,7 +17,7 @@ report_citation 으로 인용만 한다. 위의 칼럼은 backend 모델 그대�
 경로는 텔레그램 첨부다. 기업·산업 분류는 여기 두지 않는다 — 원문 저장과 분리한다.
 
 raw_text·cleaned_text·source_url 은 backend 가 원문을 직접 담던 카드용이다. 위 네 종류의
-카드는 비워 둔다. 원문은 FK 로 따라가 읽는다(repositories/source_card.py 의 get_sources).
+카드는 비워 둔다. 원문은 FK 로 따라가 읽는다(repositories/source_card/query.py 의 get_sources).
 
 종목 브리핑은 "이 종목에 관한 자료 중 기준 시각 이전에 나온 것" 을 찾는다. 그 색인이 둘이다.
     available_at        이 자료가 공개돼 있었다고 확인된 가장 이른 시각
@@ -133,7 +133,7 @@ class SourceCardStock(Base):
     나중에 골라 쓰거나 지울 수 있게 남긴다.
         report_item_code   증권사 종목분석 리포트의 종목코드(analyst_reports.item_code). 등록 처리가 채운다
         dart_stock_code    공시 목록이 준 종목코드(dart_disclosures.stock_code). 등록 처리가 채운다
-    뉴스·메시지의 종목 판단(필터·태깅 단계)이 들어오면 그 방식의 값을 더한다.
+        classification     자료 분류의 DIRECT 판정. 현재 회차를 저장할 때 바꾼다(replace_stock_tags)
     """
 
     __tablename__ = "source_card_stocks"

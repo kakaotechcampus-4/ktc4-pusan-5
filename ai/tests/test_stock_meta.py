@@ -20,3 +20,10 @@ def test_table_shape_and_lookup():
     assert all(len(info["sector"]) <= 4 for info in table.values())
     assert stock_meta.universe_weight("005930") > 0.3
     assert stock_meta.sector("999990") is None and stock_meta.universe_weight("999990") is None
+
+
+def test_universe_codes_are_the_weighted_stocks():
+    codes = stock_meta.universe_codes()
+    assert len(codes) == 20 and list(codes) == sorted(codes)
+    assert all(stock_meta.universe_weight(c) is not None for c in codes)
+    assert "005930" in codes and "316140" not in codes  # 우리금융지주는 표에 있지만 유니버스 밖이다

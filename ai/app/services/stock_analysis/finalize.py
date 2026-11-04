@@ -1,8 +1,9 @@
 """모델 출력 뒤 러너가 정하는 칸. 모델이 판단할 필요가 없는 값은 러너가 다시 계산하거나 직접 넣는다.
 
-    recompute_strength   link strength 를 5단계 정의(출처의 입력 match·상한)로 다시 정한다
+    recompute_strength   link strength 를 5단계 정의(출처의 입력 mention·상한)로 다시 정한다
     recompute_verdicts   층별 판정을 검증 판정표(verify._check_verdict_tables)로 다시 정한다
     fix_main_cause       common_move·market_led 날 main_cause 의 앞뒤 고정 문장을 붙인다
+    fix_as_of            as_of 를 입력 cutoff 로 두고 화면 기준 시각(market_compare.display_as_of)을 display_* 에 넣는다
 
 같은 입력과 같은 사건 선택이면 strength·판정·고정 문장이 회차마다 같아야 하는데, 모델에 맡기면 같은 출처를
 두고도 partial·sufficient 가 갈리고 고정 문장을 빠뜨렸다(2026-10-25, runner_v12). 모델이 적은 값은 래퍼에
@@ -15,6 +16,7 @@ quote 고쳐 쓰기(repair)로 factor 가 빠질 수 있어 그 뒤, 검증 앞�
 import re
 from typing import Any
 
+from app.services.stock_analysis.market_compare import display_as_of
 from app.services.stock_analysis.verify import (
     CAPPED_SIZE_FIT,
     LAYERS,
@@ -38,7 +40,7 @@ _TAIL_RE = re.compile(re.escape(TAIL_SENTENCE[:-1]) + r"\.?")
 
 
 def defined_strength(factor: dict[str, Any], layer: str, has_direct: bool, move_capped: bool) -> str:
-    """5단계 정의의 strength. 사건이 입력 match=direct 메시지에서 나왔으면(verify.factor_has_direct) sufficient, 아니면
+    """5단계 정의의 strength. 사건이 입력 mention=mentioned 메시지에서 나왔으면(verify.factor_has_direct) sufficient, 아니면
     partial. 미확인(unconfirmed) factor 와, move_strength_cap 이 partial 인 날의 등락 층은 partial 까지다."""
     capped = factor.get("unconfirmed") is True or (layer == "move" and move_capped)
     return CAPPED_SIZE_FIT if has_direct and not capped else "partial"
@@ -48,7 +50,7 @@ def recompute_strength(report: dict[str, Any], payload: dict[str, Any],
                        issue_trace: Any = None) -> list[dict[str, Any]]:
     """link 마다 strength 를 정의대로 고친다. report 를 제자리에서 고치고 [{factor, layer, model, final, basis}] 를 돌려준다.
 
-    direct 여부는 출처 목록이 아니라 그 factor 사건의 이슈(events.issue_ids → issue_trace)가 나온 메시지로 본다 —
+    mentioned 여부는 출처 목록이 아니라 그 factor 사건의 이슈(events.issue_ids → issue_trace)가 나온 메시지로 본다 —
     같은 사건에 어느 출처를 달았는지로 판정이 갈리지 않게 한다(2026-10-25, runner_v13 삼성전자 21일). issue_trace 가
     없거나 사건에 issue_ids 가 없으면 출처로 본다. basis 가 그 기준("issues" | "sources")이다.
 
@@ -116,15 +118,37 @@ def fix_main_cause(report: dict[str, Any], payload: dict[str, Any]) -> dict[str,
     return {"before": before, "after": after}
 
 
+def fix_as_of(report: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any] | None:
+    """데이터 시각과 표시 시각을 나눠 넣는다.
+
+    as_of           입력 cutoff(메시지를 자른 시각, ISO 8601) 그대로. 적재가 DB as_of 로 쓴다 — 자연키이고, 출처 시각이
+                    이보다 늦으면 모델이 시각을 지어낸 것이다. 모델이 "HH:MM" 만 적으면 다음 날 08:30 cutoff 가
+                    target_date 와 합쳐 그날 장 시작 전 시각이 되므로 날짜가 붙은 cutoff 로 덮어쓴다.
+    display_as_of   화면 기준 시각(ISO 8601). 장 마감 뒤면 그날 장 마감 시각이다(market_compare.display_as_of).
+    display_is_close  장 마감 기준인가. 화면이 "장 마감 기준" 문구를 붙일지 여기서 가른다.
+
+    display_* 는 못 정하면 None 이다. as_of 를 바꿨으면 {before, after}, 이미 같거나 cutoff 가 없으면 None.
+    """
+    shown = display_as_of(payload)
+    report["display_as_of"] = shown[0].isoformat() if shown else None
+    report["display_is_close"] = shown[1] if shown else None
+    cutoff = payload.get("cutoff")
+    if not isinstance(cutoff, str) or report.get("as_of") == cutoff:
+        return None
+    before, report["as_of"] = report.get("as_of"), cutoff
+    return {"before": before, "after": cutoff}
+
+
 def finalize(report: dict[str, Any], payload: dict[str, Any], issue_trace: Any = None) -> dict[str, Any]:
-    """세 가지를 차례로 한다. strength 를 먼저 고쳐야 판정이 고친 strength 를 본다. 래퍼에 넣을 칸을 돌려준다.
+    """네 가지를 차례로 한다. strength 를 먼저 고쳐야 판정이 고친 strength 를 본다. 래퍼에 넣을 칸을 돌려준다.
     이전 형식 factor(layer·size_fit)는 links 형식으로 펴서 고친다 — 그대로 두면 link 가 없어 판정을 잘못 낸다."""
     if isinstance(report.get("factors"), list):
         report["factors"] = normalize_report(report)["factors"]
     return {"strength_recomputed": recompute_strength(report, payload, issue_trace),
             "verdict_recomputed": recompute_verdicts(report, payload),
-            "main_cause_fixed": fix_main_cause(report, payload)}
+            "main_cause_fixed": fix_main_cause(report, payload),
+            "as_of_fixed": fix_as_of(report, payload)}
 
 
-__all__ = ["HEAD_SENTENCE", "TAIL_SENTENCE", "defined_strength", "finalize", "fix_main_cause", "layer_verdict",
-           "recompute_strength", "recompute_verdicts"]
+__all__ = ["HEAD_SENTENCE", "TAIL_SENTENCE", "defined_strength", "finalize", "fix_as_of", "fix_main_cause",
+           "layer_verdict", "recompute_strength", "recompute_verdicts"]

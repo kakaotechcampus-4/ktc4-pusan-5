@@ -22,7 +22,7 @@
       "datetime_kst": "2026-09-18T07:50:00+09:00",
       "views": "600",
       "text": "하늬결화학, 신규 공장 2027년 상반기 착공 예정… 연산 20만톤 규모",
-      "match": "direct"
+      "mention": "mentioned"
     },
     {
       "channel": "sample_channel_c",
@@ -30,7 +30,7 @@
       "datetime_kst": "2026-09-18T09:20:00+09:00",
       "views": "450",
       "text": "아시아 에틸렌 가격 한 주 새 5% 하락… 석유화학 업황 부담 지속",
-      "match": "indirect"
+      "mention": "not_mentioned"
     }
   ]
 }

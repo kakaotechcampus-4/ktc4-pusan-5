@@ -1,4 +1,4 @@
-"""러너 끝에서 끝까지. complete()·endpoint()·DB 를 바꿔 끼워 외부 호출 없이 돈다."""
+"""러너 끝에서 끝까지. complete()·endpoint()·DB·KRX 를 바꿔 끼워 외부 호출 없이 돈다."""
 
 import hashlib
 import json
@@ -9,11 +9,22 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.collectors import stock_analysis as collector
+from app.services.market_data import build_market_context
+from app.services.market_data import krx as krx_client
+from app.services.market_data.errors import KrxError
 from app.services.stock_analysis import generate as gen
+from app.services.stock_analysis import market_compare as mc
 from app.services.stock_analysis import repair as collector_repair
 from app.services.stock_analysis.verify import code_of, move_case
+from tests.test_market_data_context import DAY, KOSPI, STOCKS
 
 FIXTURES = Path(__file__).parent / "fixtures" / "stock_analysis"
+MARKET_FIXTURES = Path(__file__).parent / "fixtures" / "market_data"
+# 2026-10-27 실제 KRX 응답 행. 경로마다 _post 가 돌려주는 값이다
+KRX_ROWS = {
+    krx_client.KOSPI_INDEX_PATH: "krx_kospi_dd_trd.json",
+    krx_client.KOSPI_STOCK_PATH: "krx_stk_bydd_trd.json",
+}
 
 
 def report_for(payload: dict) -> dict:
@@ -38,7 +49,7 @@ def report_for(payload: dict) -> dict:
             "direction_match": True, "size_fit": "sufficient", "unconfirmed": False,
             "sources": [{"channel": msg["channel"], "url": msg["url"],
                          "datetime_kst": msg["datetime_kst"], "quote": msg["text"][:20],
-                         "match": msg["match"], "is_market_recap": False}],
+                         "mention": msg["mention"], "is_market_recap": False}],
         }],
         "terms": [], "background": {"bullish": [], "bearish": [], "neutral": []}, "not_found": [],
     }
@@ -48,6 +59,47 @@ def report_for(payload: dict) -> dict:
 def openrouter(monkeypatch):
     """개인 ai/.env 의 LLM_PROVIDER 가 통화를 바꾸지 않게 고정한다."""
     monkeypatch.setattr(gen.settings, "llm_provider", "openrouter")
+
+
+@pytest.fixture(autouse=True)
+def krx(monkeypatch):
+    """KRX 요청(krx._post) 하나가 호출 하나다. 바꿔 끼워 밖으로 나가지 않고 호출 수를 센다.
+    기본은 어느 경로든 빈 응답 — 기준일 데이터가 없는 날(no_data)이다. side_effect 를 바꿔 다른 날을 만든다."""
+    mock = AsyncMock(return_value=[])
+    monkeypatch.setattr(krx_client, "_post", mock)
+    return mock
+
+
+async def real_rows(client, path, bas_dd):
+    """2026-10-27 실제 응답. 그 밖의 날은 빈 응답."""
+    if bas_dd != DAY:
+        return []
+    return json.loads((MARKET_FIXTURES / KRX_ROWS[path]).read_text(encoding="utf-8"))["OutBlock_1"]
+
+
+def same_day_inputs(root: Path, codes: tuple[str, ...], hhmm: str = "15:30") -> Path:
+    """sample_cause(change_pct −4.2, peer_median_pct −0.6, excess_pct −3.6)의 종목·기준일·기준 시각만 바꿔
+    2026-10-27 입력 여러 개를 만든다."""
+    base = json.loads((FIXTURES / "sample_cause.json").read_text(encoding="utf-8"))
+    folder = root / "same_day"
+    folder.mkdir()
+    for code in codes:
+        payload = {**base, "code": code, "stock": f"종목{code}", "target_date": DAY.isoformat(),
+                   "cutoff": f"{DAY.isoformat()}T{hhmm}:00+09:00"}
+        (folder / f"{code}.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return folder
+
+
+def after_close_days() -> int:
+    """샘플 입력 중 기준 시각이 장 마감 이후인 것의 서로 다른 기준일 수. 장 마감 전 입력은 KRX 를 부르지 않는다."""
+    payloads = [json.loads(p.read_text(encoding="utf-8")) for p in FIXTURES.glob("*.json")]
+    return len({p["target_date"] for p in payloads if mc.after_close(p)})
+
+
+def parsed(run_dir: Path) -> dict[str, dict]:
+    """입력 파일 이름 → 래퍼."""
+    wrappers = (json.loads(p.read_text(encoding="utf-8")) for p in (run_dir / "parsed").glob("*.json"))
+    return {w["input_original_path"].rsplit("/", 1)[1]: w for w in wrappers}
 
 
 @pytest.fixture
@@ -159,6 +211,143 @@ async def test_runs_folder_of_samples_and_writes_wrappers(fake_llm, tmp_path, ca
     assert result["events"] == {"passed": 1, "failed": 0, "missing": 8}
     assert cause["events_status"] == "missing" and cause["events_problems"] == []
     assert "events 검사 (판정과 별도): passed=1, failed=0, missing=8" in out
+    # 하늬결화학 09-18 은 11:00 기준이라 시장 맥락을 넣지 않는다. 나머지 8건은 KRX 데이터가 없는 날이다
+    assert result["market_compare"] == {"before_close": 1, "no_data": 8}
+    assert result["change_pct_overridden"] == 0
+    assert flat["market_compare_skipped"] == "BEFORE_CLOSE" and flat["market_compare"] is None
+    assert cause["market_compare_skipped"] is None and cause["market_compare"]["status"] == "no_data"
+    assert "시장 맥락 (ok 밖은 비교 문장 없이 만듦): before_close=1, no_data=8 · change_pct 를 KRX 등락률로 바꿈: 0" in out
+
+
+async def test_market_compare_goes_into_model_input_and_wrapper(fake_llm, krx, tmp_path):
+    """입력 code·target_date 로 시장 맥락을 계산해 모델 입력 market_compare 칸에 넣고 래퍼에 남긴다."""
+    krx.side_effect = real_rows
+    folder = same_day_inputs(tmp_path, ("105560",))
+    runs = tmp_path / "runs"
+
+    result = await collector.run(folder, out_root=runs)
+
+    assert [c.args[1:] for c in krx.await_args_list] == [
+        (krx_client.KOSPI_INDEX_PATH, DAY), (krx_client.KOSPI_STOCK_PATH, DAY)]
+    expected = mc.to_input(build_market_context("105560", DAY, KOSPI, STOCKS))
+    sent = json.loads(fake_llm.await_args_list[0].args[1])
+    assert sent["market_compare"] == expected
+    assert sent["market_compare"]["kospi"]["kospi_relation"] == "diverges"
+    # 장 마감 이후 ok 라 입력 −4.2 가 KRX 등락률 0.27 로 바뀐다. 대형주 비교 수치도 KRX 로 다시 낸다 — fixture 에 있는
+    # 유니버스 8종목(KB금융 자신 제외) 중간값 3.84, 모두 올랐다. excess_pct 는 0.27 − 3.84 = −3.57
+    assert sent["change_pct"] == 0.27
+    assert {k: sent["market"][k] for k in (*mc.PEER_KEYS, "excess_pct")} == {
+        "peer_median_pct": 3.84, "peer_up": 8, "peer_down": 0, "peer_total": 8, "excess_pct": -3.57}
+    [wrapper] = parsed(only_run_dir(runs)).values()
+    assert wrapper["market_compare"] == expected
+    assert wrapper["market_compare_error"] is None
+    override = wrapper["change_pct_override"]
+    assert {k: override[k] for k in ("input", "krx", "source", "excess_pct")} == {
+        "input": -4.2, "krx": 0.27, "source": "KRX /sto/stk_bydd_trd 2026-10-27 FLUC_RT",
+        "excess_pct": {"input": -3.6, "recomputed": -3.57}}
+    assert override["peers"]["input"] == {"peer_median_pct": -0.6, "peer_up": 5, "peer_down": 13, "peer_total": 19}
+    assert override["peers"]["krx"] == {"peer_median_pct": 3.84, "peer_up": 8, "peer_down": 0, "peer_total": 8}
+    assert len(override["peers"]["excluded"]) == 11  # 유니버스 19종목 중 fixture 응답에 없는 것
+    # 검증도 바꾼 값으로 한다. 보고서 change_pct(0.27)와 입력이 맞아 CHANGE_PCT_MISMATCH 가 없다
+    assert "CHANGE_PCT_MISMATCH" not in {code_of(p) for p in wrapper["verify_problems"]}
+    # 입력 사본은 받은 바이트 그대로다. 계산한 칸은 래퍼에만 있다
+    assert (only_run_dir(runs) / wrapper["input_path"]).read_bytes() == (folder / "105560.json").read_bytes()
+    assert result["market_compare"] == {"ok": 1}
+
+
+async def test_same_day_reports_call_krx_once_per_day(fake_llm, krx, tmp_path):
+    """같은 기준일 3종목 → KRX 호출 2번(코스피 지수·유가증권 전 종목 한 번씩). 계산은 종목마다 따로다."""
+    krx.side_effect = real_rows
+    runs = tmp_path / "runs"
+
+    result = await collector.run(same_day_inputs(tmp_path, ("005930", "105560", "000660")), out_root=runs)
+
+    assert krx.await_count == 2
+    assert sorted(c.args[1] for c in krx.await_args_list) == sorted(KRX_ROWS)
+    assert result["market_compare"] == {"ok": 3}
+    basis = {name: w["market_compare"]["kospi"]["kospi_basis"] for name, w in parsed(only_run_dir(runs)).items()}
+    assert basis == {"005930.json": "kospi_ex_self", "105560.json": "kospi", "000660.json": "kospi_ex_self"}
+
+
+async def test_each_day_is_asked_once_even_without_data(fake_llm, krx, tmp_path):
+    """장 마감 이후 샘플의 기준일마다 한 번. 데이터가 없는 날은 코스피만 묻고 전 종목은 묻지 않는다."""
+    await collector.run(FIXTURES, out_root=tmp_path)
+
+    assert krx.await_count == after_close_days() < 9
+    assert {c.args[1] for c in krx.await_args_list} == {krx_client.KOSPI_INDEX_PATH}
+
+
+@pytest.mark.parametrize(("hhmm", "krx_has_day", "status", "change_pct", "krx_calls"), [
+    ("15:29", True, "before_close", -4.2, 0),  # 경계: 장 마감 1분 전. KRX 에 종가가 있어도 부르지 않는다
+    ("15:30", True, "ok", 0.27, 2),  # 경계: 장 마감. 시장 맥락을 넣고 change_pct 를 KRX 등락률로 바꾼다
+    ("15:30", False, "no_data", -4.2, 1),  # 장 마감 이후인데 KRX 데이터가 없다. 비교 없이 입력 값 그대로
+])
+async def test_cutoff_decides_market_compare_and_change_pct(
+    fake_llm, krx, tmp_path, hhmm, krx_has_day, status, change_pct, krx_calls,
+):
+    if krx_has_day:
+        krx.side_effect = real_rows
+    runs = tmp_path / "runs"
+
+    result = await collector.run(same_day_inputs(tmp_path, ("105560",), hhmm), out_root=runs)
+
+    assert krx.await_count == krx_calls
+    assert result["market_compare"] == {status: 1}
+    sent = json.loads(fake_llm.await_args_list[0].args[1])
+    assert sent["change_pct"] == change_pct
+    [wrapper] = parsed(only_run_dir(runs)).values()
+    overridden = status == "ok"
+    assert (wrapper["change_pct_override"] is not None) is overridden
+    assert result["change_pct_overridden"] == int(overridden)
+    # 덮어쓰지 않은 날은 excess_pct 도 입력 값 그대로다
+    assert sent["market"]["excess_pct"] == (-3.57 if overridden else -3.6)
+    assert sent["market"]["peer_median_pct"] == (3.84 if overridden else -0.6)
+    if status == "before_close":
+        assert sent["market_compare"] is None and wrapper["market_compare_skipped"] == "BEFORE_CLOSE"
+    else:
+        assert sent["market_compare"]["status"] == status and wrapper["market_compare_skipped"] is None
+
+
+async def test_krx_failure_still_makes_every_report(fake_llm, krx, tmp_path, capsys):
+    """KRX 가 실패해도 멈추지 않는다. 칸이 null 로 가 비교 문장만 빠지고, 판정은 KRX 가 없는 날과 같다."""
+    krx.side_effect = KrxError("KRX kospi_dd_trd 20260918 요청 실패: ConnectTimeout: ")
+
+    result = await collector.run(FIXTURES, out_root=tmp_path)
+
+    # 실패도 기준일마다 한 번만 시도한다
+    assert krx.await_count == after_close_days()
+    assert (result["total"], result["passed"], result["failed"], result["errors"]) == (9, 5, 4, 0)
+    assert result["market_compare"] == {"before_close": 1, "failed": 8}
+    assert all(json.loads(c.args[1])["market_compare"] is None for c in fake_llm.await_args_list)
+    wrappers = parsed(only_run_dir(tmp_path))
+    assert all(w["market_compare"] is None and w["change_pct_override"] is None for w in wrappers.values())
+    # 장 마감 전 입력(sample_flat, 11:00)은 KRX 를 부르지 않아 실패 사유가 없다
+    assert wrappers.pop("sample_flat.json")["market_compare_error"] is None
+    assert all(w["market_compare_error"].startswith("KrxError: KRX kospi_dd_trd") for w in wrappers.values())
+    assert all((w["market_compare_error_type"], w["market_compare_unexpected"]) == ("KrxError", False)
+               for w in wrappers.values())
+    assert (result["market_compare_errors"], result["market_compare_unexpected"]) == ({"KrxError": 8}, 0)
+    out = capsys.readouterr().out
+    assert "시장 맥락 (ok 밖은 비교 문장 없이 만듦): before_close=1, failed=8" in out
+    assert "시장 맥락 실패 종류: KrxError=8\n" in out  # 예상한 실패라 예상 밖 경고는 없다
+
+
+async def test_malformed_krx_response_does_not_stop_the_run(fake_llm, krx, tmp_path, capsys):
+    """KRX 응답 행이 객체가 아니면(AttributeError) 예상 밖 예외다. 그래도 실행은 끝까지 가고 9건 모두 만든다.
+    그 날짜 보고서는 비교 없이 가고, 래퍼·요약에 예외 종류와 예상 밖 표시가 남는다."""
+    krx.return_value = [None]
+
+    result = await collector.run(FIXTURES, out_root=tmp_path)
+
+    assert (result["total"], result["errors"]) == (9, 0)
+    assert result["market_compare"] == {"before_close": 1, "failed": 8}
+    assert (result["market_compare_errors"], result["market_compare_unexpected"]) == ({"AttributeError": 8}, 8)
+    wrappers = parsed(only_run_dir(tmp_path))
+    assert wrappers.pop("sample_flat.json")["market_compare_unexpected"] is False
+    assert all(w["market_compare_error_type"] == "AttributeError" and w["market_compare_unexpected"]
+               for w in wrappers.values())
+    assert ("시장 맥락 실패 종류: AttributeError=8 · 예상 밖 예외 8건 — 로그의 traceback 을 확인한다"
+            in capsys.readouterr().out)
 
 
 async def test_broken_events_are_recorded_apart_from_verify_status(monkeypatch, tmp_path):
@@ -345,7 +534,7 @@ def _factor(payload, k, layer, size_fit):
     msg = payload["messages"][k]
     f = report["factors"][0]
     f["sources"][0].update(channel=msg["channel"], url=msg["url"], datetime_kst=msg["datetime_kst"],
-                           quote=msg["text"][:20], match=msg["match"])
+                           quote=msg["text"][:20], mention=msg["mention"])
     return {**f, "layer": layer, "size_fit": size_fit}
 
 
@@ -389,13 +578,18 @@ def _linked(payload, k, event, layers, quote=None):
             "links": [{"layer": layer, "note": "n", "direction_match": True, "strength": "partial"} for layer in layers]}
 
 
-async def _run_with_dropped_factor(monkeypatch, tmp_path, factors, summary, repair_replies):
+async def _run_with_dropped_factor(monkeypatch, tmp_path, factors, summary, repair_replies, market_compare=None):
     """+6.5%(중간값 -0.6%) 날. factors[0] 의 quote 가 원문에 없고 고쳐 써도 없어 빠진다. repair 쪽 LLM 응답은
-    repair_replies 순서다(첫 번째는 quote 고쳐 쓰기). 래퍼를 돌려준다."""
+    repair_replies 순서다(첫 번째는 quote 고쳐 쓰기). market_compare 를 주면 그 칸을 입력에 넣는다. 래퍼를 돌려준다."""
     from app.services.stock_analysis import repair
 
     path = FIXTURES / "sample_big_up.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
+    if market_compare is not None:
+        async def apply(self, payload):
+            return {**payload, "market_compare": market_compare}, {"market_compare": market_compare}
+
+        monkeypatch.setattr(mc.MarketCompare, "apply", apply)
 
     async def fake(system, user, **_):
         report = report_for(json.loads(user))
@@ -434,6 +628,26 @@ async def test_dropped_relative_factor_rewrites_relative_through_collector(monke
     assert "main_cause_rewrite" not in wrapper  # 빠진 factor 에 등락 층 link 가 없었다
     assert not [w for w in wrapper["verify_warnings"] if w.startswith("RELATIVE_STALE")]
     assert wrapper["cost"] == pytest.approx(0.03)
+
+
+async def test_relative_rewrite_keeps_compare_sentence_through_collector(monkeypatch, tmp_path):
+    """상대 층 근거가 모두 빠져도 그룹 비교가 있으면 relative 를 비우지 않고, 모델에 보낸 market_compare 로 다시 쓴다."""
+    compare = {"status": "ok", "status_reason": None, "kospi": {"kospi_basis": "kospi", "kospi_relation": "diverges"},
+               "peers": [{"group": "2차전지", "median_change_rate_pct": 6.1, "relation": "follows"}]}
+    sentence = "LG에너지솔루션은 코스피와는 다르게 6.10% 오른 같은 2차전지 그룹의 삼성SDI와 함께 움직였습니다."
+
+    def factors(payload):
+        return [_linked(payload, 0, "없는 사건", ["relative"], quote="원문에 없는 문장"),
+                _linked(payload, 0, "공급 계약", ["move"])]
+
+    wrapper = await _run_with_dropped_factor(
+        monkeypatch, tmp_path, factors, {"relative": f"{sentence} 없는 사건으로 더 올랐습니다."},
+        [_STILL_BAD, (json.dumps({"relative": sentence}, ensure_ascii=False), {"cost": 0.01})],
+        market_compare=compare)
+    assert (wrapper["relative_rewrite"]["result"], wrapper["relative_rewrite"]["after"]) == ("rewritten", sentence)
+    assert json.loads(wrapper["final_text"])["summary"]["relative"] == sentence
+    sent = json.loads(collector_repair.complete.await_args_list[1].args[1])
+    assert sent["remaining_factors"] == [] and sent["market_compare"] == compare
 
 
 async def test_failed_relative_rewrite_warns_relative_stale_through_collector(monkeypatch, tmp_path):
@@ -495,3 +709,23 @@ async def test_dropped_move_factor_without_rewrite_warns_main_cause_stale(monkey
     assert wrapper["issue_trace_stats"]["issues_used"] == 0
     assert [w.split(":")[0] for w in wrapper["issue_trace_warnings"]] == ["ISSUE_TRACE_MISSING_URL"] * (total - 1)
     assert result["issue_trace_messages"] == {"traced": 1, "total": total}
+
+
+async def test_used_input_copy_reproduces_verification(fake_llm, krx, tmp_path):
+    """장 마감 이후 ok 면 생성·검증 입력이 받은 입력과 다르다(change_pct −4.2 → 0.27). 받은 입력 사본으로 다시 검증하면
+    결과가 달라지므로, 실제로 쓴 입력을 따로 남기고 그 사본으로 다시 검증하면 같은 결과가 나와야 한다."""
+    from app.services.stock_analysis.verify import verify_wrapper
+
+    krx.side_effect = real_rows
+    runs = tmp_path / "runs"
+    await collector.run(same_day_inputs(tmp_path, ("105560",)), out_root=runs)
+    run_dir = only_run_dir(runs)
+    [wrapper] = parsed(run_dir).values()
+    report = gen.report_of(wrapper)
+    expected = (wrapper["verify_status"], wrapper["verify_problems"])
+
+    received = json.loads((run_dir / wrapper["input_path"]).read_text(encoding="utf-8"))
+    assert verify_wrapper(wrapper, report, received) != expected  # 받은 입력으로는 재현되지 않는다
+    used = json.loads((run_dir / wrapper["input_used_path"]).read_text(encoding="utf-8"))
+    assert used["change_pct"] == 0.27 and used["market_compare"] == wrapper["market_compare"]
+    assert verify_wrapper(wrapper, report, used) == expected

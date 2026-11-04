@@ -22,7 +22,7 @@
       "datetime_kst": "2026-09-18T08:10:00+09:00",
       "views": "1200",
       "text": "솔마루전자, 3분기 영업이익 잠정치 412억원… 시장 예상치 590억원 30% 하회",
-      "match": "direct",
+      "mention": "mentioned",
       "link_bodies": [
         {
           "url": "https://example.com/s/a1b2c3",
@@ -40,7 +40,7 @@
       "datetime_kst": "2026-09-18T10:05:00+09:00",
       "views": "800",
       "text": "전방 스마트폰 수요 둔화 우려로 카메라 모듈 부품 업종 전반 약세",
-      "match": "indirect"
+      "mention": "not_mentioned"
     }
   ]
 }

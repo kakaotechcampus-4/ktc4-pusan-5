@@ -4,6 +4,7 @@ import pytest
 
 from app.services.stock_analysis.finalize import (
     finalize,
+    fix_as_of,
     fix_main_cause,
     recompute_strength,
     recompute_verdicts,
@@ -16,8 +17,8 @@ DIRECT, INDIRECT = "https://t.me/a/1", "https://t.me/a/2"
 def payload(code="999999", change=-1.5, peer=-1.4, excess=-0.1):
     return {"code": code, "stock": "테스트", "change_pct": change,
             "market": {"peer_median_pct": peer, "excess_pct": excess},
-            "messages": [{"url": DIRECT, "match": "direct", "kind": "news", "text": "가"},
-                         {"url": INDIRECT, "match": "indirect", "kind": "news", "text": "나"}]}
+            "messages": [{"url": DIRECT, "mention": "mentioned", "kind": "news", "text": "가"},
+                         {"url": INDIRECT, "mention": "not_mentioned", "kind": "news", "text": "나"}]}
 
 
 def factor(urls, *links, unconfirmed=False):
@@ -98,7 +99,7 @@ def test_other_days_are_untouched():
 
 
 def test_strength_follows_issue_messages_not_sources():
-    """사건의 이슈가 direct 메시지에서 나왔으면 출처에 indirect 만 달아도 sufficient. issue_trace 가 없으면 출처로 본다."""
+    """사건의 이슈가 mentioned 메시지에서 나왔으면 출처에 not_mentioned 만 달아도 sufficient. issue_trace 가 없으면 출처로 본다."""
     p = payload(change=-3.0, peer=-0.5, excess=-2.5)
     trace = [{"id": "m1", "issues": [{"id": "i1", "relation": "direct", "issue": "x"}]},
              {"id": "m2", "issues": [{"id": "i2", "relation": "sector", "issue": "y"}]}]
@@ -138,3 +139,29 @@ def test_finalize_normalizes_legacy_factor_and_strength_warning_uses_model_value
     assert not [w for w in check_warnings(r, p) if w.startswith("STRENGTH_MISMATCH")]
     assert [w.split(":")[0] for w in check_warnings(r, p, model_strength=out["strength_recomputed"])
             if w.startswith("STRENGTH_MISMATCH")] == ["STRENGTH_MISMATCH"]
+
+
+@pytest.mark.parametrize(("target_date", "cutoff", "model_as_of", "shown", "close"), [
+    # 다음 날 아침 cutoff. 화면 기준 시각은 전날 장 마감, as_of 는 cutoff 그대로(날짜가 붙어 적재가 그날 08:30 으로 읽지 않는다)
+    ("2026-11-02", "2026-11-03T08:30:00+09:00", "08:30", "2026-11-02T15:30:00+09:00", True),
+    ("2026-11-02", "2026-11-02T15:30:00+09:00", "15:30", "2026-11-02T15:30:00+09:00", True),
+    # 장 마감이 16:30 으로 늦춰지는 날(수능). 16:30 이 장 마감이고 15:30 은 아직 장중이다
+    ("2026-11-19", "2026-11-19T16:30:00+09:00", "15:30", "2026-11-19T16:30:00+09:00", True),
+    ("2026-11-19", "2026-11-19T15:30:00+09:00", "15:30", "2026-11-19T15:30:00+09:00", False),
+    ("2026-11-02", "2026-11-02T11:00:00+09:00", "11:00", "2026-11-02T11:00:00+09:00", False),  # 장중이면 cutoff 시각
+])
+def test_finalize_keeps_cutoff_as_of_and_adds_display_time(target_date, cutoff, model_as_of, shown, close):
+    p = {**payload(), "target_date": target_date, "cutoff": cutoff}
+    r = {**report([]), "as_of": model_as_of}
+    out = finalize(r, p)
+    assert out["as_of_fixed"] == {"before": model_as_of, "after": cutoff}
+    assert (r["as_of"], r["display_as_of"], r["display_is_close"]) == (cutoff, shown, close)
+    # 모델이 cutoff 를 그대로 적었으면 as_of 는 고치지 않는다
+    r = {**report([]), "as_of": cutoff}
+    assert finalize(r, p)["as_of_fixed"] is None and r["display_as_of"] == shown
+
+
+def test_fix_as_of_leaves_report_when_time_unreadable():
+    r = {**report([]), "as_of": "15:30"}
+    assert fix_as_of(r, payload()) is None  # target_date·cutoff 가 없다
+    assert (r["as_of"], r["display_as_of"], r["display_is_close"]) == ("15:30", None, None)

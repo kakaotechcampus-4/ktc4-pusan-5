@@ -1,11 +1,13 @@
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.services.quote_freshness import is_quote_stale, last_market_close, quote_status
+from app.services.market_calendar import TradingCalendar
+from app.services.quote_freshness import is_quote_stale, quote_status
 
 KST = ZoneInfo("Asia/Seoul")
+WEEKDAYS = TradingCalendar({})  # 달력 행이 없으면 평일 기준
 
 
 def kst(month, day, hour, minute, second=0):
@@ -13,20 +15,6 @@ def kst(month, day, hour, minute, second=0):
 
 
 # 2026-10-05 는 월요일이다.
-@pytest.mark.parametrize(
-    ("now", "expected"),
-    [
-        (kst(10, 5, 16, 0), kst(10, 5, 15, 40)),  # 월 장 마감 후 → 같은 날 마감
-        (kst(10, 5, 10, 0), kst(10, 2, 15, 40)),  # 월 장중 → 직전 금요일 마감
-        (kst(10, 5, 8, 0), kst(10, 2, 15, 40)),  # 월 개장 전 → 직전 금요일 마감
-        (kst(10, 3, 12, 0), kst(10, 2, 15, 40)),  # 토 → 금요일 마감
-        (kst(10, 4, 23, 0), kst(10, 2, 15, 40)),  # 일 → 금요일 마감
-    ],
-)
-def test_last_market_close(now, expected):
-    assert last_market_close(now) == expected
-
-
 @pytest.mark.parametrize(
     ("now", "collected_at", "stale"),
     [
@@ -46,11 +34,21 @@ def test_last_market_close(now, expected):
     ],
 )
 def test_is_quote_stale(now, collected_at, stale):
-    assert is_quote_stale(collected_at, now) is stale
+    assert is_quote_stale(collected_at, now, WEEKDAYS) is stale
+
+
+def test_holiday_daytime_keeps_value_after_last_close():
+    # 2026-12-25(금) 휴장일 낮: 장중이 아니므로 목요일 마감 이후 값은 최신이다.
+    calendar = TradingCalendar({date(2026, 12, 25): False})
+    now = kst(12, 25, 11, 0)
+    assert is_quote_stale(kst(12, 24, 15, 50), now, calendar) is False
+    assert is_quote_stale(kst(12, 24, 15, 0), now, calendar) is True
+    # 달력이 없으면 장중으로 보고 60초 기준으로 낡았다고 판단한다(예전 동작).
+    assert is_quote_stale(kst(12, 24, 15, 50), now, WEEKDAYS) is True
 
 
 def test_quote_status():
     now = kst(10, 5, 16, 0)
-    assert quote_status(None, now) == "pending"
-    assert quote_status(kst(10, 5, 15, 45), now) == "ready"
-    assert quote_status(kst(10, 5, 14, 0), now) == "stale"
+    assert quote_status(None, now, WEEKDAYS) == "pending"
+    assert quote_status(kst(10, 5, 15, 45), now, WEEKDAYS) == "ready"
+    assert quote_status(kst(10, 5, 14, 0), now, WEEKDAYS) == "stale"

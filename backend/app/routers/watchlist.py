@@ -8,6 +8,7 @@ from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models import User
 from app.repositories import watchlist as repo
+from app.repositories.market_calendar import load_calendar
 from app.schemas.watchlist import (
     WatchlistAddRequest,
     WatchlistEntry,
@@ -28,6 +29,7 @@ async def list_watchlist(
 ) -> WatchlistResponse:
     rows = await repo.list_with_quotes(session, user.id)
     now = datetime.now(UTC)
+    calendar = await load_calendar(session, now)
     return WatchlistResponse(
         items=[
             WatchlistEntry(
@@ -35,7 +37,7 @@ async def list_watchlist(
                 name=stock.name,
                 market=stock.market,
                 quote=WatchlistQuote.model_validate(quote) if quote else None,
-                quote_status=quote_status(quote.collected_at if quote else None, now),
+                quote_status=quote_status(quote.collected_at if quote else None, now, calendar),
                 as_of=(quote.source_as_of or quote.collected_at) if quote else None,
             )
             for stock, quote in rows

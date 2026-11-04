@@ -81,9 +81,10 @@ class StockMoveAnalysis(Base):
     # 출력 키는 date 지만 칼럼명으로 쓰면 날짜 타입명과 겹쳐 읽기 나쁘다.
     # 프롬프트 **입력**이 같은 값을 target_date 라고 부르므로 그 이름을 썼다.
     target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    # 프롬프트 출력은 "HH:MM" 문자열이다. target_date 와 합쳐 KST aware datetime 으로
-    # 저장한다 — 루트 CLAUDE.md 가 naive datetime 을 금지하고 응답은 ISO 8601 이어야 한다.
-    # 원본 "15:30" 은 raw_json 에 그대로 남아 진실의 출처가 둘로 갈리지 않는다.
+    # 메시지를 자른 시각(cutoff). 보고서 as_of 는 ISO 8601 이라 그대로, 옛 보고서의 "HH:MM" 은
+    # target_date 와 합쳐 KST aware datetime 으로 저장한다 — 루트 CLAUDE.md 가 naive datetime 을
+    # 금지하고 응답은 ISO 8601 이어야 한다. 원본은 raw_json 에 그대로 남아 진실의 출처가 둘로 갈리지 않는다.
+    # 화면 기준 시각(장 마감 뒤면 그날 장 마감)은 칼럼이 없다 — raw_json 의 display_as_of·display_is_close 다.
     as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # float 로 받으면 -2.01 이 -2.0100000000000002 로 굳는다. 루트 CLAUDE.md 가
     # "가공하지 않은 값" 을 요구하므로 DB 가 값을 흔들면 안 된다.
@@ -238,13 +239,16 @@ class StockMoveAnalysisFactorSource(Base):
     datetime_kst: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # 원문 그대로 40자 이내 발췌. 한 글자만 달라도 근거 검증에서 떨어진다.
     quote: Mapped[str | None] = mapped_column(Text, nullable=True)
-    match: Mapped[str | None] = mapped_column(String(16), nullable=True)  # direct | indirect
+    # 이 출처가 종목을 직접 다루는지. 값은 옛 이름 direct | indirect 로 고정이다. 보고서 칸은
+    # mention(mentioned | not_mentioned)으로 바뀌었지만 적재가 옛 값으로 바꿔 넣는다
+    # (repositories.stock_move_analysis.MENTION_TO_MATCH). 그래서 읽는 쪽은 바꿔 읽지 않아도 된다.
+    match: Mapped[str | None] = mapped_column(String(16), nullable=True)
     is_market_recap: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     # 이 출처의 공통 자료 ID. url 로 DB 에 저장된 원문을 찾아 적재 때 채운다(텔레그램 메시지는
     # telegram_messages.url, 기사는 news 의 정규화 주소). 못 찾으면 NULL 이고 url 은 그대로 남는다.
     # 원문을 나중에 수집했으면 `python -m app.collectors.sources register` 가 다시 찾아 채운다.
-    # 이 ID 로 원문·발행처·발견 경로를 읽는다(repositories/source_card.py 의 get_sources).
+    # 이 ID 로 원문·발행처·발견 경로를 읽는다(repositories/source_card/query.py 의 get_sources).
     source_card_id: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey("source_card.id", name="fk_stock_move_analysis_source_card_id"),

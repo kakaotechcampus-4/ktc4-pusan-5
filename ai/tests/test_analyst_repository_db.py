@@ -1,7 +1,7 @@
 """Real PostgreSQL checks for natural keys and existing report preservation."""
 
 import asyncio
-from datetime import date
+from datetime import UTC, date, datetime
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -102,6 +102,44 @@ def test_naver_market_keeps_original_identity_and_failed_pdf_does_not_erase_body
     assert rows[0]["body_status"] == "ok"
     assert rows[0]["pdf_sha256"] == "a" * 64
     assert rows[0]["attach_url"] == "https://example.com/original.pdf"
+
+
+def test_naver_recollection_keeps_ok_body_and_its_fetch_time(database):
+    """분류 결과의 문장 번호와 기준 시각 비교가 이 본문·시각을 가리킨다. 조회 수·제공 요약은 갱신한다."""
+    alembic(database, "upgrade", "head")
+    first = datetime(2026, 10, 28, 0, 0, tzinfo=UTC)
+    naver = report("naver", "company", body_fetched_at=first, read_count=1)
+    save(database, [naver])
+    save(database, [{
+        **naver,
+        "body_text": "replaced body",
+        "body_chars": 13,
+        "pdf_sha256": "b" * 64,
+        "attach_url": "https://example.com/replaced.pdf",
+        "body_fetched_at": datetime(2026, 10, 29, 9, 0, tzinfo=UTC),
+        "summary_text": "new API summary",
+        "read_count": 7,
+    }])
+    [row] = query(database, "SELECT * FROM analyst_reports")
+    assert row["body_text"] == "original body"
+    assert row["body_fetched_at"] == first
+    assert row["pdf_sha256"] == "a" * 64
+    assert row["attach_url"] == "https://example.com/original.pdf"
+    assert row["summary_text"] == "new API summary"
+    assert row["read_count"] == 7
+
+
+def test_naver_recollection_fills_body_that_failed_before(database):
+    alembic(database, "upgrade", "head")
+    failed = report("naver", "company", body_status="failed", body_text=None, body_chars=None,
+                    pdf_sha256=None)
+    save(database, [failed])
+    fetched = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
+    save(database, [{**failed, "body_status": "ok", "body_text": "filled body", "body_chars": 11,
+                     "pdf_sha256": "b" * 64, "body_fetched_at": fetched}])
+    [row] = query(database, "SELECT * FROM analyst_reports")
+    assert row["body_status"] == "ok" and row["body_text"] == "filled body"
+    assert row["body_fetched_at"] == fetched
 
 
 def test_telegram_pdf_already_in_naver_is_not_saved(database):

@@ -5,6 +5,7 @@
 """
 
 import asyncio
+import json
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -97,3 +98,27 @@ def test_report_sources_are_linked_to_source_cards_now_or_later(database, tmp_pa
     regenerated.write_bytes(SAMSUNG.read_bytes() + b"\n")
     assert load(database, [regenerated]) == 1
     assert query(database, linked)[0][0] == wanted * 2
+
+
+def test_iso_as_of_is_stored_at_the_same_instant_as_hhmm(database, tmp_path):
+    """as_of 칼럼은 timestamptz 다. 새 보고서의 ISO(+09:00) 와 옛 보고서의 "HH:MM"(target_date 와 합쳐 KST)이 같은
+    시각으로 저장되고, 서버 시간대가 UTC 여도 9시간 밀리지 않는다. 다음 날 아침 cutoff 는 그 날짜 그대로 들어간다."""
+    from datetime import datetime
+
+    from app.repositories.stock_move_analysis import KST
+
+    alembic(database, "upgrade", "head")
+    files = []
+    for i, as_of in enumerate(["15:30", "2026-11-02T15:30:00+09:00", "2026-11-03T08:30:00+09:00"]):
+        report = {"ticker": "105560", "name": "KB금융", "date": "2026-11-02", "as_of": as_of, "summary": {}}
+        path = tmp_path / f"r{i}.json"
+        path.write_text(json.dumps({"run_id": f"r{i}", "final_text": json.dumps(report)}), encoding="utf-8")
+        files.append(path)
+    assert load(database, files) == 3
+
+    rows = query(database, "SELECT run_id, as_of, to_char(as_of AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') AS kst "
+                           "FROM stock_move_analyses ORDER BY run_id")
+    assert [(r["run_id"], r["kst"]) for r in rows] == [
+        ("r0", "2026-11-02 15:30"), ("r1", "2026-11-02 15:30"), ("r2", "2026-11-03 08:30")]
+    assert rows[0]["as_of"] == rows[1]["as_of"] == datetime(2026, 11, 2, 15, 30, tzinfo=KST)
+    assert rows[2]["as_of"] == datetime(2026, 11, 3, 8, 30, tzinfo=KST)

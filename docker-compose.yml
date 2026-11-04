@@ -28,6 +28,17 @@ services:
     mem_limit: 1g
     expose:
       - "8000"
+    # CMD 가 alembic upgrade head 를 먼저 돌리므로, /health 가 200 이면 마이그레이션까지 끝난 것이다.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   caddy:
     image: caddy:2
@@ -39,7 +50,8 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   pgdata:

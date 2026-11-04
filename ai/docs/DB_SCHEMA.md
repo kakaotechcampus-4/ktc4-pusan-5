@@ -278,7 +278,7 @@ backend 가 "모든 근거 카드가 들어오는 단일 테이블" 로 만든 �
 
 카드는 수집기가 묶음마다 만들고(`register_missing_sources`), 빠진 것은
 `python -m app.collectors.sources register` 로 한 번에 복구한다. 원문은 카드의 FK 를 따라가
-읽는다(`repositories/source_card.py` 의 `get_sources`).
+읽는다(`repositories/source_card/query.py` 의 `get_sources`).
 
 자료 형태·발행처·수집 경로는 서로 다른 값이다. 예를 들어 증권사 PDF 를 텔레그램에서 받았다면
 `card_type = pdf`, `source_name = 증권사`, 경로는 `analyst_reports.source = telegram` 이다.
@@ -300,7 +300,7 @@ backend 가 "모든 근거 카드가 들어오는 단일 테이블" 로 만든 �
 **아직 채워지지 않는 것:** 뉴스·메시지가 어느 종목 이야기인지 판단하는 코드(필터·태깅 단계)는 실험 레포에 있고
 이 브랜치에 없다. 그게 들어오면 그 방식의 `tagged_by` 값으로 행을 더한다.
 
-조회: `repositories/source_card.py` 의 `stock_card_ids(session, "005930", until=기준시각, since=...)` 가
+조회: `repositories/source_card/query.py` 의 `stock_card_ids(session, "005930", until=기준시각, since=...)` 가
 공통 ID 를 오래된 순서로 준다. 공개 시각을 모르는 자료는 기준 시각의 **전날까지** 날짜인 것만 넣는다.
 
 ### 2-4-2. `dart_disclosures` — DART 공시 목록 (`0025`, 🆕 신규)
