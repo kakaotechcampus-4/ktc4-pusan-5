@@ -230,3 +230,53 @@ echo "DROP DATABASE restore_test;" | docker compose exec -T db sh -c 'psql -U "$
 2026-11-02 에 이 방법으로 `pg_dump` → S3 업로드 → 다운로드 → 임시 DB 복구를 확인했다.
 테이블 수(26)와 마이그레이션 버전(`20261005_01`)이 운영 DB 와 같았다.
 새 서버에서 처음부터 복구하는 전체 과정은 시험하지 않았다.
+
+## 8. 수집기(collector) 서버 배포 (배포 담당)
+
+수집기는 `python -m app.collectors.market --loop` 로 도는 별도 프로세스다. 홈 지표(환율·금·랭킹·수급·지수)와 30개 종목의 현재가·재무·차트를 외부에서 받아 DB 에 채운다.
+API 서버는 외부를 호출하지 않고 DB 를 읽기만 하므로, **수집기가 없으면 현재가가 갱신되지 않고 `/api/stocks` 도 종목 목록 준비 중(503)으로 남는다.**
+
+### 구성
+
+- `docker-compose.yml` 의 `collector`: backend 와 같은 이미지(`ktc4-backend:latest`)를 쓰고 명령만 다르다. `init: true`, `restart: unless-stopped`.
+- 한 번에 하나만 돈다(DB advisory lock). 두 번째가 뜨면 "Another market worker is already running" 을 남기고 바로 종료한다.
+- 하트비트 헬스체크: 수집 루프가 한 바퀴 끝까지 돌 때마다 `/tmp/collector-heartbeat` 를 갱신하고, 헬스체크는 5분 안에 갱신됐는지 본다.
+  **unhealthy 가 되어도 도커는 재시작하지 않는다.** 멈춘 것을 알려 줄 뿐이라 직접 `docker compose restart collector` 를 해야 한다.
+- 로그는 파일당 10MB, 3개까지만 남긴다(collector·backend).
+- 배포(`scripts/deploy.sh`): 마이그레이션이 적용되기 전에 수집기를 멈추고, backend 가 healthy 가 된 뒤 다시 띄운다.
+  수집기 이상은 배포 실패로 치지 않고 로그에 `collector-unhealthy` 만 남긴다. 마이그레이션이 적용된 뒤 실패해서 자동 롤백을 하지 않는 경우에는 수집기도 멈춘 채로 남는다.
+
+### 사전 준비 (서버)
+
+- `backend/.env` 에 `KIS_APP_KEY`, `KIS_APP_SECRET`(필수), `KRX_AUTH_KEY`, `FRED_API_KEY` 가 있어야 한다. 값은 출력하지 않는다.
+- **같은 KIS 앱키를 쓰는 다른 곳(팀원의 로컬 수집기 등)이 동시에 돌면 호출 한도를 나눠 쓰게 되어** 초당 제한 오류(`EGW00201`)가 난다.
+- `docker compose up --help | grep -i wait` 에 `--wait-timeout` 이 있어야 한다.
+- 권장: 스왑이 없으면 메모리가 바닥났을 때 리눅스가 프로세스를 강제 종료하고, 그 대상이 DB 일 수도 있다. 2GB 정도 안전망을 둔다.
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -m
+```
+
+### 첫 배포 후 확인
+
+```bash
+docker compose ps                         # collector 가 healthy 인지(처음 1~2분은 starting)
+docker compose logs collector --tail 50   # "stock catalog: N saved" 가 있어야 한다
+docker stats --no-stream                  # 메모리. collector 의 mem_limit(1g)은 임시값이다
+```
+
+- 종목 목록이 동기화되면 `/api/stocks` 가 503 에서 풀리고, 30개 종목의 현재가가 쌓이는 데 한 바퀴(약 30초 이상)가 걸린다.
+- 호출량(코드 기준): KIS 홈 지표 분당 약 8건(장 시간과 무관하게 항상) + 종목 현재가 장중 분당 최대 30건. 한도(간격 1초 = 분당 60건)의 약 60% 라 장중에는 재무·차트 작업이 늦어질 수 있다.
+
+### 수동 제어
+
+```bash
+docker compose stop collector       # 멈춘다. 다음 배포 때 deploy.sh 가 다시 띄운다
+docker compose up -d collector      # 다시 띄운다
+docker compose restart collector    # unhealthy 일 때
+```
