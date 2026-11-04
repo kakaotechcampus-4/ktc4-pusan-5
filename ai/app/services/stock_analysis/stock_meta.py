@@ -17,6 +17,12 @@ def _table() -> dict[str, dict[str, Any]]:
     return json.loads(META_PATH.read_text(encoding="utf-8"))["stocks"]
 
 
+def name(code: Any) -> str | None:
+    """종목명. 표에 없으면 None."""
+    info = _table().get(str(code))
+    return info.get("name") if info else None
+
+
 def sector(code: Any) -> list[str] | None:
     """업종 라벨 목록(예: ["지주", "반도체"]). 표에 없으면 None."""
     info = _table().get(str(code))
@@ -34,4 +40,4 @@ def universe_codes() -> tuple[str, ...]:
     return tuple(sorted(code for code, info in _table().items() if info.get("universe_weight") is not None))
 
 
-__all__ = ["META_PATH", "sector", "universe_codes", "universe_weight"]
+__all__ = ["META_PATH", "name", "sector", "universe_codes", "universe_weight"]

@@ -25,6 +25,11 @@ excess_pct 도 다시 계산한다(universe_peers). 대상 종목 자신과 응�
 쓸 종목이 하나도 없으면 입력 중간값으로 excess_pct 만 다시 계산한다. 원래 값·다시 계산한 값·뺀 종목은 래퍼
 change_pct_override 에 남는다. 입력에 peer_median_pct 가 없으면 대형주 비교 수치는 건드리지 않는다(없던 비교를 켜지 않는다).
 
+입력 market 이 null 이면(분류 어댑터 입력) 위 칸을 모두 KRX 로 새로 만든다 — 지수 "코스피"·KRX 코스피 등락률·장 마감
+시각, 대형주 비교 수치(universe_peers)와 excess_pct, url 은 "". 안 만들면 market.excess_pct 로 판단하는 상대 층과
+summary.move 의 비교 문장이 꺼진다. 원래 null 이었다는 건 래퍼 change_pct_override.market_created 에 남는다. 장 마감
+전·실패·ok 가 아닌 status 면 null 그대로다.
+
 입력 market 의 지수 등락률(change_pct)·as_of 도 같은 이유로 KRX 코스피 등락률(market_compare.kospi.kospi_change_rate_pct)과
 그날 장 마감 시각으로 바꾼다. 안 바꾸면 모델 입력에 출처·시각이 다른 코스피 등락률이 둘 있고, 정형 보고서 move 문장도 입력
 값을 쓴다. 입력 지수 등락률이 숫자가 아니면(null·칸 없음) 건드리지 않는다. 원래 값은 change_pct_override.index 에 남는다.
@@ -253,30 +258,40 @@ def override_change_pct(
     입력 market 에 지수 등락률(change_pct)이 있으면 KRX 코스피 등락률과 그날 장 마감 시각(as_of)으로 바꾼다.
     peer_median_pct 가 있으면 대형주 비교 수치를 stocks(같은 날 KRX 전 종목)로 다시 계산하고 excess_pct 도 다시
     계산한다. universe 를 안 주면 stock_meta 의 대형주 유니버스다.
+
+    입력 market 이 null 이면(분류 어댑터 입력) 지수·대형주 비교 칸을 모두 KRX 로 새로 만든다. 래퍼
+    market_created 가 true 다. 쓸 대형주가 없으면 peer_*·excess_pct 는 null 이다.
     """
     krx = compare["kospi"]["stock_change_rate_pct"]
     out = {**payload, "change_pct": krx}
     record: dict[str, Any] = {
         "input": payload["change_pct"], "krx": krx,
         "source": f"KRX {KOSPI_STOCK_PATH} {payload['target_date']} FLUC_RT",
-        "index": None, "peers": None, "excess_pct": None,
+        "market_created": False, "index": None, "peers": None, "excess_pct": None,
     }
     market = payload.get("market")
+    created = market is None
+    if created:
+        market = {"index": KOSPI_INDEX_NAME, "change_pct": None, "as_of": None, "url": "",
+                  **dict.fromkeys(PEER_KEYS), "excess_pct": None}
+        record["market_created"] = True
     if not isinstance(market, dict):
         return out, record
     new_market = dict(market)
-    if _is_rate(market.get("change_pct")):
+    if created or _is_rate(market.get("change_pct")):
         index = {"change_pct": compare["kospi"]["kospi_change_rate_pct"],
                  "as_of": market_close(date.fromisoformat(payload["target_date"])).strftime("%H:%M")}
         new_market.update(index)
         record["index"] = {"input": {"change_pct": market["change_pct"], "as_of": market.get("as_of")}, "krx": index,
                            "source": f"KRX {KOSPI_INDEX_PATH} {payload['target_date']} {KOSPI_INDEX_NAME} FLUC_RT"}
-    if _is_rate(market.get("peer_median_pct")):
+    if created or _is_rate(market.get("peer_median_pct")):
         peers, excluded = universe_peers(stocks, str(payload["code"]),
                                          universe_codes() if universe is None else universe)
         record["peers"] = {"input": {key: market.get(key) for key in PEER_KEYS}, "krx": peers, "excluded": excluded}
         new_market.update(peers or {})
-        excess = round(krx - new_market["peer_median_pct"], RATE_DECIMALS)
+        # 새로 만든 market 에 쓸 대형주가 없으면 중간값이 null 이라 excess_pct 도 null 이다
+        median = new_market["peer_median_pct"]
+        excess = round(krx - median, RATE_DECIMALS) if _is_rate(median) else None
         new_market["excess_pct"] = excess
         record["excess_pct"] = {"input": market.get("excess_pct"), "recomputed": excess}
     out["market"] = new_market
