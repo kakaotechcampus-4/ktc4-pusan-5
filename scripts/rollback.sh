@@ -43,6 +43,7 @@ main() {
     docker compose stop backend || true
     if ! docker compose run --rm --no-deps backend /app/.venv/bin/alembic downgrade "$LAST_REV"; then
       echo "rollback: downgrade 실패. backend 가 멈춘 상태입니다. SETUP.md 의 '복구' 절차(백업 복원)를 따르세요." >&2
+      echo "rollback: 복원 정보 - 마지막 성공 SHA ${LAST_SHA} / 마지막 성공 DB 버전 ${LAST_REV} / 현재 DB 버전 $(db_revision || true)" >&2
       return 1
     fi
     local after
