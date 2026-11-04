@@ -285,7 +285,11 @@ async def test_page_without_messages_says_so() -> None:
 
 
 def test_channel_list_starts_small_with_citable_research_channels() -> None:
-    assert [c.id for c in CHANNELS] == ["skitteam", "merITz_tech", "KISGregKim"]
+    assert [c.id for c in CHANNELS] == [
+        "skitteam", "merITz_tech", "KISGregKim", "bio_shinhan", "hedgecat0301", "globalmktinsight", "KISemicon",
+        "financejeong", "meritz_likecho", "yskoh1", "shinhan_park", "thetransport", "mirae_internet", "HJS_YSK",
+        "IThardwareDisplay",
+    ]
     assert {c.tier for c in CHANNELS} == {"A"}
 
 

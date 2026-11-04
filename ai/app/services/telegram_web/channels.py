@@ -11,8 +11,11 @@ SK하이닉스 근거는 0건 늘고 수집량만 15,000자 늘었다. 새 채�
     B    실명 운영자·기관성 채널. 출처를 밝혀 인용한다
     C·D  인용하지 않는다
 
-지금 넣은 채널은 모두 A 등급이다. 처음 넣은 셋(skitteam·merITz_tech·KISGregKim)은 PR #34 발췌 실험에 쓴 텔레그램 기사 20건이 나온채널이다.
-링크 열기·정제를 이미 한 번 돌려 봤다.
+지금 넣은 채널은 모두 A 등급이다. 처음 넣은 셋(skitteam·merITz_tech·KISGregKim)은 PR #34 발췌 실험에 쓴
+텔레그램 기사 20건이 나온 채널이고, 링크 열기·정제를 이미 한 번 돌려 봤다.
+
+마지막 8개는 33개 종목 중 글이 적은 분야를 메우려고 넣은 증권사 섹터 채널이다. CHANNELS.md 에는 없고,
+기존 채널의 전달 글을 따라가 찾았다. 등급은 채널 이름과 글 표본 몇 건으로 매긴 초안이다.
 """
 
 from dataclasses import dataclass
@@ -37,6 +40,14 @@ CHANNELS: tuple[Channel, ...] = (
     Channel("hedgecat0301", "키움증권 전략/시황 한지영", "키움증권 리서치", "A"),
     Channel("globalmktinsight", "[미래에셋증권 시황] 김석환, 김주연", "미래에셋증권 리서치", "A"),
     Channel("KISemicon", "[한투 테크팀] 남채민/황준태/김정찬/김연준", "한국투자증권 리서치", "A"),
+    Channel("financejeong", "한국투자증권 금융 정태준", "한국투자증권 리서치", "A"),
+    Channel("meritz_likecho", "메리츠 금융 조아해", "메리츠증권 리서치", "A"),
+    Channel("yskoh1", "하나증권 증권/보험 고연수", "하나증권 리서치", "A"),
+    Channel("shinhan_park", "[신한 리서치본부] 차·철·광(자동차/철강금속)", "신한투자증권 리서치", "A"),
+    Channel("thetransport", "[한국투자 최고운] 운송", "한국투자증권 리서치", "A"),
+    Channel("mirae_internet", "[미래 임희석] 인터넷/SW/게임", "미래에셋증권 리서치", "A"),
+    Channel("HJS_YSK", "유안타 손현정 [유틸리티(전력기기)/음식료]", "유안타증권 리서치", "A"),
+    Channel("IThardwareDisplay", "현대차증권 IT[전기전자 김종배, 반도체 소부장 윤동욱]", "현대차증권 리서치", "A"),
 )
 
 
