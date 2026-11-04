@@ -37,6 +37,15 @@ def record(card_id: int, *, posted: datetime | None = None, body: str | None | o
     )
 
 
+def news_record(card_id: int, *, title: str | None = "제목", body: str | None | object = DEFAULT_BODY,
+                publisher: str = "mock.news.com") -> SourceRecord:
+    """네이버 기사. channel 이 없고 언론사·제목이 있다(read_model.news_record)."""
+    rec = record(card_id, body=body, kind="news")
+    rec.url, rec.title, rec.publisher, rec.channel = f"https://{publisher}/{card_id}", title, publisher, None
+    rec.collection_path = "naver_news"
+    return rec
+
+
 def event(path: str, label: str | None = "DIRECT") -> dict:
     scope = path if path in ("macro", "market") else "company"
     return {"event_id": 1, "run_id": 1, "scope": scope, "role": "cause", "tense": "past",
@@ -110,15 +119,61 @@ def test_common_background_goes_to_market_context_and_keeps_latest_three():
     assert [d["source_card_id"] for d in meta["dropped"]] == [15, 14]
 
 
-def test_non_message_cards_and_missing_bodies_are_left_out():
-    sources = [source(10, event("company"), card_type="news"), source(11, event("company"), card_type="pdf"),
+def test_pdf_and_disclosure_cards_and_missing_bodies_are_left_out():
+    sources = [source(10, event("company"), card_type="disclosure"), source(11, event("company"), card_type="pdf"),
                source(12, event("company")), source(13, event("company"))]
     payload, meta = build(sources, [record(12, body=None), record(13)])
     assert [m["url"] for m in payload["messages"]] == ["https://t.me/mock_ch/13"]
-    assert meta["counts"]["skipped_card_types"] == {"news": 1, "pdf": 1}
+    assert meta["counts"]["skipped_card_types"] == {"disclosure": 1, "pdf": 1}
     assert meta["counts"]["no_body"] == 1
     assert meta["dropped"] == [{"source_card_id": 12, "reason": "empty: 글자 없이 첨부만 올린 메시지"}]
     assert (meta["unclassified"], meta["failed"], meta["not_observed"]) == (4, 1, 2)
+
+
+def test_news_cards_become_news_messages():
+    sources = [source(13, event("company"), card_type="news"), source(12, event("industry"), card_type="news"),
+               source(11, event("macro", None), card_type="news"), source(10, event("company"), card_type="news"),
+               source(9, event("company"), card_type="news"), source(8, event("company"))]
+    records = [news_record(13, title="SK하이닉스 中공장 장비 반입 보류", body="미 상무부가 승인하지 않고 있다."),
+               news_record(12), news_record(11), news_record(10, title=None), news_record(9, body=None),
+               record(8)]
+    payload, meta = build(sources, records)
+
+    first = payload["messages"][0]
+    assert set(first) == MESSAGE_KEYS
+    assert {k: first[k] for k in ("channel", "url", "text", "mention", "kind")} == {
+        "channel": "mock.news.com", "url": "https://mock.news.com/13",
+        "text": "SK하이닉스 中공장 장비 반입 보류\n\n미 상무부가 승인하지 않고 있다.",
+        "mention": "mentioned", "kind": "news",
+    }
+    # mention·공통 배경 규칙은 메시지와 같다. 제목이 없으면 본문만
+    assert [(m["url"].rsplit("/", 1)[1], m["mention"], m["kind"], m["text"]) for m in payload["messages"][1:]] == [
+        ("12", "not_mentioned", "news", "제목\n\n본문 12"),
+        ("11", "not_mentioned", "market_recap", "제목\n\n본문 11"),
+        ("10", "mentioned", "news", "본문 10"),
+        ("8", "mentioned", "other", "본문 8"),
+    ]
+    assert [m["card_type"] for m in meta["messages"]] == ["news"] * 4 + ["message"]
+    assert meta["counts"]["news"] == 4
+    assert meta["counts"]["skipped_card_types"] == {}
+    assert meta["dropped"] == [{"source_card_id": 9, "reason": "empty: 글자 없이 첨부만 올린 메시지"}]
+    assert [m["kind"] for m in split_messages(payload)["messages"]] == ["news", "news", "news", "other"]
+
+
+@pytest.mark.parametrize(("telegram_body", "article_body", "representative", "kind"), [
+    # 기사 본문만 옮긴 메시지와도 묶인다(제목은 비교에서 뺀다). 제목까지 있는 기사가 더 길어 대표
+    ("기사 본문을 그대로 옮긴 글", "기사 본문을 그대로 옮긴 글", "10", "news"),
+    # 텔레그램이 대표면 kind 는 other — 공통 배경 메시지라도 묶음에 근거 칸 기사가 있으니 근거 칸이다
+    ("기사 본문을 그대로 옮긴 아주 긴 글 전체 내용입니다", "기사 본문을…", "11", "other"),
+])
+def test_message_and_article_with_same_body_are_grouped(telegram_body, article_body, representative, kind):
+    sources = [source(11, event("macro", None)), source(10, event("company"), card_type="news")]
+    payload, meta = build(sources, [record(11, body=telegram_body), news_record(10, body=article_body)])
+
+    assert [(m["url"].rsplit("/", 1)[1], m["mention"], m["kind"], m["dup_channels"])
+            for m in payload["messages"]] == [(representative, "mentioned", kind, 2)]
+    assert meta["counts"]["news"] == (1 if kind == "news" else 0)
+    assert meta["counts"]["duplicates"] == 1
 
 
 def test_bundle_slot():
@@ -268,21 +323,22 @@ def test_load_input_default_since(monkeypatch, rows, basis, since):
 
     async def fake_classified(session, code, *, until, since):
         seen["classified"] = (code, until, since)
-        return found(source(10, event("company")), source(11, event("company"), card_type="news"))
+        return found(source(10, event("company")), source(11, event("company"), card_type="news"),
+                     source(12, event("company"), card_type="pdf"))
 
     async def fake_sources(session, ids, *, include_body, cutoff):
         seen["sources"] = (ids, include_body, cutoff)
-        return [record(i) for i in ids]
+        return [record(10), news_record(11)]
 
     monkeypatch.setattr(ci, "classified_sources", fake_classified)
     monkeypatch.setattr(ci, "get_sources", fake_sources)
     payload, meta = asyncio.run(ci.load_input(FakeSession(rows), CODE, cutoff=CUTOFF, change_pct=-1.2))
 
     assert seen["classified"] == (CODE, CUTOFF, since)
-    assert seen["sources"] == ([10], True, CUTOFF)  # 메시지 카드만, 본문 포함, 기준 시각으로 가림
+    assert seen["sources"] == ([10, 11], True, CUTOFF)  # 메시지·뉴스 카드만, 본문 포함, 기준 시각으로 가림
     assert meta["since_basis"] == basis
     assert meta["since"] == since.isoformat()
-    assert len(payload["messages"]) == 1
+    assert [m["kind"] for m in payload["messages"]] == ["other", "news"]
 
 
 def test_load_input_uses_given_since(monkeypatch):

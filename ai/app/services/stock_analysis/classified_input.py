@@ -12,17 +12,20 @@
 
 ## 자료 고르기
 
-classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카드만 쓴다. 뉴스·PDF 카드(네이버 경로,
-텔레그램 링크로 받은 기사)는 이번엔 넣지 않는다. 본문은 get_sources(include_body=True, cutoff=cutoff) 로 읽고,
-본문이 없는 메시지(첨부만·보관 정책으로 지움·기준 시각 뒤에 받음)는 빼고 meta 에 사유를 남긴다.
+classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카드와 뉴스 카드(네이버 검색, 텔레그램 링크로
+받은 기사)를 쓴다. PDF·공시 카드는 넣지 않는다. 본문은 get_sources(include_body=True, cutoff=cutoff) 로 읽고,
+본문이 없는 자료(첨부만·본문 추출 실패·보관 정책으로 지움·기준 시각 뒤에 받음)는 빼고 meta 에 사유를 남긴다.
+뉴스는 기준 시각 전에 본문을 받아 둔 것만 들어간다(body_fetched_at 기준) — 보고서보다 먼저 수집해야 한다.
 
 ## 메시지 칸
+
+뉴스 카드도 메시지 하나로 넣는다. channel 은 언론사(publisher), text 는 제목 + 빈 줄 + 본문이다.
 
     mention     이 종목 사건 중 path = company 가 하나라도 있으면 mentioned, 아니면 not_mentioned.
                 판정(label)·card_label 은 보지 않는다 — company 경로면 INDIRECT_CONTEXT 판정이어도 mentioned
     kind        공통 배경만 있는 메시지(이 종목 사건이 macro·market 뿐, card_label = null)는 market_recap 이라
                 market_context 칸으로 간다. 기준 시각에 가까운 MARKET_RECAP_LIMIT(3)건만 남기고 뺀 수는 meta 에.
-                company·industry·relation 사건이 있는 메시지는 other(messages 칸)
+                company·industry·relation 사건이 있는 메시지는 other(messages 칸), 뉴스면 news(messages 칸)
     after_prev_close   false. 전날 장 시황인지 가릴 정보가 없다
     first_seen_kst     묶음 정보(bundle_of). 없으면 null
     dup_channels       아래 중복 묶음에 든 서로 다른 채널 수와 묶음 정보 중 큰 값. 없으면 1
@@ -32,7 +35,8 @@ classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카�
 
 본문이 같은 메시지는 하나만 넣는다. 공백을 한 칸으로 줄여 비교하고, 끝이 「…」인 글은 「…」를 뗀 나머지가 다른
 글의 앞부분이면 같은 글로 본다(채널이 긴 글을 잘라 다시 올린 경우). 대표는 가장 긴 글(같으면 먼저 나온 글)이다.
-묶음 안에 company 경로가 하나라도 있으면 mentioned, 근거 칸 메시지가 하나라도 있으면 근거 칸(other)이다.
+묶음 안에 company 경로가 하나라도 있으면 mentioned, 근거 칸 메시지가 하나라도 있으면 근거 칸이다(kind 는 대표
+자료의 종류대로 other·news). 기사는 제목을 뺀 본문으로 비교해, 기사 본문을 옮긴 텔레그램 메시지와도 묶인다.
 나머지는 meta dropped 에 대표 자료 ID 와 함께 남긴다. 공통 배경 MARKET_RECAP_LIMIT 은 묶은 뒤에 센다.
 
 ## 조회 시작(since)
@@ -64,8 +68,11 @@ from app.services.stock_analysis import stock_meta
 from app.services.stock_analysis.market_compare import market_close
 
 MESSAGE_CARD_TYPE = "message"
+NEWS_CARD_TYPE = "news"
+INPUT_CARD_TYPES = (MESSAGE_CARD_TYPE, NEWS_CARD_TYPE)
 MENTIONED_PATH = "company"
 EVIDENCE_KIND = "other"
+NEWS_KIND = "news"
 COMMON_KIND = "market_recap"
 # 공통 배경 메시지를 몇 건까지 넣는가(stock_analysis_io.md 「러너가 호출 전에 보는 것」의 시장 시황 최대 3건)
 MARKET_RECAP_LIMIT = 3
@@ -126,6 +133,19 @@ def bundle_of(source: dict[str, Any], since: datetime) -> tuple[str | None, int]
     return (_kst(first) if first is not None and first < since else None), bundle.get("dup_channels", 1)
 
 
+def evidence_kind(card_type: str) -> str:
+    """근거 칸 메시지의 kind. 뉴스 카드면 news, 텔레그램 메시지면 other."""
+    return NEWS_KIND if card_type == NEWS_CARD_TYPE else EVIDENCE_KIND
+
+
+def channel_and_text(card_type: str, record: SourceRecord) -> tuple[str | None, str | None]:
+    """(channel, text). 뉴스는 언론사와 제목 + 빈 줄 + 본문. 제목이 없으면 본문만."""
+    if card_type != NEWS_CARD_TYPE:
+        return record.channel, record.body
+    text = f"{record.title}\n\n{record.body}" if record.title and record.body else record.body
+    return record.publisher, text
+
+
 def _dedup_key(text: str) -> tuple[str, bool]:
     """(비교할 본문, 끝이 「…」였는가). 공백은 한 칸으로 줄이고 끝의 「…」는 뗀다."""
     normalized = " ".join(text.split())
@@ -165,17 +185,18 @@ def build_input(
     found: dict[str, Any], records: Mapping[int, SourceRecord], *, code: str, cutoff: datetime,
     change_pct: float, since: datetime,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """(러너 입력, meta). found 는 classified_sources 결과, records 는 그 메시지 카드의 get_sources(include_body=True)."""
+    """(러너 입력, meta). found 는 classified_sources 결과, records 는 그 메시지·뉴스 카드의 get_sources(include_body=True)."""
     name = stock_meta.name(code)
     if name is None:
         raise ValueError(f"stock_meta.json 에 없는 종목: {code}")
 
     items, dropped = [], []  # items: 본문 있는 메시지의 (message, trace), classified_sources 순서
+    bodies = []  # items 와 같은 순서의 본문. 중복은 기사 제목을 뺀 본문으로 비교한다
     skipped_types: dict[str, int] = {}
     position = {s["source_card_id"]: n for n, s in enumerate(found["sources"])}
     for source in found["sources"]:
         card_id = source["source_card_id"]
-        if source["card_type"] != MESSAGE_CARD_TYPE:
+        if source["card_type"] not in INPUT_CARD_TYPES:
             skipped_types[source["card_type"]] = skipped_types.get(source["card_type"], 0) + 1
             continue
         record = records.get(card_id)
@@ -185,35 +206,40 @@ def build_input(
             continue
         is_common = source["card_label"] is None
         first_seen, dup_channels = bundle_of(source, since)
+        channel, body = channel_and_text(source["card_type"], record)
         message = {
-            "channel": record.channel,
+            "channel": channel,
             "url": record.url,
             "datetime_kst": _kst(record.published_at or record.available_at),
-            "text": record.body,
+            "text": body,
             "mention": "mentioned" if any(e["path"] == MENTIONED_PATH for e in source["events"])
                        else "not_mentioned",
-            "kind": COMMON_KIND if is_common else EVIDENCE_KIND,
+            "kind": COMMON_KIND if is_common else evidence_kind(source["card_type"]),
             "after_prev_close": False,
             "first_seen_kst": first_seen,
             "dup_channels": dup_channels,
         }
-        trace = {"source_card_id": card_id, "url": record.url, "card_label": source["card_label"],
+        trace = {"source_card_id": card_id, "card_type": source["card_type"], "url": record.url,
+                 "card_label": source["card_label"],
                  "paths": sorted({e["path"] for e in source["events"]}), "kind": message["kind"],
                  "mention": message["mention"], "duplicates": []}
         items.append((message, trace))
+        bodies.append(record.body)
     no_body = len(dropped)
 
     # 같은 글은 가장 긴 글 하나로 묶는다(맨 위 「중복 묶기」). max 는 길이가 같으면 먼저 나온 글을 고른다
     evidence, common = [], []
     duplicates = 0
-    for group in group_duplicates([message["text"] for message, _ in items]):
+    for group in group_duplicates(bodies):
         members = [items[i] for i in group]
         message, trace = max(members, key=lambda item: len(item[0]["text"]))
         others = [other for _, other in members if other is not trace]
         if others:
             mention = ("mentioned" if any(m["mention"] == "mentioned" for m, _ in members)
                        else "not_mentioned")
-            kind = EVIDENCE_KIND if any(m["kind"] == EVIDENCE_KIND for m, _ in members) else COMMON_KIND
+            # kind 는 대표 자료의 종류를 따른다 — 기사와 묶인 텔레그램 대표가 news 가 되지 않게
+            kind = (evidence_kind(trace["card_type"]) if any(m["kind"] != COMMON_KIND for m, _ in members)
+                    else COMMON_KIND)
             message = {**message, "mention": mention, "kind": kind,
                        "dup_channels": max(message["dup_channels"], len({m["channel"] for m, _ in members}))}
             trace = {**trace, "mention": mention, "kind": kind,
@@ -248,6 +274,7 @@ def build_input(
         "counts": {
             "sources": len(found["sources"]), "messages": len(used),
             "evidence": len(evidence), "market_recap": len(common_kept),
+            "news": sum(trace["card_type"] == NEWS_CARD_TYPE for _, trace in used),
             "market_recap_dropped": len(common) - len(common_kept),
             "no_body": no_body, "duplicates": duplicates,
             "skipped_card_types": skipped_types,
@@ -273,7 +300,7 @@ async def load_input(
         since_basis = "market_calendar" if open_days is not None else "weekday_fallback"
         since = previous_close(cutoff.astimezone(KST).date(), open_days)
     found = await classified_sources(session, code, until=cutoff, since=since)
-    ids = [s["source_card_id"] for s in found["sources"] if s["card_type"] == MESSAGE_CARD_TYPE]
+    ids = [s["source_card_id"] for s in found["sources"] if s["card_type"] in INPUT_CARD_TYPES]
     records = {r.id: r for r in await get_sources(session, ids, include_body=True, cutoff=cutoff)}
     payload, meta = build_input(found, records, code=code, cutoff=cutoff, change_pct=change_pct,
                                 since=since)
@@ -310,6 +337,7 @@ async def main(args: argparse.Namespace) -> None:
     counts = meta["counts"]
     print(f"{path}  since {meta['since']} ({meta['since_basis']})  메시지 {counts['messages']}"
           f" (근거 {counts['evidence']} · 시황 {counts['market_recap']}, 시황 뺌 {counts['market_recap_dropped']})"
+          f"  넣은 기사 {counts['news']}"
           f"  본문 없음 {counts['no_body']}  중복 뺌 {counts['duplicates']}  메시지 밖 {counts['skipped_card_types']}"
           f"  미분류 {meta['unclassified']} · 실패 {meta['failed']} · 기준 시각 뒤 본문 {meta['not_observed']}")
 

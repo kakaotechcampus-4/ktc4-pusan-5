@@ -122,6 +122,7 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
 
 - `kind`·`after_prev_close`·`first_seen_kst` 는 입력 생성 단계가 붙인다. 러너 `check_input()` 은 보지 않는다.
   그날 시장 시황·테마 동향 메시지가 종목과 상관없이 `mention: not_mentioned` 로 최대 3건 함께 들어온다.
+- 뉴스 기사도 메시지 하나로 넣는다(`kind: "news"`). `channel` 은 언론사, `url` 은 기사 주소, `text` 는 제목 + 빈 줄 + 본문이다.
 
 ### 러너가 모델에 보내는 입력 — `generate.model_input()`
 
