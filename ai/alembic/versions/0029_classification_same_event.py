@@ -9,8 +9,8 @@
 **downgrade 는 묶음이나 호출 기록이 하나라도 있으면 멈춘다.** 0027 과 같은 이유다. 다시 만들려면
 LLM 비용이 든다.
 
-Revision ID: 0028_classification_same_event
-Revises: 0027_classification
+Revision ID: 0029_classification_same_event
+Revises: 0028_stock_move_analysis_display
 Create Date: 2026-11-03
 """
 
@@ -21,8 +21,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision: str = "0028_classification_same_event"
-down_revision: str | None = "0027_classification"
+revision: str = "0029_classification_same_event"
+down_revision: str | None = "0028_stock_move_analysis_display"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -28,7 +28,12 @@ from app.models.classification import (
     ClassificationEventEntity,
     ClassificationRun,
 )
-from app.repositories.source_card import available_within, body_observed_by, get_sources
+from app.repositories.source_card import (
+    SourceRecord,
+    available_within,
+    body_observed_by,
+    get_sources,
+)
 from app.services.classification.link import TARGET_SCOPES
 from app.services.classification.same_event import (
     CANDIDATE_WINDOW,
@@ -159,7 +164,8 @@ async def cluster_counts(session: AsyncSession, cluster_ids: set[int], *, until:
     """묶음 번호 → source_count·publisher_count·counts_by_type.
 
     한 자료의 사건 둘이 같은 묶음이어도 자료는 하나다. 한 매체가 고쳐 올린 기사는 source_count 만 늘린다.
-    발행처를 모르는 자료는 publisher_count 에 넣지 않는다.
+    발행처를 모르는 자료는 publisher_count 에 넣지 않는다. 같은 묶음에서 세는 자료를 링크로 공유한 메시지는
+    셀 때 뺀다 — 기사 하나가 두 건으로 보이면 안 된다.
     """
     if not cluster_ids:
         return {}
@@ -179,11 +185,20 @@ async def cluster_counts(session: AsyncSession, cluster_ids: set[int], *, until:
         record = records.get(row.id)
         if record is not None and body_observed_by(record, until):
             seen[row.cluster_id].append(record)
+    counted = {cluster_id: _without_link_shares(seen[cluster_id]) for cluster_id in cluster_ids}
     return {cluster_id: {
-        "source_count": len(seen[cluster_id]),
-        "publisher_count": len({r.publisher for r in seen[cluster_id] if r.publisher}),
-        "counts_by_type": dict(Counter(r.kind for r in seen[cluster_id])),
-    } for cluster_id in cluster_ids}
+        "source_count": len(found),
+        "publisher_count": len({r.publisher for r in found if r.publisher}),
+        "counts_by_type": dict(Counter(r.kind for r in found)),
+    } for cluster_id, found in counted.items()}
+
+
+def _without_link_shares(records: list[SourceRecord]) -> list[SourceRecord]:
+    """링크 대상이 같이 세어질 때만 뺀다. 기준 시각 전에 기사를 못 봤으면 그때는 메시지가 유일한 자료다."""
+    ids = {record.id for record in records}
+    return [record for record in records
+            if record.kind != "message"
+            or not any(found.target_card_id in ids for found in record.discoveries)]
 
 
 async def event_clusters(session: AsyncSession, event_ids: set[int], *, until: datetime,

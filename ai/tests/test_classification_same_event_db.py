@@ -149,10 +149,10 @@ def test_downgrade_stops_when_results_exist(database, monkeypatch, table):
                         " (source_card_id, status, model, prompt_sha256)"
                         " VALUES ($1, 'failed', 'm', 'x')", card_id)
 
-    result = alembic(database, "downgrade", "0027_classification", success=False)
+    result = alembic(database, "downgrade", "0028_stock_move_analysis_display", success=False)
     assert "downgrade 를 멈춘다" in result and table in result
     assert query(database, "SELECT version_num FROM alembic_version_ai")[0][0] \
-        == "0028_classification_same_event"
+        == "0029_classification_same_event"
 
 
 # ── 실행 ─────────────────────────────────────────────────────────────────
@@ -457,6 +457,58 @@ def test_two_events_of_one_source_count_once(database, monkeypatch):
     query(database, "INSERT INTO classification_event_cluster_members (event_id, cluster_id)"
                     " VALUES ($1, $2)", event_ids(database, card)[1], cluster)
     assert counts_of(database, cluster)["source_count"] == 1
+
+
+def message_sharing(database: str, monkeypatch, article: int, *, n: int = 1) -> int:
+    """기사를 링크로 공유한 메시지를 만들어 분류까지 저장한다."""
+    channel = query(database, "INSERT INTO channel (telegram_handle, name, is_public, created_at)"
+                              " VALUES ($1, $2, true, now()) RETURNING id",
+                    f"mock_channel_{n}", f"목업 채널 {n}")[0]["id"]
+    message = query(database, """
+        INSERT INTO telegram_messages (channel_id, msg_id, url, posted_at, text, collected_via,
+                                       collected_at)
+        VALUES ($1, 1, $2, $3, $4, 'web', $3) RETURNING id
+    """, channel, f"https://t.me/mock_channel_{n}/1", PUBLISHED, BODY)[0]["id"]
+    query(database, """
+        INSERT INTO telegram_message_links (message_id, kind, position, discovered_url, status, news_id)
+        SELECT $1, 'url', 0, 'https://news.example.com/shared', 'ok', news_id
+        FROM source_card WHERE id = $2
+    """, message, article)
+    in_session(database, register_missing_sources)
+    card = query(database, "SELECT id FROM source_card WHERE telegram_message_id = $1", message)[0]["id"]
+    query(database, "UPDATE source_card SET available_at = $1 WHERE id = $2", PUBLISHED, card)
+    save(database, card, classify_with(monkeypatch, judgments()))
+    return card
+
+
+def test_message_sharing_a_counted_article_is_left_out(database, monkeypatch):
+    prepare(database)
+    article = classified_card(database, monkeypatch, 1)
+    message = message_sharing(database, monkeypatch, article)
+    cluster = company_cluster(database, article, message)
+    assert counts_of(database, cluster) == {
+        "source_count": 1, "publisher_count": 1, "counts_by_type": {"news": 1},
+    }
+
+
+def test_message_sharing_an_article_outside_the_cluster_is_counted(database, monkeypatch):
+    prepare(database)
+    inside = classified_card(database, monkeypatch, 1)
+    outside = classified_card(database, monkeypatch, 2)
+    message = message_sharing(database, monkeypatch, outside)
+    cluster = company_cluster(database, inside, message)
+    assert counts_of(database, cluster)["counts_by_type"] == {"news": 1, "message": 1}
+
+
+def test_message_counts_until_the_shared_article_is_seen(database, monkeypatch):
+    """기준 시각에 기사를 아직 못 봤으면 그때는 메시지가 유일한 자료다."""
+    prepare(database)
+    article = classified_card(database, monkeypatch, 1, at=PUBLISHED + timedelta(hours=5))
+    message = message_sharing(database, monkeypatch, article)
+    cluster = company_cluster(database, article, message)
+    early = counts_of(database, cluster, until=PUBLISHED + timedelta(hours=1))
+    assert early["counts_by_type"] == {"message": 1}
+    assert counts_of(database, cluster)["counts_by_type"] == {"news": 1}
 
 
 def test_counts_leave_out_sources_after_until_or_before_since(database, monkeypatch):
