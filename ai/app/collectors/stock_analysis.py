@@ -7,12 +7,21 @@
 겹치지 않는다. 이미 있으면 덮어쓰지 않고 멈춘다(exist_ok=False).
 
     runs/<YYYYMMDD-HHMMSS>-<8자>/
-      inputs/<run_id>.json   받은 입력 그대로(바이트 복사)
-      parsed/<run_id>.json   실행 기록 래퍼. 적재 모듈이 읽는 파일
+      inputs/<run_id>.json        받은 입력 그대로(바이트 복사)
+      inputs_used/<run_id>.json   실제로 생성·검증에 쓴 입력(시장 맥락을 넣고 KRX 로 덮어쓴 뒤)
+      parsed/<run_id>.json        실행 기록 래퍼. 적재 모듈이 읽는 파일
 
 입력을 같이 남기는 이유: 보고서 출력에는 market 이 없어서 보고서만으로는 초과분을
 다시 확인할 수 없다. 검증을 다시 돌리거나 같은 입력으로 재생성하려면 입력이 있어야 한다.
-래퍼의 input_path 는 실행 디렉터리 기준 상대 경로라 runs/ 를 통째로 옮겨도 이어진다.
+검증을 다시 돌릴 때는 inputs_used/ 사본을 쓴다. inputs/ 사본은 KRX 로 바꾸기 전 값이라 결과가 달라질 수 있다.
+래퍼의 input_path·input_used_path 는 실행 디렉터리 기준 상대 경로라 runs/ 를 통째로 옮겨도 이어진다.
+
+생성 전에 KRX 로 시장 맥락을 계산해 입력 market_compare 칸에 넣는다(stock_analysis.market_compare).
+KRX 는 실행 하나 안에서 기준일마다 한 번만 부르고(실패도 한 번), 같은 날 보고서는 그 응답을 함께 쓴다.
+기준 시각이 장 마감(평소 15:30, market_compare.LATE_CLOSE 날은 그 시각) 전이면 넣지 않는다. 장 마감 이후 시장
+맥락이 ok 면 입력 change_pct 와 지수 등락률을 KRX 등락률로 바꾼다(excess_pct 도 다시 계산). 모델에 보낸 칸,
+실패 사유, 건너뛴 이유, 덮어쓴 원래 값은 래퍼 market_compare·market_compare_error·market_compare_skipped·
+change_pct_override 에 남긴다. KRX 가 실패해도 보고서는 만들고 비교 문장만 빠진다.
 
 `--load` 가 없으면 파일만 쓴다. 적재는 같은 파일을 두 번 넣지 않으므로(sha256)
 파일만 먼저 쓰고 나중에 적재 모듈로 넣어도 된다.
@@ -29,6 +38,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import httpx
+
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.llm.client import cost_currency, endpoint, format_cost, load_prompt
 from app.repositories.stock_move_analysis import KST, insert_analysis_files
@@ -41,6 +53,7 @@ from app.services.stock_analysis.generate import (
     prompt_sha256,
     report_of,
 )
+from app.services.stock_analysis.market_compare import MarketCompare
 from app.services.stock_analysis.repair import (
     RELATIVE_MAX_SENTENCES,
     repair_limit,
@@ -126,6 +139,24 @@ def count_move_cases(wrappers: list[dict[str, Any]]) -> tuple[dict[str, int], in
     return cases, opposite_with_counter
 
 
+def count_market_compare(wrappers: list[dict[str, Any]]) -> dict[str, int]:
+    """시장 맥락 status 별 보고서 수. 칸이 null 이면 장 마감 전은 before_close, 그 밖(KRX 호출·계산 실패)은 failed."""
+    def status(w: dict[str, Any]) -> str:
+        if w.get("market_compare"):
+            return w["market_compare"]["status"]
+        return "before_close" if w.get("market_compare_skipped") else "failed"
+
+    counts: Counter[str] = Counter(status(w) for w in wrappers)
+    return dict(sorted(counts.items()))
+
+
+def count_market_compare_errors(wrappers: list[dict[str, Any]]) -> tuple[dict[str, int], int]:
+    """(시장 맥락 실패의 예외 종류별 보고서 수, 그중 예상 밖 예외인 보고서 수)."""
+    kinds: Counter[str] = Counter(w["market_compare_error_type"] for w in wrappers
+                                  if w.get("market_compare_error_type"))
+    return dict(sorted(kinds.items())), sum(bool(w.get("market_compare_unexpected")) for w in wrappers)
+
+
 def _assign_run_ids(payloads: list[dict[str, Any]]) -> list[str]:
     """같은 종목·날짜·기준시각이 두 번 들어오면 반복 번호로 가른다. 파일이 덮어써지면 안 된다."""
     seen: Counter[str] = Counter()
@@ -153,6 +184,7 @@ async def run(
     run_dir = out_root / f"{started:%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
     run_dir.mkdir(parents=True, exist_ok=False)
     (run_dir / "inputs").mkdir()
+    (run_dir / "inputs_used").mkdir()
     (run_dir / "parsed").mkdir()
 
     run_ids = _assign_run_ids([payload for _, _, payload in items])
@@ -161,8 +193,14 @@ async def run(
     async def work(run_id: str, source: Path, data: bytes, payload: dict[str, Any]) -> dict:
         copied = run_dir / "inputs" / f"{run_id}.json"
         copied.write_bytes(data)
+        used = run_dir / "inputs_used" / f"{run_id}.json"
         async with gate:
+            # 장 마감 전이거나 실패하면 칸이 null 이고 보고서는 그대로 만든다. 장 마감 이후 ok 면 change_pct 가 KRX
+            # 등락률로 바뀐다. 받은 입력 dict 는 바꾸지 않고, 이후 생성·검증은 바뀐 입력으로 한다.
+            payload, compare_fields = await compare_for.apply(payload)
+            used.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
             wrapper = await generate(payload, system=system, prompt_hash=prompt_hash, run_id=run_id)
+            wrapper.update(compare_fields)
             report = report_of(wrapper)
             # quote 가 원문에 없는 factor 는 검증 전에 한 번 고쳐 쓰게 하고, 그래도 없으면 뺀다.
             # 개수 상한을 넘은 보고서는 고쳐 쓰지 않는다(repair.repair_limit, 비용 상한).
@@ -170,10 +208,13 @@ async def run(
                 wrapper["repair_limit"] = repair_limit(report)
                 repairs = await repair_quotes(report, payload, stream=wrapper["stream"], run_id=run_id)
                 # 등락 층·상대 층 근거가 빠졌으면 남은 근거로 main_cause·relative 를 한 번 다시 쓰게 한다.
+                # relative 의 코스피·그룹 비교 문장이 지워지지 않게 모델에 보낸 market_compare 와 종목명을 함께 준다.
                 for field, sentences in (("main_cause", main_cause_sentences(payload)),
                                          ("relative", RELATIVE_MAX_SENTENCES)):
                     rewrite = await rewrite_summary(report, repairs, field, stream=wrapper["stream"],
-                                                    run_id=run_id, sentences=sentences)
+                                                    run_id=run_id, sentences=sentences,
+                                                    market_compare=payload.get("market_compare"),
+                                                    stock=payload.get("stock"))
                     if rewrite is not None:
                         wrapper[f"{field}_rewrite"] = rewrite
                         wrapper["cost"] += rewrite["cost"]
@@ -185,6 +226,7 @@ async def run(
                     wrapper.update(finalize(report, payload, wrapper.get("issue_trace")))
                 wrapper["final_text"] = json.dumps(report, ensure_ascii=False)
         wrapper["input_path"] = copied.relative_to(run_dir).as_posix()
+        wrapper["input_used_path"] = used.relative_to(run_dir).as_posix()
         wrapper["input_original_path"] = source.as_posix()
         wrapper["input_sha256"] = hashlib.sha256(data).hexdigest()
         status, problems = verify_wrapper(wrapper, report, payload)
@@ -216,10 +258,13 @@ async def run(
               f"{format_cost(wrapper['cost'], wrapper['cost_currency'])}) {counts}", flush=True)
         return wrapper
 
-    wrappers = await asyncio.gather(*(
-        work(run_id, path, data, payload)
-        for run_id, (path, data, payload) in zip(run_ids, items, strict=True)
-    ))
+    async with httpx.AsyncClient(timeout=settings.http_timeout_sec) as client:
+        # 기준일별 KRX 응답을 이 실행이 끝날 때까지 함께 쓴다
+        compare_for = MarketCompare(client)
+        wrappers = await asyncio.gather(*(
+            work(run_id, path, data, payload)
+            for run_id, (path, data, payload) in zip(run_ids, items, strict=True)
+        ))
 
     # 사유는 **보고서 기준·계열 단위**로 센다. 한 보고서에서 quote 가 셋 틀려도 1건이고,
     # 한 실수로 함께 나오는 코드(FLAT_MOVE_VERDICT + FLAT_MOVE_FACTORS 등)도 1건이다 —
@@ -229,6 +274,7 @@ async def run(
     for w in wrappers:
         reasons.update(families_of(w["verify_problems"]))
     move_cases, opposite_with_counter = count_move_cases(wrappers)
+    compare_errors, compare_unexpected = count_market_compare_errors(wrappers)
     result = {
         "run_dir": str(run_dir),
         "total": len(wrappers),
@@ -253,6 +299,13 @@ async def run(
                     for key in ("json_retry", "judge_retry")},
         # 직접 언급 메시지가 0건이라 LLM 을 부르지 않고 정형 보고서를 낸 회차 수(generate.canned_report).
         "skipped_llm": sum(bool(w.get("skipped_llm")) for w in wrappers),
+        # 시장 맥락 status 별 보고서 수. 칸이 null 인 것은 before_close(장 마감 전)·failed(KRX 호출·계산 실패).
+        "market_compare": count_market_compare(wrappers),
+        # 입력 change_pct 를 KRX 등락률로 덮어쓴 보고서 수(장 마감 이후 시장 맥락 ok).
+        "change_pct_overridden": sum(w.get("change_pct_override") is not None for w in wrappers),
+        # 시장 맥락 실패의 예외 종류별 보고서 수와, 그중 예상 밖 예외(코드 버그·KRX 응답 모양 변화)인 보고서 수.
+        "market_compare_errors": compare_errors,
+        "market_compare_unexpected": compare_unexpected,
         # issue_trace 에 오른 메시지 수 / 입력 메시지 수. issue_trace 가 있는 보고서만 더한다.
         "issue_trace_messages": {
             k: sum(w["issue_trace_stats"][f"messages_{k}"] for w in wrappers if w["issue_trace_stats"])
@@ -294,6 +347,12 @@ async def run(
           + ", ".join(f"{k}={n}" for k, n in result["warning_counts"].items()))
     print("다시 부른 회차: " + ", ".join(f"{k}={n}" for k, n in result["retried"].items())
           + f" · LLM 없이 정형 보고서: {result['skipped_llm']}")
+    print("시장 맥락 (ok 밖은 비교 문장 없이 만듦): "
+          + ", ".join(f"{s}={n}" for s, n in result["market_compare"].items())
+          + f" · change_pct 를 KRX 등락률로 바꿈: {result['change_pct_overridden']}")
+    if compare_errors:
+        print("시장 맥락 실패 종류: " + ", ".join(f"{k}={n}" for k, n in compare_errors.items())
+              + (f" · 예상 밖 예외 {compare_unexpected}건 — 로그의 traceback 을 확인한다" if compare_unexpected else ""))
     return result
 
 

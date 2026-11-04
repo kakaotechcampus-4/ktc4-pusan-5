@@ -135,8 +135,19 @@ async def test_http_error_keeps_status_and_provider_message(monkeypatch):
     response = client.httpx.Response(429, request=request, text='{"error":"rate limited"}')
     http = _fake_http(monkeypatch, {})
     http.post.return_value = response
-    with pytest.raises(client.LLMError, match=r"HTTP 429 .*rate limited"):
+    with pytest.raises(client.LLMRateLimited, match=r"HTTP 429 .*rate limited"):
         await client.complete("test", "test")
+
+
+async def test_only_429_counts_as_rate_limited(monkeypatch):
+    """분류는 이 예외만 다시 보낸다. 400 을 다시 보내면 같은 거절만 반복한다."""
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
+    request = client.httpx.Request("POST", client.OPENROUTER_URL)
+    http = _fake_http(monkeypatch, {})
+    http.post.return_value = client.httpx.Response(400, request=request, text="bad")
+    with pytest.raises(client.LLMError) as caught:
+        await client.complete("test", "test")
+    assert not isinstance(caught.value, client.LLMRateLimited)
 
 
 def test_elice_without_address_stops_before_calling(monkeypatch):

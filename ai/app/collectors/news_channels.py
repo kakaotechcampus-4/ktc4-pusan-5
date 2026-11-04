@@ -56,7 +56,7 @@ from app.repositories.telegram_message import (
     save_message_links,
     save_messages,
 )
-from app.services.news.failure import http_error, is_retryable
+from app.services.news.failure import http_error, is_retryable, retry_due
 from app.services.news.url import canonical_url
 from app.services.news_link import LinkBody, fetch_link_bodies, is_fetchable
 from app.services.news_link.fetch import DEFAULT_TIMEOUT_SEC as LINK_TIMEOUT_SEC
@@ -187,7 +187,7 @@ async def attach_link_bodies(
     for url in urls:
         article = existing.get(url)
         if article:
-            if article.status == "failed" and is_retryable(article.error):
+            if article.status == "failed" and retry_due(article.error, article.fetched_at, now=now):
                 targets.append(url)
         elif remaining is None or remaining > 0:
             targets.append(url)
@@ -446,6 +446,10 @@ async def save_to_db(
                 elif (body is None and status == unopened and article
                       and article.status == "failed" and not is_retryable(article.error)):
                     status = "permanent_fail"  # 영구 실패로 확인된 기사라 다시 열지 않았다.
+                elif (body is None and status == unopened and article
+                      and article.status == "failed"
+                      and not retry_due(article.error, article.fetched_at, now=now)):
+                    status = "retry_wait"  # 429 대기 중. 범위 밖이라서 건너뛴 것이 아니다.
                 link_rows.append({
                     "message_id": result.id,
                     "kind": "url",

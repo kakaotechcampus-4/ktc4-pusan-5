@@ -3,7 +3,7 @@
 ## 이 모듈이 파이프라인의 어디인가
 
     ① 텔레그램 수집       증권 채널 메시지를 긁는다
-    ② 필터 · 태깅         종목·시각으로 거르고 메시지마다 direct/indirect 를 붙인다
+    ② 필터 · 태깅         종목·시각으로 거르고 메시지마다 mention(mentioned/not_mentioned)을 붙인다
     ③ 보고서 생성 (LLM)   입력 JSON 하나를 주고 보고서 JSON 하나를 받는다
     ④ 실행 기록 래핑      러너가 보고서를 실행 지표로 감싸 runs/<타임스탬프>/parsed/ 에 쓴다
     ⑤ 근거 검증 · 점검    quote 가 원문에 정말 있는지, 상한을 지켰는지 본다
@@ -96,10 +96,15 @@ from app.models.stock_move_analysis import (
     StockMoveAnalysisFactorSource,
 )
 from app.repositories.source_card import card_ids_for_urls
+from app.services.stock_analysis.verify import LEGACY_MENTIONS, mention_of
 
 logger = logging.getLogger(__name__)
 
-# 프롬프트의 as_of 는 "HH:MM" 뿐이라 날짜와 합칠 때 타임존을 우리가 붙여야 한다.
+# 출처 칼럼 match 의 값. 보고서 칸 이름이 match(direct|indirect) → mention(mentioned|not_mentioned)으로 바뀌었지만
+# 칼럼은 옛 값 그대로 둔다 — 이미 쌓인 행과 한 칼럼에 두 어휘가 섞이지 않게, 적재할 때 옛 값으로 바꿔 넣는다.
+MENTION_TO_MATCH = {new: old for old, new in LEGACY_MENTIONS.items()}
+
+# 옛 보고서의 as_of 는 "HH:MM" 뿐이라 날짜와 합칠 때 타임존을 우리가 붙여야 한다. 시간대 없는 ISO 시각도 같다.
 # 대상이 한국 증시 장중 시각이므로 KST 고정이다. 루트 CLAUDE.md 가 naive datetime 을 금지한다.
 KST = timezone(timedelta(hours=9))
 
@@ -266,22 +271,29 @@ def _as_date(value: Any) -> date | None:
 
 
 def _as_of_datetime(target_date: date | None, raw: Any) -> datetime | None:
-    """날짜 "YYYY-MM-DD" 와 시각 "HH:MM" 을 합쳐 KST aware datetime 으로 만든다.
+    """보고서 as_of 를 KST aware datetime 으로 만든다.
 
-    as_of 는 **기준 시각**이다. 이 시각까지 들어온 메시지만 보고 쓴 보고서라는 뜻이라,
-    같은 날 같은 종목이라도 11:00 판과 15:30 판은 내용이 다르다. 15:30 이면 장 마감
-    기준이고 그 전이면 확정값이 아니다. 자연키에 이 값이 들어가는 이유이기도 하다.
+    as_of 는 **메시지를 자른 시각(cutoff)** 이다. 이 시각까지 들어온 메시지만 보고 쓴 보고서라는 뜻이라,
+    같은 날 같은 종목이라도 11:00 판과 15:30 판, 다음 날 08:30 판은 내용이 다르다. 자연키에 이 값이
+    들어가는 이유이기도 하다. 화면 기준 시각(장 마감 뒤면 그날 장 마감)은 보고서 display_as_of 에
+    따로 있고 칼럼 없이 raw_json 에만 남는다.
 
-    날짜가 없으면 합칠 수 없어 NULL 이다. 원본 "15:30" 은 raw_json 에 남아 있으므로
-    여기서 놓쳐도 되살릴 수 있다.
+    지금 보고서는 날짜가 붙은 ISO 8601 시각이라 그대로 쓴다(다음 날 아침 cutoff 도 날짜가 맞다). 옛 보고서는
+    "HH:MM" 이라 target_date 와 합친다 — 날짜가 없으면 합칠 수 없어 NULL 이다. 원본은 raw_json 에 남아
+    있으므로 여기서 놓쳐도 되살릴 수 있다.
     """
-    if target_date is None or not isinstance(raw, str):
+    if not isinstance(raw, str):
         return None
+    text = raw.strip()
     try:
-        hhmm = time.fromisoformat(raw.strip())
+        hhmm = time.fromisoformat(text)
     except ValueError:
-        return None
-    return datetime.combine(target_date, hhmm, tzinfo=KST)
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=KST)
+    return None if target_date is None else datetime.combine(target_date, hhmm, tzinfo=KST)
 
 
 def _as_decimal(value: Any) -> Decimal | None:
@@ -300,6 +312,11 @@ def _as_decimal(value: Any) -> Decimal | None:
         return Decimal(str(value))
     except InvalidOperation:
         return None
+
+
+def _match_value(mention: Any) -> Any:
+    """보고서 mention 값을 칼럼 match 의 옛 값으로. 목록 밖 값은 그대로 둔다(raw_json 과 대조할 수 있게)."""
+    return MENTION_TO_MATCH.get(mention, mention) if isinstance(mention, str) else mention
 
 
 def _parse_kst_datetime(value: Any) -> datetime | None:
@@ -547,10 +564,12 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveAna
                     # 검증기가 이 문자열을 원본 메시지에서 찾아보고, 한 글자라도
                     # 다르면 환각으로 본다. 그래서 적재가 다듬으면 안 된다.
                     quote=_as_str(s.get("quote")),
-                    # 이 메시지가 종목을 직접 다루는지(direct), 업황·경쟁사만
-                    # 다루는지(indirect). indirect 만으로 세운 원인은 size_fit 이
-                    # partial 을 넘을 수 없다.
-                    match=_as_str(s.get("match")),
+                    # 보고서 칸 mention: 이 메시지가 종목을 직접 다루는지(mentioned),
+                    # 업황·경쟁사만 다루는지(not_mentioned). not_mentioned 만으로 세운
+                    # 원인은 strength 가 partial 을 넘을 수 없다. 칼럼은 이름도 값도 옛 그대로라
+                    # mentioned → direct, not_mentioned → indirect 로 바꿔 넣는다(MENTION_TO_MATCH).
+                    # 옛 보고서의 match: direct|indirect 는 그대로 들어간다. 목록 밖 값은 바꾸지 않는다.
+                    match=_as_str(_match_value(mention_of(s))),
                     # "코스피 마감 시황" 류. 결과를 적은 것이지 원인이 아니라서,
                     # 이게 근거로 쓰이면 "내려서 내렸다" 는 순환 논리가 된다.
                     is_market_recap=_as_bool(s.get("is_market_recap")),

@@ -31,7 +31,11 @@ VERDICTS = ("explained", "partially_explained", "no_clear_cause")
 STANCES = ("bullish", "bearish", "neutral")
 # link.strength 의 값. 이전 형식 factor 의 size_fit 과 같은 값 체계다.
 SIZE_FITS = ("sufficient", "partial", "insufficient")
-MATCHES = ("direct", "indirect")
+# 메시지·출처의 mention. mentioned 는 이 종목을 직접 다룸(여러 소식 중 한 줄이라도), not_mentioned 는 업황·경쟁사·
+# 전방산업만 다룸. 옛 이름은 match: direct|indirect 였다 — 분류 모듈의 DIRECT(산업 기사 포함)와 이름이 같은데 뜻이
+# 달라 바꿨다. 옛 값은 읽을 때 새 값으로 옮긴다(mention_of, normalize_report, normalize_payload).
+MENTIONS = ("mentioned", "not_mentioned")
+LEGACY_MENTIONS = {"direct": "mentioned", "indirect": "not_mentioned"}
 BACKGROUND_SLOTS = ("bullish", "bearish", "neutral")
 # link 의 층. move 는 오늘 등락의 원인, relative 는 다른 대형주와 달랐던 이유다(2부 3단계).
 # factor 는 사건 하나이고, 그 사건이 어느 층에 답하는지는 factor.links 에 층마다 하나씩 단다.
@@ -104,7 +108,7 @@ FLAT_MOVE_FACTORS = "FLAT_MOVE_FACTORS"  # |change_pct| ±1% 이내인데 layer:
 FLAT_RELATIVE_VERDICT = "FLAT_RELATIVE_VERDICT"
 FLAT_RELATIVE_FACTORS = "FLAT_RELATIVE_FACTORS"
 # 아래 세 코드는 link 마다 본다. 이름은 이전 형식(factor.size_fit) 때 것을 그대로 둬 빈도를 이어 센다.
-SIZE_FIT_OVER_CAP = "SIZE_FIT_OVER_CAP"  # indirect 만 근거인데 link strength 가 sufficient
+SIZE_FIT_OVER_CAP = "SIZE_FIT_OVER_CAP"  # not_mentioned 만 근거인데 link strength 가 sufficient
 UNCONFIRMED_OVER_CAP = "UNCONFIRMED_OVER_CAP"  # unconfirmed 인데 link strength 가 sufficient
 DIRECTION_MISMATCH = "DIRECTION_MISMATCH"  # link 에 direction_match: false
 # link 의 direction_match 를 그 link 층 방향으로 계산한 값과 다르다. move 는 change_pct 부호,
@@ -183,13 +187,13 @@ MARKET_LED_DIRECT_FACTOR = "MARKET_LED_DIRECT_FACTOR"
 # 입력 judge_layers.relative 가 false 이고 excess_pct 가 있는 날(대형주 전반과 비슷하게 움직인 날)인데
 # summary.move 가 "더/덜 내렸다·올랐다" 로 비교했다. 그날은 "대형주 전반과 비슷하게" 로 쓴다(프롬프트 4부 move).
 MOVE_COMPARISON_ON_FLAT = "MOVE_COMPARISON_ON_FLAT"
-# factor 를 가리키는 사건의 이슈 중 입력에서 match: direct 인 메시지에서 나온 것이 있는데, factor 출처에 direct 메시지가
-# 없다. 같은 사건의 direct 메시지가 있으면 반드시 출처에 넣는다(프롬프트 4부 sources). 출처 선택으로 strength 가 바뀌는
-# 길을 막으려는 규칙이다. match 는 모델이 적은 값이 아니라 입력 값으로 본다.
+# factor 를 가리키는 사건의 이슈 중 입력에서 mention: mentioned 인 메시지에서 나온 것이 있는데, factor 출처에 mentioned
+# 메시지가 없다. 같은 사건의 mentioned 메시지가 있으면 반드시 출처에 넣는다(프롬프트 4부 sources). 출처 선택으로
+# strength 가 바뀌는 길을 막으려는 규칙이다. mention 은 모델이 적은 값이 아니라 입력 값으로 본다.
 DIRECT_SOURCE_MISSING = "DIRECT_SOURCE_MISSING"
-# link strength 가 5단계 정의와 어긋난다. 정의: 그 사건이 direct(입력 match) 메시지에서 나왔고 방향이 맞으면 sufficient,
+# link strength 가 5단계 정의와 어긋난다. 정의: 그 사건이 mentioned(입력 mention) 메시지에서 나왔고 방향이 맞으면 sufficient,
 # 아니면 partial. 상한(미확인, 대형주 몫이 절반 이상인 날 등락 층의 종목 고유 재료)이 걸리면 partial 이 맞다.
-# direct 여부는 factor_has_direct 로 본다(issue_trace 가 있으면 사건의 이슈가 나온 메시지, 없으면 출처).
+# mentioned 여부는 factor_has_direct 로 본다(issue_trace 가 있으면 사건의 이슈가 나온 메시지, 없으면 출처).
 # insufficient 는 판단 몫이라 보지 않는다.
 STRENGTH_MISMATCH = "STRENGTH_MISMATCH"
 # 최종 summary.main_cause(러너가 붙인 고정 문장 포함)가 MAIN_CAUSE_MAX_SENTENCES 문장을 넘는다. 모델 몫은 입력
@@ -201,6 +205,22 @@ _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 # "더 내렸습니다", "덜 올랐고", "더 크게 하락" 처럼 더·덜 뒤에 등락을 말하는 말이 오는 꼴. 앞에 한글이 붙은 "더"(예: "보다더")
 # 는 보지 않고, "여기에 더해" 같은 쓰임은 뒤 말이 달라 걸리지 않는다.
 _MORE_LESS = re.compile(r"(?<![가-힣])(더|덜)\s*(크게\s*|많이\s*|적게\s*)?(내렸|내린|내려|올랐|오른|올라|하락|상승|빠졌|떨어)")
+# 보고서 문장에 비교 판정의 안쪽 말이 나왔다. 「기준 시장」은 프롬프트가 kospi_basis 쪽을 가리키는 자리 이름이라 독자에게는
+# "코스피"·"<종목명>을 뺀 코스피" 로 쓴다. 「판정하기 어렵」·「비교 종목이 하나뿐」은 inconclusive 의 뜻풀이라, 그날은 판정하는
+# 말 없이 비교 종목 등락률만 쓴다(프롬프트 3단계 「비교 수치」). 독자가 읽는 칸(summary, factor event·detail·note,
+# background text)만 본다. quote 는 원문이라 보지 않는다.
+COMPARE_META_PHRASE = "COMPARE_META_PHRASE"
+COMPARE_META_PHRASES = ("판정하기 어렵", "기준 시장", "비교 종목이 하나뿐")
+# 입력 market_compare 판정이 opposite(차이는 기준 안이지만 오르내린 방향이 반대)인데 그 비교를 판정하는 말로 썼다. 그날은 두
+# 등락을 사실로만 쓴다(프롬프트 3단계 「비교 수치」). 코스피는 summary.move·relative 에서 코스피에 바로 붙은 꼴(_KOSPI_JUDGED)을
+# 찾는다. 그룹은 relative 에서 그 그룹을 가리키는 문장을 보되 코스피에 붙은 말은 빼고 COMPARE_JUDGE_WORDS 를 찾는다 — "코스피는
+# 내렸고 …는 같은 … 그룹과 함께 올랐습니다"(코스피 opposite·그룹 follows)의 "함께" 는 그룹 쪽 말이다. 한 문장에 다른 비교가
+# 섞이면 잘못 잡을 수 있어 경고다.
+COMPARE_OPPOSITE_WORDING = "COMPARE_OPPOSITE_WORDING"
+COMPARE_JUDGE_WORDS = ("비슷하게", "함께", "다르게", "따라갔")
+_KOSPI_JUDGED = re.compile(r"코스피(?:와|과)는?\s*(?:비슷하게|함께|다르게)|코스피\s*흐름을\s*따라")
+# 이름이 이것으로 끝나는 그룹은 지분으로 이어진 묶음이라 문장에 "<앞부분> 지분으로 이어진" 으로 쓴다(프롬프트 「동종 그룹」).
+LINKED_GROUP_SUFFIX = " 연동"
 
 # --- events ↔ 실제 칸 대조 (events_problems, 판정과 분리) ------------------------
 
@@ -321,18 +341,80 @@ def _normalize_factor(f: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def mention_of(item: dict[str, Any]) -> Any:
+    """메시지·출처의 mention 값. mention 이 없고 옛 칸 match 만 있으면 옛 값을 새 값으로 읽는다(목록 밖 값은 그대로)."""
+    if "mention" in item or "match" not in item:
+        return item.get("mention")
+    old = item["match"]
+    return LEGACY_MENTIONS.get(old, old) if isinstance(old, str) else old
+
+
+def _has_legacy_mention(item: Any) -> bool:
+    return isinstance(item, dict) and "match" in item
+
+
+def _normalize_mention(item: dict[str, Any]) -> dict[str, Any]:
+    """옛 칸 match 를 같은 자리의 mention 으로 옮긴 사본. 둘 다 있으면 mention 을 남긴다."""
+    if "mention" in item:
+        return {k: v for k, v in item.items() if k != "match"}
+    return {("mention" if k == "match" else k): (mention_of(item) if k == "match" else v) for k, v in item.items()}
+
+
+def _normalize_sources(item: Any) -> Any:
+    """factor·background 항목 출처의 옛 칸 match 를 mention 으로 옮긴 사본. 옮길 것이 없으면 그대로다."""
+    if not isinstance(item, dict) or not isinstance(item.get("sources"), list):
+        return item
+    sources = item["sources"]
+    if not any(_has_legacy_mention(s) for s in sources):
+        return item
+    return {**item, "sources": [_normalize_mention(s) if _has_legacy_mention(s) else s for s in sources]}
+
+
+def _normalize_list(items: list[Any], fn: Any) -> list[Any]:
+    """항목마다 fn 을 적용한 목록. 바뀐 항목이 없으면 원래 목록을 그대로 돌려준다."""
+    fixed = [fn(x) for x in items]
+    return items if all(a is b for a, b in zip(fixed, items, strict=True)) else fixed
+
+
+def _normalize_factor_item(f: Any) -> Any:
+    return _normalize_sources(_normalize_factor(f) if _is_legacy_factor(f) else f)
+
+
 def normalize_report(report: Any) -> Any:
-    """이전 형식 factor 를 links 형식으로 편 사본. 새 형식이거나 factor 가 없으면 그대로다.
+    """이전 형식을 지금 형식으로 편 사본. 새 형식이면 그대로다.
+
+    - factor 의 layer·size_fit·direction_match·claim → links 하나(_normalize_factor)
+    - factor·background 출처의 match: direct|indirect → mention: mentioned|not_mentioned(LEGACY_MENTIONS)
 
     검증 함수마다 처음에 부른다. 같은 보고서를 두 번 불러도 결과가 같고, 원본은 고치지 않는다.
     """
     if not isinstance(report, dict):
         return report
+    out = report
     factors = report.get("factors")
-    if not isinstance(factors, list) or not any(_is_legacy_factor(f) for f in factors):
-        return report
-    return {**report, "factors": [_normalize_factor(f) if _is_legacy_factor(f) else f
-                                  for f in factors]}
+    if isinstance(factors, list) and (fixed := _normalize_list(factors, _normalize_factor_item)) is not factors:
+        out = {**out, "factors": fixed}
+    background = report.get("background")
+    if isinstance(background, dict):
+        slots = {slot: _normalize_list(items, _normalize_sources) if isinstance(items, list) else items
+                 for slot, items in background.items()}
+        if any(slots[slot] is not background[slot] for slot in background):
+            out = {**out, "background": slots}
+    return out
+
+
+def normalize_payload(payload: Any) -> Any:
+    """입력 메시지의 옛 칸 match 를 mention 으로 옮긴 사본. 옮길 것이 없으면 그대로다.
+
+    모델에 보내기 전에 부른다(generate.model_input) — 프롬프트는 mention 만 설명한다. 검증 함수는 메시지를
+    mention_of 로 읽어 이 함수를 거치지 않은 입력도 같은 값으로 본다.
+    """
+    if not isinstance(payload, dict) or not isinstance(payload.get("messages"), list):
+        return payload
+    messages = payload["messages"]
+    if not any(_has_legacy_mention(m) for m in messages):
+        return payload
+    return {**payload, "messages": [_normalize_mention(m) if _has_legacy_mention(m) else m for m in messages]}
 
 
 # --- 스키마 -------------------------------------------------------------------
@@ -387,7 +469,7 @@ def _check_sources_schema(obj: dict, path: str, out: list[str]) -> None:
             continue
         for key in ("channel", "url", "datetime_kst", "quote"):
             _check_str(s, key, spath, out)
-        _check_enum(s, "match", MATCHES, spath, out)
+        _check_enum(s, "mention", MENTIONS, spath, out)
         _check_bool(s, "is_market_recap", spath, out)
 
 
@@ -843,9 +925,9 @@ def check_rules(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
 
     for i, f in enumerate(factors):
         sources = _sources(f)
-        # "match: indirect 메시지만 있음" 이 상한 조건이다. 출처가 하나도 없으면
+        # "mention: not_mentioned 메시지만 있음" 이 상한 조건이다. 출처가 하나도 없으면
         # 간접인지 알 수 없으므로 여기서는 보지 않고 FACTOR_WITHOUT_SOURCE 가 잡는다.
-        indirect_only = bool(sources) and all(s.get("match") == "indirect" for s in sources)
+        indirect_only = bool(sources) and all(mention_of(s) == "not_mentioned" for s in sources)
         stance = f.get("stance")
         for k, link in enumerate(_links(f)):
             where = f"factors[{i}].links[{k}]"
@@ -915,15 +997,15 @@ def check_market_flags(report: dict[str, Any], payload: dict[str, Any]) -> list[
 
 
 def is_stock_specific(factor: dict[str, Any]) -> bool:
-    """종목 고유 재료인가. 출처가 모두 `match: "direct"` 이면 그렇다고 본다.
+    """종목 고유 재료인가. 출처가 모두 `mention: "mentioned"` 이면 그렇다고 본다.
 
-    프롬프트에 따로 칸이 없어 1부의 근거 구분(direct = 이 종목을 직접 다룬 메시지,
-    indirect = 업황·경쟁사·전방산업)을 빌려 쓴다. 출처에 간접 메시지가 하나라도 있으면
-    업종 재료로 본다. 한계: 이 종목 메시지가 시장 전체 사건을 전한 경우(direct 인데 시장 재료)
+    프롬프트에 따로 칸이 없어 1부의 근거 구분(mentioned = 이 종목을 직접 다룬 메시지,
+    not_mentioned = 업황·경쟁사·전방산업)을 빌려 쓴다. 출처에 간접 메시지가 하나라도 있으면
+    업종 재료로 본다. 한계: 이 종목 메시지가 시장 전체 사건을 전한 경우(mentioned 인데 시장 재료)
     는 종목 고유로 잘못 잡힌다. 출처가 없으면 판단하지 않는다(FACTOR_WITHOUT_SOURCE).
     """
     sources = _sources(factor)
-    return bool(sources) and all(s.get("match") == "direct" for s in sources)
+    return bool(sources) and all(mention_of(s) == "mentioned" for s in sources)
 
 
 def _check_market_share(factors: list[dict[str, Any]], payload: dict[str, Any]) -> list[str]:
@@ -1192,12 +1274,15 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     QUOTE_MISSING_SUBJECT       첫 출처 quote 에 event 의 매매 주체·영문 고유명이 없다.
     COMMON_MOVE_WITH_MOVE_LINK  common_move 가 true 인 날 layer: move link 를 가진 factor 가 있다.
     MOVE_COMPARISON_ON_FLAT     judge_layers.relative 가 false(excess_pct 있음)인 날 summary.move 에 더·덜 비교가 있다.
-    DIRECT_SOURCE_MISSING       factor 로 묶인 이슈에 direct 메시지에서 나온 것이 있는데 factor 출처에 direct 가 없다.
+    DIRECT_SOURCE_MISSING       factor 로 묶인 이슈에 mentioned 메시지에서 나온 것이 있는데 factor 출처에 mentioned 가
+                                없다.
                                 issue_trace 가 있어야 본다.
-    STRENGTH_MISMATCH           link strength 가 정의(출처 direct 여부)와 어긋난다. 러너가 strength 를 다시 계산한
+    STRENGTH_MISMATCH           link strength 가 정의(출처 mentioned 여부)와 어긋난다. 러너가 strength 를 다시 계산한
                                 뒤라면 model_strength(래퍼 strength_recomputed)의 모델 값으로 본다(finalize).
     MARKET_LED_DIRECT_FACTOR    market_led 날 등락 층 factor 의 이슈가 모두 relation: direct 다. issue_trace 가 있어야 본다.
     MAIN_CAUSE_TOO_LONG         summary.main_cause 가 MAIN_CAUSE_MAX_SENTENCES 문장을 넘는다(러너 고정 문장 포함).
+    COMPARE_META_PHRASE         독자가 읽는 칸에 비교 판정의 안쪽 말(COMPARE_META_PHRASES)이 있다. payload 없이 본다.
+    COMPARE_OPPOSITE_WORDING    market_compare 판정이 opposite 인 비교에 "비슷하게"·"함께"·"다르게"·"따라갔" 를 썼다.
     """
     if not isinstance(report, dict):
         return []
@@ -1211,6 +1296,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
                 out.append(_p(DUPLICATE_SOURCES,
                               f"factors[{i}] 와 factors[{j}] 의 출처가 같다. 한 사건이면 factor 하나에 links 로 단다"))
     out += _check_caps(report)
+    out += _check_compare_meta(report)
     if payload is None:
         return out
     kinds = {m.get("url"): m.get("kind") for m in _messages(payload)}
@@ -1219,11 +1305,11 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
         if source_kinds and all(k in RESULT_KINDS for k in source_kinds):
             out.append(_p(FACTOR_RESULT_SOURCES_ONLY,
                           f"factors[{i}] 출처가 모두 {'·'.join(RESULT_KINDS)} 메시지다({', '.join(source_kinds)})"))
-    matches = {m.get("url"): m.get("match") for m in _messages(payload)}
+    mentions = {m.get("url"): mention_of(m) for m in _messages(payload)}
     if isinstance(issue_trace, list):
         id_to_url = {i: m.get("url") for i, m in message_ids(payload)}
         out += _check_theme_recap_sector(report, kinds, issue_trace, id_to_url)
-        out += _check_direct_source(report, matches, issue_trace, id_to_url)
+        out += _check_direct_source(report, mentions, issue_trace, id_to_url)
     out += _check_strength(factors, factor_has_direct(report, payload, issue_trace), payload, model_strength)
     summary = report.get("summary")
     main_text = summary.get("main_cause") if isinstance(summary, dict) else None
@@ -1231,6 +1317,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
         out.append(_p(MAIN_CAUSE_TOO_LONG, f"summary.main_cause {n}문장(최대 {MAIN_CAUSE_MAX_SENTENCES}, "
                                            f"모델 몫 {main_cause_sentences(payload)})"))
     out += _check_quote_subjects(factors, str(payload.get("stock") or ""))
+    out += _check_compare_opposite(report, payload)
     market = payload.get("market")
     summary = report.get("summary")
     move_text = summary.get("move") if isinstance(summary, dict) else None
@@ -1264,13 +1351,14 @@ def _check_market_led_factors(report: dict[str, Any], issue_trace: list[Any]) ->
     return out
 
 
-def _has_direct_source(factor: dict[str, Any], matches: dict[Any, Any]) -> bool:
-    return any(matches.get(s.get("url")) == "direct" for s in _sources(factor))
+def _has_direct_source(factor: dict[str, Any], mentions: dict[Any, Any]) -> bool:
+    """출처 중 입력 mention 이 mentioned 인 메시지가 있는가. 모델이 출처에 적은 mention 이 아니라 입력 값으로 본다."""
+    return any(mentions.get(s.get("url")) == "mentioned" for s in _sources(factor))
 
 
-def factor_direct_issue_urls(report: dict[str, Any], matches: dict[Any, Any], issue_trace: list[Any],
+def factor_direct_issue_urls(report: dict[str, Any], mentions: dict[Any, Any], issue_trace: list[Any],
                              id_to_url: dict[str, Any]) -> list[list[str] | None]:
-    """factor 마다: 그 factor 를 가리키는 사건의 issue_ids → 그 이슈가 나온 메시지 → 입력 match=direct 인 url 목록.
+    """factor 마다: 그 factor 를 가리키는 사건의 issue_ids → 그 이슈가 나온 메시지 → 입력 mention=mentioned 인 url 목록.
     사건에 issue_ids 가 하나도 없으면 None(이슈로 판단할 수 없다)."""
     issue_url = {i.get("id"): _trace_entry_url(m, id_to_url) for m in issue_trace if isinstance(m, dict)
                  for i in (m.get("issues") if isinstance(m.get("issues"), list) else []) if isinstance(i, dict)}
@@ -1279,22 +1367,22 @@ def factor_direct_issue_urls(report: dict[str, Any], matches: dict[Any, Any], is
     for i in range(len(_factors(report))):
         ids = [x for e in events if isinstance(e, dict) and e.get("placed") == "factors" and e.get("factor") == i
                for x in (e.get("issue_ids") if isinstance(e.get("issue_ids"), list) else [])]
-        out.append(sorted({issue_url[x] for x in ids if matches.get(issue_url.get(x)) == "direct"}) if ids else None)
+        out.append(sorted({issue_url[x] for x in ids if mentions.get(issue_url.get(x)) == "mentioned"}) if ids else None)
     return out
 
 
 def factor_has_direct(report: dict[str, Any], payload: dict[str, Any],
                       issue_trace: Any = None) -> list[tuple[bool, str]]:
-    """factor 마다 (5단계 strength 정의의 direct 여부, 기준). 기준 "issues" 는 사건의 이슈가 입력 match=direct 메시지에서
-    나왔는가(factor_direct_issue_urls, DIRECT_SOURCE_MISSING 과 같은 판단). issue_trace 가 없거나 사건에 issue_ids 가
-    없으면 기준 "sources" — 출처에 direct 메시지가 있는가."""
-    matches = {m.get("url"): m.get("match") for m in _messages(payload)}
+    """factor 마다 (5단계 strength 정의의 mentioned 여부, 기준). 기준 "issues" 는 사건의 이슈가 입력 mention=mentioned
+    메시지에서 나왔는가(factor_direct_issue_urls, DIRECT_SOURCE_MISSING 과 같은 판단). issue_trace 가 없거나 사건에
+    issue_ids 가 없으면 기준 "sources" — 출처에 mentioned 메시지가 있는가."""
+    mentions = {m.get("url"): mention_of(m) for m in _messages(payload)}
     factors = _factors(report)
     by_issue: list[list[str] | None] = [None] * len(factors)
     if isinstance(issue_trace, list):
         id_to_url = {i: m.get("url") for i, m in message_ids(payload)}
-        by_issue = factor_direct_issue_urls(report, matches, issue_trace, id_to_url)
-    return [(bool(urls), "issues") if urls is not None else (_has_direct_source(f, matches), "sources")
+        by_issue = factor_direct_issue_urls(report, mentions, issue_trace, id_to_url)
+    return [(bool(urls), "issues") if urls is not None else (_has_direct_source(f, mentions), "sources")
             for f, urls in zip(factors, by_issue, strict=True)]
 
 
@@ -1312,21 +1400,24 @@ def main_cause_sentences(payload: dict[str, Any]) -> int:
     return MAIN_CAUSE_MAX_SENTENCES
 
 
-def _check_direct_source(report: dict[str, Any], matches: dict[Any, Any], issue_trace: list[Any],
+def _check_direct_source(report: dict[str, Any], mentions: dict[Any, Any], issue_trace: list[Any],
                          id_to_url: dict[str, Any]) -> list[str]:
-    """factor 를 가리키는 사건의 이슈가 direct 메시지에서 나왔는데(factor_direct_issue_urls) 출처에 direct 가 없으면 경고."""
+    """factor 를 가리키는 사건의 이슈가 mentioned 메시지에서 나왔는데(factor_direct_issue_urls) 출처에 mentioned 가
+    없으면 경고."""
     out: list[str] = []
-    direct = factor_direct_issue_urls(report, matches, issue_trace, id_to_url)
+    direct = factor_direct_issue_urls(report, mentions, issue_trace, id_to_url)
     for i, (f, direct_urls) in enumerate(zip(_factors(report), direct, strict=True)):
-        if direct_urls and not _has_direct_source(f, matches):
+        if direct_urls and not _has_direct_source(f, mentions):
             out.append(_p(DIRECT_SOURCE_MISSING,
-                          f"factors[{i}] 이슈가 direct 메시지({', '.join(direct_urls)})에서 나왔는데 출처에 direct 가 없다"))
+                          f"factors[{i}] 이슈가 mentioned 메시지({', '.join(direct_urls)})에서 나왔는데 "
+                          "출처에 mentioned 가 없다"))
     return out
 
 
 def _check_strength(factors: list[dict[str, Any]], direct: list[tuple[bool, str]], payload: dict[str, Any],
                     model_strength: list[dict[str, Any]] | None = None) -> list[str]:
-    """5단계 정의로 기대하는 strength 와 비교한다. sufficient ↔ partial 이 어긋난 것만 본다. direct 는 factor_has_direct.
+    """5단계 정의로 기대하는 strength 와 비교한다. sufficient ↔ partial 이 어긋난 것만 본다. direct 는 factor_has_direct
+    (mentioned 메시지가 있는가).
     model_strength 가 있으면 (factor, layer) 마다 모델이 적은 값으로 본다 — 러너가 고치기 전 값이다."""
     model = {(r.get("factor"), r.get("layer")): r.get("model") for r in model_strength or []}
     move_capped = move_strength_cap(payload) == "partial"
@@ -1338,9 +1429,9 @@ def _check_strength(factors: list[dict[str, Any]], direct: list[tuple[bool, str]
             strength = model.get((i, layer), link.get("strength"))
             capped = f.get("unconfirmed") is True or (layer == "move" and move_capped)
             if strength == "partial" and has_direct and not capped:
-                out.append(_p(STRENGTH_MISMATCH, f"factors[{i}].links[{k}] layer={layer} {where}에 direct 가 있는데 partial"))
+                out.append(_p(STRENGTH_MISMATCH, f"factors[{i}].links[{k}] layer={layer} {where}에 mentioned 가 있는데 partial"))
             elif strength == CAPPED_SIZE_FIT and not has_direct:
-                out.append(_p(STRENGTH_MISMATCH, f"factors[{i}].links[{k}] layer={layer} {where}에 direct 가 없는데 sufficient"))
+                out.append(_p(STRENGTH_MISMATCH, f"factors[{i}].links[{k}] layer={layer} {where}에 mentioned 가 없는데 sufficient"))
     return out
 
 
@@ -1365,6 +1456,54 @@ def _check_caps(report: dict[str, Any]) -> list[str]:
         if watches[slot] > CAPS["watch_slot"]:
             over.append(f"background.{slot} watch {watches[slot]}개(최대 {CAPS['watch_slot']})")
     return [_p(COUNT_OVER_CAP, x) for x in over]
+
+
+def _check_compare_meta(report: dict[str, Any]) -> list[str]:
+    """독자가 읽는 칸마다 COMPARE_META_PHRASES 를 찾는다. 칸 하나에 말 하나당 경고 하나."""
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    texts = [(f"summary.{key}", summary.get(key)) for key in SUMMARY_KEYS]
+    for i, f in enumerate(_factors(report)):
+        texts += [(f"factors[{i}].event", f.get("event")), (f"factors[{i}].detail", f.get("detail"))]
+        texts += [(f"factors[{i}].links[{j}].note", x.get("note")) for j, x in enumerate(_links(f))]
+    texts += [(f"{path}.text", item.get("text")) for path, item in _background_items(report)]
+    return [_p(COMPARE_META_PHRASE, f"{path} 에 {phrase!r}")
+            for path, text in texts if isinstance(text, str)
+            for phrase in COMPARE_META_PHRASES if phrase in text]
+
+
+def group_mention(group: str) -> str:
+    """문장에서 그룹을 가리키는 말. "SK하이닉스 연동" → "SK하이닉스 지분으로 이어진", "은행지주" → "은행지주 그룹"."""
+    if group.endswith(LINKED_GROUP_SUFFIX):
+        return f"{group.removesuffix(LINKED_GROUP_SUFFIX)} 지분으로 이어진"
+    return f"{group} 그룹"
+
+
+def _check_compare_opposite(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
+    """market_compare 판정이 opposite 인 비교를 판정하는 말로 썼나. 칸·비교마다 경고 하나."""
+    compare = payload.get("market_compare")
+    if not isinstance(compare, dict) or compare.get("status") != "ok":
+        return []
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    out: list[str] = []
+    kospi = compare.get("kospi")
+    if isinstance(kospi, dict) and kospi.get("kospi_relation") == "opposite":
+        for key in ("move", "relative"):
+            text = summary.get(key)
+            if isinstance(text, str) and (m := _KOSPI_JUDGED.search(text)):
+                out.append(_p(COMPARE_OPPOSITE_WORDING, f"코스피와 방향이 반대인 날인데 summary.{key} 에 {m.group(0)!r}"))
+    relative = summary.get("relative")
+    if not isinstance(relative, str):
+        return out
+    sentences = [_KOSPI_JUDGED.sub("", s) for s in _SENTENCE_END.split(relative.strip())]
+    for peer in compare.get("peers") or []:
+        if not isinstance(peer, dict) or peer.get("relation") != "opposite" or not isinstance(peer.get("group"), str):
+            continue
+        mention = group_mention(peer["group"])
+        words = [w for s in sentences if mention in s for w in COMPARE_JUDGE_WORDS if w in s]
+        if words:
+            out.append(_p(COMPARE_OPPOSITE_WORDING,
+                          f"{peer['group']} 그룹과 방향이 반대인 날인데 summary.relative 에 {words[0]!r}"))
+    return out
 
 
 def _check_theme_recap_sector(report: dict[str, Any], kinds: dict[Any, Any],
@@ -1562,8 +1701,9 @@ __all__ = [
     "EVENT_PLACEMENTS",
     "EVENT_REASONS",
     "LAYERS",
+    "LEGACY_MENTIONS",
     "MAIN_CAUSE_STALE",
-    "MATCHES",
+    "MENTIONS",
     "MOVE_CASES",
     "QUOTE_VERIFY_FAIL",
     "RELATIVE_STALE",
@@ -1591,10 +1731,12 @@ __all__ = [
     "judge_layers",
     "layer_pct",
     "market_led",
+    "mention_of",
     "message_ids",
     "move_case",
     "move_comparison",
     "move_strength_cap",
+    "normalize_payload",
     "normalize_quote",
     "normalize_report",
     "normalize_ws",

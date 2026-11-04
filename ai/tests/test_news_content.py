@@ -130,3 +130,34 @@ async def test_total_timeout_includes_dns(monkeypatch):
         assert await fetch_body(client, "https://example.com/news") == (
             None, "request_failed: TimeoutError",
         )
+
+
+async def test_rate_limit_that_never_clears_is_reported_after_backoff(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.services.news_link import fetch
+
+    monkeypatch.setattr(fetch.asyncio, "sleep", AsyncMock())
+    mock_requests = []
+
+    def mock_handler(request):
+        mock_requests.append(request)
+        return httpx.Response(429)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:
+        assert await fetch_body(client, "https://example.com/busy") == (None, "http_error: 429")
+    assert len(mock_requests) == len(fetch.RATE_LIMIT_WAITS) + 1
+
+
+async def test_backoff_wait_does_not_count_against_the_request_timeout(monkeypatch):
+    """대기까지 제한에 넣으면 429 뒤의 재시도가 응답을 받기도 전에 시간 초과로 끝난다."""
+    from app.services.news import content
+    from app.services.news_link import fetch
+
+    monkeypatch.setattr(content, "BODY_TIMEOUT_SEC", 0.1)
+    monkeypatch.setattr(fetch, "RATE_LIMIT_WAITS", (0.2,))
+    mock_responses = iter([httpx.Response(429), httpx.Response(404)])
+    async with httpx.AsyncClient(transport=httpx.MockTransport(
+        lambda r: next(mock_responses),
+    )) as client:
+        assert await fetch_body(client, "https://example.com/busy") == (None, "http_error: 404")

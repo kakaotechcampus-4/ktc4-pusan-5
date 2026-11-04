@@ -11,15 +11,24 @@
 
 Elice 는 스트리밍이 아닌 요청의 출력 상한을 2,000 토큰으로 막는다(config.py). 판정 응답은 사건 ×
 후보 수만큼 길어지므로 Elice 일 때는 스트리밍으로 받는다.
+
+429 는 기다렸다 다시 보낸다. 판정에서 429 가 나 회차가 failed 가 되면 이미 비용을 쓴 추출까지 다시
+해야 한다. 다른 오류는 다시 보내도 같거나 비용을 또 쓸 수 있어 그대로 실패로 남긴다.
 """
 
+import asyncio
 import hashlib
+import logging
+import random
 from dataclasses import dataclass, field
 
 from app.core.config import settings
-from app.llm.client import LLMError, complete, cost_detail, load_prompt
+from app.llm.client import LLMError, LLMRateLimited, complete, cost_detail, load_prompt
 
+logger = logging.getLogger(__name__)
 STEPS = ("extract", "link", "judge")
+# 429 뒤 기다리는 초. 동시에 거절된 호출이 한꺼번에 다시 몰리지 않게 실제로는 1~1.5배로 흩는다
+RATE_LIMIT_WAITS = (5, 20, 60)
 
 
 @dataclass
@@ -30,6 +39,7 @@ class StepCall:
     raw_response: str | None = None
     usage: dict = field(default_factory=dict)
     error: str | None = None
+    rate_limit_retries: int = 0  # 429 로 다시 보낸 횟수
 
     @property
     def ok(self) -> bool:
@@ -38,7 +48,8 @@ class StepCall:
     def usage_record(self) -> dict:
         """회차 usage 칸에 넣을 값. 모델과 비용을 함께 남긴다."""
         amount, basis = cost_detail(self.usage)
-        return {**self.usage, "model": self.model, "cost": amount, "cost_basis": basis}
+        return {**self.usage, "model": self.model, "cost": amount, "cost_basis": basis,
+                "rate_limit_retries": self.rate_limit_retries}
 
 
 SAME_EVENT_STEP = "same_event"
@@ -69,16 +80,26 @@ async def call(step: str, prompt_name: str, user: str, *, model: str | None = No
         step=step, model=model_for(step, model),
         prompt_sha256=hashlib.sha256(system.encode("utf-8")).hexdigest(),
     )
-    try:
-        text, usage = await complete(
-            system, user, model=result.model, max_tokens=settings.classification_max_tokens,
-            stream=settings.llm_provider == "elice",
-        )
-    except LLMError as exc:
-        result.error = f"{step}: {exc}"
+    waits = iter(RATE_LIMIT_WAITS)
+    while True:
+        try:
+            text, usage = await complete(
+                system, user, model=result.model, max_tokens=settings.classification_max_tokens,
+                stream=settings.llm_provider == "elice",
+            )
+        except LLMError as exc:
+            wait = next(waits, None) if isinstance(exc, LLMRateLimited) else None
+            if wait is None:
+                result.error = f"{step}: {exc}"
+                return result
+            delay = wait * random.uniform(1, 1.5)
+            result.rate_limit_retries += 1
+            # 횟수는 회차 usage 와 합계 줄에 남는다. 로그는 긴 실행 도중에 429 를 알아채려고 찍는다
+            logger.warning("429 %s: %.0f초 뒤 다시 보낸다", step, delay)
+            await asyncio.sleep(delay)
+            continue
+        result.raw_response, result.usage = text, usage
         return result
-    result.raw_response, result.usage = text, usage
-    return result
 
 
 def parse_failure(call_result: StepCall, message: str) -> str:

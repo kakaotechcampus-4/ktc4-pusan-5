@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     telegram_api_hash: str | None = None
     telegram_session: str | None = None
 
+    # 시장 데이터(services/market_data). 코스피 대비 초과 등락·환율·기준금리를 읽는다.
+    # KRX 키는 openapi.krx.co.kr 에서 받는다. 키와 별개로 API 마다 이용신청 승인이 필요하다
+    # (kospi_dd_trd, stk_bydd_trd). 승인이 안 된 API 는 같은 401 이라도 메시지가 다르다(krx.py 참고).
+    # ECOS 키는 요청 주소 경로에 그대로 들어간다. 주소를 로그·예외에 남기면 키가 샌다(ecos.py 참고).
+    krx_auth_key: str | None = None
+    ecos_api_key: str | None = None
+
     # 텔레그램 리포트 요약 생성. 네이버는 API 가 요약을 줘서 필요 없다(5종 100/100 확인).
     #
     openrouter_api_key: str | None = None
@@ -164,6 +171,21 @@ class Settings(BaseSettings):
                 "요약 생성에 OPENROUTER_API_KEY 가 필요하다. ai/.env 에 넣는다."
             )
         return self.openrouter_api_key
+
+    def require_krx(self) -> str:
+        return self._require_key("krx_auth_key", "KRX 시세 조회", "openapi.krx.co.kr")
+
+    def require_ecos(self) -> str:
+        return self._require_key("ecos_api_key", "ECOS 환율·금리 조회", "ecos.bok.or.kr/api")
+
+    def _require_key(self, name: str, purpose: str, issuer: str) -> str:
+        # `KRX_AUTH_KEY=` 처럼 비워 둔 줄은 빈 문자열로 읽힌다. 없는 것과 같게 본다.
+        value = (getattr(self, name) or "").strip()
+        if not value:
+            raise RuntimeError(
+                f"{purpose}에 {name.upper()} 가 필요하다. ai/.env 에 넣는다. 키는 {issuer} 에서 받는다."
+            )
+        return value
 
     def require_telegram(self, *, require_session: bool = True) -> None:
         """텔레그램 설정이 없으면 여기서 멈춘다.
