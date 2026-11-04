@@ -32,6 +32,10 @@ class LLMTimeout(LLMError):
     """호출 전체 시간 제한(settings.summary_timeout_sec)이나 연결 시간 제한에 걸렸다. 받은 부분은 없다."""
 
 
+class LLMRateLimited(LLMError):
+    """속도 제한(HTTP 429)으로 거절됐다. 응답을 받지 못했으니 잠시 뒤 다시 보낼 수 있다."""
+
+
 class StreamInterrupted(LLMError):
     """스트림이 응답을 다 주기 전에 끊겼다. 받은 부분은 길이(글자 수)만 남긴다 —
     잘린 JSON 을 열어 보거나 저장하면 안 되므로 본문은 넘기지 않는다."""
@@ -230,7 +234,8 @@ async def complete(
     except httpx.HTTPStatusError as exc:
         # 상태 코드와 응답 앞부분을 남긴다. 예외 이름만 남기면 429(속도 제한)인지
         # 400(매개변수 거절)인지 몰라서 고칠 곳을 못 찾는다 — Elice 첫 실행에서 겪었다.
-        raise LLMError(
+        error = LLMRateLimited if exc.response.status_code == 429 else LLMError
+        raise error(
             f"LLM 호출 실패: HTTP {exc.response.status_code} "
             f"{_error_detail(exc.response.text, key)}"
         ) from exc

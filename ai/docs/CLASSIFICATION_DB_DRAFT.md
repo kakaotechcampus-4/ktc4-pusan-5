@@ -255,7 +255,7 @@ company_relations.industry_code → industries.code
 | `judge_raw_response` | text | NULL | ④ 판정 모델 응답 원문 |
 | `judge_fixes` | jsonb | NN, 기본 `{}` | 저장 전에 코드가 ④ 출력을 보정한 건수 (4-8). 예: `{"direct_lowered": 1, "missing_filled": 2, "outside_dropped": 0, "invalid_label": 0, "duplicate_dropped": 0}` |
 | `error` | text | NULL | 실패 사유 |
-| `usage` | jsonb | NN, 기본 `{}` | 단계별(`extract`·`link`·`judge`) 토큰 수·비용·모델. ② 코드 선택은 응답 원문도 여기(`link.raw_response`)에 남긴다 |
+| `usage` | jsonb | NN, 기본 `{}` | 단계별(`extract`·`link`·`judge`) 토큰 수·비용·모델·429 재시도 횟수(`rate_limit_retries`). ② 코드 선택은 응답 원문도 여기(`link.raw_response`)에 남긴다 |
 | `is_current` | boolean | NN, 기본 false | 조회에 쓰는 회차인지 |
 | `classified_at` | timestamptz | NN, 기본 `now()` | |
 
