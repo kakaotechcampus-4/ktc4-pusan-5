@@ -119,15 +119,46 @@ def test_common_background_goes_to_market_context_and_keeps_latest_three():
     assert [d["source_card_id"] for d in meta["dropped"]] == [15, 14]
 
 
-def test_pdf_and_disclosure_cards_and_missing_bodies_are_left_out():
-    sources = [source(10, event("company"), card_type="disclosure"), source(11, event("company"), card_type="pdf"),
-               source(12, event("company")), source(13, event("company"))]
-    payload, meta = build(sources, [record(12, body=None), record(13)])
-    assert [m["url"] for m in payload["messages"]] == ["https://t.me/mock_ch/13"]
-    assert meta["counts"]["skipped_card_types"] == {"disclosure": 1, "pdf": 1}
-    assert meta["counts"]["no_body"] == 1
-    assert meta["dropped"] == [{"source_card_id": 12, "reason": "empty: 글자 없이 첨부만 올린 메시지"}]
+def pdf_record(card_id: int, *, body: str | None | object = DEFAULT_BODY) -> SourceRecord:
+    """네이버 리서치 리포트. 시각 없이 작성일만 있고 증권사·제목이 있다(read_model.pdf_record)."""
+    rec = record(card_id, body=body, kind="pdf")
+    rec.url, rec.title, rec.publisher, rec.channel = f"https://mock.research/{card_id}.pdf", "리포트 제목", "mock증권", None
+    rec.published_at = rec.available_at = None
+    rec.write_date = date(2026, 11, 2)
+    return rec
+
+
+def disclosure_record(card_id: int, *, title: str | None = "주요사항보고서(자기주식취득결정)") -> SourceRecord:
+    """DART 공시. 본문 없이 제목·제출인·접수일만 있다(read_model.disclosure_record)."""
+    rec = record(card_id, body=None, kind="disclosure")
+    rec.url, rec.title, rec.publisher, rec.channel = f"https://dart.mock/{card_id}", title, "mock전자", None
+    rec.published_at = rec.available_at = None
+    rec.write_date = date(2026, 11, 3)
+    rec.body_missing_reason = "not_collected: 공시는 목록(제목·제출인·접수일)만 저장한다"
+    return rec
+
+
+def test_pdf_and_disclosure_cards_go_in_and_missing_bodies_are_left_out():
+    sources = [source(11, event("company"), card_type="pdf"), source(12, event("company")),
+               source(13, event("company")), source(14, event("company"), card_type="pdf"),
+               ci.disclosure_source(10), ci.disclosure_source(15)]
+    records = [pdf_record(11), record(12, body=None), record(13), pdf_record(14, body=None),
+               disclosure_record(10), disclosure_record(15, title=None)]
+    payload, meta = build(sources, records)
+
+    assert [(m["url"], m["channel"], m["kind"], m["mention"], m["datetime_kst"], m["text"])
+            for m in payload["messages"]] == [
+        ("https://mock.research/11.pdf", "mock증권", "other", "mentioned", "2026-11-02", "리포트 제목\n\n본문 11"),
+        ("https://t.me/mock_ch/13", "mock_ch", "other", "mentioned", "2026-11-03T02:30:00+09:00", "본문 13"),
+        ("https://dart.mock/10", "mock전자", "disclosure", "mentioned", "2026-11-03",
+         "주요사항보고서(자기주식취득결정)"),
+    ]
+    assert meta["counts"]["skipped_card_types"] == {}
+    assert (meta["counts"]["pdf"], meta["counts"]["disclosure"]) == (1, 1)
+    assert meta["counts"]["no_body"] == 3
+    assert [d["source_card_id"] for d in meta["dropped"]] == [12, 14, 15]
     assert (meta["unclassified"], meta["failed"], meta["not_observed"]) == (4, 1, 2)
+    assert [m["kind"] for m in split_messages(payload)["messages"]] == ["other", "other", "disclosure"]
 
 
 def test_news_cards_become_news_messages():
@@ -326,19 +357,27 @@ def test_load_input_default_since(monkeypatch, rows, basis, since):
         return found(source(10, event("company")), source(11, event("company"), card_type="news"),
                      source(12, event("company"), card_type="pdf"))
 
-    async def fake_sources(session, ids, *, include_body, cutoff):
+    async def fake_linked(session, code, *, until, since):
+        seen["linked"] = (code, until, since)
+        return [10, 13, 14]  # 이 종목으로 이어진 카드. 공시(13)만 붙인다
+
+    async def fake_sources(session, ids, *, include_body=False, cutoff=None):
+        if not include_body:  # 이어진 카드의 종류만 본다
+            return [record(10), disclosure_record(13), record(14)]
         seen["sources"] = (ids, include_body, cutoff)
-        return [record(10), news_record(11)]
+        return [record(10), news_record(11), pdf_record(12), disclosure_record(13)]
 
     monkeypatch.setattr(ci, "classified_sources", fake_classified)
+    monkeypatch.setattr(ci, "stock_card_ids", fake_linked)
     monkeypatch.setattr(ci, "get_sources", fake_sources)
     payload, meta = asyncio.run(ci.load_input(FakeSession(rows), CODE, cutoff=CUTOFF, change_pct=-1.2))
 
-    assert seen["classified"] == (CODE, CUTOFF, since)
-    assert seen["sources"] == ([10, 11], True, CUTOFF)  # 메시지·뉴스 카드만, 본문 포함, 기준 시각으로 가림
+    assert seen["classified"] == seen["linked"] == (CODE, CUTOFF, since)
+    # 메시지·뉴스·리포트·공시 카드, 본문 포함, 기준 시각으로 가림
+    assert seen["sources"] == ([10, 11, 12, 13], True, CUTOFF)
     assert meta["since_basis"] == basis
     assert meta["since"] == since.isoformat()
-    assert [m["kind"] for m in payload["messages"]] == ["other", "news"]
+    assert [m["kind"] for m in payload["messages"]] == ["other", "news", "other", "disclosure"]
 
 
 def test_load_input_uses_given_since(monkeypatch):
@@ -346,10 +385,15 @@ def test_load_input_uses_given_since(monkeypatch):
         assert since == SINCE
         return found()
 
-    async def fake_sources(session, ids, *, include_body, cutoff):
+    async def fake_linked(session, code, *, until, since):
+        assert since == SINCE
+        return []
+
+    async def fake_sources(session, ids, *, include_body=False, cutoff=None):
         return []
 
     monkeypatch.setattr(ci, "classified_sources", fake_classified)
+    monkeypatch.setattr(ci, "stock_card_ids", fake_linked)
     monkeypatch.setattr(ci, "get_sources", fake_sources)
     _, meta = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=CUTOFF, change_pct=0.0, since=SINCE))
     assert meta["since_basis"] == "argument"

@@ -12,14 +12,16 @@
 
 ## 자료 고르기
 
-classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카드와 뉴스 카드(네이버 검색, 텔레그램 링크로
-받은 기사)를 쓴다. PDF·공시 카드는 넣지 않는다. 본문은 get_sources(include_body=True, cutoff=cutoff) 로 읽고,
+classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카드, 뉴스 카드(네이버 검색, 텔레그램 링크로
+받은 기사), 증권사 리포트(PDF) 카드를 쓴다. 공시는 분류하지 않으므로 같은 기간에 dart_stock_code 로 이 종목에
+이어진 공시 카드(stock_card_ids)를 뒤에 붙인다. 본문은 get_sources(include_body=True, cutoff=cutoff) 로 읽고,
 본문이 없는 자료(첨부만·본문 추출 실패·보관 정책으로 지움·기준 시각 뒤에 받음)는 빼고 meta 에 사유를 남긴다.
-뉴스는 기준 시각 전에 본문을 받아 둔 것만 들어간다(body_fetched_at 기준) — 보고서보다 먼저 수집해야 한다.
+공시는 목록만 저장해 본문이 없으므로 제목을 text 로 넣는다(kind disclosure, mentioned).
+뉴스·리포트는 기준 시각 전에 본문을 받아 둔 것만 들어간다(body_fetched_at 기준) — 보고서보다 먼저 수집해야 한다.
 
 ## 메시지 칸
 
-뉴스 카드도 메시지 하나로 넣는다. channel 은 언론사(publisher), text 는 제목 + 빈 줄 + 본문이다.
+뉴스·리포트 카드도 메시지 하나로 넣는다. channel 은 언론사·증권사(publisher), text 는 제목 + 빈 줄 + 본문이다.
 
     mention     이 종목 사건 중 path = company 가 하나라도 있으면 mentioned, 아니면 not_mentioned.
                 판정(label)·card_label 은 보지 않는다 — company 경로면 INDIRECT_CONTEXT 판정이어도 mentioned
@@ -62,17 +64,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.scope import KST
 from app.repositories.classification import classified_sources
-from app.repositories.source_card import get_sources
+from app.repositories.source_card import get_sources, stock_card_ids
 from app.repositories.source_card.read_model import SourceRecord
 from app.services.stock_analysis import stock_meta
 from app.services.stock_analysis.market_compare import market_close
 
 MESSAGE_CARD_TYPE = "message"
 NEWS_CARD_TYPE = "news"
-INPUT_CARD_TYPES = (MESSAGE_CARD_TYPE, NEWS_CARD_TYPE)
+PDF_CARD_TYPE = "pdf"
+DISCLOSURE_CARD_TYPE = "disclosure"
+INPUT_CARD_TYPES = (MESSAGE_CARD_TYPE, NEWS_CARD_TYPE, PDF_CARD_TYPE, DISCLOSURE_CARD_TYPE)
+# 제목을 본문 앞에 붙이는 자료(기사·리포트). 공시는 본문이 없어 제목만 넣는다
+TITLED_CARD_TYPES = (NEWS_CARD_TYPE, PDF_CARD_TYPE)
 MENTIONED_PATH = "company"
 EVIDENCE_KIND = "other"
 NEWS_KIND = "news"
+DISCLOSURE_KIND = "disclosure"
 COMMON_KIND = "market_recap"
 # 공통 배경 메시지를 몇 건까지 넣는가(stock_analysis_io.md 「러너가 호출 전에 보는 것」의 시장 시황 최대 3건)
 MARKET_RECAP_LIMIT = 3
@@ -134,16 +141,39 @@ def bundle_of(source: dict[str, Any], since: datetime) -> tuple[str | None, int]
 
 
 def evidence_kind(card_type: str) -> str:
-    """근거 칸 메시지의 kind. 뉴스 카드면 news, 텔레그램 메시지면 other."""
-    return NEWS_KIND if card_type == NEWS_CARD_TYPE else EVIDENCE_KIND
+    """근거 칸 메시지의 kind. 뉴스 카드면 news, 공시면 disclosure, 텔레그램 메시지·리포트는 other."""
+    return {NEWS_CARD_TYPE: NEWS_KIND, DISCLOSURE_CARD_TYPE: DISCLOSURE_KIND}.get(card_type, EVIDENCE_KIND)
 
 
 def channel_and_text(card_type: str, record: SourceRecord) -> tuple[str | None, str | None]:
-    """(channel, text). 뉴스는 언론사와 제목 + 빈 줄 + 본문. 제목이 없으면 본문만."""
-    if card_type != NEWS_CARD_TYPE:
+    """(channel, text). 뉴스·리포트는 언론사·증권사와 제목 + 빈 줄 + 본문(제목이 없으면 본문만).
+    공시는 제출인과 공시 제목(본문을 받지 않는다)."""
+    if card_type == DISCLOSURE_CARD_TYPE:
+        return record.publisher, record.title
+    if card_type not in TITLED_CARD_TYPES:
         return record.channel, record.body
     text = f"{record.title}\n\n{record.body}" if record.title and record.body else record.body
     return record.publisher, text
+
+
+def has_text(card_type: str, record: SourceRecord | None) -> bool:
+    """메시지로 넣을 글이 있는가. 공시는 제목, 나머지는 본문."""
+    if record is None:
+        return False
+    return bool(record.title) if card_type == DISCLOSURE_CARD_TYPE else record.has_body
+
+
+def message_time(record: SourceRecord) -> str | None:
+    """datetime_kst. 시각을 모르는 리포트·공시는 작성일·접수일(YYYY-MM-DD)."""
+    moment = _kst(record.published_at or record.available_at)
+    return moment or (record.write_date.isoformat() if record.write_date else None)
+
+
+def disclosure_source(card_id: int) -> dict[str, Any]:
+    """공시 카드를 classified_sources 자료 모양으로. 공시는 분류하지 않고(classification.py 맨 위)
+    dart_stock_code 로 이 종목에 이어져 있어 회사 사건 하나(company, DIRECT)로 본다."""
+    return {"source_card_id": card_id, "card_type": DISCLOSURE_CARD_TYPE, "card_label": "DIRECT",
+            "events": [{"path": MENTIONED_PATH, "label": "DIRECT"}]}
 
 
 def _dedup_key(text: str) -> tuple[str, bool]:
@@ -200,7 +230,7 @@ def build_input(
             skipped_types[source["card_type"]] = skipped_types.get(source["card_type"], 0) + 1
             continue
         record = records.get(card_id)
-        if record is None or not record.has_body:
+        if not has_text(source["card_type"], record):
             dropped.append({"source_card_id": card_id, "reason": record.body_missing_reason
                             if record else "get_sources 에 없음"})
             continue
@@ -210,7 +240,7 @@ def build_input(
         message = {
             "channel": channel,
             "url": record.url,
-            "datetime_kst": _kst(record.published_at or record.available_at),
+            "datetime_kst": message_time(record),
             "text": body,
             "mention": "mentioned" if any(e["path"] == MENTIONED_PATH for e in source["events"])
                        else "not_mentioned",
@@ -224,7 +254,7 @@ def build_input(
                  "paths": sorted({e["path"] for e in source["events"]}), "kind": message["kind"],
                  "mention": message["mention"], "duplicates": []}
         items.append((message, trace))
-        bodies.append(record.body)
+        bodies.append(record.body or body)
     no_body = len(dropped)
 
     # 같은 글은 가장 긴 글 하나로 묶는다(맨 위 「중복 묶기」). max 는 길이가 같으면 먼저 나온 글을 고른다
@@ -275,6 +305,8 @@ def build_input(
             "sources": len(found["sources"]), "messages": len(used),
             "evidence": len(evidence), "market_recap": len(common_kept),
             "news": sum(trace["card_type"] == NEWS_CARD_TYPE for _, trace in used),
+            "pdf": sum(trace["card_type"] == PDF_CARD_TYPE for _, trace in used),
+            "disclosure": sum(trace["card_type"] == DISCLOSURE_CARD_TYPE for _, trace in used),
             "market_recap_dropped": len(common) - len(common_kept),
             "no_body": no_body, "duplicates": duplicates,
             "skipped_card_types": skipped_types,
@@ -300,6 +332,9 @@ async def load_input(
         since_basis = "market_calendar" if open_days is not None else "weekday_fallback"
         since = previous_close(cutoff.astimezone(KST).date(), open_days)
     found = await classified_sources(session, code, until=cutoff, since=since)
+    # 공시는 분류하지 않아 classified_sources 에 없다. 같은 기간에 이 종목으로 이어진 공시 카드를 뒤에 붙인다
+    linked = await get_sources(session, await stock_card_ids(session, code, until=cutoff, since=since))
+    found["sources"] += [disclosure_source(r.id) for r in linked if r.kind == DISCLOSURE_CARD_TYPE]
     ids = [s["source_card_id"] for s in found["sources"] if s["card_type"] in INPUT_CARD_TYPES]
     records = {r.id: r for r in await get_sources(session, ids, include_body=True, cutoff=cutoff)}
     payload, meta = build_input(found, records, code=code, cutoff=cutoff, change_pct=change_pct,
