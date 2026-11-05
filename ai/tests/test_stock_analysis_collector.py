@@ -494,10 +494,26 @@ async def test_load_passes_verdicts_and_prompt_version(fake_llm, tmp_path, monke
     assert kwargs["prompt_version"] == gen.prompt_sha256()[:12]
     verdicts = kwargs["verdicts"]
     assert verdicts["솔마루전자-2026-09-18-1530__r1"] == ("passed", None)
-    status, error = verdicts["하늬결화학-2026-09-18-1100__r1"]
-    assert status == "failed" and "FLAT_MOVE_VERDICT" in error
+    # 검증에 떨어진 보고서는 넘기지 않고 건수만 남긴다
+    assert "하늬결화학-2026-09-18-1100__r1" not in verdicts
+    assert all(status == "passed" for status, _ in verdicts.values())
+    assert result["load_skipped_failed"] == result["failed"] > 0
     paths = insert.await_args.args[1]
+    assert len(paths) == result["passed"]
     assert all(p.exists() and p.parent.name == "parsed" for p in paths)
+
+
+async def test_load_skips_db_when_every_report_failed(monkeypatch, tmp_path, capsys):
+    from app.llm.client import LLMError
+
+    monkeypatch.setattr(collector, "endpoint", MagicMock(return_value=("url", "key")))
+    monkeypatch.setattr(gen, "complete", AsyncMock(side_effect=LLMError("LLM 호출 실패: HTTP 500")))
+    opened = MagicMock()
+    monkeypatch.setattr(collector, "SessionLocal", opened)
+    result = await collector.run(FIXTURES / "sample_cause.json", out_root=tmp_path, load=True)
+    assert (result["loaded"], result["load_skipped_failed"]) == (0, 1)
+    opened.assert_not_called()
+    assert "적재 0 (검증 실패라 적재 안 함 1)" in capsys.readouterr().out
 
 
 async def test_bearish_relative_factor_on_opposite_day_fails(monkeypatch, tmp_path):

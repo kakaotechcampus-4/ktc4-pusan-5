@@ -26,7 +26,8 @@ change_pct_override 에 남긴다. KRX 가 실패해도 보고서는 만들고 �
 보고서 하나에서 러너 코드가 예상 밖 예외를 내면(시장 맥락·고쳐 쓰기·finalize·검증) 그 보고서만 is_error 래퍼
 (error_code RUNNER_ERROR, error 에 단계와 예외)로 남기고 나머지 보고서·실행 요약·적재는 계속한다.
 
-`--load` 가 없으면 파일만 쓴다. 적재는 같은 파일을 두 번 넣지 않으므로(sha256)
+`--load` 가 없으면 파일만 쓴다. `--load` 여도 verify_status 가 failed 인 보고서는 넣지 않고, 그 수를
+실행 요약(load_skipped_failed)에 남긴다. 적재는 같은 파일을 두 번 넣지 않으므로(sha256)
 파일만 먼저 쓰고 나중에 적재 모듈로 넣어도 된다.
 """
 
@@ -368,25 +369,34 @@ async def run(
             k: sum(w["issue_trace_stats"][f"messages_{k}"] for w in wrappers if w["issue_trace_stats"])
             for k in ("traced", "total")},
         "loaded": None,
+        # --load 때 verify_status 가 failed 라 적재하지 않은 보고서 수(실행 오류 포함). --load 가 없으면 None.
+        "load_skipped_failed": None,
     }
 
     if load:
+        # 검증에 떨어진 보고서는 DB 에 넣지 않는다. 화면 조회가 passed 만 고른다는 약속에 기대지 않는다.
+        # 판정과 사유는 parsed 파일에 그대로 있다.
+        to_load = [w for w in wrappers
+                   if w["verify_status"] != "failed" and not w.get("parsed_write_error")]
+        result["load_skipped_failed"] = sum(w["verify_status"] == "failed" for w in wrappers)
         verdicts = {
             w["run_id"]: (w["verify_status"], "\n".join(w["verify_problems"]) or None)
-            for w in wrappers
+            for w in to_load
         }
-        paths = [run_dir / "parsed" / f"{w['run_id']}.json" for w in wrappers
-                 if not w.get("parsed_write_error")]
-        async with SessionLocal() as session:
-            inserted = await insert_analysis_files(
-                session, paths, verdicts=verdicts, generated_at=started,
-                prompt_version=prompt_hash[:PROMPT_VERSION_CHARS],
-            )
-            # 실행 하나를 한 트랜잭션으로 본다. 반만 들어간 실행은 검수 때 헷갈린다.
-            await session.commit()
+        paths = [run_dir / "parsed" / f"{w['run_id']}.json" for w in to_load]
+        inserted = []
+        if paths:
+            async with SessionLocal() as session:
+                inserted = await insert_analysis_files(
+                    session, paths, verdicts=verdicts, generated_at=started,
+                    prompt_version=prompt_hash[:PROMPT_VERSION_CHARS],
+                )
+                # 실행 하나를 한 트랜잭션으로 본다. 반만 들어간 실행은 검수 때 헷갈린다.
+                await session.commit()
         result["loaded"] = len(inserted)
 
-    loaded = "" if result["loaded"] is None else f" · 적재 {result['loaded']}"
+    loaded = "" if result["loaded"] is None else (
+        f" · 적재 {result['loaded']} (검증 실패라 적재 안 함 {result['load_skipped_failed']})")
     print(f"완료: 보고서 {result['total']}건 · 검증 통과 {result['passed']}건"
           f" · 검증 실패 보고서 {result['failed']}건 (그중 실행 오류 {result['errors']}건)"
           f" · {format_cost(result['cost'], result['currency'])}{loaded} · {run_dir}")
