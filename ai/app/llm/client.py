@@ -10,6 +10,7 @@
 import asyncio
 import json
 import logging
+import time
 from pathlib import Path
 
 import httpx
@@ -25,20 +26,39 @@ ERROR_BODY_MAX_CHARS = 300
 
 
 class LLMError(Exception):
-    """LLM 호출 실패. 원인 예외는 __cause__ 에 남는다."""
+    """LLM 호출 실패. 원인 예외는 __cause__ 에 남는다.
+
+    retryable 은 같은 요청을 다시 보내 볼 만한 실패인가다(429·5xx·연결 오류). complete() 가 이 값으로
+    재시도를 정한다. 429 를 뺀 4xx·응답 형식 오류는 다시 보내도 같은 결과라 False 다.
+    """
+
+    retryable = False
+    kind = "error"  # 시도 기록(attempts)의 종류
 
 
 class LLMTimeout(LLMError):
     """호출 전체 시간 제한(settings.summary_timeout_sec)이나 연결 시간 제한에 걸렸다. 받은 부분은 없다."""
+
+    retryable = True
+    kind = "timeout"
 
 
 class StreamInterrupted(LLMError):
     """스트림이 응답을 다 주기 전에 끊겼다. 받은 부분은 길이(글자 수)만 남긴다 —
     잘린 JSON 을 열어 보거나 저장하면 안 되므로 본문은 넘기지 않는다."""
 
+    retryable = True
+    kind = "stream"
+
     def __init__(self, message: str, partial_chars: int):
         super().__init__(message)
         self.partial_chars = partial_chars
+
+
+def _retryable_error(message: str, kind: str) -> LLMError:
+    error = LLMError(message)
+    error.retryable, error.kind = True, kind
+    return error
 
 
 def load_prompt(name: str) -> str:
@@ -188,8 +208,15 @@ async def complete(
     max_tokens: int | None = None,
     temperature: float | None = None,
     stream: bool = False,
+    attempts: list[dict] | None = None,
 ) -> tuple[str, dict]:
     """(응답 텍스트, 사용량). 실패하면 LLMError, 스트림이 중간에 끊기면 StreamInterrupted.
+
+    **일시적 실패는 여기서 다시 보낸다.** 429·5xx·연결 오류·시간 초과·스트림 끊김이면
+    settings.llm_max_retries 번까지 지수 백오프로 다시 보낸다(_backoff). 429 를 뺀 4xx 와 응답 형식 오류는
+    바로 올린다. 재시도는 이 함수 한 곳에서만 한다 — 부르는 쪽이 또 감싸면 횟수가 곱해진다.
+    `attempts` 를 넘기면 실패한 시도마다 {attempt, kind, error, elapsed_sec, wait_sec, partial_chars} 를
+    덧붙인다(성공했든 끝내 실패했든). 끊긴 시도는 usage 를 못 받아 비용에 들어가지 않는다.
 
     `stream` 은 기본이 False 다. 부르는 쪽이 켤 때만 스트리밍으로 받는다 — 리포트 요약
     (analyst)은 넘기지 않으므로 지금처럼 한 번에 받는다. 스트리밍이면 usage 는 마지막
@@ -209,6 +236,61 @@ async def complete(
     if stream:
         payload["stream"] = True
         payload["stream_options"] = {"include_usage": True}
+    started = time.monotonic()
+    retries = max(settings.llm_max_retries, 0)
+    for attempt in range(1, retries + 2):
+        try:
+            text, finish_reason, usage = await _send(url, key, payload, stream)
+            break
+        except LLMError as exc:
+            if not exc.retryable:
+                raise
+            last = attempt > retries
+            wait = None if last else _backoff(attempt, getattr(exc, "retry_after", None))
+            if attempts is not None:
+                attempts.append({
+                    "attempt": attempt, "kind": exc.kind, "error": str(exc),
+                    "elapsed_sec": round(time.monotonic() - started, 1), "wait_sec": wait,
+                    "partial_chars": getattr(exc, "partial_chars", None),
+                })
+            if last:
+                raise
+            logger.warning("LLM 호출 실패, %.1f초 뒤 다시 보낸다 (%d/%d): %s", wait, attempt, retries, exc)
+            await asyncio.sleep(wait)
+
+    text = text.strip()
+    usage["finish_reason"] = finish_reason
+    # Elice 는 비용을 주지 않는다. 계산한 값을 usage.cost 에 넣지 않는다 — 그 자리는
+    # 프로바이더가 준 값만 둬야 cost_basis 가 어느 쪽인지 가릴 수 있다.
+    # usage 는 래퍼 등에 통째로 남는다. 숫자만 있으면 원인지 달러인지 나중에 알 수 없다.
+    usage["cost_currency"] = cost_currency()
+    # 추론 모델이라 예산을 사고에 다 쓰면 본문이 빈 채로 정상 응답이 온다.
+    # 조용히 넘어가면 빈 요약이 DB 에 쌓이므로 여기서 사유를 남긴다.
+    if not text:
+        logger.warning(
+            "LLM 이 빈 응답을 줬다 (finish_reason=%s, usage=%s)", finish_reason, usage,
+        )
+    return text, usage
+
+
+def _backoff(attempt: int, retry_after: float | None = None) -> float:
+    """attempt 번째 실패 뒤 기다릴 초. 기본 × 2^(attempt-1), 상한 안에서. Retry-After 가 더 길면 그 값."""
+    base = settings.llm_retry_backoff_sec * 2 ** (attempt - 1)
+    if retry_after is not None:
+        base = max(base, retry_after)
+    return min(base, settings.llm_retry_backoff_max_sec)
+
+
+def _retry_after(response: httpx.Response) -> float | None:
+    """Retry-After 헤더의 초. 날짜 형식이거나 없으면 None."""
+    try:
+        return max(float(response.headers.get("retry-after", "")), 0.0)
+    except ValueError:
+        return None
+
+
+async def _send(url: str, key: str, payload: dict, stream: bool) -> tuple[str, str | None, dict]:
+    """요청 한 번. (본문, finish_reason, usage). 실패는 LLMError 계열로, 다시 보낼 만한지는 retryable 에."""
     try:
         # OpenRouter가 대기용 바이트를 계속 보내면 HTTP read timeout은 매번
         # 초기화된다. 연결부터 응답 완료까지의 전체 시간도 제한한다.
@@ -230,30 +312,23 @@ async def complete(
     except httpx.HTTPStatusError as exc:
         # 상태 코드와 응답 앞부분을 남긴다. 예외 이름만 남기면 429(속도 제한)인지
         # 400(매개변수 거절)인지 몰라서 고칠 곳을 못 찾는다 — Elice 첫 실행에서 겪었다.
-        raise LLMError(
-            f"LLM 호출 실패: HTTP {exc.response.status_code} "
-            f"{_error_detail(exc.response.text, key)}"
-        ) from exc
+        status = exc.response.status_code
+        error = LLMError(f"LLM 호출 실패: HTTP {status} {_error_detail(exc.response.text, key)}")
+        # 429 와 5xx 만 다시 보낸다. 그 밖의 4xx 는 요청이 틀린 것이라 다시 보내도 같다
+        if status == 429 or status >= 500:
+            error.retryable, error.kind = True, f"http_{status}"
+            error.retry_after = _retry_after(exc.response) if status == 429 else None
+        raise error from exc
     except (TimeoutError, httpx.TimeoutException) as exc:
         # 스트림을 읽는 중의 읽기 시간 초과는 _read_stream 이 StreamInterrupted 로 올린다. 여기 오는 것은
         # 전체 시간 제한(asyncio.timeout)이나 연결 단계의 시간 초과다.
         raise LLMTimeout(f"LLM 호출 실패: {type(exc).__name__} ({settings.summary_timeout_sec:g}초 제한)") from exc
+    except httpx.TransportError as exc:
+        # 응답을 받기 전의 연결 오류(연결 거부·끊김·프로토콜 오류). 다시 보낸다
+        raise _retryable_error(f"LLM 호출 실패: {type(exc).__name__}", "connect") from exc
     except (httpx.HTTPError, json.JSONDecodeError) as exc:
         raise LLMError(f"LLM 호출 실패: {type(exc).__name__}") from exc
-
-    text = text.strip()
-    usage["finish_reason"] = finish_reason
-    # Elice 는 비용을 주지 않는다. 계산한 값을 usage.cost 에 넣지 않는다 — 그 자리는
-    # 프로바이더가 준 값만 둬야 cost_basis 가 어느 쪽인지 가릴 수 있다.
-    # usage 는 래퍼 등에 통째로 남는다. 숫자만 있으면 원인지 달러인지 나중에 알 수 없다.
-    usage["cost_currency"] = cost_currency()
-    # 추론 모델이라 예산을 사고에 다 쓰면 본문이 빈 채로 정상 응답이 온다.
-    # 조용히 넘어가면 빈 요약이 DB 에 쌓이므로 여기서 사유를 남긴다.
-    if not text:
-        logger.warning(
-            "LLM 이 빈 응답을 줬다 (finish_reason=%s, usage=%s)", finish_reason, usage,
-        )
-    return text, usage
+    return text, finish_reason, usage
 
 
 async def _read_stream(response: httpx.Response, key: str) -> tuple[str, str | None, dict]:

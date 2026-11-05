@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     # 호출 전체 시간 제한. 종목 보고서는 입력이 크고(메시지 50~70건) 추론이 길어 180초에서 정상 호출도
     # 175초까지 걸리고 큰 입력이 연달아 끊겼다(2026-10-24). 출력 상한을 40000 으로 올리면서 420초로 둔다(2026-10-25).
     summary_timeout_sec: float = 420.0
+    # LLM 호출이 일시적으로 실패했을 때(429·5xx·연결 오류·시간 초과·스트림 끊김) 다시 보내는 횟수와 대기.
+    # 대기는 llm_retry_backoff_sec × 2^(n-1) 초이고 llm_retry_backoff_max_sec 를 넘지 않는다(기본 2초, 4초).
+    # 429 응답에 Retry-After(초)가 있으면 둘 중 긴 쪽을 기다린다. 0 이면 다시 보내지 않는다.
+    # 429 를 뺀 4xx 는 요청 자체가 틀린 것이라 다시 보내지 않는다(app/llm/client.py).
+    llm_max_retries: int = 2
+    llm_retry_backoff_sec: float = 2.0
+    llm_retry_backoff_max_sec: float = 30.0
 
     # LLM 을 어디로 보내나. **기본은 openrouter 다** — 이 줄이 없는 .env 는 동작이 안 바뀐다.
     #   openrouter  OPENROUTER_API_KEY 로 보낸다. 비용은 응답의 usage.cost 를 쓴다

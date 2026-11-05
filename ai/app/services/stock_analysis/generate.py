@@ -18,7 +18,8 @@
 정상 응답(finish_reason=stop)인데 JSON 으로 열리지 않으면(json_status=invalid) 같은 입력으로 한 번 더
 부른다. 따옴표 하나가 빠지는 식의 깨짐은 다시 부르면 대개 열린다. 래퍼 json_retry 에 다시 불렀는지와
 첫 시도의 상태·원문을 남기고, 첫 시도 비용은 cost 에 더한다. 잘림(OUTPUT_TRUNCATED)·빈 응답·호출 실패는
-다시 부르지 않는다 — 같은 설정이면 같은 자리에서 또 잘리고, 호출 실패는 스트림 재시도가 따로 있다.
+다시 부르지 않는다 — 같은 설정이면 같은 자리에서 또 잘리고, 호출 실패(429·5xx·연결·시간 초과·스트림 끊김)는
+app/llm/client.complete 가 지수 백오프로 이미 다시 보낸다(래퍼 llm_retries).
 
 ## 판단하지 않는 층에 원인을 달면 한 번 다시 부른다
 
@@ -49,7 +50,6 @@ from app.core.config import settings
 from app.llm.client import (
     PROMPT_DIR,
     LLMError,
-    LLMTimeout,
     StreamInterrupted,
     complete,
     cost_currency,
@@ -99,9 +99,8 @@ _UNSAFE = re.compile(r'[<>:"/\\|?*\s]+')
 _HHMM = re.compile(r"(\d{1,2}):(\d{2})")
 # check_input 의 target_date 형식. cutoff 도 이 꼴로 시작해야 한다(날짜만 있거나 시각만 있는 값을 막는다).
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
-# 스트림이 중간에 끊기거나 시간 제한에 걸렸을 때 다시 보내는 횟수(둘을 합쳐 센다). 대개 일시적인 연결·
-# 서버 지연이라 한 번은 다시 보내 볼 만하지만, 같은 입력이 거듭 그러면 입력이나 프록시 쪽 문제라 더 보내도 돈만 쓴다.
-STREAM_RETRIES = 1
+# 스트림 끊김·시간 초과·429·5xx 재시도는 app/llm/client.complete 한 곳에서 한다(settings.llm_max_retries).
+# 여기서 또 감싸면 횟수가 곱해지므로 이 모듈은 complete 를 한 번만 부르고, 시도 기록만 래퍼로 옮긴다.
 
 
 def prompt_sha256() -> str:
@@ -537,6 +536,7 @@ def _merge_retry_costs(wrapper: dict[str, Any], first: dict[str, Any]) -> None:
     wrapper["duration_ms"] += first["duration_ms"]
     wrapper["stream_interruptions"] = first["stream_interruptions"] + wrapper["stream_interruptions"]
     wrapper["timeouts"] = first.get("timeouts", []) + wrapper["timeouts"]
+    wrapper["llm_retries"] = first.get("llm_retries", []) + wrapper["llm_retries"]
 
 
 async def generate(
@@ -621,6 +621,8 @@ def _base_wrapper(payload: dict[str, Any], *, prompt_hash: str, run_id: str) -> 
         "stream_interruptions": [],
         # 시간 제한에 걸린 시도마다 {"error", "seconds"}. 받은 부분이 없고 usage 도 없어 비용에 들어가지 않는다.
         "timeouts": [],
+        # complete 가 다시 보낸 시도 전부(429·5xx·연결 오류 포함). {attempt, kind, error, elapsed_sec, wait_sec, partial_chars}
+        "llm_retries": [],
         "usage": {},
         # 입력 토큰 내역(client.input_tokens). usage.prompt_tokens 는 캐시 쓰기 할증이 섞여
         # 첫 호출이 부풀어 보이므로 실제 입력 수는 여기 total 을 본다.
@@ -654,6 +656,15 @@ def _base_wrapper(payload: dict[str, Any], *, prompt_hash: str, run_id: str) -> 
     }
 
 
+def _record_attempts(wrapper: dict[str, Any], attempts: list[dict[str, Any]]) -> None:
+    """complete 가 남긴 실패한 시도를 래퍼에 옮긴다. stream_interruptions·timeouts 는 예전 칸 그대로 둔다."""
+    wrapper["llm_retries"] += attempts
+    wrapper["stream_interruptions"] += [
+        {"partial_chars": a["partial_chars"], "error": a["error"]} for a in attempts if a["kind"] == "stream"]
+    wrapper["timeouts"] += [
+        {"error": a["error"], "seconds": a["elapsed_sec"]} for a in attempts if a["kind"] == "timeout"]
+
+
 async def _generate_once(
     payload: dict[str, Any], *, system: str, prompt_hash: str, run_id: str
 ) -> dict[str, Any]:
@@ -667,30 +678,19 @@ async def _generate_once(
     wrapper = _base_wrapper(payload, prompt_hash=prompt_hash, run_id=run_id)
     stream, max_tokens = wrapper["stream"], wrapper["max_completion_tokens"]
     user = json.dumps(model_input(payload), ensure_ascii=False, indent=2)
-    for attempt in range(STREAM_RETRIES + 1):
-        try:
-            text, usage = await complete(system, user, max_tokens=max_tokens, stream=stream)
-            break
-        except StreamInterrupted as exc:
-            logger.warning("%s: %s (시도 %d)", run_id, exc, attempt + 1)
-            wrapper["stream_interruptions"].append(
-                {"partial_chars": exc.partial_chars, "error": str(exc)})
-            if attempt < STREAM_RETRIES:
-                continue
-            # 부분 응답은 열어 보지도 저장하지도 않는다. 길이만 stream_interruptions 에 있다.
-            wrapper.update(is_error=True, error_code=STREAM_INTERRUPTED, error=str(exc))
-        except LLMTimeout as exc:
-            logger.warning("%s: %s (시도 %d)", run_id, exc, attempt + 1)
-            wrapper["timeouts"].append({"error": str(exc),
-                                        "seconds": round(time.monotonic() - started, 1)})
-            if attempt < STREAM_RETRIES:
-                continue
-            wrapper.update(is_error=True, error_code=LLM_ERROR, error=str(exc))
-        except LLMError as exc:
-            logger.warning("%s: %s", run_id, exc)
-            wrapper.update(is_error=True, error_code=LLM_ERROR, error=str(exc))
+    attempts: list[dict[str, Any]] = []
+    try:
+        text, usage = await complete(system, user, max_tokens=max_tokens, stream=stream,
+                                     attempts=attempts)
+    except LLMError as exc:
+        # 재시도는 complete 가 이미 했다. 부분 응답은 열어 보지도 저장하지도 않는다(길이만 기록).
+        logger.warning("%s: %s", run_id, exc)
+        code = STREAM_INTERRUPTED if isinstance(exc, StreamInterrupted) else LLM_ERROR
+        wrapper.update(is_error=True, error_code=code, error=str(exc))
+        _record_attempts(wrapper, attempts)
         wrapper["duration_ms"] = round((time.monotonic() - started) * 1000)
         return wrapper
+    _record_attempts(wrapper, attempts)
 
     wrapper["usage"] = usage
     wrapper["cost"], wrapper["cost_basis"] = cost_detail(usage)

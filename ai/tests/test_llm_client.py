@@ -19,6 +19,14 @@ def openrouter_unless_told(monkeypatch):
     monkeypatch.setattr(client.settings, "llm_provider", "openrouter")
 
 
+@pytest.fixture(autouse=True)
+def retry_without_waiting(monkeypatch):
+    """재시도 횟수는 기본값(2)으로 고정하고 대기는 0으로 둔다. 개인 .env 값이나 실제 대기에 흔들리지 않게."""
+    monkeypatch.setattr(client.settings, "llm_max_retries", 2)
+    monkeypatch.setattr(client.settings, "llm_retry_backoff_sec", 0.0)
+    monkeypatch.setattr(client.settings, "llm_retry_backoff_max_sec", 30.0)
+
+
 def test_provider_cost_takes_precedence():
     assert client.cost({"cost": 0.123, "prompt_tokens": 1000}) == 0.123
     assert client.cost({"cost": 0.0, "prompt_tokens": 1000}) == 0.0
@@ -415,3 +423,148 @@ def test_stock_analysis_stream_default_follows_provider(monkeypatch, provider, c
 def test_blank_stock_analysis_stream_env_means_auto(monkeypatch):
     monkeypatch.setenv("STOCK_ANALYSIS_STREAM", "")
     assert Settings(_env_file=None).stock_analysis_stream is None
+
+
+# --- 재시도 (429·5xx·연결 오류·시간 초과·스트림 끊김) ------------------------
+
+_OK_BODY = {"choices": [{"message": {"content": "안녕"}, "finish_reason": "stop"}],
+            "usage": {"cost": 0.01}}
+
+
+def _status(code: int, headers: dict | None = None) -> "client.httpx.Response":
+    request = client.httpx.Request("POST", client.OPENROUTER_URL)
+    return client.httpx.Response(code, request=request, text='{"error":"x"}', headers=headers)
+
+
+def _ok() -> MagicMock:
+    response = MagicMock()
+    response.json.return_value = _OK_BODY
+    return response
+
+
+@pytest.mark.parametrize("first", [429, 500, 502, 503])
+async def test_429_and_5xx_are_retried_and_recorded(monkeypatch, first):
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
+    http = _fake_http(monkeypatch, {})
+    http.post.side_effect = [_status(first), _ok()]
+    attempts: list[dict] = []
+    text, _ = await client.complete("s", "u", attempts=attempts)
+    assert text == "안녕" and http.post.await_count == 2
+    assert [(a["attempt"], a["kind"]) for a in attempts] == [(1, f"http_{first}")]
+    assert f"HTTP {first}" in attempts[0]["error"]
+
+
+@pytest.mark.parametrize("code", [400, 401, 403, 404, 422])
+async def test_other_4xx_is_not_retried(monkeypatch, code):
+    """429 를 뺀 4xx 는 요청이 틀린 것이다. 다시 보내도 같은 답이라 돈·시간만 쓴다."""
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
+    http = _fake_http(monkeypatch, {})
+    http.post.return_value = _status(code)
+    attempts: list[dict] = []
+    with pytest.raises(client.LLMError, match=f"HTTP {code}"):
+        await client.complete("s", "u", attempts=attempts)
+    assert http.post.await_count == 1 and attempts == []
+
+
+async def test_gives_up_after_configured_retries(monkeypatch):
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
+    http = _fake_http(monkeypatch, {})
+    http.post.return_value = _status(503)
+    attempts: list[dict] = []
+    with pytest.raises(client.LLMError, match="HTTP 503") as info:
+        await client.complete("s", "u", attempts=attempts)
+    assert info.value.retryable
+    # 처음 1번 + 재시도 2번. 마지막 시도는 기다리지 않는다
+    assert http.post.await_count == 3
+    assert [a["attempt"] for a in attempts] == [1, 2, 3] and attempts[-1]["wait_sec"] is None
+
+
+async def test_zero_retries_sends_once(monkeypatch):
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
+    monkeypatch.setattr(client.settings, "llm_max_retries", 0)
+    http = _fake_http(monkeypatch, {})
+    http.post.return_value = _status(429)
+    with pytest.raises(client.LLMError, match="HTTP 429"):
+        await client.complete("s", "u")
+    assert http.post.await_count == 1
+
+
+@pytest.mark.parametrize("exc, kind", [
+    (client.httpx.ConnectError("refused"), "connect"),
+    (client.httpx.RemoteProtocolError("peer closed"), "connect"),
+    (client.httpx.ConnectTimeout("slow"), "timeout"),
+])
+async def test_connection_errors_and_timeouts_are_retried(monkeypatch, exc, kind):
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
+    http = _fake_http(monkeypatch, {})
+    http.post.side_effect = [exc, _ok()]
+    attempts: list[dict] = []
+    text, _ = await client.complete("s", "u", attempts=attempts)
+    assert text == "안녕" and [a["kind"] for a in attempts] == [kind]
+
+
+async def test_whole_request_timeout_is_retried(monkeypatch):
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
+    monkeypatch.setattr(client.settings, "summary_timeout_sec", 0.01)
+    calls = 0
+
+    async def slow_then_ok(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            await asyncio.sleep(10)
+        return _ok()
+
+    http = _fake_http(monkeypatch, {})
+    http.post.side_effect = slow_then_ok
+    attempts: list[dict] = []
+    text, _ = await client.complete("s", "u", attempts=attempts)
+    assert text == "안녕" and calls == 2 and attempts[0]["kind"] == "timeout"
+
+
+async def test_stream_interruption_is_retried(monkeypatch):
+    _elice(monkeypatch)
+    http = MagicMock()
+    http.stream.side_effect = [
+        _FakeStream([_chunk('{"a": ')], fail_after=1),
+        _FakeStream([_chunk('{"a": 1}'), _chunk(finish="stop"), "data: [DONE]"]),
+    ]
+    manager = AsyncMock()
+    manager.__aenter__.return_value = http
+    monkeypatch.setattr(client.httpx, "AsyncClient", lambda **kwargs: manager)
+    attempts: list[dict] = []
+    text, _ = await client.complete("s", "u", stream=True, attempts=attempts)
+    assert text == '{"a": 1}'
+    assert attempts[0]["kind"] == "stream" and attempts[0]["partial_chars"] == len('{"a": ')
+
+
+async def test_malformed_response_is_not_retried(monkeypatch):
+    """응답 모양이 틀린 건 다시 보내도 같다."""
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
+    http = _fake_http(monkeypatch, {"choices": [None]})
+    with pytest.raises(client.LLMError, match="응답 형식 오류"):
+        await client.complete("s", "u")
+    assert http.post.await_count == 1
+
+
+def test_backoff_doubles_and_is_capped(monkeypatch):
+    monkeypatch.setattr(client.settings, "llm_retry_backoff_sec", 2.0)
+    monkeypatch.setattr(client.settings, "llm_retry_backoff_max_sec", 5.0)
+    assert [client._backoff(n) for n in (1, 2, 3)] == [2.0, 4.0, 5.0]
+    # Retry-After 가 더 길면 그 값, 상한은 넘지 않는다
+    assert client._backoff(1, retry_after=3.0) == 3.0
+    assert client._backoff(1, retry_after=60.0) == 5.0
+
+
+async def test_429_retry_after_header_sets_the_wait(monkeypatch):
+    monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
+    monkeypatch.setattr(client.settings, "llm_retry_backoff_sec", 0.0)
+    monkeypatch.setattr(client.settings, "llm_retry_backoff_max_sec", 0.0)
+    http = _fake_http(monkeypatch, {})
+    http.post.side_effect = [_status(429, {"retry-after": "7"}), _ok()]
+    attempts: list[dict] = []
+    await client.complete("s", "u", attempts=attempts)
+    # 상한을 0 으로 둬서 실제로는 기다리지 않지만, Retry-After 를 읽어 계산했는지는 상한 전 값으로 본다
+    assert client._retry_after(_status(429, {"retry-after": "7"})) == 7.0
+    assert client._retry_after(_status(429, {"retry-after": "Wed, 21 Oct 2026 07:28:00 GMT"})) is None
+    assert attempts[0]["kind"] == "http_429"
