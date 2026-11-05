@@ -211,14 +211,26 @@ def group_duplicates(texts: list[str]) -> list[list[int]]:
     return sorted(groups.values(), key=lambda group: group[0])
 
 
+class UnknownStockError(ValueError):
+    """보고서 종목표(stock_meta.json)에 없는 종목. 수집 범위(예: DART 100종목)가 이 표보다 넓어 생긴다."""
+
+
+def require_known_stock(code: str) -> str:
+    """종목명. 종목표에 없으면 UnknownStockError — DB 를 읽기 전에 부른다."""
+    name = stock_meta.name(code)
+    if name is None:
+        raise UnknownStockError(
+            f"stock_meta.json 에 없는 종목: {code}. 보고서는 {stock_meta.META_PATH} 에 있는 종목만 만든다. "
+            "종목을 더하려면 그 표(업종·대형주 비중)와 분류 기준 JSON 을 함께 고친다.")
+    return name
+
+
 def build_input(
     found: dict[str, Any], records: Mapping[int, SourceRecord], *, code: str, cutoff: datetime,
     change_pct: float, since: datetime,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """(러너 입력, meta). found 는 classified_sources 결과, records 는 그 메시지·뉴스 카드의 get_sources(include_body=True)."""
-    name = stock_meta.name(code)
-    if name is None:
-        raise ValueError(f"stock_meta.json 에 없는 종목: {code}")
+    name = require_known_stock(code)
 
     items, dropped = [], []  # items: 본문 있는 메시지의 (message, trace), classified_sources 순서
     bodies = []  # items 와 같은 순서의 본문. 중복은 기사 제목을 뺀 본문으로 비교한다
@@ -325,6 +337,8 @@ async def load_input(
     """DB 에서 읽어 (러너 입력, meta). since 를 안 주면 직전 거래일 장 마감(맨 위 설명)."""
     if cutoff.utcoffset() is None:
         raise ValueError("cutoff must be timezone-aware")
+    # 종목표에 없는 종목이면 DB 를 읽어 봐야 입력을 만들 수 없다. 조회 전에 멈춘다
+    require_known_stock(code)
     if since is not None:
         since_basis = "argument"
     else:
@@ -377,7 +391,8 @@ async def main(args: argparse.Namespace) -> None:
           f"  미분류 {meta['unclassified']} · 실패 {meta['failed']} · 기준 시각 뒤 본문 {meta['not_observed']}")
 
 
-if __name__ == "__main__":
+def cli(argv: list[str] | None = None) -> None:
+    """명령줄 진입점. 종목표에 없는 종목은 DB 를 읽기 전에 안내 문구와 exit 1 로 끝낸다."""
     parser = argparse.ArgumentParser(description="분류 결과 → 보고서 러너 입력")
     parser.add_argument("--code", required=True)
     parser.add_argument("--cutoff", required=True, help="기준 시각 ISO 8601. 시간대가 없으면 KST")
@@ -385,4 +400,13 @@ if __name__ == "__main__":
                         help="기준 시각 등락률. 장 마감 뒤 KRX 가 ok 면 러너가 덮어쓴다")
     parser.add_argument("--since", help="조회 시작. 없으면 직전 거래일 장 마감")
     parser.add_argument("--out", type=Path, default=Path("runs/classified_inputs"))
-    asyncio.run(main(parser.parse_args()))
+    args = parser.parse_args(argv)
+    try:
+        require_known_stock(args.code)
+    except UnknownStockError as exc:
+        parser.exit(1, f"{exc}\n")
+    asyncio.run(main(args))
+
+
+if __name__ == "__main__":
+    cli()

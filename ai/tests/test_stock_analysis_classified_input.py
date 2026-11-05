@@ -397,3 +397,41 @@ def test_load_input_uses_given_since(monkeypatch):
     monkeypatch.setattr(ci, "get_sources", fake_sources)
     _, meta = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=CUTOFF, change_pct=0.0, since=SINCE))
     assert meta["since_basis"] == "argument"
+
+
+class NoDbSession:
+    """종목표 검사가 DB 보다 먼저인지 본다. 어떤 조회든 오면 실패한다."""
+
+    async def execute(self, *args, **kwargs):
+        raise AssertionError("종목표에 없는 종목인데 DB 를 읽었다")
+
+    def begin_nested(self):
+        raise AssertionError("종목표에 없는 종목인데 DB 를 읽었다")
+
+
+def test_load_input_checks_stock_table_before_db():
+    with pytest.raises(ci.UnknownStockError, match="stock_meta.json 에 없는 종목: 035720"):
+        asyncio.run(ci.load_input(NoDbSession(), "035720", cutoff=CUTOFF, change_pct=0.0))
+
+
+def test_cli_unknown_stock_exits_1_with_guidance_and_no_traceback(monkeypatch, capsys):
+    async def must_not_run(args):
+        raise AssertionError("DB 를 여는 main 까지 가면 안 된다")
+
+    monkeypatch.setattr(ci, "main", must_not_run)
+    with pytest.raises(SystemExit) as info:
+        ci.cli(["--code", "035720", "--cutoff", "2026-11-05T15:30:00+09:00", "--change-pct", "0"])
+    assert info.value.code == 1
+    err = capsys.readouterr().err
+    assert "stock_meta.json 에 없는 종목: 035720" in err and "Traceback" not in err
+
+
+def test_cli_known_stock_goes_on_to_main(monkeypatch):
+    seen = []
+
+    async def fake_main(args):
+        seen.append(args.code)
+
+    monkeypatch.setattr(ci, "main", fake_main)
+    ci.cli(["--code", CODE, "--cutoff", "2026-11-05T15:30:00+09:00", "--change-pct", "1.5"])
+    assert seen == [CODE]
