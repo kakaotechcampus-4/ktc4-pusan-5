@@ -29,7 +29,8 @@ import asyncio
 import json
 import sys
 from collections import Counter
-from dataclasses import asdict
+from contextlib import suppress
+from dataclasses import asdict, replace
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
@@ -146,6 +147,7 @@ async def run_classify(args: argparse.Namespace) -> None:
 
     statuses: Counter = Counter()
     total = 0.0
+    save_failures = 0
     for n, card_id in enumerate(card_ids, start=1):
         async with SessionLocal() as session:
             records = await get_sources(session, [card_id], include_body=True)
@@ -154,19 +156,59 @@ async def run_classify(args: argparse.Namespace) -> None:
         record = records[0]
         result = await classify(record.title, record.body if record.has_body else None, basis,
                                 models=models_of(args))
-        async with SessionLocal() as session:
-            run_id = await save_run(session, card_id, result, make_current=not args.experiment)
-            await session.commit()
+        try:
+            run_id = await _save(card_id, result, make_current=not args.experiment)
+        # 카드 하나의 저장 실패로 run 전체가 멈추면 앞에서 쓴 LLM 비용과 뒤 카드가 모두 날아간다.
+        # 롤백한 뒤 이 카드를 failed 회차로 남기고(비용 포함) 다음 카드로 넘어간다
+        except Exception as exc:  # noqa: BLE001 — 저장 실패의 종류는 error 칸에 남긴다
+            save_failures += 1
+            result = failed_on_save(result, exc)
+            run_id = await _record_save_failure(card_id, result)
         statuses[result.status] += 1
         total += result.cost
         direct = ",".join(basis.stocks[c].name for c in sorted(result.direct_stocks())) or "-"
         print(f"[{n:>3}/{len(card_ids)}] 자료 {card_id:<7} {record.kind:<8} {result.status:<8} "
-              f"회차 {run_id:<6} 사건 {len(result.events):>2}  DIRECT {direct}  "
+              f"회차 {'-' if run_id is None else run_id:<6} 사건 {len(result.events):>2}  DIRECT {direct}  "
               f"{format_cost(result.cost)}")
         if result.error:
             print(f"        오류 {result.error[:200]}")
     print("\n상태 " + (", ".join(f"{k} {v}" for k, v in statuses.items()) or "없음")
           + f"  비용 {format_cost(total)}")
+    if save_failures:
+        print(f"저장 실패 {save_failures}건 — 결과는 버리고 failed 회차로 남겼다(error 가 save_failed 로 시작). "
+              "`run --retry` 로 다시 분류한다")
+
+
+async def _save(card_id: int, result: ClassificationResult, *, make_current: bool) -> int:
+    """회차 하나를 저장하고 커밋한다. 실패하면 롤백하고 예외를 올린다."""
+    async with SessionLocal() as session:
+        try:
+            run_id = await save_run(session, card_id, result, make_current=make_current)
+            await session.commit()
+        except BaseException:
+            # 연결이 끊겼으면 롤백도 실패한다. 원래 예외를 가리지 않게 롤백 실패는 넘긴다
+            with suppress(Exception):
+                await session.rollback()
+            raise
+    return run_id
+
+
+def failed_on_save(result: ClassificationResult, exc: Exception) -> ClassificationResult:
+    """저장에 실패한 결과를 failed 회차로 바꾼다. 사건은 버리고 단계별 호출(사용량·비용·응답 원문)은 남긴다."""
+    error = f"save_failed: {type(exc).__name__}: {str(exc)[:300]}"
+    if result.error:
+        error += f" (분류 결과 {result.status}: {result.error[:200]})"
+    return replace(result, status="failed", events=[], error=error)
+
+
+async def _record_save_failure(card_id: int, result: ClassificationResult) -> int | None:
+    """failed 회차를 남긴다. 이것마저 실패하면(DB 가 내려감 등) 회차 없이 넘어가고 None."""
+    print(f"        저장 실패 — {result.error[:200]}")
+    try:
+        return await _save(card_id, result, make_current=False)
+    except Exception as exc:  # noqa: BLE001 — 기록마저 못 하면 화면에만 남기고 다음 카드로 간다
+        print(f"        failed 회차도 남기지 못함 — {type(exc).__name__}: {str(exc)[:200]}")
+        return None
 
 
 async def run_show(args: argparse.Namespace) -> None:
