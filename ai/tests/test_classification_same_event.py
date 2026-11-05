@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
@@ -312,8 +313,35 @@ def test_model_can_be_swapped_without_touching_the_other_steps(monkeypatch):
 def test_command_stops_before_reading_when_key_is_missing(monkeypatch):
     monkeypatch.setattr(same_event_run, "endpoint",
                         MagicMock(side_effect=RuntimeError("키가 없다")))
+    monkeypatch.setattr(same_event_run, "collection_locks", MagicMock(side_effect=AssertionError))
     with pytest.raises(SystemExit, match="키가 없다"):
         asyncio.run(run_same_event(None, None, False))
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_lock_is_held_from_selection_until_the_run_ends(monkeypatch, dry_run):
+    order, locks = [], []
+
+    @asynccontextmanager
+    async def collection_locks(session_factory, *sources):
+        locks.append(sources)
+        order.append("잠금")
+        yield
+        order.append("해제")
+
+    async def cluster_sources(session, **kwargs):
+        order.append("실행")
+        return same_event_run.SameEventSummary()
+
+    monkeypatch.setattr(same_event_run, "endpoint", lambda: ("주소", "키"))
+    monkeypatch.setattr(same_event_run, "SessionLocal", MagicMock(return_value=AsyncMock()))
+    monkeypatch.setattr(same_event_run, "collection_locks", collection_locks)
+    monkeypatch.setattr(same_event_run, "cluster_sources", cluster_sources)
+    asyncio.run(run_same_event(None, None, dry_run))
+
+    # 분류 run 의 잠금과 달라야 분류가 도는 몇 시간 동안 묶기가 멈추지 않는다
+    assert locks == [("same_event",)]
+    assert order == ["잠금", "실행", "해제"]
 
 
 def test_command_is_wired_to_the_arguments(monkeypatch):

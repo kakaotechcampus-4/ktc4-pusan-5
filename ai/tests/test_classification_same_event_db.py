@@ -8,6 +8,7 @@
     - --dry-run 은 아무것도 남기지 않는다
 """
 
+import asyncio
 import json
 from datetime import datetime, timedelta
 
@@ -19,9 +20,9 @@ from app.repositories.classification import classified_sources, save_run, sync_b
 from app.repositories.classification_same_event import cluster_counts
 from app.repositories.news import save_news
 from app.repositories.source_card import register_missing_sources
-from app.services.classification import llm
-from app.services.classification.same_event_run import cluster_sources
-from tests.db import in_session
+from app.services.classification import llm, same_event_run
+from app.services.classification.same_event_run import cluster_sources, run_same_event
+from tests.db import in_session, run_db
 from tests.test_classification_repository_db import (
     BASIS,
     BODY,
@@ -400,6 +401,33 @@ def test_dry_run_saves_nothing_but_later_sources_see_earlier_clusters(database, 
     for table in ("classification_event_clusters", "classification_event_cluster_members",
                   "classification_cluster_calls"):
         assert query(database, f"SELECT count(*) AS n FROM {table}")[0]["n"] == 0
+
+
+def test_two_commands_at_once_cluster_each_source_once(database, monkeypatch):
+    prepare(database)
+    classified_card(database, monkeypatch, 1)
+    fake_same_event(monkeypatch, lambda _: "")
+    run(database)
+    classified_card(database, monkeypatch, 2)
+    sent = fake_same_event(monkeypatch, lambda _: "")
+
+    async def slow_complete(system, user, **kwargs):
+        sent.append(user)
+        await asyncio.sleep(0.2)  # 응답을 기다리는 동안 다른 실행이 끼어들 틈을 준다
+        return assignments((1, None), (2, None)), {"finish_reason": "stop", "cost": 1.5}
+
+    monkeypatch.setattr(llm, "complete", slow_complete)
+    monkeypatch.setattr(same_event_run, "endpoint", lambda: ("주소", "키"))
+
+    async def both(factory):
+        monkeypatch.setattr(same_event_run, "SessionLocal", factory)
+        await asyncio.gather(run_same_event(None, None, False), run_same_event(None, None, False))
+
+    run_db(database, both)
+
+    # 겹치면 같은 자료에 비용을 두 번 쓰고, 뒤에 저장하는 쪽이 "사건 하나는 묶음 하나" 제약에 걸려 죽는다
+    assert len(sent) == 1
+    assert query(database, "SELECT count(*) AS n FROM classification_cluster_calls")[0]["n"] == 1
 
 
 # ── 개수 ─────────────────────────────────────────────────────────────────

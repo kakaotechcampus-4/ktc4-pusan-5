@@ -101,6 +101,8 @@ uv run python -m app.services.classification same-event --since 2026-11-01 --lim
 
 출력은 묶음별 `source_count`·`publisher_count`·`counts_by_type`, 호출 수, 실패 수, 비용이다.
 
+한 번에 하나만 돈다. 나중 실행은 앞 실행이 끝날 때까지 기다렸다가 그때 남은 자료를 고른다. `--dry-run` 도 마찬가지다. 겹치면 같은 자료에 비용을 또 쓰고, 뒤에 저장하는 쪽이 오류로 멈춘다. 분류 `run` 과는 겹쳐도 된다. 도중에 생긴 새 회차는 다음 실행이 묶는다.
+
 ## 8. 시험
 
 판정 정확도 작업(`feature/classification-accuracy`)이 끝난 뒤 돌린다. 추출이 바뀌면 묶기도 다시 해야 한다. 한 번 더 분류하는 데 드는 돈을 아끼기 위한 순서다.

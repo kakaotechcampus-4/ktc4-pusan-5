@@ -15,6 +15,7 @@ DB 에 쓰는 명령
     uv run python -m app.services.classification same-event --since 2026-11-01 --limit 200
                                            # 분류가 끝난 사건을 같은 사건끼리 묶는다
     … same-event --since 2026-11-01 --limit 200 --dry-run   # 저장하지 않고 결과와 비용만 (LLM 은 부른다)
+                                           # same-event 는 한 번에 하나만 돈다. 나중 실행은 기다린다
 
 DB 를 쓰지 않는 명령 — 프롬프트·모델을 바꿔 가며 볼 때
     uv run python -m app.services.classification try 기사.txt --title "제목"

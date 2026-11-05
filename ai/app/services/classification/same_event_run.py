@@ -22,6 +22,7 @@ from app.repositories.classification_same_event import (
     representatives_near,
     save_clustering,
 )
+from app.repositories.scope import collection_locks
 from app.repositories.source_card import get_sources
 from app.services.classification.same_event import assign_clusters, candidates_for
 
@@ -90,7 +91,11 @@ async def run_same_event(since: date | None, limit: int | None, dry_run: bool) -
     start = datetime.combine(since, time(), KST) if since else None
     if dry_run:
         print("저장하지 않는다. LLM 비용은 든다.")
-    async with SessionLocal() as session:
+    print("다른 묶기 실행이 있으면 끝날 때까지 기다린다", flush=True)
+    # 고르기 전에 잡아 전부 저장할 때까지 쥔다. 겹치면 같은 자료에 비용을 또 쓰고 뒤에 저장하는 쪽이 제약에
+    # 걸려 죽으며, 서로의 새 묶음을 못 봐 같은 사건이 갈라진다. --dry-run 도 같은 행을 잠시 쓰므로 잡는다.
+    # 분류 run 과는 다른 잠금이다. 분류가 끝나기를 기다릴 이유가 없고, 새 회차는 다음 실행이 본다
+    async with collection_locks(SessionLocal, "same_event"), SessionLocal() as session:
         summary = await cluster_sources(session, since=start, limit=limit, dry_run=dry_run)
     fixes = {key: value for key, value in summary.fixes.items() if value}
     print()
