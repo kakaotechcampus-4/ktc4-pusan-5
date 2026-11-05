@@ -729,3 +729,55 @@ async def test_used_input_copy_reproduces_verification(fake_llm, krx, tmp_path):
     used = json.loads((run_dir / wrapper["input_used_path"]).read_text(encoding="utf-8"))
     assert used["change_pct"] == 0.27 and used["market_compare"] == wrapper["market_compare"]
     assert verify_wrapper(wrapper, report, used) == expected
+
+
+async def test_unexpected_error_in_one_report_does_not_stop_the_run(fake_llm, tmp_path, monkeypatch, capsys):
+    """러너 코드의 예상 밖 예외는 그 보고서만 실행 오류로 남긴다. 나머지 보고서·요약·--load 는 계속한다."""
+    real_finalize = collector.finalize
+    crashed_once = []
+
+    def finalize_or_crash(report, payload, trace):
+        if not crashed_once:  # 처음 finalize 에 들어온 보고서 하나만 죽는다
+            crashed_once.append(payload["code"])
+            raise KeyError("strength")
+        return real_finalize(report, payload, trace)
+
+    monkeypatch.setattr(collector, "finalize", finalize_or_crash)
+    session = MagicMock(commit=AsyncMock())
+
+    @asynccontextmanager
+    async def fake_session():
+        yield session
+
+    insert = AsyncMock(return_value=[])
+    monkeypatch.setattr(collector, "SessionLocal", fake_session)
+    monkeypatch.setattr(collector, "insert_analysis_files", insert)
+
+    total = len(list(FIXTURES.glob("*.json")))
+    result = await collector.run(FIXTURES, out_root=tmp_path, load=True)
+    assert result["total"] == total and result["errors"] == 1
+    assert result["reasons"]["RUNNER_ERROR"] == 1
+    wrappers = parsed(only_run_dir(tmp_path))
+    assert len(wrappers) == total
+    crashed = [w for w in wrappers.values() if w["is_error"]]
+    assert len(crashed) == 1
+    w = crashed[0]
+    assert w["error_code"] == "RUNNER_ERROR" and w["error"].startswith("finalize: KeyError")
+    assert w["verify_status"] == "failed" and w["final_text"] == ""
+    # 생성은 마쳤으므로 그 비용이 남는다
+    assert w["cost"] == pytest.approx(0.01)
+    # 요약이 끝까지 나오고 --load 도 불렸다
+    assert "완료: 보고서" in capsys.readouterr().out
+    insert.assert_awaited_once()
+
+
+def test_runner_error_wrapper_without_generated_wrapper(tmp_path):
+    """생성 전에 실패하면 빈 래퍼로 시작한다. 입력 경로·해시는 남는다."""
+    payload = json.loads((FIXTURES / "sample_cause.json").read_text(encoding="utf-8"))
+    progress = {"stage": "시장 맥락", "payload": payload, "wrapper": None}
+    w = collector.runner_error_wrapper(progress, ValueError("bad"), run_id="r1", prompt_hash="abc",
+                                       run_dir=tmp_path, source=Path("in/x.json"), data=b"{}")
+    assert w["is_error"] and w["error"] == "시장 맥락: ValueError: bad"
+    assert w["verify_problems"] == ["RUNNER_ERROR: 시장 맥락: ValueError: bad"]
+    assert w["input_path"] == "inputs/r1.json" and w["cost"] == 0.0
+    assert all(w[key] == [] for key in collector.WARNING_KEYS)
