@@ -35,6 +35,7 @@ from tests.test_classification_repository_db import (
 from tests.test_migrations import alembic, query
 
 LATER = PUBLISHED + timedelta(days=30)
+MOCK_MODEL = "mock/model"
 
 
 def saved_events(database: str, monkeypatch) -> tuple[int, int, list[int]]:
@@ -99,7 +100,8 @@ def fake_same_event(monkeypatch, reply) -> list[str]:
         return result, {"finish_reason": "stop", "cost": 1.5}
 
     monkeypatch.setattr(llm, "complete", complete)
-    monkeypatch.setattr(settings, "summary_model", llm.SAME_EVENT_MODEL)
+    monkeypatch.setattr(settings, "summary_model", MOCK_MODEL)
+    monkeypatch.setattr(settings, "classification_same_event_model", None)
     return sent
 
 
@@ -200,8 +202,8 @@ def test_second_source_joins_and_leaves_a_call_record(database, monkeypatch):
 
     call = query(database, "SELECT * FROM classification_cluster_calls")[0]
     assert call["source_card_id"] == second and call["status"] == "ok"
-    assert call["model"] == llm.SAME_EVENT_MODEL and call["raw_response"] and len(call["prompt_sha256"]) == 64
-    assert json.loads(call["usage"])["model"] == llm.SAME_EVENT_MODEL
+    assert call["model"] == MOCK_MODEL and call["raw_response"] and len(call["prompt_sha256"]) == 64
+    assert json.loads(call["usage"])["model"] == MOCK_MODEL
     assert json.loads(call["fixes"])["outside_new"] == 0
     call_ids = {r["event_id"]: r["call_id"] for r in query(
         database, "SELECT event_id, call_id FROM classification_event_cluster_members")}

@@ -107,6 +107,7 @@ class Settings(BaseSettings):
     classification_extract_model: str | None = None
     classification_link_model: str | None = None
     classification_judge_model: str | None = None
+    classification_same_event_model: str | None = None
     # 출력 상한(추론 토큰 포함). 판정 응답은 사건 × 후보 수만큼 길어진다.
     classification_max_tokens: int = 6000
 

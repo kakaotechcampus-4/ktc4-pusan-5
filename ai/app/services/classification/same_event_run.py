@@ -23,7 +23,6 @@ from app.repositories.classification_same_event import (
     save_clustering,
 )
 from app.repositories.source_card import get_sources
-from app.services.classification import llm
 from app.services.classification.same_event import assign_clusters, candidates_for
 
 
@@ -85,9 +84,7 @@ async def cluster_sources(session: AsyncSession, *, since: datetime | None = Non
 
 async def run_same_event(since: date | None, limit: int | None, dry_run: bool) -> None:
     try:
-        # 모델·키가 틀렸으면 자료를 읽기 전에 멈춘다
-        llm.model_for(llm.SAME_EVENT_STEP)
-        endpoint()
+        endpoint()  # 키가 없으면 자료를 읽기 전에 멈춘다
     except RuntimeError as exc:
         raise SystemExit(str(exc)) from exc
     start = datetime.combine(since, time(), KST) if since else None

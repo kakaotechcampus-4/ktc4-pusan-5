@@ -4,14 +4,14 @@ import asyncio
 import hashlib
 import json
 from datetime import UTC, date, datetime, timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from app.core.config import settings
 from app.llm.client import LLMError, load_prompt
 from app.services.classification import __main__ as classification_main
-from app.services.classification import llm
+from app.services.classification import llm, same_event_run
 from app.services.classification.same_event import (
     PROMPT_NAME,
     ClusterEvent,
@@ -28,6 +28,7 @@ from app.services.classification.same_event_run import run_same_event
 
 AT =datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
 BODY = "삼성전자가 공장을 짓는다. 회사는 내년에 가동한다. 투자액은 1조원이다."
+MOCK_MODEL = "mock/model"
 
 
 def sha(body: str) -> str:
@@ -54,7 +55,8 @@ def fake_llm(monkeypatch, reply: str = "", *, error: str | None = None) -> Async
 
     mock = AsyncMock(side_effect=complete)
     monkeypatch.setattr(llm, "complete", mock)
-    monkeypatch.setattr(settings, "summary_model", llm.SAME_EVENT_MODEL)
+    monkeypatch.setattr(settings, "summary_model", MOCK_MODEL)
+    monkeypatch.setattr(settings, "classification_same_event_model", None)
     return mock
 
 
@@ -235,13 +237,13 @@ def test_only_events_with_candidates_are_sent(monkeypatch):
     result = run([with_candidate, alone], {10: make_event(3, sentences=(2,), context=(1,))})
 
     assert result.clusters == {1: 10, 2: None} and result.asked == {1}
-    assert result.call.model == llm.SAME_EVENT_MODEL
+    assert result.call.model == MOCK_MODEL
     user = mock.await_args.args[1]
     assert "[사건 1]" in user and "[사건 2]" not in user and "투자액" not in user
     # 새 사건과 대표 모두 문맥을 함께 보낸다
     assert "[묶음 10]\n  문맥: 삼성전자가 공장을 짓는다.\n  문장: 회사는 내년에 가동한다." in user
     assert "후보 묶음: 10" in user
-    assert mock.await_args.kwargs["model"] == llm.SAME_EVENT_MODEL
+    assert mock.await_args.kwargs["model"] == MOCK_MODEL
 
 
 def test_representatives_are_sent_once(monkeypatch):
@@ -293,17 +295,24 @@ def test_unreadable_new_source_is_left_without_calling(monkeypatch):
     mock.assert_not_awaited()
 
 
-def test_model_other_than_luna_stops_before_calling(monkeypatch):
-    mock = fake_llm(monkeypatch)
-    monkeypatch.setattr(settings, "summary_model", "deepseek/deepseek-v4-flash-0731")
-    with pytest.raises(RuntimeError, match="고정"):
-        run([make_event(1)], {10: make_event(2)})
-    mock.assert_not_awaited()
+def test_model_can_be_swapped_without_touching_the_other_steps(monkeypatch):
+    # luna 말고 다른 모델(Jev 등)로도 시험할 수 있어야 한다
+    mock = fake_llm(monkeypatch, response((1, 10)))
+    monkeypatch.setattr(settings, "summary_model", "mock/summary")
+    assert llm.model_for(llm.SAME_EVENT_STEP) == "mock/summary"
+
+    monkeypatch.setattr(settings, "classification_same_event_model", "mock/same-event")
+    monkeypatch.setattr(settings, "classification_judge_model", None)
+    result = run([make_event(1)], {10: make_event(2)})
+    assert result.call.model == "mock/same-event"
+    assert mock.await_args.kwargs["model"] == "mock/same-event"
+    assert llm.model_for("judge") == "mock/summary"
 
 
-def test_command_stops_before_reading_when_model_is_not_luna(monkeypatch):
-    monkeypatch.setattr(settings, "summary_model", "deepseek/deepseek-v4-flash-0731")
-    with pytest.raises(SystemExit, match="고정"):
+def test_command_stops_before_reading_when_key_is_missing(monkeypatch):
+    monkeypatch.setattr(same_event_run, "endpoint",
+                        MagicMock(side_effect=RuntimeError("키가 없다")))
+    with pytest.raises(SystemExit, match="키가 없다"):
         asyncio.run(run_same_event(None, None, False))
 
 

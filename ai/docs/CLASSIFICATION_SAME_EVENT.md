@@ -20,7 +20,7 @@
 ## 3. 정한 것
 
 - 묶기와 개수 세기는 같이 낸다. 묶기만 먼저 합치지 않는다.
-- 모델은 `openai/gpt-6-luna` 로 고정한다. Elice 는 모델마다 주소·단가가 다르므로, `.env` 가 luna 가 아니면 호출 전에 멈춘다. 쓴 모델은 호출 기록에 남긴다.
+- 모델은 분류의 다른 단계와 같은 방식으로 정한다(`CLASSIFICATION_SAME_EVENT_MODEL`, 없으면 `SUMMARY_MODEL`). 지금까지 시험한 모델은 `openai/gpt-6-luna` 다. Elice 는 모델마다 주소·단가가 다르므로 모델을 바꿀 때 `LLM_BASE_URL`·단가도 같이 바꾼다. 쓴 모델은 호출 기록에 남긴다.
 - 대상은 현재 회차(`is_current`)의 `company`·`industry` 사건이다. 실험 회차는 뺀다.
 - `macro`·`market` 사건은 처음에는 묶지 않는다. 표기가 넓어 잘못 묶이기 쉽고 판정도 하지 않는다.
 - 공개 시각(`available_at`)이 없는 자료는 처음에는 묶지 않는다. 시간으로 후보를 좁힐 수 없다.
@@ -131,7 +131,7 @@ uv run python -m app.services.classification same-event --since 2026-11-01 --lim
 
 1. 마이그레이션 `0029` 와 모델
 2. 후보 찾기와 LLM 응답 검사 (LLM·DB 없이 테스트)
-3. 프롬프트와 묶기 실행 (`llm.py` 에 단계 추가, luna 확인)
+3. 프롬프트와 묶기 실행 (`llm.py` 에 단계 추가)
 4. 저장과 `same-event` 명령
 5. 개수 조회와 `classified_sources` 추가
 6. 8절의 시험
