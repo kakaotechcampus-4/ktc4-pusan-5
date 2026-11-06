@@ -172,7 +172,9 @@ def test_review_sheet_shows_sentences_and_failed_raw_events(tmp_path: Path) -> N
          "label": {"kind": "단일종목", "stock": "삼성전자", "gold": [1]},
          "run": {"status": "ok", "splitter_version": "v1", "events": [
              {"order_index": 1, "scope": "company", "role": "cause", "tense": "past",
-              "sentence_indices": [1], "context_indices": [], "mentions": ["삼성전자"]}]}},
+              "sentence_indices": [1], "context_indices": [], "mentions": ["삼성전자"],
+              "judgments": [{"event_order": 1, "stock_code": "000660", "label": "DIRECT",
+                             "reason": None}]}]}},
         {"id": "b", "title": "t", "verdict": None, "label": None,
          "run": {"status": "failed", "error": "scope 오류", "splitter_version": "v1",
                  "events": [], "raw_response": raw}},
@@ -189,6 +191,8 @@ def test_review_sheet_shows_sentences_and_failed_raw_events(tmp_path: Path) -> N
     assert rows[0]["사람: 추출 판정 (all/some/none/pass/fail)"] == ""
     assert rows[0]["자동 채점: 문장 재현율"] == "all"
     assert rows[0]["자동 채점: 종목 연결"] == "none"
+    # 종목 연결이 왜 none 인지 사람이 보도록 판정을 함께 보여 준다
+    assert "→ 000660 DIRECT" in rows[0]["뽑힌 사건"]
     assert rows[1]["자동 채점: 종목 연결"] == ""  # 예전 결과 파일처럼 값이 없어도 비워 둔다
     assert rows[1]["상태"].startswith("failed — scope 오류")
     assert "analyst_view" in rows[1]["뽑힌 사건"]

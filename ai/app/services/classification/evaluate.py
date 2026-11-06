@@ -1,4 +1,4 @@
-"""사건 추출 결과를 정답과 대조하고, 토큰·비용을 센다. 사람이 볼 검토표도 만든다.
+"""분류 결과(사건 추출·종목 판정)를 정답과 대조하고, 토큰·비용을 센다. 사람이 볼 검토표도 만든다.
 
 정답은 eval_data/*/labels.csv 다(뉴스 발췌 비교 실험, eval_data/SUMMARY.md). 한 행 = 기사 하나,
 `정답 문장` 은 그 종목이 움직인 원인 문장 번호("1,3"), 원인이 없으면 "-" 다.
@@ -172,7 +172,10 @@ def _numbered(sentences: list[str], indices) -> str:
 
 
 def _event_block(event: dict, sentences: list[str]) -> str:
-    """결과 파일의 사건 하나. 실패한 회차는 응답 원문의 키(sentences·context)를 그대로 쓴다."""
+    """결과 파일의 사건 하나. 실패한 회차는 응답 원문의 키(sentences·context)를 그대로 쓴다.
+
+    종목 판정이 있으면 끝에 "→ 종목 코드 판정" 으로 붙인다. 종목 연결 채점을 사람이 확인할 수 있게.
+    """
     indices = event.get("sentence_indices", event.get("sentences")) or []
     context = event.get("context_indices", event.get("context")) or []
     head = (f"[{event.get('order_index', '?')}] {event.get('scope')} / {event.get('role')} / "
@@ -180,6 +183,10 @@ def _event_block(event: dict, sentences: list[str]) -> str:
     lines = [head]
     lines += [f"  (문맥) {line}" for line in _numbered(sentences, context).splitlines()]
     lines += [f"  {line}" for line in _numbered(sentences, indices).splitlines()]
+    judgments = event.get("judgments")
+    if isinstance(judgments, list):
+        lines += [f"  → {j.get('stock_code')} {j.get('label')}" for j in judgments
+                  if isinstance(j, dict)]
     return "\n".join(lines)
 
 
