@@ -15,6 +15,8 @@ from app.services.stock_analysis.verify import (
     BACKGROUND_WITHOUT_SOURCE,
     CHANGE_PCT_MISMATCH,
     COMMON_MOVE_WITH_MOVE_LINK,
+    COMPARE_META_PHRASE,
+    COMPARE_OPPOSITE_WORDING,
     COUNT_OVER_CAP,
     COUNTER_WITHOUT_BACKGROUND,
     DATE_MISMATCH,
@@ -76,9 +78,11 @@ from app.services.stock_analysis.verify import (
     judge_layers,
     layer_pct,
     market_led,
+    mention_of,
     move_case,
     move_comparison,
     move_strength_cap,
+    normalize_payload,
     normalize_report,
     verify,
     verify_wrapper,
@@ -104,9 +108,9 @@ EXCERPT_QUOTE = "주요 고객사의 재고 조정으로 출하량이 줄었다�
 INDIRECT_QUOTE = "전방 스마트폰 수요 둔화 우려로"
 
 
-def source(url=DIRECT_URL, quote=DIRECT_QUOTE, match="direct"):
+def source(url=DIRECT_URL, quote=DIRECT_QUOTE, mention="mentioned"):
     return {"channel": "sample_channel_a", "url": url, "datetime_kst": "2026-09-18T08:10:00+09:00",
-            "quote": quote, "match": match, "is_market_recap": False}
+            "quote": quote, "mention": mention, "is_market_recap": False}
 
 
 def link(layer="move", strength="sufficient", direction_match=True, **kw):
@@ -139,7 +143,7 @@ def bg(text="n", sources=None, **kw):
     """background 항목. 출처 기본값은 CAUSE 의 간접 메시지다."""
     item = {"text": text,
             "sources": sources if sources is not None
-            else [source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")]}
+            else [source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned")]}
     item.update(kw)
     return item
 
@@ -147,7 +151,7 @@ def bg(text="n", sources=None, **kw):
 def msg_source(payload, k=0, length=15):
     """payload 의 k 번째 메시지 text 앞부분을 그대로 뜬 출처."""
     m = payload["messages"][k]
-    return source(m["url"], m["text"][:length], m["match"])
+    return source(m["url"], m["text"][:length], m["mention"])
 
 
 def cause_report(**kw):
@@ -214,12 +218,12 @@ def test_schema_missing_top_level_and_summary_fields():
 def test_schema_values_outside_prompt_lists():
     r = cause_report(verdict="mostly_explained", relative_verdict="same",
                      factors=[factor(size_fit="medium", stance="up", layer="market",
-                                     sources=[source(match="related")])])
+                                     sources=[source(mention="related")])])
     problems = check_schema(r)
     assert all(code_of(p) == SCHEMA_VALUE for p in problems)
     assert {p.split(":", 1)[1].split("=")[0].strip() for p in problems} == {
         "verdict", "relative_verdict", "factors[0].links[0].strength", "factors[0].stance",
-        "factors[0].links[0].layer", "factors[0].sources[0].match"}
+        "factors[0].links[0].layer", "factors[0].sources[0].mention"}
 
 
 def test_schema_bool_fields_reject_strings():
@@ -256,7 +260,7 @@ def test_schema_background_items_are_objects_with_sources():
 
 
 def test_schema_background_sources_share_factor_source_format():
-    r = cause_report(background={"bullish": [bg(sources=[source(match="related")])],
+    r = cause_report(background={"bullish": [bg(sources=[source(mention="related")])],
                                  "bearish": [], "neutral": []})
     assert codes(check_schema(r)) == {SCHEMA_VALUE}
 
@@ -703,15 +707,15 @@ def test_null_market_small_change_is_flat():
 
 def test_indirect_only_factor_cannot_be_sufficient():
     r = cause_report(verdict="explained", factors=[
-        factor("sufficient", [source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")])])
+        factor("sufficient", [source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned")])])
     assert SIZE_FIT_OVER_CAP in codes(check_rules(r, CAUSE))
 
 
 def test_indirect_partial_and_mixed_sources_are_fine():
     partial = cause_report(verdict="partially_explained", factors=[
-        factor("partial", [source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")])])
+        factor("partial", [source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned")])])
     mixed = cause_report(factors=[factor("sufficient", [
-        source(), source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")])])
+        source(), source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned")])])
     assert verify(partial, CAUSE) == ("passed", [])
     assert verify(mixed, CAUSE) == ("passed", [])
 
@@ -847,11 +851,11 @@ def test_factor_without_source_fails():
 
 def test_background_sources_are_grounded_like_factors():
     bad_quote = cause_report(background={"bullish": [], "bearish": [], "neutral": [
-        bg(sources=[source(INDIRECT_URL, "지어낸 문장", "indirect")])]})
+        bg(sources=[source(INDIRECT_URL, "지어낸 문장", "not_mentioned")])]})
     assert check_grounding(bad_quote, CAUSE) == [
         f"{QUOTE_NOT_IN_SOURCE}: background.neutral[0].sources[0] '지어낸 문장'"]
     bad_url = cause_report(background={"bullish": [], "bearish": [], "neutral": [
-        bg(sources=[source("https://t.me/sample_channel_b/999", INDIRECT_QUOTE, "indirect")])]})
+        bg(sources=[source("https://t.me/sample_channel_b/999", INDIRECT_QUOTE, "not_mentioned")])]})
     assert URL_NOT_IN_INPUT in codes(check_grounding(bad_url, CAUSE))
 
 
@@ -866,7 +870,7 @@ def test_sources_at_most_three():
     four = cause_report(factors=[factor(sources=[source()] * 4)])
     assert check_grounding(four, CAUSE) == [f"{SOURCES_OVER_MAX}: factors[0] 4개 (최대 3)"]
     bg_four = cause_report(background={"bullish": [], "bearish": [], "neutral": [
-        bg(sources=[source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")] * 4)]})
+        bg(sources=[source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned")] * 4)]})
     assert codes(check_grounding(bg_four, CAUSE)) == {SOURCES_OVER_MAX}
 
 
@@ -969,7 +973,7 @@ def test_market_share_rule_skips_flat_move_day():
 def test_is_stock_specific():
     assert is_stock_specific(factor()) is True
     assert is_stock_specific(factor(sources=[source(), source(INDIRECT_URL, INDIRECT_QUOTE,
-                                                              "indirect")])) is False
+                                                              "not_mentioned")])) is False
     assert is_stock_specific(factor(sources=[])) is False
 
 
@@ -1117,7 +1121,7 @@ def test_direction_is_checked_per_link_with_factor_stance():
 
 
 def test_caps_apply_to_every_link():
-    indirect = [source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")]
+    indirect = [source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned")]
     r = cause_report(relative_verdict="explained",
                      factors=[factor(sources=indirect, links=[link("move"), link("relative")])])
     assert [p for p in check_rules(r, CAUSE) if code_of(p) == SIZE_FIT_OVER_CAP] == [
@@ -1131,7 +1135,7 @@ def test_sources_cap_counts_factor_once_regardless_of_links():
 
 
 def test_duplicate_sources_warning_needs_same_url_set():
-    a, b = source(), source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")
+    a, b = source(), source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned")
     assert check_warnings(cause_report(factors=[factor(sources=[a]), factor(sources=[b])])) == []
     assert check_warnings(cause_report(factors=[factor(sources=[a, b]), factor(sources=[a])])) == []
     same = cause_report(factors=[factor(sources=[a, b]), factor(sources=[b, a])])
@@ -1179,6 +1183,67 @@ def test_legacy_reports_verify_like_new_ones():
         f"{SCHEMA_VALUE}: factors[0].links[0].strength='medium' (허용: sufficient|partial|insufficient)"]
 
 
+def legacy_source(url=DIRECT_URL, quote=DIRECT_QUOTE, match="direct"):
+    """mention 이름을 바꾸기 전 출처. match: direct|indirect."""
+    return {("match" if k == "mention" else k): (match if k == "mention" else v) for k, v in source(url, quote).items()}
+
+
+def test_mention_of_reads_legacy_match():
+    assert mention_of({"mention": "mentioned"}) == "mentioned"
+    assert mention_of({"match": "direct"}) == "mentioned"
+    assert mention_of({"match": "indirect"}) == "not_mentioned"
+    assert mention_of({"match": "related"}) == "related"            # 목록 밖 값은 그대로 — 스키마가 잡는다
+    assert mention_of({"mention": "not_mentioned", "match": "direct"}) == "not_mentioned"  # 둘 다 있으면 새 칸
+    assert mention_of({}) is None
+
+
+def test_normalize_moves_legacy_source_match_to_mention():
+    """factor·background 출처의 match 를 같은 자리의 mention 으로 옮긴다. 이전 형식 factor 와 섞여 있어도 된다."""
+    old = cause_report(
+        factors=[factor(sources=[legacy_source()]), legacy_factor(sources=[legacy_source()])],
+        background={"bullish": [bg(sources=[legacy_source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")])],
+                    "bearish": [], "neutral": ["문자열 항목"]})
+    before = copy.deepcopy(old)
+    got = normalize_report(old)
+    assert old == before
+    assert [list(s) for f in got["factors"] for s in f["sources"]] == [list(source())] * 2
+    assert [s["mention"] for f in got["factors"] for s in f["sources"]] == ["mentioned", "mentioned"]
+    assert got["background"]["bullish"][0]["sources"][0]["mention"] == "not_mentioned"
+    assert got["background"]["neutral"] == ["문자열 항목"]
+    assert normalize_report(got) == got
+    # 새 형식 출처만 있으면 같은 객체다
+    r = cause_report(background={"bullish": [bg()], "bearish": [], "neutral": ["문자열 항목"]})
+    assert normalize_report(r) is r
+
+
+def test_legacy_source_match_verifies_like_new_ones():
+    """DB·runs/ 에 남은 옛 보고서(match: direct|indirect)도 같은 규칙으로 판정한다."""
+    old = cause_report(factors=[factor(sources=[legacy_source()])],
+                       background={"bullish": [bg(sources=[legacy_source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")])],
+                                   "bearish": [], "neutral": []})
+    assert verify(old, CAUSE) == ("passed", [])
+    # 간접 상한도 옛 값으로 본다
+    capped = cause_report(factors=[factor("sufficient", [legacy_source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")])])
+    assert SIZE_FIT_OVER_CAP in codes(check_rules(capped, CAUSE))
+    assert check_schema(cause_report(factors=[factor(sources=[legacy_source(match="related")])])) == [
+        f"{SCHEMA_VALUE}: factors[0].sources[0].mention='related' (허용: mentioned|not_mentioned)"]
+
+
+def test_legacy_input_match_is_read_as_mention():
+    """옛 입력(메시지 match: direct|indirect)도 같은 판정을 낸다. normalize_payload 는 옮긴 사본을 준다."""
+    legacy = copy.deepcopy(CAUSE)
+    for m in legacy["messages"]:
+        m["match"] = {"mentioned": "direct", "not_mentioned": "indirect"}[m.pop("mention")]
+    before = copy.deepcopy(legacy)
+    assert [m["mention"] for m in normalize_payload(legacy)["messages"]] == [m["mention"] for m in CAUSE["messages"]]
+    assert legacy == before
+    assert normalize_payload(CAUSE) is CAUSE
+    for strength in ("partial", "sufficient"):
+        for sources in ([source()], [source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned")]):
+            r = cause_report(factors=[factor(strength, sources)])
+            assert check_warnings(r, legacy) == check_warnings(r, CAUSE)
+
+
 # --- 5번 경고: 개수 상한·kind 출처·대상어 (판정과 분리) ---------------------------
 
 
@@ -1214,7 +1279,7 @@ def test_factor_with_only_result_sources(kind, warned):
 
 
 def test_result_source_with_original_news_is_not_warned():
-    r = cause_report(factors=[factor(sources=[source(), source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")])])
+    r = cause_report(factors=[factor(sources=[source(), source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned")])])
     assert FACTOR_RESULT_SOURCES_ONLY not in codes(check_warnings(r, with_kinds("flow_rank", "news")))
 
 
@@ -1288,15 +1353,97 @@ def test_more_less_comparison_on_flat_day_warns(move, warned):
     assert MOVE_COMPARISON_ON_FLAT not in codes(check_warnings(cause_report(summary=summary(move=move)), CAUSE))
 
 
-# --- strength 정의(출처 direct + 방향)와 direct 출처 누락 경고 ------------------------------
+# --- 비교 판정의 안쪽 말 -------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("relative", "warned"), [
+    ("같은 메모리반도체 그룹과 비교해 판정하기 어렵습니다.", True),
+    ("기준 시장과 비슷하게 움직였습니다.", True),
+    ("비교 종목이 하나뿐이라 그룹 흐름은 알 수 없습니다.", True),
+    ("같은 메모리반도체 그룹의 SK하이닉스는 5.49% 내렸습니다.", False),  # inconclusive 날 쓰는 꼴
+    ("삼성전자를 뺀 코스피와 다르게 움직였습니다.", False),
+])
+def test_compare_meta_phrase_in_summary_warns(relative, warned):
+    r = cause_report(summary=summary(relative=relative))
+    assert (COMPARE_META_PHRASE in codes(check_warnings(r))) is warned
+
+
+def test_compare_meta_phrase_checks_every_reader_field_but_not_quotes():
+    """summary 밖에서도 독자가 읽는 칸(event·detail·note·background text)은 본다. quote 는 원문이라 보지 않는다."""
+    meta = "기준 시장"
+    r = cause_report(
+        factors=[factor(event=f"{meta} 흐름", detail=f"{meta} 부연",
+                        links=[link(note=f"{meta}과 같은 방향")],
+                        sources=[source(quote=f"{meta} 원문")])],
+        background={"bullish": [], "bearish": [], "neutral": [bg(f"{meta} 재료")]},
+    )
+    warnings = [w for w in check_warnings(r) if code_of(w) == COMPARE_META_PHRASE]
+    assert [w.split(": ", 1)[1] for w in warnings] == [
+        f"factors[0].event 에 {meta!r}", f"factors[0].detail 에 {meta!r}",
+        f"factors[0].links[0].note 에 {meta!r}", f"background.neutral[0].text 에 {meta!r}"]
+
+
+# --- opposite(차이는 기준 안, 방향은 반대) 비교를 판정하는 말로 썼나 ---------------------------------
+
+
+def with_compare(kospi_relation=None, peers=(), status="ok"):
+    """CAUSE 입력에 market_compare 를 붙인다. peers 는 (그룹, 판정) 목록."""
+    return {**CAUSE, "market_compare": {
+        "status": status, "status_reason": None,
+        "kospi": {"kospi_basis": "kospi", "kospi_relation": kospi_relation},
+        "peers": [{"group": g, "relation": rel_} for g, rel_ in peers]}}
+
+
+@pytest.mark.parametrize(("kospi_relation", "move", "warned"), [
+    ("opposite", "코스피와 비슷하게 움직였습니다.", True),
+    ("opposite", "삼성전자를 뺀 코스피와는 다르게 움직였습니다.", True),
+    ("opposite", "코스피 흐름을 따라갔습니다.", True),
+    ("opposite", "코스피는 올랐고 솔마루전자는 내렸습니다.", False),  # opposite 날 쓰는 꼴
+    ("opposite", "대형주 전반과 비슷하게 움직였습니다.", False),  # 대형주 비교는 다른 판정이다
+    ("follows", "코스피와 비슷하게 움직였습니다.", False),
+])
+def test_kospi_opposite_wording_warns(kospi_relation, move, warned):
+    r = cause_report(summary=summary(move=move))
+    assert (COMPARE_OPPOSITE_WORDING in codes(check_warnings(r, with_compare(kospi_relation)))) is warned
+
+
+@pytest.mark.parametrize(("peers", "relative", "warned"), [
+    ([("은행지주", "opposite")], "같은 은행지주 그룹 종목들과 함께 내렸습니다.", True),
+    ([("은행지주", "opposite")], "같은 은행지주 그룹 흐름을 따라갔습니다.", True),
+    ([("SK하이닉스 연동", "opposite")], "SK하이닉스 지분으로 이어진 SK스퀘어·SK와 비슷하게 움직였습니다.", True),
+    ([("은행지주", "opposite")], "같은 은행지주 그룹의 신한지주는 0.41% 올랐고 KB금융은 0.32% 내렸습니다.", False),
+    ([("은행지주", "follows")], "같은 은행지주 그룹 종목들과 함께 내렸습니다.", False),
+    # 다른 그룹 문장의 "함께" 는 보지 않는다
+    ([("보험", "opposite"), ("삼성전자 연동", "follows")],
+     "같은 보험 그룹의 삼성화재는 0.41% 올랐습니다. 삼성전자 지분으로 이어진 삼성물산과 함께 내렸습니다.", False),
+])
+def test_group_opposite_wording_warns(peers, relative, warned):
+    r = cause_report(summary=summary(relative=relative))
+    assert (COMPARE_OPPOSITE_WORDING in codes(check_warnings(r, with_compare(peers=peers)))) is warned
+
+
+def test_group_follows_with_kospi_opposite_is_not_warned():
+    """코스피 opposite·그룹 follows 날 쓰는 꼴. "함께" 는 그룹 쪽 말이고 코스피에는 방향만 썼다."""
+    r = cause_report(summary=summary(relative="코스피는 내렸고 솔마루전자는 같은 은행지주 그룹 종목들과 함께 올랐습니다."))
+    payload = with_compare("opposite", [("은행지주", "follows")])
+    assert COMPARE_OPPOSITE_WORDING not in codes(check_warnings(r, payload))
+
+
+def test_opposite_wording_not_checked_without_ok_compare():
+    r = cause_report(summary=summary(move="코스피와 비슷하게 움직였습니다."))
+    assert COMPARE_OPPOSITE_WORDING not in codes(check_warnings(r, with_compare("opposite", status="no_trades")))
+    assert COMPARE_OPPOSITE_WORDING not in codes(check_warnings(r, CAUSE))
+
+
+# --- strength 정의(출처 mentioned + 방향)와 mentioned 출처 누락 경고 ------------------------
 
 
 @pytest.mark.parametrize(("sources", "strength", "warned"), [
-    ([source()], "partial", True),                                         # direct 가 있는데 partial
+    ([source()], "partial", True),                                         # mentioned 가 있는데 partial
     ([source()], "sufficient", False),
-    ([source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")], "sufficient", True),  # direct 가 없는데 sufficient
-    ([source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")], "partial", False),
-    ([source(INDIRECT_URL, INDIRECT_QUOTE, "indirect"), source()], "partial", True),  # 하나라도 direct 면 sufficient
+    ([source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned")], "sufficient", True),  # mentioned 가 없는데 sufficient
+    ([source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned")], "partial", False),
+    ([source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned"), source()], "partial", True),  # 하나라도 mentioned 면 sufficient
     ([source()], "insufficient", False),                                   # insufficient 는 판단 몫이라 보지 않는다
 ])
 def test_strength_mismatch(sources, strength, warned):
@@ -1304,25 +1451,25 @@ def test_strength_mismatch(sources, strength, warned):
     assert (STRENGTH_MISMATCH in codes(check_warnings(r, CAUSE))) is warned
 
 
-def test_strength_mismatch_uses_input_match_and_caps():
-    # 모델이 match 를 direct 로 잘못 적어도 입력 값(indirect)으로 본다
-    wrong = [{**source(INDIRECT_URL, INDIRECT_QUOTE, "indirect"), "match": "direct"}]
+def test_strength_mismatch_uses_input_mention_and_caps():
+    # 모델이 mention 을 mentioned 로 잘못 적어도 입력 값(not_mentioned)으로 본다
+    wrong = [{**source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned"), "mention": "mentioned"}]
     assert STRENGTH_MISMATCH in codes(check_warnings(cause_report(factors=[factor("sufficient", wrong)]), CAUSE))
-    # 미확인 정보는 direct 여도 partial 이 맞다
+    # 미확인 정보는 mentioned 여도 partial 이 맞다
     r = cause_report(factors=[factor("partial", unconfirmed=True)])
     assert STRENGTH_MISMATCH not in codes(check_warnings(r, CAUSE))
     # 대형주 몫이 절반 이상인 날 등락 층의 종목 고유 재료는 partial 이 맞다(-1.8 / -3.2)
     r = cause_report(change_pct=-1.8, factors=[factor("partial", [msg_source(MARKET, 0)])])
-    assert MARKET["messages"][0]["match"] == "direct"
+    assert MARKET["messages"][0]["mention"] == "mentioned"
     assert STRENGTH_MISMATCH not in codes(check_warnings(r, MARKET))
 
 
 def test_direct_source_missing():
-    """factor 로 묶인 이슈가 direct 메시지에서 나왔는데 출처에는 간접 메시지만 있다."""
+    """factor 로 묶인 이슈가 mentioned 메시지에서 나왔는데 출처에는 간접 메시지만 있다."""
     trace = [{"id": "m1", "issues": [{"id": "i1", "issue": "실적", "relation": "direct"}], "none_count": 0},
              {"id": "m2", "issues": [{"id": "i2", "issue": "업황", "relation": "sector"}], "none_count": 0}]
     assert [m["url"] for m in CAUSE["messages"]] == [DIRECT_URL, INDIRECT_URL]
-    indirect_only = [factor("partial", [source(INDIRECT_URL, INDIRECT_QUOTE, "indirect")])]
+    indirect_only = [factor("partial", [source(INDIRECT_URL, INDIRECT_QUOTE, "not_mentioned")])]
     r = cause_report(factors=indirect_only, events=[event(factor=0, issue_ids=["i1", "i2"])])
     assert DIRECT_SOURCE_MISSING in codes(check_warnings(r, CAUSE, trace))
     # 이슈가 간접 메시지에서만 나왔으면 경고하지 않는다

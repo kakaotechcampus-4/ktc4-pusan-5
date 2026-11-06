@@ -133,7 +133,7 @@ class SourceCardStock(Base):
     나중에 골라 쓰거나 지울 수 있게 남긴다.
         report_item_code   증권사 종목분석 리포트의 종목코드(analyst_reports.item_code). 등록 처리가 채운다
         dart_stock_code    공시 목록이 준 종목코드(dart_disclosures.stock_code). 등록 처리가 채운다
-    뉴스·메시지의 종목 판단(필터·태깅 단계)이 들어오면 그 방식의 값을 더한다.
+        classification     자료 분류의 DIRECT 판정. 현재 회차를 저장할 때 바꾼다(replace_stock_tags)
     """
 
     __tablename__ = "source_card_stocks"

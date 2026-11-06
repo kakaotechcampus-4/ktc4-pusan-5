@@ -39,33 +39,44 @@ from app.repositories.source_card.read_model import (
 )
 
 
-async def stock_card_ids(
-    session: AsyncSession, stock_code: str, *, until: datetime, since: datetime | None = None,
-) -> list[int]:
-    """종목 하나의 자료 중 기준 시각(until) 이전에 공개된 것의 공통 ID. 오래된 순서다.
+def available_since(since: datetime):
+    """카드가 since 이후에 공개됐다는 조건. 공개 시각을 모르는 자료는 날짜(KST)로 판단한다."""
+    return or_(SourceCard.available_at >= since, and_(
+        SourceCard.available_at.is_(None),
+        SourceCard.event_date >= since.astimezone(KST).date(),
+    ))
+
+
+def available_within(until: datetime, since: datetime | None = None):
+    """카드가 기준 시각(until) 이전에, since 이후에 공개됐다는 조건. 종목 조회 두 곳이 같이 쓴다
+    (이 함수의 stock_card_ids 와 repositories/classification.py 의 classified_sources).
 
     공개 시각을 모르는 자료(시각 없이 작성일만 있는 네이버 리포트)는 날짜로 판단한다.
     기준 시각의 날짜(KST)보다 **앞선 날** 것만 넣는다 — 같은 날이면 기준 시각 전인지 알 수 없다.
     공개 시각도 날짜도 모르는 자료는 넣지 않는다.
     """
+    condition = or_(SourceCard.available_at <= until, and_(
+        SourceCard.available_at.is_(None),
+        SourceCard.event_date < until.astimezone(KST).date(),
+    ))
+    return condition if since is None else and_(condition, available_since(since))
+
+
+async def stock_card_ids(
+    session: AsyncSession, stock_code: str, *, until: datetime, since: datetime | None = None,
+) -> list[int]:
+    """종목 하나의 자료 중 기준 시각(until) 이전에 공개된 것의 공통 ID. 오래된 순서다.
+
+    시각 조건은 available_within 이다. 이 색인(source_card_stocks)에는 종목에 직접 해당하는 자료만
+    있다 — 분류 판정의 INDIRECT_CONTEXT·공통 배경까지 보려면 classification.classified_sources.
+    """
     # (카드, 종목)이 고유하므로 종목 하나로 조인하면 카드가 겹치지 않는다.
     query = (
         select(SourceCard.id)
         .join(SourceCardStock, SourceCardStock.source_card_id == SourceCard.id)
-        .where(
-            SourceCardStock.stock_code == stock_code,
-            or_(SourceCard.available_at <= until, and_(
-                SourceCard.available_at.is_(None),
-                SourceCard.event_date < until.astimezone(KST).date(),
-            )),
-        )
+        .where(SourceCardStock.stock_code == stock_code, available_within(until, since))
         .order_by(SourceCard.event_date, SourceCard.available_at.nulls_first(), SourceCard.id)
     )
-    if since is not None:
-        query = query.where(or_(SourceCard.available_at >= since, and_(
-            SourceCard.available_at.is_(None),
-            SourceCard.event_date >= since.astimezone(KST).date(),
-        )))
     return list((await session.execute(query)).scalars().all())
 
 

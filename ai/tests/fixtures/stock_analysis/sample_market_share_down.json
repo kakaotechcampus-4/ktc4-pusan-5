@@ -22,7 +22,7 @@
       "datetime_kst": "2026-09-25T09:10:00+09:00",
       "views": "1500",
       "text": "[샘플] 하늬결화학, 2공장 정기 보수 일정 앞당겨… 이달 출하량 일부 감소 예상",
-      "match": "direct"
+      "mention": "mentioned"
     },
     {
       "channel": "sample_channel_b",
@@ -30,7 +30,7 @@
       "datetime_kst": "2026-09-25T10:30:00+09:00",
       "views": "4200",
       "text": "[샘플] 해외 금리 급등에 외국인 대규모 매도… 대형주 일제히 약세",
-      "match": "indirect"
+      "mention": "not_mentioned"
     }
   ]
 }

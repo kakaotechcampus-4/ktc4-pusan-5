@@ -159,6 +159,12 @@ def disclosure_record(card: SourceCard, disclosure: DartDisclosure) -> SourceRec
     )
 
 
+def body_observed_by(record: SourceRecord, cutoff: datetime) -> bool:
+    """본문을 cutoff 까지 받았다고 확인되는가. 받은 시각을 모르면 아니다."""
+    fetched = record.body_fetched_at
+    return fetched is not None and fetched <= cutoff
+
+
 def hide_after_cutoff(record: SourceRecord, cutoff: datetime) -> None:
     """기준 시각에 볼 수 있었다고 확인되지 않는 본문·요약을 뺀다. 저장된 원문은 그대로 둔다.
 
@@ -170,9 +176,9 @@ def hide_after_cutoff(record: SourceRecord, cutoff: datetime) -> None:
     제목·주소·시각 같은 메타데이터는 남긴다.
     """
     record.summary = None
-    fetched = record.body_fetched_at
-    if not record.has_body or (fetched is not None and fetched <= cutoff):
+    if not record.has_body or body_observed_by(record, cutoff):
         return
+    fetched = record.body_fetched_at
     when = f"{fetched.astimezone(KST):%Y-%m-%d %H:%M} KST" if fetched else "받은 시각 미상"
     record.has_body, record.body = False, None
     record.body_missing_reason = f"not_observed_at_cutoff: 기준 시각 이후 받은 본문 ({when})"

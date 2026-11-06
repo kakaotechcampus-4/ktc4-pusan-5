@@ -22,7 +22,7 @@
       "datetime_kst": "2026-09-22T15:20:00+09:00",
       "views": "700",
       "text": "[샘플] 외국인 대형주 매도에 코스피 2%대 하락 마감",
-      "match": "indirect"
+      "mention": "not_mentioned"
     }
   ]
 }

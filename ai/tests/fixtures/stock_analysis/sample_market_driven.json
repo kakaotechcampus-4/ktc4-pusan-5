@@ -22,7 +22,7 @@
       "datetime_kst": "2026-09-21T09:40:00+09:00",
       "views": "900",
       "text": "솔마루전자 2대 주주, 보유 지분 1.5% 시간외 대량매매로 처분",
-      "match": "direct"
+      "mention": "mentioned"
     },
     {
       "channel": "sample_channel_b",
@@ -30,7 +30,7 @@
       "datetime_kst": "2026-09-21T13:15:00+09:00",
       "views": "1500",
       "text": "미국 금리 인상 우려에 외국인 대형주 일제히 매도… 코스피 2%대 하락",
-      "match": "indirect"
+      "mention": "not_mentioned"
     }
   ]
 }
