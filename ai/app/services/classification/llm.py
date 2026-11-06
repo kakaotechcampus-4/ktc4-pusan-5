@@ -21,13 +21,15 @@ import hashlib
 import logging
 import random
 from dataclasses import dataclass, field
+from typing import Literal, get_args
 
 from app.core.config import settings
 from app.llm.client import LLMError, LLMRateLimited, complete, cost_detail, load_prompt
 
 logger = logging.getLogger(__name__)
-SAME_EVENT_STEP = "same_event"
-STEPS = ("extract", "link", "judge", SAME_EVENT_STEP)
+Step = Literal["extract", "link", "judge", "same_event"]
+STEPS = get_args(Step)
+SAME_EVENT_STEP: Step = "same_event"
 # 429 뒤 기다리는 초. 동시에 거절된 호출이 한꺼번에 다시 몰리지 않게 실제로는 1~1.5배로 흩는다
 RATE_LIMIT_WAITS = (5, 20, 60)
 
