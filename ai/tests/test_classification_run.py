@@ -109,3 +109,37 @@ def test_failed_on_save_keeps_calls_and_drops_events():
     assert failed.status == "failed" and failed.events == []
     assert failed.calls is result.calls and failed.cost == pytest.approx(result.cost)
     assert failed.error == "save_failed: RuntimeError: boom"
+
+
+async def test_returns_failed_count_and_prints_it(harness, capsys):
+    harness.fail_saves = [True]
+    assert await main.run_classify(_args()) == 1
+    assert "실패 1건 (그중 저장 실패 1건) — 종료 코드 1" in capsys.readouterr().out
+
+
+async def test_no_body_and_skipped_are_not_failures(harness, monkeypatch, capsys):
+    results = iter([ClassificationResult(status="no_body", basis_version="v1"),
+                    ClassificationResult(status="skipped", basis_version="v1")])
+
+    async def fake_classify(title, body, basis, *, models=None):
+        return next(results)
+
+    monkeypatch.setattr(main, "classify", fake_classify)
+    assert await main.run_classify(_args()) == 0
+    out = capsys.readouterr().out
+    assert "상태 no_body 1, skipped 1" in out and "실패 0건" in out
+
+
+@pytest.mark.parametrize("failed, code", [(0, None), (2, 1)])
+def test_run_command_exit_code_follows_failed_cards(monkeypatch, failed, code):
+    async def fake_run(args):
+        return failed
+
+    monkeypatch.setattr(main, "run_classify", fake_run)
+    monkeypatch.setattr("sys.argv", ["classification", "run"])
+    if code is None:
+        main.main()
+    else:
+        with pytest.raises(SystemExit) as info:
+            main.main()
+        assert info.value.code == code

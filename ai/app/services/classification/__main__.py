@@ -11,6 +11,8 @@ DB 에 쓰는 명령
     uv run python -m app.services.classification show 005930 --days 3
                                            # 종목 하나의 판정 자료·공통 배경 (생성 쪽에 넘기는 것)
 
+run 은 failed 카드가 1건이라도 있으면 끝까지 돈 뒤 exit 1 로 끝난다. no_body·skipped 는 실패가 아니라 exit 0 이다.
+
 DB 를 쓰지 않는 명령 — 프롬프트·모델을 바꿔 가며 볼 때
     uv run python -m app.services.classification try 기사.txt --title "제목"
     uv run python -m app.services.classification eval --articles eval_data/news_compare_tg/articles.json
@@ -129,7 +131,11 @@ async def run_basis(path: Path | None, check_only: bool) -> None:
     print("넣음 " + ", ".join(f"{k} {v}" for k, v in counts.items()))
 
 
-async def run_classify(args: argparse.Namespace) -> None:
+async def run_classify(args: argparse.Namespace) -> int:
+    """카드를 분류해 회차로 저장한다. failed 카드 수를 돌려준다(main 이 1건 이상이면 exit 1).
+
+    no_body·skipped 는 실패가 아니다 — 분류할 본문이 없거나 상한을 넘은 자료라 다시 돌려도 같다.
+    """
     basis = load_basis(args.basis)
     endpoint()  # 키가 없으면 자료를 읽기 전에 멈춘다
     async with SessionLocal() as session:
@@ -174,9 +180,14 @@ async def run_classify(args: argparse.Namespace) -> None:
             print(f"        오류 {result.error[:200]}")
     print("\n상태 " + (", ".join(f"{k} {v}" for k, v in statuses.items()) or "없음")
           + f"  비용 {format_cost(total)}")
-    if save_failures:
-        print(f"저장 실패 {save_failures}건 — 결과는 버리고 failed 회차로 남겼다(error 가 save_failed 로 시작). "
+    failed = statuses["failed"]
+    if failed:
+        # 자동화가 알아채도록 종료 코드로도 알린다(main). 사유는 위의 카드별 「오류」 줄과 classification_runs.error
+        print(f"실패 {failed}건 (그중 저장 실패 {save_failures}건) — 종료 코드 1. "
               "`run --retry` 로 다시 분류한다")
+    else:
+        print("실패 0건")
+    return failed
 
 
 async def _save(card_id: int, result: ClassificationResult, *, make_current: bool) -> int:
@@ -370,7 +381,9 @@ def main() -> None:
         if args.command == "basis":
             asyncio.run(run_basis(args.file, args.check))
         elif args.command == "run":
-            asyncio.run(run_classify(args))
+            # failed 카드가 1건이라도 있으면 끝까지 돈 뒤 exit 1. no_body·skipped 는 실패가 아니다
+            if asyncio.run(run_classify(args)):
+                raise SystemExit(1)
         elif args.command == "show":
             asyncio.run(run_show(args))
         elif args.command == "try":
