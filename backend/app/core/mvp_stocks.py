@@ -1,4 +1,4 @@
-"""코스피 시가총액 기준 상위 30개 종목을 코드로 고정
+"""코스피 시가총액 기준 상위 30개 종목에 ai/ 분석 대상 3개 추가함
 
 수집기가 이 목록 전체의 현재가를 정기 수집하므로 개수가 KIS 호출량을 정한다.
 늘릴 때는 STOCK_QUOTE_INTERVAL_SECONDS·KIS_REQUEST_INTERVAL_SECONDS 를 함께 본다.
@@ -52,6 +52,10 @@ MVP_STOCKS: tuple[MvpStock, ...] = (
     MvpStock(28, "096770", "SK이노베이션", "화학"),
     MvpStock(29, "316140", "우리금융지주", "금융"),
     MvpStock(30, "005490", "POSCO홀딩스", "금속"),
+    # 31~33 은 ai/의 종목과 합치면서 추가한 것이라 실제 순위는 아님
+    MvpStock(36, "138040", "메리츠금융지주", "금융"),
+    MvpStock(37, "011200", "HMM", "운송·창고"),
+    MvpStock(42, "033780", "KT&G", "음식료·담배"),
 )
 
 MVP_CODES: frozenset[str] = frozenset(stock.code for stock in MVP_STOCKS)
