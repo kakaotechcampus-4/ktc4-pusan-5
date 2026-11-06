@@ -1,0 +1,18 @@
+# .gitignore와 별개. git이 아니라 docker build 컨텍스트 전송 대상을 걸러낸다.
+# .env 와 텔레그램 세션(.env.telegram)은 이미지에 절대 넣지 않는다. 설정값은 실행할 때 compose 가 넣어 준다.
+.venv
+__pycache__
+**/__pycache__
+.env
+.env.*
+!.env.example
+.pytest_cache
+.ruff_cache
+tests
+docs
+.git
+# 수집 결과·실행 산출물. 로컬에서 만든 파일이 이미지에 딸려 들어가지 않게 한다.
+data
+runs
+eval_data
+*.session
