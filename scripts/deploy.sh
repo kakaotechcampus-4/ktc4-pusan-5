@@ -51,26 +51,7 @@ main() {
   fi
 
   echo "deploy: 기동 실패." >&2
-  if [ -z "$LAST_SHA" ]; then
-    echo "deploy: 마지막 성공 기록($STATE_FILE)이 없어 자동 롤백하지 않습니다." >&2
-    return 1
-  fi
-
-  local cur_rev
-  cur_rev="$(db_revision)"
-  if [ -z "$cur_rev" ] || [ "$cur_rev" != "$LAST_REV" ]; then
-    echo "deploy: DB 버전 ${LAST_REV:-?} -> ${cur_rev:-읽지 못함}. 마이그레이션이 적용됐을 수 있어 자동 롤백하지 않습니다." >&2
-    echo "deploy: 서버에서 'bash scripts/rollback.sh --yes' 로 DB 구조까지 되돌리세요." >&2
-    return 1
-  fi
-
-  echo "deploy: DB 구조가 그대로라 마지막 성공 ${LAST_SHA:0:7} 로 자동 롤백합니다."
-  if checkout_sha "$LAST_SHA" && deploy_core; then
-    start_collector
-    echo "deploy: 자동 롤백 완료. 이번 배포는 실패입니다." >&2
-  else
-    echo "deploy: 자동 롤백도 실패했습니다. 직접 확인이 필요합니다." >&2
-  fi
+  auto_rollback && echo "deploy: 롤백으로 사이트는 살아났지만 이번 배포는 실패입니다." >&2
   return 1
 }
 

@@ -46,6 +46,33 @@ promote_candidate() {
   write_state "$c_sha" "$c_rev" && rm -f "$CANDIDATE_FILE"
 }
 
+# 마지막 성공 SHA 로 코드를 되돌린다. read_state 를 먼저 불러 LAST_SHA·LAST_REV 가 채워져 있어야 한다.
+# DB 마이그레이션 버전이 마지막 성공 때와 같을 때만 한다. 다르면 옛 코드가 시작하지 못하고
+# downgrade 는 데이터를 지우므로 자동으로 하지 않고 rollback.sh 를 안내한다. 되돌리면 0, 아니면 1.
+auto_rollback() {
+  if [ -z "$LAST_SHA" ]; then
+    echo "auto-rollback: 마지막 성공 기록($STATE_FILE)이 없어 자동 롤백하지 않습니다." >&2
+    return 1
+  fi
+
+  local cur_rev
+  cur_rev="$(db_revision)"
+  if [ -z "$cur_rev" ] || [ "$cur_rev" != "$LAST_REV" ]; then
+    echo "auto-rollback: DB 버전 ${LAST_REV:-?} -> ${cur_rev:-읽지 못함}. 마이그레이션이 적용됐을 수 있어 자동 롤백하지 않습니다." >&2
+    echo "auto-rollback: 서버에서 'bash scripts/rollback.sh --yes' 로 DB 구조까지 되돌리세요." >&2
+    return 1
+  fi
+
+  echo "auto-rollback: DB 구조가 그대로라 마지막 성공 ${LAST_SHA:0:7} 로 자동 롤백합니다."
+  if checkout_sha "$LAST_SHA" && deploy_core; then
+    start_collector
+    echo "auto-rollback: 완료 (${LAST_SHA:0:7})."
+    return 0
+  fi
+  echo "auto-rollback: 자동 롤백도 실패했습니다. 직접 확인이 필요합니다." >&2
+  return 1
+}
+
 has_service() {
   docker compose config --services | grep -qx "$1"
 }

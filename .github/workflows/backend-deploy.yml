@@ -89,6 +89,7 @@ jobs:
           fi
 
       - name: Smoke test (외부 주소)
+        id: smoke
         env:
           API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
         run: |
@@ -114,6 +115,53 @@ jobs:
 
           check "$BASE/health"
           check "$BASE/api/concepts"
+
+      # smoke 는 러너가 밖에서 확인해서 러너 쪽 네트워크 문제로도 실패할 수 있다.
+      # 그래서 서버가 같은 주소를 직접 한 번 더 확인하고, 서버에서도 실패할 때만 마지막 성공으로 되돌린다.
+      # (DB 마이그레이션 버전이 같을 때만. 서버에서는 정상이면 외부 접근 문제라 롤백하지 않는다.)
+      # 배포 단계가 실패한 경우는 deploy.sh 가 이미 처리했으므로 smoke 가 실패했을 때만 실행한다. 이 단계 뒤에도 잡은 실패로 끝난다.
+      - name: smoke 실패 시 서버 재확인 후 롤백
+        if: failure() && steps.smoke.conclusion == 'failure'
+        env:
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          DEPLOY_SHA: ${{ github.sha }}
+          API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: |
+          BASE="${API_BASE_URL:-https://marketlit.duckdns.org}"
+          BASE="${BASE%/}"
+          COMMAND="sudo -H -u ubuntu bash -c 'cd /home/ubuntu/ktc4-pusan-5 && bash scripts/auto-rollback.sh ${DEPLOY_SHA} ${BASE}'"
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[\"${COMMAND}\"]" \
+            --region ap-northeast-2 \
+            --query "Command.CommandId" \
+            --output text)
+          echo "CommandId: $COMMAND_ID"
+          # 서버 재확인 + (필요하면) 빌드와 기동까지 하므로 배포와 같은 상한(10분)으로 기다린다.
+          STATUS=""
+          for _ in $(seq 1 120); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --region ap-northeast-2 \
+              --query "Status" \
+              --output text 2>/dev/null || echo "Pending")
+            case "$STATUS" in
+              Pending|InProgress|Delayed) sleep 5 ;;
+              *) break ;;
+            esac
+          done
+          echo "status: $STATUS"
+          echo "----- stdout -----"
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --region ap-northeast-2 --query "StandardOutputContent" --output text
+          echo "----- stderr -----"
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --region ap-northeast-2 --query "StandardErrorContent" --output text
+          if [ "$STATUS" != "Success" ]; then
+            echo "::error::자동 롤백 실패 또는 불가 (status: $STATUS). 서버에서 scripts/rollback.sh 로 직접 되돌리세요."
+          fi
 
       # 컨테이너가 healthy 여도 Caddy/TLS/라우팅 문제로 외부에서는 안 될 수 있다.
       # 그래서 deploy.sh 는 "후보"만 적고, 외부 smoke 까지 통과한 이 시점에 "마지막 성공"으로 확정한다.
