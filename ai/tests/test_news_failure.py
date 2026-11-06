@@ -18,6 +18,17 @@ def test_rate_limit_waits_ten_minutes(error):
     assert not retry_due("http_error: 404", None, now=mock_now)
 
 
+@pytest.mark.parametrize("error", ["extract_failed", "extract_empty", "no_body", "unrecorded", None])
+def test_extract_and_unknown_failures_wait_two_hours(error):
+    """구조적으로 못 읽는 사이트를 수집 주기마다 다시 열지 않는다. 일시 실패는 바로 다시 연다."""
+    mock_now = datetime(2026, 11, 6, tzinfo=UTC)
+    assert not retry_due(error, mock_now, now=mock_now)
+    assert not retry_due(error, mock_now - timedelta(hours=1, minutes=59), now=mock_now)
+    assert retry_due(error, mock_now - timedelta(hours=2), now=mock_now)
+    assert retry_due(error, None, now=mock_now)  # 시각 없는 기존 행은 한 번 더 확인한다
+    assert retry_due("request_failed: ReadTimeout", mock_now, now=mock_now)
+
+
 @pytest.mark.parametrize(("body_error", "kind"), [
     ("http_error: 404", "permanent"),
     ("http_error: 410", "permanent"),

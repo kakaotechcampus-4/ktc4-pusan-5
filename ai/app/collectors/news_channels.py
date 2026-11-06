@@ -449,7 +449,8 @@ async def save_to_db(
                 elif (body is None and status == unopened and article
                       and article.status == "failed"
                       and not retry_due(article.error, article.fetched_at, now=now)):
-                    status = "retry_wait"  # 429 대기 중. 범위 밖이라서 건너뛴 것이 아니다.
+                    # 429·추출 실패 대기 중. 범위 밖이라서 건너뛴 것이 아니다.
+                    status = "retry_wait"
                 link_rows.append({
                     "message_id": result.id,
                     "kind": "url",

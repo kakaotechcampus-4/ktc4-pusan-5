@@ -8,8 +8,9 @@ body_status 는 ok·failed·purged 만 둔다. 실패의 종류는 body_error �
                   4xx(408·425·429 제외), HTML 아님, 크기 초과, 내부 주소, 잘못된 주소
     rate_limited  429. 요청을 너무 많이 보냈다는 응답이라 일시 실패와 따로 센다. 대기 후 재시도한다
     transient     5xx, 408·425, 타임아웃·연결 실패. 재시도한다
-    extract       페이지는 받았는데 본문을 못 뽑았다. 봇 확인 페이지가 섞이므로 재시도한다
-    unknown       사유가 없거나(이관 전 행 unrecorded) 처음 보는 사유. 재시도한다
+    extract       페이지는 받았는데 본문을 못 뽑았다. 봇 확인 페이지가 섞이므로 재시도한다.
+                  다만 JS 렌더링처럼 구조적으로 못 읽는 사이트도 섞여 있어 대기 후 재시도한다
+    unknown       사유가 없거나(이관 전 행 unrecorded) 처음 보는 사유. extract 처럼 대기 후 재시도한다
 
 HTTP 오류는 `http_error: 404` 로 적는다. 예전 네이버 행의 `http_404` 도 같은 뜻으로 읽는다.
 
@@ -29,6 +30,19 @@ FailureKind = Literal["permanent", "rate_limited", "transient", "extract", "unkn
 # 기존 수집 시각을 사용하므로 스키마 변경은 없다. 10분은 실행 안 대기의 상한(1분)보다 길게 쉬려고
 # 잡은 값이고 실측 근거는 없다. 수집 주기와 실제 429 기록이 쌓이면 다시 정한다.
 RATE_LIMIT_COOLDOWN = timedelta(minutes=10)
+
+# 본문 추출 실패(extract)와 알 수 없는 실패(unknown)는 다음 실행에서도 바로 재요청하지 않는다.
+# 일시 실패(transient)와 달리 같은 추출기로 다시 열어도 같은 결과일 때가 많다(JS 렌더링 사이트 등).
+# 수집 주기마다 같은 주소를 반복해 요청하지 않으려는 대기다. 네이버 재시도(collectors/news.py
+# retry_failed)는 발행 후 24시간 안의 기사만 보므로 한 기사는 많아야 12번 다시 열린다.
+# 2시간은 봇 확인 페이지가 풀릴 여지를 남기려고 잡은 값이고 실측 근거는 없다.
+# 연속 실패 횟수에 따라 간격을 늘리려면 횟수 칸이 필요해(스키마 변경) 지금은 고정 대기만 둔다.
+EXTRACT_COOLDOWN = timedelta(hours=2)
+_COOLDOWNS: dict[str, timedelta] = {
+    "rate_limited": RATE_LIMIT_COOLDOWN,
+    "extract": EXTRACT_COOLDOWN,
+    "unknown": EXTRACT_COOLDOWN,
+}
 
 # 4xx 중 다시 요청하면 될 수 있는 것. 408 요청 시간 초과, 425 너무 이른 요청. 429 는 따로 본다.
 _RETRYABLE_4XX = frozenset({408, 425})
@@ -105,12 +119,14 @@ def retry_due(
 ) -> bool:
     """재시도 가능한 실패 중 지금 요청할 것. 시각 없는 기존 행은 한 번 더 확인한다.
 
-    429는 마지막 시도에서 최소 10분을 기다린다. Retry-After 헤더를 저장하지 않는
+    마지막 시도(fetched_at)에서 429는 최소 10분, 추출 실패·알 수 없는 실패는 최소 2시간을
+    기다린다. 일시 실패(transient)는 바로 다시 연다. Retry-After 헤더를 저장하지 않는
     현재 구조의 기본 대기 정책이며, 호스트 전체의 요청량 제한을 대신하지 않는다.
     """
     kind = failure_kind(body_error)
     if kind == "permanent":
         return False
-    if kind == "rate_limited" and fetched_at is not None:
-        return (now or datetime.now(UTC)) - fetched_at >= RATE_LIMIT_COOLDOWN
+    cooldown = _COOLDOWNS.get(kind)
+    if cooldown is not None and fetched_at is not None:
+        return (now or datetime.now(UTC)) - fetched_at >= cooldown
     return True
