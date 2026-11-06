@@ -24,7 +24,8 @@ DB(news.cleaned_text)에만 들어간다.
 
 다시 수집하면 같은 메시지·기사는 행이 늘지 않는다. 처음 저장한 메시지 본문과 성공한 기사
 본문은 바꾸지 않고, 실패했던 링크만 이번 결과로 채운다(repositories/telegram_message.py·news.py).
-24시간 규칙 안이면 다음 실행이 실패한 링크를 다시 여는 셈이다.
+24시간 규칙 안이면 다음 실행이 실패한 링크를 다시 여는 셈이다. 언제 다시 열고 언제 그만 열지는
+실패 종류에 따라 다르다(services/news/failure.py).
 
 **24시간이 지난 메시지의 링크는 열지 않는다.** 기사는 발행 뒤에도 고쳐진다. 보고서는 대상일
 이후에 나온 정보를 쓰지 않도록 기준 시각(컷오프)을 두는데, 며칠 지나 링크를 열면 그사이 고쳐진
@@ -160,7 +161,8 @@ async def attach_link_bodies(
 
     messages 와 stats 를 직접 고친다. 채널별 집계(stale·opened·skipped·junk)도 여기서 채운다.
     max_links 는 신규 주소만 제한한다. 기존 실패 기사는 재시도하고 성공·삭제한 기사는 열지 않는다.
-    404·410 같은 영구 실패(services/news/failure.py)는 재시도하지 않는다.
+    404·410 같은 영구 실패와 추출 실패를 정해진 횟수만큼 한 기사(services/news/failure.py)는
+    재시도하지 않고, 429·추출 실패는 대기 시간이 지난 뒤에만 재시도한다.
     재시도 주소가 다른 기사로 바뀌면 신규 수량 제한을 우회하지 않도록 결과를 저장하지 않는다.
     고르고도 상한 때문에
     열지 않은 주소 수를 돌려준다. 그 링크는 link_bodies 에 없고 DB 에는 out_of_scope 로 남는다.
@@ -187,7 +189,8 @@ async def attach_link_bodies(
     for url in urls:
         article = existing.get(url)
         if article:
-            if article.status == "failed" and retry_due(article.error, article.fetched_at, now=now):
+            if article.status == "failed" and retry_due(
+                    article.error, article.fetched_at, failures=article.failures, now=now):
                 targets.append(url)
         elif remaining is None or remaining > 0:
             targets.append(url)
@@ -444,11 +447,14 @@ async def save_to_db(
                 if body is None and article and article.status == "ok":
                     status = "ok"  # 이미 확보한 원문을 가리킨다. 다시 다운로드하지 않는다.
                 elif (body is None and status == unopened and article
-                      and article.status == "failed" and not is_retryable(article.error)):
-                    status = "permanent_fail"  # 영구 실패로 확인된 기사라 다시 열지 않았다.
+                      and article.status == "failed"
+                      and not is_retryable(article.error, article.failures)):
+                    # 영구 실패이거나 추출 실패를 정해진 횟수만큼 한 기사라 다시 열지 않았다.
+                    status = "permanent_fail"
                 elif (body is None and status == unopened and article
                       and article.status == "failed"
-                      and not retry_due(article.error, article.fetched_at, now=now)):
+                      and not retry_due(article.error, article.fetched_at,
+                                        failures=article.failures, now=now)):
                     # 429·추출 실패 대기 중. 범위 밖이라서 건너뛴 것이 아니다.
                     status = "retry_wait"
                 link_rows.append({

@@ -82,6 +82,26 @@ def test_repeated_failures_keep_the_latest_reason(database):
     [news] = stored(database)
     assert (news["body_status"], news["body_error"]) == ("failed", "extract_empty")
     assert news["body_fetched_at"] == T0 + timedelta(hours=1)
+    assert news["body_failures"] == 2
+
+
+def test_failure_count_counts_only_opened_attempts(database):
+    """열지 않고 넣은 행(수집량 상한 등)은 실패로 세지 않는다. 추출 실패 세 번이면 재시도 대상에서 빠진다."""
+    alembic(database, "upgrade", "head")
+    unopened = "https://a.example.com/unopened"
+    save(database, [failed(unopened, body_error="clean_empty", body_fetched_at=None)])
+    save(database, [failed(unopened, body_error="clean_empty", body_fetched_at=None)])
+    for n in range(3):
+        save(database, [failed(body_error="extract_empty",
+                               body_fetched_at=T0 + timedelta(hours=n))])
+    counts = {r["url"]: r["body_failures"] for r in stored(database)}
+    assert counts == {unopened: 0, URL: 3}
+
+    async def work(session):
+        return await failed_news(session, source="naver", since=T0 - timedelta(hours=1),
+                                 limit=10, now=T0 + timedelta(hours=5))
+
+    assert [n.url for n in in_session(database, work)] == [unopened]
 
 
 def test_tracking_parameters_and_case_do_not_make_a_second_article(database):

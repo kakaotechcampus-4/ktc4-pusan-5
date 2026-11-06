@@ -24,7 +24,7 @@ from tests.backend_schema import BACKEND_HEAD, backend_statements
 
 AI_DIR = Path(__file__).resolve().parents[1]
 # 체인 끝이 바뀌면 여기도 바꾼다. stamp·버전 확인이 전부 이 값을 쓴다.
-HEAD = "0027_classification"
+HEAD = "0030_news_body_failures"
 # AI 가 backend 에게서 넘겨받기 직전 리비전
 BEFORE_TAKEOVER = "0019_stock_move_analysis"
 
@@ -141,6 +141,7 @@ def test_offline_sql_and_single_head():
     assert "CREATE TABLE source_card_stocks (" in sql
     assert "CREATE TABLE dart_disclosures (" in sql
     assert "ALTER TABLE source_card ADD COLUMN dart_disclosure_id" in sql
+    assert "ALTER TABLE news ADD COLUMN body_failures" in sql
     assert alembic(url, "heads").strip() == f"{HEAD} (head)"
 
 
@@ -196,6 +197,8 @@ def test_news_takeover_keeps_rows_and_ids_and_backfills_body_state(database):
         (9, "failed", "unrecorded", None),
     ]
     assert all(r["body_fetched_at"] == r["collected_at"] for r in rows)
+    # 실패한 이관 전 행은 한 번 실패한 것으로 센다(0030). 몇 번 실패했는지는 남아 있지 않다
+    assert [r["body_failures"] for r in rows] == [0, 1, 1]
     # 정규화 주소는 등록 처리가 채운다. 리비전이 앱 코드의 규칙을 쓰지 않는다
     assert all(r["canonical_url"] is None for r in rows)
     assert columns(database, "news")["published_at"] is True

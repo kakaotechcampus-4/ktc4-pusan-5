@@ -120,3 +120,19 @@ def test_naver_search_respects_rate_limit_cooldown():
                                 fetched_at=mock_now, error="http_error: 429")
     assert not needs_body(mock_article, now=mock_now)
     assert needs_body(mock_article, now=mock_now + timedelta(minutes=10))
+
+
+def test_naver_search_stops_opening_after_three_extract_failures():
+    """검색 결과에 다시 나온 기사도 추출 실패를 세 번 했으면 열지 않는다."""
+    from app.collectors.news import needs_body
+    from app.repositories.news import KnownArticle
+
+    mock_now = datetime(2026, 11, 6, tzinfo=UTC)
+
+    def known(failures):
+        return KnownArticle(id=1, url="u", canonical_url="u", status="failed",
+                            fetched_at=mock_now - timedelta(hours=1), error="extract_empty",
+                            failures=failures)
+
+    assert needs_body(known(2), now=mock_now)
+    assert not needs_body(known(3), now=mock_now)

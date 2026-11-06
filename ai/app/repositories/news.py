@@ -6,6 +6,8 @@ backend `repositories/news.py` 는 URL 이 같으면 건너뛰기만 했다. 여
     본문         실패였고 이번에 성공했으면 채운다. 이미 성공한 본문은 그대로 둔다 — 이번에
                  받은 본문이 성공이든 실패든. 실패가 반복되면 마지막 시도의 사유·시각만 남긴다.
                  보관 정책으로 지운 본문(purged)은 다시 받아도 되살리지 않는다
+    실패 횟수    본문을 열었다가 못 얻을 때마다(body_fetched_at 이 있는 실패 행) 1 씩 올린다.
+                 열지 않고 넣은 행은 세지 않는다. 몇 번 실패하면 그만 열지는 failure.py 가 정한다
     발행 시각    비어 있으면 채운다 (텔레그램 링크로 먼저 들어온 기사를 네이버가 다시 찾은 경우)
     제목·요약    비어 있으면 채운다
     주소·경로    처음 것을 둔다. 다른 경로로 발견한 기록은 telegram_message_links 에 남는다
@@ -86,6 +88,7 @@ def _merge(news: News, row: dict, key: str) -> bool:
         elif row.get("body_fetched_at") is not None:
             for name in RETRY_FIELDS:
                 setattr(news, name, row[name])
+            news.body_failures += 1
     if news.published_at is None and row.get("published_at") is not None:
         news.published_at = row["published_at"]
     if not news.title and row.get("title"):
@@ -113,7 +116,10 @@ async def save_news(session: AsyncSession, rows: list[dict]) -> NewsSaveResult:
             raise ValueError(f"본문 없이 ok 로 저장할 수 없다: {row['url']}")
         news = await _find(session, key, row["url"])
         if news is None:
-            news = News(**{**row, "canonical_url": key})
+            opened_and_failed = (row["body_status"] == "failed"
+                                 and row.get("body_fetched_at") is not None)
+            news = News(**{**row, "canonical_url": key,
+                           "body_failures": 1 if opened_and_failed else 0})
             session.add(news)
             await session.flush()  # 같은 묶음에 같은 기사가 또 있으면 다음 _find 가 찾는다
             result.inserted += 1
@@ -146,6 +152,7 @@ class KnownArticle:
     status: str
     fetched_at: datetime | None
     error: str | None = None  # body_error. 실패 기사를 재시도할지 정할 때 쓴다
+    failures: int = 0  # body_failures. 추출 실패를 몇 번 했는지 보고 그만 열지 정한다
 
 
 async def known_articles(session: AsyncSession, urls: list[str]) -> dict[str, KnownArticle]:
@@ -153,22 +160,22 @@ async def known_articles(session: AsyncSession, urls: list[str]) -> dict[str, Kn
     if not urls:
         return {}
     columns = (News.id, News.url, News.canonical_url, News.body_status, News.body_fetched_at,
-               News.body_error)
+               News.body_error, News.body_failures)
     result: dict[str, KnownArticle] = {}
     rows = await session.execute(
         select(TelegramMessageLink.discovered_url, *columns)
         .join(News, News.id == TelegramMessageLink.news_id)
         .where(TelegramMessageLink.discovered_url.in_(urls)).order_by(News.id)
     )
-    for discovered, news_id, url, key, status, fetched, error in rows:
+    for discovered, news_id, url, key, status, fetched, error, failures in rows:
         result.setdefault(discovered, KnownArticle(news_id, url, key or canonical_url(url),
-                                                  status, fetched, error))
+                                                  status, fetched, error, failures))
     keys = {canonical_url(url) for url in urls}
     rows = await session.execute(select(*columns).where(
         or_(News.canonical_url.in_(keys), News.url.in_(urls))))
     by_key = {key or canonical_url(url): KnownArticle(
-        news_id, url, key or canonical_url(url), status, fetched, error
-    ) for news_id, url, key, status, fetched, error in rows}
+        news_id, url, key or canonical_url(url), status, fetched, error, failures
+    ) for news_id, url, key, status, fetched, error, failures in rows}
     for url in urls:
         if canonical_url(url) in by_key:
             result.setdefault(url, by_key[canonical_url(url)])
@@ -200,7 +207,8 @@ async def failed_news(
     targets = []
     try:
         async for news in rows:
-            if retry_due(news.body_error, news.body_fetched_at, now=now):
+            if retry_due(news.body_error, news.body_fetched_at, failures=news.body_failures,
+                         now=now):
                 targets.append(news)
                 if len(targets) == limit:
                     break

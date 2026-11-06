@@ -12,7 +12,7 @@ from tests.test_news_channels import ARTICLE_HTML as MOCK_ARTICLE_HTML
 from tests.test_news_channels import NOW
 from tests.test_news_channels import _message as mock_message
 
-# 바로 다시 여는 일시 실패. 추출 실패·사유 없음은 2시간을 기다리므로(failure.py) 쓰지 않는다
+# 바로 다시 여는 일시 실패. 추출 실패·사유 없음은 30분을 기다리므로(failure.py) 쓰지 않는다
 MOCK_TRANSIENT = "request_failed: ReadTimeout"
 
 
@@ -116,7 +116,7 @@ async def test_rate_limited_article_is_not_opened_during_cooldown():
 
 
 async def test_extract_failure_is_not_opened_during_cooldown():
-    """본문을 못 뽑은 기사는 수집 주기마다 다시 열지 않는다. 2시간이 지나면 연다."""
+    """본문을 못 뽑은 기사는 수집 주기마다 다시 열지 않는다. 30분이 지나면 연다."""
     mock_fresh, mock_stale = "https://example.com/fresh", "https://example.com/stale"
     mock_msg = mock_message([mock_fresh, mock_stale])
     mock_opened = []
@@ -130,7 +130,30 @@ async def test_extract_failure_is_not_opened_during_cooldown():
         now=NOW, per_message=0, max_links=0,
         existing={mock_fresh: mock_article(mock_fresh, "failed", "extract_empty"),
                   mock_stale: replace(mock_article(mock_stale, "failed", "extract_empty"),
-                                      fetched_at=NOW - timedelta(hours=2))},
+                                      fetched_at=NOW - timedelta(minutes=30))},
         transport=httpx.MockTransport(mock_handler),
     )
     assert mock_opened == [mock_stale]
+
+
+async def test_extract_failure_is_not_opened_after_three_failures():
+    """추출 실패를 세 번 한 기사는 대기 시간이 지나도 다시 열지 않는다."""
+    mock_tried, mock_given_up = "https://example.com/tried", "https://example.com/given-up"
+    mock_msg = mock_message([mock_tried, mock_given_up])
+    mock_opened = []
+
+    def mock_handler(request):
+        mock_opened.append(str(request.url))
+        return httpx.Response(200, html=MOCK_ARTICLE_HTML)
+
+    long_ago = NOW - timedelta(hours=1)
+    await attach_link_bodies(
+        [mock_msg], [ChannelStats(channel=Channel("ch", "mock", "mock", "A"))],
+        now=NOW, per_message=0, max_links=0,
+        existing={mock_tried: replace(mock_article(mock_tried, "failed", "extract_empty"),
+                                      fetched_at=long_ago, failures=2),
+                  mock_given_up: replace(mock_article(mock_given_up, "failed", "extract_empty"),
+                                         fetched_at=long_ago, failures=3)},
+        transport=httpx.MockTransport(mock_handler),
+    )
+    assert mock_opened == [mock_tried]

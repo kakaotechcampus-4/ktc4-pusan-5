@@ -73,7 +73,9 @@ class CollectResult:
     fetched: int = 0  # 검색 결과(또는 재시도 대상) 건수
     out_of_period: int = 0  # 발행일이 수집 기간 밖이라 받지 않은 기사
     held: int = 0  # 수집량 상한 때문에 받지 않은 새 기사
-    reused: int = 0  # 이미 있는 기사라 본문을 다시 요청하지 않은 것 (ok·purged·영구 실패)
+    # 이미 있는 기사라 본문을 다시 요청하지 않은 것
+    # (ok·purged·영구 실패·재시도 대기 중·추출 실패 횟수를 다 쓴 실패)
+    reused: int = 0
     inserted: int = 0  # 새 기사
     filled: int = 0  # 실패했던 본문을 이번에 채운 기사
     cards: dict[str, int] = field(default_factory=dict)
@@ -110,11 +112,13 @@ def select_items(
 def needs_body(article: KnownArticle | None, *, now: datetime | None = None) -> bool:
     """본문을 요청할 기사인가. 새 기사이거나, 다시 열어 볼 만한 실패 기사만이다.
 
-    이미 본문이 있거나(ok) 지웠거나(purged) 404 같은 영구 실패면 열지 않는다. 그런 기사도
+    이미 본문이 있거나(ok) 지웠거나(purged) 404 같은 영구 실패면 열지 않는다. 재시도 대기 중이거나
+    추출 실패를 정해진 횟수만큼 한 기사도 열지 않는다(services/news/failure.py). 그런 기사도
     저장 단계에는 넘겨서 비어 있던 발행 시각·제목·요약을 채운다.
     """
     return article is None or (
-        article.status == "failed" and retry_due(article.error, article.fetched_at, now=now)
+        article.status == "failed"
+        and retry_due(article.error, article.fetched_at, failures=article.failures, now=now)
     )
 
 
