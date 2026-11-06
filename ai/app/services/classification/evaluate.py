@@ -8,15 +8,29 @@
 (그 세션 기록에서 확인). 사람이 검증하기 전까지 점수는 지난 실행과 비교하는 방향 표시로만 쓴다.
 검토표(write_review)로 사람이 정답과 자동 채점을 함께 확인한다.
 
-판정 (지난 실험의 "원인을 빠짐없이 담음 / 일부라도 담음" 과 같은 기준)
+채점은 두 가지이고, 서로 다른 단계를 잰다. **둘을 합쳐 하나의 정확도로 쓰지 않는다.**
+
+문장 재현율 (sentence_recall) — ① 추출만 잰다. 지난 실험의 "원인을 빠짐없이 담음 / 일부라도
+담음" 과 같은 기준이다.
     원인 있는 기사   근거 사건(price_move 제외)의 근거·문맥 문장이 정답 문장을
                     전부 덮으면 all, 하나라도 덮으면 some, 아니면 none
     원인 없는 기사   근거 사건 중 표기가 그 종목 이름과 같은 것이 없으면 pass
                     (link 처럼 표기 전체로 맞춘다. "삼성전자서비스" 는 삼성전자가 아니다)
                     다른 회사·산업 사건이 있는 건 괜찮다 — 이 종목의 직접 근거만 없으면 된다
+    정답은 종목 하나 기준이고 추출은 기사 전체 기준이다. 그래서 "어느 사건이든 정답 문장을
+    덮었나" 로 느슨하게 본다. 엉뚱한 사건이 정답 문장을 덮어도 맞은 걸로 센다. 문장을 잘 찾고
+    종목·사건 연결을 틀려도 all 이 나오므로, 이 점수만으로 모델·프롬프트를 고르지 않는다.
 
-정답은 종목 하나 기준이고 추출은 기사 전체 기준이다. 그래서 원인 있는 기사의 판정은
-"어느 사건이든 정답 문장을 덮었나" 로 느슨하게 본다. 엉뚱한 사건이 정답 문장을 덮어도 맞은 걸로 센다.
+종목 연결 (stock_linked) — ①~④ 를 끝까지 잰다. 정답 문장 → 그 문장을 담은 사건 → 그 사건의
+정답 종목 판정까지 맞아야 한다.
+    원인 있는 기사   정답 종목 판정이 붙음(DIRECT·INDIRECT_CONTEXT)인 근거 사건만으로
+                    정답 문장을 전부 덮으면 all, 하나라도 덮으면 some, 아니면 none
+    원인 없는 기사   정답 종목을 DIRECT 로 판정한 근거 사건이 없으면 pass.
+                    배경(INDIRECT_CONTEXT)으로 붙은 건 "원인을 지어냄" 이 아니라 괜찮다
+    정답 종목이 기준 JSON 에 없으면 후보가 될 수 없어 잴 수 없다(None).
+
+결과 파일(classify_*.json)에는 verdict(문장 재현율, 예전 결과 파일과 같은 키)와
+verdict_linked(종목 연결)로 남는다.
 """
 
 import csv
@@ -25,11 +39,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.services.classification import splitter
-from app.services.classification.basis import normalize_mention
+from app.services.classification.basis import Basis, normalize_mention
 from app.services.classification.events import Event
+from app.services.classification.pipeline import ClassifiedEvent
 
 # 근거 후보가 아닌 역할. 등락만 말하는 사건은 "왜" 가 아니라 "얼마나" 다
 NON_EVIDENCE_ROLES = frozenset({"price_move"})
+# 종목 연결 채점에서 "그 종목에 붙었다" 로 보는 판정
+ATTACHED_LABELS = frozenset({"DIRECT", "INDIRECT_CONTEXT"})
 
 
 @dataclass(frozen=True)
@@ -60,17 +77,46 @@ def evidence_events(events: list[Event]) -> list[Event]:
     return [e for e in events if e.role not in NON_EVIDENCE_ROLES]
 
 
-def score(events: list[Event], label: Label) -> str:
-    """all / some / none (원인 있는 기사), pass / fail (원인 없는 기사)."""
+def _coverage(events: list[Event], gold: frozenset[int]) -> str:
+    covered = {i for e in events for i in (*e.sentence_indices, *e.context_indices)}
+    if gold <= covered:
+        return "all"
+    return "some" if gold & covered else "none"
+
+
+def sentence_recall(events: list[Event], label: Label) -> str:
+    """① 추출만 본 문장 재현율. all / some / none (원인 있는 기사), pass / fail (원인 없는 기사)."""
     evidence = evidence_events(events)
     if not label.gold:
         about_stock = any(normalize_mention(label.stock) == normalize_mention(mention)
                           for e in evidence for mention in e.mentions)
         return "fail" if about_stock else "pass"
-    covered = {i for e in evidence for i in (*e.sentence_indices, *e.context_indices)}
-    if label.gold <= covered:
-        return "all"
-    return "some" if label.gold & covered else "none"
+    return _coverage(evidence, label.gold)
+
+
+def label_stock_code(label: Label, basis: Basis) -> str | None:
+    """정답 종목 이름 → 기준 JSON 의 종목 코드. 이름·별칭을 표기 전체로 맞춘다."""
+    target = normalize_mention(label.stock)
+    for stock in basis.stocks.values():
+        if target in {normalize_mention(n) for n in (stock.name, *stock.aliases)}:
+            return stock.code
+    return None
+
+
+def stock_linked(events: list[ClassifiedEvent], label: Label, basis: Basis) -> str | None:
+    """①~④ 끝까지 본 종목 연결. 값은 sentence_recall 과 같고, 기준 밖 종목이면 None."""
+    code = label_stock_code(label, basis)
+    if code is None:
+        return None
+    evidence = [item for item in events if item.event.role not in NON_EVIDENCE_ROLES]
+
+    def labels_for(item: ClassifiedEvent) -> set[str]:
+        return {j.label for j in item.judgments if j.stock_code == code}
+
+    if not label.gold:
+        return "fail" if any("DIRECT" in labels_for(item) for item in evidence) else "pass"
+    attached = [item.event for item in evidence if labels_for(item) & ATTACHED_LABELS]
+    return _coverage(attached, label.gold)
 
 
 @dataclass(frozen=True)
@@ -109,7 +155,8 @@ REVIEW_COLUMNS = [
     "id", "유형", "종목", "제목", "상태",
     "정답 이유", "정답 문장",
     "뽑힌 사건",
-    "자동 채점",
+    "자동 채점: 문장 재현율",
+    "자동 채점: 종목 연결",
     "사람: 정답이 맞나 (Y/N)",
     "사람: 추출 판정 (all/some/none/pass/fail)",
     "사람: 메모",
@@ -180,7 +227,9 @@ def write_review(result: dict, articles: dict, out: Path,
                          else label.get("reason", ""),
             "정답 문장": _numbered(sentences, gold) if gold else "(원인 없음)",
             "뽑힌 사건": "\n\n".join(_event_block(e, sentences) for e in events) or "(사건 없음)",
-            "자동 채점": item.get("verdict") or "",
+            "자동 채점: 문장 재현율": item.get("verdict") or "",
+            # 예전 결과 파일에는 없다. 정답 종목이 기준 밖이어도 비어 있다
+            "자동 채점: 종목 연결": item.get("verdict_linked") or "",
             "전체 문장": _numbered(sentences, range(1, len(sentences) + 1)),
         })
 
