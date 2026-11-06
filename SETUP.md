@@ -113,7 +113,7 @@ DB 데이터는 서버 디스크(`pgdata` 볼륨)에만 있어서, 서버를 삭
   수명 주기 규칙으로 30일이 지난 파일을 지운다. 배포가 30일 이상 없으면 백업이 모두 지워질 수 있다.
 - EC2 에 붙은 IAM 역할(`ktc-ec2`)이 이 버킷에 읽기·쓰기·삭제를 할 수 있어야 한다. 별도 키는 저장하지 않는다.
 - 롤백이 되돌아갈 곳을 적은 파일 `~/.basis-deploy-last-good` 을 한 번 만든다. 내용은 "지금 배포돼 있는 커밋 전체 SHA 와 DB 마이그레이션 버전" 한 줄이다.
-  배포가 성공할 때마다 `scripts/deploy.sh` 가 갱신하지만, 처음 성공하기 전에 실패하면 자동 롤백이 안 되므로 미리 적어 둔다.
+  외부 smoke test 까지 통과한 배포마다 `scripts/promote.sh` 가 갱신하지만, 처음 성공하기 전에 실패하면 자동 롤백이 안 되므로 미리 적어 둔다.
   서버가 지금 배포된 커밋(`git rev-parse HEAD`)인지 먼저 확인한다.
 
 ```bash
@@ -127,7 +127,7 @@ cat ~/.basis-deploy-last-good
 `backend-deploy.yml` 은 코드를 서버에 맞춘 뒤 `scripts/deploy.sh` 를 호출한다. 서버에서의 배포는 이 스크립트가 한다.
 
 ```
-백업(S3) → 빌드 → 수집기 제거(있으면) → db·backend·caddy 기동(healthy 까지 대기) → 수집기 기동(있으면) → 이전 이미지 정리
+백업(S3) → 빌드 → 수집기 제거(있으면) → db·backend·caddy 기동(healthy 까지 대기) → 수집기 기동(있으면) → 이전 이미지 정리 → (워크플로) 외부 smoke test → 마지막 성공 확정(promote.sh)
 ```
 
 - 백업: `pg_dump` 결과를 `s3://basis-db-backup-marketlit/basis_<날짜시각>_<마지막 성공 SHA 7자>_<DB 마이그레이션 버전>.sql` 로 올린다.
@@ -135,7 +135,9 @@ cat ~/.basis-deploy-last-good
   업로드는 최대 3번 시도하고, 그래도 실패하거나 그 외 단계가 실패하면 아무것도 바꾸지 않고 배포를 멈춘다.
 - 수집기는 빌드가 끝난 뒤, backend 를 시작(마이그레이션)하기 직전에 멈추고 컨테이너를 제거한다(`docker compose rm -s -f collector`). 빌드하는 동안에는 계속 돈다.
   종료된 컨테이너를 남기지 않아 `up --wait` 가 그것에 영향받지 않게 하려는 것이고, 새 이미지로 어차피 다시 만들어지므로 추가 비용은 없다. 이전 컨테이너의 `docker logs` 만 사라진다.
-- 성공하면 `~/.basis-deploy-last-good` 에 "이 커밋 + 그때의 DB 버전"을 적는다. 서버의 `HEAD` 는 실패한 배포도 가리킬 수 있어서 되돌릴 곳으로 쓰지 않는다.
+- 기동에 성공하면 `~/.basis-deploy-last-good.candidate` 에 "이 커밋 + 그때의 DB 버전"을 **후보**로만 적는다. 컨테이너가 healthy 여도 Caddy/TLS/라우팅 문제로 외부에서는 안 될 수 있어서다.
+  워크플로의 외부 smoke test(`/health`, `/api/concepts`)를 통과하면 `scripts/promote.sh <SHA>` 가 후보를 `~/.basis-deploy-last-good` 로 올린다. smoke 가 실패하면 올리지 않아 롤백 대상은 이전 정상 SHA 로 남는다.
+  서버의 `HEAD` 는 실패한 배포도 가리킬 수 있어서 되돌릴 곳으로 쓰지 않는다.
 - 수집기 이상(unhealthy)은 로그에 `collector-unhealthy` 만 남기고 배포 실패로 치지 않는다.
 - 성공하면 이전 버전 이미지(이름 없는 이미지)와 7일 지난 빌드 캐시를 지운다(`docker image prune -f`, `docker builder prune --filter until=168h`). 실행 중인 컨테이너의 이미지는 지워지지 않는다.
 
@@ -155,6 +157,7 @@ cat ~/.basis-deploy-last-good
 자동 롤백으로 사이트가 살아나도 새 버전 배포는 실패이므로 Actions 는 실패로 끝난다. 마지막 성공 기록이 없거나 DB 버전을 읽지 못하면 자동 롤백하지 않는다.
 
 - 서버에서 `git`·`docker compose` 로 직접 배포하면 마지막 성공 기록이 갱신되지 않는다. 직접 배포한 뒤에는 위 "사전 준비"의 명령으로 기록을 다시 적는다.
+  `deploy.sh` 만 직접 돌렸다면 후보만 남은 상태이므로, 외부 주소를 직접 확인한 뒤 `bash scripts/promote.sh <SHA>` 로 확정한다.
 - `scripts/` 가 없던 커밋(이 기능이 들어가기 전)으로 롤백하면 서버 저장소에서 스크립트가 사라진다. 다음 배포 전까지 `rollback.sh` 를 쓸 수 없으므로 그때는 위 표의 내용을 손으로 한다.
 - 되돌리는 대상은 `backend` 의 마이그레이션(`alembic_version`)뿐이다. `ai/` 의 마이그레이션(`alembic_version_ai`)은 다루지 않는다.
 

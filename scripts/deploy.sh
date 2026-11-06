@@ -3,7 +3,8 @@
 #   사용: bash scripts/deploy.sh <배포할 커밋 전체 SHA> <reset 전 서버 HEAD>
 #
 # 순서: 백업 → 빌드 → 수집기 정지 → 핵심 서비스 기동(healthy 까지 대기) → 수집기 기동 → 이전 이미지 정리
-#   성공하면 "마지막 성공" 기록(SHA + DB 마이그레이션 버전)을 갱신한다.
+#   기동에 성공하면 "후보" 기록(SHA + DB 마이그레이션 버전)만 남긴다. "마지막 성공"은 그대로다.
+#   외부 smoke test 까지 통과하면 워크플로가 scripts/promote.sh 로 후보를 "마지막 성공"으로 올린다.
 #   기동에 실패하면:
 #     - DB 마이그레이션 버전이 마지막 성공 때와 같으면 마지막 성공 SHA 로 자동 롤백한다.
 #     - 다르면(마이그레이션이 적용됨) 옛 코드가 시작하지 못하므로 자동으로 하지 않고 rollback.sh 를 안내한다.
@@ -18,6 +19,9 @@ main() {
   local sha="${1:?배포할 SHA 가 필요합니다}" head_before="${2:-unknown}"
   read_state
   echo "deploy: 대상 ${sha:0:7} / 마지막 성공 ${LAST_SHA:0:7} (DB ${LAST_REV:-기록 없음})"
+
+  # 이전 배포가 승격되지 못하고 남긴 후보는 이번 배포와 상관없으니 지운다.
+  rm -f "$CANDIDATE_FILE"
 
   # 백업이 실패하면 아무것도 바꾸지 않고 멈춘다.
   if ! bash scripts/backup-db.sh "${LAST_SHA:-$head_before}"; then
@@ -34,10 +38,10 @@ main() {
     if [ -z "$rev" ]; then
       echo "deploy: 경고 - DB 버전을 읽지 못해 마지막 성공 기록에 버전이 비었습니다. 다음 배포의 자동 롤백이 동작하지 않습니다." >&2
     fi
-    write_state "$sha" "$rev"
+    write_candidate "$sha" "$rev"
     start_collector
     prune_docker
-    echo "deploy: 성공"
+    echo "deploy: 기동 성공. smoke test 통과 후 promote.sh 로 마지막 성공을 갱신합니다."
     return 0
   fi
 
