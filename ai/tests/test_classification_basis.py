@@ -35,7 +35,8 @@ def link(data: dict, stock: str, industry: str) -> dict:
 def test_shipped_basis_file_passes_every_check() -> None:
     """운영 기준 파일이 깨져 있으면 분류를 시작조차 못 한다."""
     basis = load_basis(latest_basis_file())
-    assert len(basis.stocks) == 30
+    assert len(basis.stocks) == 33
+    assert {"005935", "042700", "298040", "138040", "011200", "033780"} <= basis.stocks.keys()
     assert all(len(basis.links_of(code)) > 0 for code in basis.stocks)
 
 
