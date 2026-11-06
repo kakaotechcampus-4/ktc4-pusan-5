@@ -12,6 +12,10 @@
 - 형제 세부 산업으로는 넓히지 않는다("중·저사양 FC-BGA" 기사는 고사양 종목의 후보가 아니다).
 - relation 경로는 사건에 직접 언급된 기업에서만 출발한다(industry 경로 종목에서 다시 넓히면 2-hop).
   등락만 말하는 사건(role = price_move)은 관계로 넘기지 않는다.
+- 수상·캠페인·사회공헌처럼 회사 홍보성 사건도 관계로 넘기지 않는다(NO_RELATION_PATTERN).
+  "LG전자 브랜드상 수상" 이 경쟁사 삼성전자의 후보가 되던 것을 막는다. 사건 문장(근거 문장)의
+  표현으로 가린다. 사건 종류 칸이 아직 없어서 쓰는 임시 규칙이다(PR #103 리뷰). 너무 못 거르면
+  ① 추출에 사건 종류를 더하고 관계 × 사건 종류 표로 바꾼다. 그 회사 자신(company 경로)은 그대로다.
 - 자회사 표기로 들어온 종목은 공급·경쟁 관계를 그 자회사를 거친 산업 연결의 산업으로만 탄다.
   지분 관계는 제한하지 않는다. 10-29 에 관계의 실제 당사자를 note 로 옮겼으므로 "실제 당사자 일치"
   조건(5-1 의 (1))은 코드로 볼 수 없다. 외부 기업의 자회사 표기(삼성바이오에피스)는 그래서 제한하지 않는다.
@@ -19,6 +23,7 @@
   direct_allowed 와 저장 칸만 정하고, 관계로도 걸렸으면 그 관계는 relation_refs 에 모두 남긴다.
 """
 
+import re
 from dataclasses import dataclass, field
 
 from app.services.classification.basis import Basis, CompanyRelation, StockIndustry
@@ -29,6 +34,20 @@ PATHS = ("company", "industry", "relation")
 # 관계로 넘기지 않는 역할. "B사 주가 3% 하락" 은 관계 회사에 대한 정보가 아니다
 NO_RELATION_ROLES = frozenset({"price_move"})
 NO_CANDIDATE_SCOPES = frozenset({"macro", "market"})
+# 관계로 넘기지 않는 홍보성 사건의 표현. 경쟁·공급·지분 관계 회사의 사정과 무관하다.
+# 낱말 하나로 잡으면 다른 말 속에 섞여 걸리므로("4분기부터" 의 "기부") 뒤에 붙는 말까지 쓴다.
+# 실제 오탐이 나오면 여기에만 더한다.
+NO_RELATION_PATTERN = re.compile(
+    r"수상(했|하며|하고|해|한다|자|작|의 영예|을|이|으로)"
+    r"|[상賞]을 (받|수상)|브랜드상|어워드|어워즈|시상식"
+    r"|캠페인|사회공헌|CSR|기부(금|했|하|를|한)|봉사활동|후원(금|했|하|을)|장학(금|생|재단)",
+    re.IGNORECASE,
+)
+
+
+def promotional(text: str) -> bool:
+    """회사 홍보성 사건(수상·캠페인·사회공헌)의 표현이 있나. 있으면 관계로 넘기지 않는다."""
+    return bool(NO_RELATION_PATTERN.search(text))
 
 
 @dataclass
@@ -83,7 +102,9 @@ def _origins(links: list[EntityLink], basis: Basis) -> dict[str, frozenset[str] 
     return origins
 
 
-def collect_candidates(event: Event, links: list[EntityLink], basis: Basis) -> list[Candidate]:
+def collect_candidates(event: Event, links: list[EntityLink], basis: Basis,
+                       text: str = "") -> list[Candidate]:
+    """text 는 사건의 근거 문장. 홍보성 사건인지 볼 때만 쓴다(비우면 보지 않는다)."""
     if event.scope in NO_CANDIDATE_SCOPES:
         return []
     found: dict[str, Candidate] = {}
@@ -112,8 +133,8 @@ def collect_candidates(event: Event, links: list[EntityLink], basis: Basis) -> l
                 found[stock] = Candidate(stock, "industry", stock_link.direct_allowed,
                                          industry_code=stock_link.industry_code, link=stock_link)
 
-    # relation — 직접 언급된 기업에서 1-hop
-    if event.role not in NO_RELATION_ROLES:
+    # relation — 직접 언급된 기업에서 1-hop. 등락·홍보성 사건은 넘기지 않는다
+    if event.role not in NO_RELATION_ROLES and not promotional(text):
         origins = _origins(links, basis)
         refs: dict[str, list[tuple[tuple, dict, CompanyRelation, str]]] = {}
         for relation in basis.relations:
