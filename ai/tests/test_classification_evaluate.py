@@ -189,6 +189,8 @@ def test_review_sheet_shows_sentences_and_failed_raw_events(tmp_path: Path) -> N
     assert rows[0]["정답 이유"] == "실적 증가"
     assert "1. 삼성전자 실적이 늘었다." in rows[0]["뽑힌 사건"]
     assert rows[0]["사람: 추출 판정 (all/some/none/pass/fail)"] == ""
+    # 자동 채점이 둘이니 사람이 적는 칸도 둘이다
+    assert rows[0]["사람: 종목 연결 판정 (all/some/none/pass/fail)"] == ""
     assert rows[0]["자동 채점: 문장 재현율"] == "all"
     assert rows[0]["자동 채점: 종목 연결"] == "none"
     # 종목 연결이 왜 none 인지 사람이 보도록 판정을 함께 보여 준다
