@@ -112,6 +112,7 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 | `body_error` | text | NULL | 실패 사유(`http_error: 404`, `extract_empty`, `no_body` …). 이관 전 실패 행은 `unrecorded`. 예전 네이버 행의 `http_404` 도 같은 뜻으로 읽는다 | 🆕 |
 | `body_fetched_at` | timestamptz | NULL | 본문을 받으러 마지막으로 연 시각. 기준 시각 이후 본문을 거를 때 쓴다 | 🆕 |
 | `body_extractor` | varchar(32) | NULL | `trafilatura` \| `news_link` | 🆕 |
+| `body_failures` | integer | NN, 기본 `0` | 본문을 열었다가 못 얻은 횟수. 열지 않고 넣은 행은 세지 않는다. 추출 실패를 3번 하면 더 열지 않는다. `0030` 이전 실패 행은 `1` 로 채웠다 | 🆕 `0030` |
 | `purged_at` | timestamptz | NULL | 보관 정책으로 본문을 지운 시각 | 🆕 |
 | `purge_reason` | text | NULL | 지운 사유(어느 정책인지) | 🆕 |
 | `collected_at` | timestamptz | NN, 기본 `now()` | 행을 넣은 시각 | |
@@ -124,7 +125,7 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 
 규칙
 
-- **본문은 한 번 확보하면 덮어쓰지 않는다.** 브리핑이 인용한 문장과 원문이 어긋나거나 기준 시각 이후 수정이 섞이는 걸 막는다. `failed` 인 본문만 다음 수집에서 채운다. 단, 404·410 같은 영구 실패는 다시 열지 않는다. 판별은 `body_error` 로 한다(`services/news/failure.py`).
+- **본문은 한 번 확보하면 덮어쓰지 않는다.** 브리핑이 인용한 문장과 원문이 어긋나거나 기준 시각 이후 수정이 섞이는 걸 막는다. `failed` 인 본문만 다음 수집에서 채운다. 단, 404·410 같은 영구 실패는 다시 열지 않는다. 추출 실패는 30분 뒤에 다시 열고 3번 실패하면 더 열지 않는다. 판별은 `body_error`·`body_failures` 로 한다(`services/news/failure.py`).
 - `purged` 행은 다시 수집해도 본문을 되살리지 않는다.
 
 기존 행 이관(0020 실행 시 자동)
@@ -212,7 +213,7 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 | kind | 상황 | status |
 | --- | --- | --- |
 | `url` | 열었음 | `ok` · `no_body` · `pdf` · `not_html` · `too_large` · `http_error` · `blocked` · `error` |
-| `url` | 안 열었음 | `stale`(게시 24시간 경과·게시 시각 모름) · `over_limit`(메시지당 상한) · `not_fetchable`(티커 문자열 등) · `not_opened`(`--no-links`) · `out_of_scope`(수집 범위 밖·수집량 상한) · `permanent_fail`(이미 영구 실패로 확인된 기사) · `retry_wait`(429 재시도 대기 중) |
+| `url` | 안 열었음 | `stale`(게시 24시간 경과·게시 시각 모름) · `over_limit`(메시지당 상한) · `not_fetchable`(티커 문자열 등) · `not_opened`(`--no-links`) · `out_of_scope`(수집 범위 밖·수집량 상한) · `permanent_fail`(이미 영구 실패로 확인됐거나 추출 실패를 3번 한 기사) · `retry_wait`(429·추출 실패 재시도 대기 중) |
 | `attachment` | | `saved`(이 메시지의 PDF 를 저장) · `duplicate`(같은 네이버 PDF 에 연결) · `excluded`(수집 대상 아님) · `not_saved`(저장 행도 같은 PDF 도 없음) |
 
 ### 2-4. `source_card` — 공통 자료 ID (`0022`)
