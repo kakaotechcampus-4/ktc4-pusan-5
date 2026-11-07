@@ -62,6 +62,48 @@ def test_price_move_does_not_go_through_relations() -> None:
     assert set(found) == {"000660"}
 
 
+def candidates_with_text(text: str, *mentions: str) -> dict:
+    links = link_mentions(mentions, BASIS, alias_index(BASIS)).links
+    found = collect_candidates(event("company", *mentions), links, BASIS, text)
+    return {c.stock_code: c.path for c in found}
+
+
+def test_promotional_event_does_not_reach_competitor() -> None:
+    """LG전자 수상 기사가 경쟁사 삼성전자의 후보가 되던 일(PR #103). LG전자 자신은 그대로 후보다."""
+    for text in [
+        "LG전자, AI 워시콤보 캠페인으로 '2026 올해의 브랜드상' 수상",  # 실제 기사 제목(2026-11-01)
+        "LG전자가 한국광고학회가 주관하는 올해의 브랜드상을 수상했다.",
+        "LG전자 임직원들이 연말 봉사활동에 나섰다.",
+        "LG전자가 이웃돕기 성금 10억 원을 기부했다.",
+        # v2: 수집 뉴스에서 v1 이 놓친 표현 (실제 기사 제목을 LG전자로 바꿔 씀)
+        "LG전자, 美 밴더빌트대에 첫 캠퍼스 라운지 개관",
+        "LG전자, 세계조경가협회 글로벌 조경상 수상",
+        "LG전자가 SK하이닉스로부터 감사패를 받았다.",
+        "LG전자 임직원 봉사단이 김장 나눔 행사를 열었다.",
+        "LG전자, 무형유산 담은 2027년 달력 배포",
+        "LG전자, 창사 이래 첫 개인주주 초청 간담회 개최",
+    ]:
+        assert candidates_with_text(text, "LG전자") == {"066570": "company"}, text
+
+
+def test_business_event_still_reaches_competitor() -> None:
+    """생산·가격 같은 사업 사건은 경쟁사로 넘어간다. 비슷한 글자가 섞여도 홍보성으로 보지 않는다."""
+    for text in [
+        "LG전자 창원 공장 생산 라인이 화재로 멈췄다.",
+        "LG전자가 4분기부터 TV 가격을 10% 올린다.",  # '분기부터' 안의 '기부'
+        "LG전자가 수상 태양광 사업에 진출한다.",  # 물 위의 태양광. 상을 받은 게 아니다
+        # v2 에서 일부러 뺀 말·예외 (사업 기사에 걸리던 것)
+        "LG전자, K-세일페스타 맞아 TV 최대 30% 할인",  # 페스타·할인은 가격 소식
+        "LG전자가 인천공항 라운지에 AI 가전을 공급한다.",  # 브랜드 라운지가 아니다
+        "LG전자, 신제품 전시회에서 OLED TV 공개",
+        "LG전자 사장이 창립기념식 대신 美 공장을 찾았다.",  # 기념식 대신 사업 일정
+        "[공모주달력] LG전자 협력사 청약 일정",
+    ]:
+        assert candidates_with_text(text, "LG전자") == {"066570": "company", "005930": "relation"}, text
+    # 문장을 넘기지 않으면 예전처럼 거르지 않는다
+    assert candidates_with_text("", "LG전자") == {"066570": "company", "005930": "relation"}
+
+
 def test_external_company_is_origin_not_candidate() -> None:
     found = candidates("company", "엔비디아")
     assert set(found) == {"000660", "005930"}
