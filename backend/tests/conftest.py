@@ -1,3 +1,9 @@
+import os
+
+# backend/.env 에 진짜 SENTRY_DSN 이 있어도 테스트는 Sentry 로 보내지 않는다.
+# 설정을 읽기 전에 비워 둔다(pydantic-settings 는 .env 보다 환경변수를 먼저 본다).
+os.environ["SENTRY_DSN"] = ""
+
 import pytest
 
 from app.services import stock_detail

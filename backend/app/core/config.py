@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     # 로컬 개발용 테스트 로그인(/api/auth/test-login). 운영 환경에서는 true로 두지 말 것
     enable_test_login: bool = False
 
+    # Sentry 에러 수집. DSN 이 비면 Sentry 는 꺼진다(로컬·CI·테스트 기본값).
+    # 운영 서버 .env 에서 SENTRY_ENVIRONMENT=production. release 는 배포 때 주입할 예정이고 비어도 동작한다.
+    sentry_dsn: str = ""
+    sentry_environment: str = "local"
+    sentry_release: str = ""
+
 
 
 settings = Settings()
