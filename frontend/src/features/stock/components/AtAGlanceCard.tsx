@@ -8,18 +8,26 @@ import {
   StatListItem,
   Tag,
 } from '@/components/ui';
-import type { Resource, StockFinancials, StockMetricsData, StockQuoteData } from '@/lib/types';
+import type {
+  Resource,
+  StockFinancials,
+  StockInvestorFlowData,
+  StockMetricsData,
+  StockQuoteData,
+} from '@/lib/types';
 import { buildAtAGlanceRows } from '../atAGlanceRows';
 
 export function AtAGlanceCard({
   quote,
   metrics,
+  investorFlow,
   financials,
   financialsError,
   onRetryFinancials,
 }: {
   quote: Resource<StockQuoteData> | null;
   metrics: Resource<StockMetricsData> | null;
+  investorFlow?: Resource<StockInvestorFlowData> | null;
   financials: StockFinancials | null;
   financialsError: Error | null;
   onRetryFinancials: () => void;
@@ -36,6 +44,7 @@ export function AtAGlanceCard({
   const rows = buildAtAGlanceRows({
     quote: q,
     metrics: m,
+    investorFlow,
     financials,
     financialsError,
     onRetryFinancials,

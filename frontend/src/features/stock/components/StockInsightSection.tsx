@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { SectionHead } from '@/components/layout/PageShell';
 import { Card, Empty, Tabs } from '@/components/ui';
-import type { Resource, StockFinancials, StockMetricsData, StockQuoteData } from '@/lib/types';
+import type {
+  Resource,
+  StockFinancials,
+  StockInvestorFlowData,
+  StockMetricsData,
+  StockQuoteData,
+} from '@/lib/types';
 import { DetailInfoTab } from './DetailInfoTab';
 
 type InsightTab = 'ai' | 'detail';
@@ -13,12 +19,14 @@ const TABS: { value: InsightTab; label: string }[] = [
 export function StockInsightSection({
   quote,
   metrics,
+  investorFlow,
   financials,
   financialsError,
   onRetryFinancials,
 }: {
   quote: Resource<StockQuoteData> | null;
   metrics: Resource<StockMetricsData> | null;
+  investorFlow?: Resource<StockInvestorFlowData> | null;
   financials: StockFinancials | null;
   financialsError: Error | null;
   onRetryFinancials: () => void;
@@ -36,6 +44,7 @@ export function StockInsightSection({
         <DetailInfoTab
           quote={quote}
           metrics={metrics}
+          investorFlow={investorFlow}
           financials={financials}
           error={financialsError}
           onRetry={onRetryFinancials}
