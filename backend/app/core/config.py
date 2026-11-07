@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     # 수집기가 고정 목록 종목의 현재가를 다시 받는 장중 주기(초). 장외에는 마감 후 한 번만 받는다.
     # 종목 수 × kis_request_interval_seconds 가 이 값의 절반을 넘으면 차트·재무 작업이 밀린다.
     stock_quote_interval_seconds: int = Field(default=60, ge=15)
+    # 기관 순매수를 다시 받는 장중 주기(초). 장외에는 마감 후 한 번만 받는다.
+    stock_investor_interval_seconds: int = Field(default=3600, ge=60)
 
     # 카카오 로그인
     kakao_client_id: str = ""

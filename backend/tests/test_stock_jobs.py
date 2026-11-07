@@ -191,3 +191,52 @@ async def test_expired_lease_cannot_fence_new_owner():
         await transaction.rollback()
         await connection.close()
         await _cleanup(code)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("error_code", "attempts", "claimable"),
+    [
+        # 영구 오류: 3회에서 멈춘다.
+        ("UPSTREAM_HTTP_404", 2, True),
+        ("UPSTREAM_HTTP_404", 3, False),
+        ("UPSTREAM_ERROR", 3, False),
+        ("MISSING_KEY", 3, False),
+        # 일시 오류: 5회에서 멈춘다.
+        ("UPSTREAM_HTTP_503", 4, True),
+        ("UPSTREAM_HTTP_429", 4, True),
+        ("UPSTREAM_HTTP_401", 4, True),
+        ("UPSTREAM_TIMEOUT", 4, True),
+        ("UPSTREAM_UNREACHABLE", 3, True),
+        ("INVALID_RESPONSE", 4, True),
+        ("UPSTREAM_TIMEOUT", 5, False),
+        # 오류 코드가 비어 있어도 일시 오류로 본다.
+        (None, 4, True),
+    ],
+)
+async def test_failed_job_retry_budget_depends_on_error_kind(error_code, attempts, claimable):
+    code = _code()
+    connection, transaction, session = await _session_with_stock(code)
+    now = datetime.now(UTC)
+    try:
+        await session.execute(
+            StockCollectionJob.__table__.insert().values(
+                stock_code=code,
+                resource="snapshot",
+                range_start=date(1970, 1, 1),
+                range_end=date(1970, 1, 1),
+                status="failed",
+                priority=-1000,
+                attempts=attempts,
+                error_code=error_code,
+                next_run_at=now,
+            )
+        )
+        await session.flush()
+        picked = await claim(session, now)
+        assert (picked is not None and picked.stock_code == code) is claimable
+    finally:
+        await session.close()
+        await transaction.rollback()
+        await connection.close()
+        await _cleanup(code)
