@@ -384,7 +384,9 @@ def _group_amount(peer: dict[str, Any], *, noun: bool) -> str:
 def _canned_relative(payload: dict[str, Any]) -> str | None:
     """summary.relative 의 코스피·그룹 비교 문장(프롬프트 4부 relative 첫 문장 표). 그룹마다 한 문장이다.
 
-    코스피는 수치 없이 말로만, 첫 번째 follows 그룹 문장에만 넣는다. 그룹 비교를 쓸 수 없으면(market_compare 가 ok 가
+    코스피는 수치 없이 말로만, 첫 번째 follows 그룹 문장에만 넣는다. 그보다 먼저 비교 종목 방향이 엇갈린 그룹(inconclusive,
+    비교 종목 둘 이상)이 나오고 코스피 판정이 follows 면 그 그룹 문장 앞에 "<종목>은 코스피와 비슷하게 움직여 시장 전체 흐름을
+    따라갔습니다." 를 한 번 쓴다. 그룹 비교를 쓸 수 없으면(market_compare 가 ok 가
     아니거나 그룹 판정이 모두 null) None 이다. 그룹이 없는 종목의 코스피 비교는 summary.move 에 있다(_canned_kospi).
     """
     compare = _compare_ok(payload)
@@ -421,7 +423,16 @@ def _canned_relative(payload: dict[str, Any]) -> str | None:
         elif relation == "opposite":
             moved = f"{_pct(change)} {_verb(change)}" if change else "보합이었"
             sentence = f"{who}{_topic_josa(who)} {_group_amount(peer, noun=False)}고, {topic} {moved}습니다."
-        else:  # inconclusive — 판정하는 말 없이 비교 종목 등락률만
+        elif len(peer.get("members_used") or []) >= 2:
+            # inconclusive 인데 비교 종목이 둘 이상이면 비교 종목 방향이 엇갈린 그룹이다(context.group_relation).
+            # 중앙값 하나("대체로 X% 안팎")로 쓰면 오른 종목과 내린 종목이 같은 방향으로 움직인 것처럼 읽혀 수치를 쓰지 않는다.
+            # 종목별 등락률은 입력에 없다(members_used 는 코드·이름뿐).
+            sentence = f"{who}{_topic_josa(who)} 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."
+            if kospi_relation == "follows":
+                # 그룹으로는 흐름을 말할 수 없어도 코스피는 따라갔다. 종목 자신의 결론을 먼저 쓴다(코스피는 한 번만)
+                sentence = f"{topic} {base}{_with_josa(base)} 비슷하게 움직여 시장 전체 흐름을 따라갔습니다. {sentence}"
+                kospi_relation = None
+        else:  # inconclusive(비교 종목 하나) — 판정하는 말 없이 비교 종목 등락률만
             sentence = f"{who}{_topic_josa(who)} {_group_amount(peer, noun=False)}습니다."
         sentences.append(sentence)
     return " ".join(sentences) or None

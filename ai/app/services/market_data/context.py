@@ -27,7 +27,7 @@ KRX 를 두 번 부른다(코스피 지수, 유가증권 전 종목). 계산은 
 안에 드는지 본다.
 """
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date
 from statistics import median
 from typing import Literal
@@ -188,7 +188,8 @@ def peer_comparisons(
             median_change_rate_pct=center_pct,
             excess_vs_group_pp=excess,
             peer_count=len(used),
-            relation=group_relation(excess, len(used), stock.change_rate, center_pct),
+            relation=group_relation(excess, len(used), stock.change_rate, center_pct,
+                                    [_round(r, RATE_DECIMALS) for r in rates]),
             members_used=used,
             members_excluded=excluded,
         ))
@@ -197,16 +198,55 @@ def peer_comparisons(
 
 def group_relation(
     excess_pp: float | None, peer_count: int, stock_rate: float | None, group_rate: float | None,
+    member_rates: Sequence[float] = (),
 ) -> Literal["follows", "opposite", "diverges", "inconclusive"] | None:
     """그룹 비교 판정. 비교 종목이 하나뿐이면 차이가 그 종목 쪽 사정일 수 있어 단정하지 않는다.
 
     기준 안이어도 그룹과 오르내린 방향이 반대면 opposite 다. "같은 그룹과 함께 움직였다" 고 쓸 수 없다.
+
+    member_rates 는 비교 종목(members_used)의 반올림한 등락률이다. 기준 안이고 방향도 반대가 아니어서 follows 일
+    자리에서 비교 종목끼리 방향이 엇갈렸으면(is_mixed) inconclusive 로 둔다 — 그룹 중앙값 하나로 "그룹과 비슷하게"
+    라고 쓰면 오른 종목과 내린 종목이 함께 오르거나 내린 것처럼 읽힌다. 다만 비교 종목이 셋 이상이고 한 방향이
+    과반이면 follows 를 유지한다(mixed_still_follows). opposite·diverges 는 엇갈림과 상관없이 그대로다.
     """
     if excess_pp is None:
         return None
     if abs(excess_pp) <= GROUP_FOLLOW_THRESHOLD_PP:
-        return "opposite" if is_opposite(stock_rate, group_rate) else "follows"
+        if is_opposite(stock_rate, group_rate):
+            return "opposite"
+        if is_mixed(member_rates) and not mixed_still_follows(stock_rate, member_rates):
+            return "inconclusive"
+        return "follows"
     return "diverges" if peer_count >= 2 else "inconclusive"
+
+
+def is_mixed(member_rates: Sequence[float]) -> bool:
+    """비교 종목들의 오르내린 방향이 엇갈렸나(오른 종목과 내린 종목이 함께 있다). 0.00(보합)은 방향이 없다.
+
+    보고서에 보이는 숫자와 어긋나지 않게 반올림한 등락률을 받는다(is_opposite 와 같다).
+    """
+    return any(r > 0 for r in member_rates) and any(r < 0 for r in member_rates)
+
+
+def mixed_still_follows(stock_rate: float | None, member_rates: Sequence[float]) -> bool:
+    """방향이 엇갈린 그룹에서도 follows 를 유지하는가.
+
+    비교 종목이 둘이면 유지하지 않는다(한쪽씩 갈렸다). 셋 이상이면 한 방향이 과반(비교 종목 수의 절반 초과)이고
+    대상 종목도 그 방향이거나 보합(0.00, 방향 없음 — 반대 방향으로 치지 않는다)일 때 유지한다. 오른 수와 내린 수가
+    같거나(반반) 과반이 없으면 유지하지 않는다.
+    """
+    n = len(member_rates)
+    if n < 3 or stock_rate is None:
+        return False
+    up = sum(r > 0 for r in member_rates)
+    down = sum(r < 0 for r in member_rates)
+    if 2 * up > n:
+        majority = 1
+    elif 2 * down > n:
+        majority = -1
+    else:
+        return False
+    return stock_rate == 0 or (stock_rate > 0) == (majority > 0)
 
 
 def kospi_basis(weight_pct: float | None) -> Literal["kospi", "kospi_ex_self"]:
