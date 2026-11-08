@@ -179,3 +179,20 @@ def test_judge_module_reads_the_setting() -> None:
     # 기본값은 지금 동작 그대로다
     assert type(settings).model_fields["classification_relation_judge"].default == "luna"
     assert judge_module.settings is settings
+
+
+def test_require_is_noop_for_luna(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "classification_relation_judge", "luna")
+    monkeypatch.setattr(settings, "jev_url", None)
+    judge_relation.require()
+
+
+def test_require_needs_elice_and_jev_settings(monkeypatch, jev_mode) -> None:
+    monkeypatch.setattr(settings, "llm_provider", "openrouter")
+    with pytest.raises(RuntimeError, match="elice"):
+        judge_relation.require()
+    monkeypatch.setattr(settings, "llm_provider", "elice")
+    judge_relation.require()
+    monkeypatch.setattr(settings, "jev_url", None)
+    with pytest.raises(RuntimeError, match="JEV_URL"):
+        judge_relation.require()

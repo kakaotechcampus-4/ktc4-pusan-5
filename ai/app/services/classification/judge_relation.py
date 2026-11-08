@@ -76,6 +76,21 @@ class Plan:
     owned: int
 
 
+def require() -> None:
+    """jev 로 켰으면 자료를 읽기 전에 설정을 확인한다. luna 면 아무것도 하지 않는다.
+
+    분류 실행은 자료마다 오류를 잡고 다음으로 넘어가므로, 여기서 먼저 멈춰야 자료가 줄줄이 실패로 남지 않는다.
+    """
+    if settings.classification_relation_judge != "jev":
+        return
+    if settings.llm_provider != "elice":
+        raise RuntimeError(
+            "CLASSIFICATION_RELATION_JUDGE=jev 는 LLM_PROVIDER=elice 일 때만 켤 수 있다. "
+            "Jev 비용은 원화라 달러 비용과 합칠 수 없다."
+        )
+    jev.endpoint()
+
+
 def scope_text(basis: Basis, ref: dict) -> str:
     parts = [basis.industries[ref["industry"]].name] if ref.get("industry") else []
     if ref.get("note"):

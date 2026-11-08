@@ -53,7 +53,7 @@ from app.repositories.classification import (
 )
 from app.repositories.scope import collection_locks
 from app.repositories.source_card import get_sources
-from app.services.classification import promo, splitter
+from app.services.classification import judge_relation, promo, splitter
 from app.services.classification.basis import Basis, BasisError, load_basis
 from app.services.classification.evaluate import load_labels, score, write_review
 from app.services.classification.judge import LABELS
@@ -149,6 +149,7 @@ async def run_classify(args: argparse.Namespace) -> int:
     basis = load_basis(args.basis)
     endpoint()  # 키가 없으면 자료를 읽기 전에 멈춘다
     promo.require()
+    judge_relation.require()
     # --ids 는 직접 고른 자료라 막지 않는다. 막으면 전체 분류 중에는 모델 비교도 몇 시간씩 멈춘다
     if args.ids is not None:
         return await classify_cards(args, basis)
@@ -301,6 +302,7 @@ async def run_show(args: argparse.Namespace) -> None:
 async def run_try(args: argparse.Namespace) -> None:
     basis = load_basis(args.basis)
     promo.require()
+    judge_relation.require()
     body = args.file.read_text(encoding="utf-8")
     result = await classify(args.title, body, basis, models=models_of(args))
     print("\n".join(describe(result, body, basis)))
@@ -320,6 +322,7 @@ async def run_eval(args: argparse.Namespace) -> None:
     ids = ids[: args.limit] if args.limit else ids
     endpoint()
     promo.require()
+    judge_relation.require()
 
     results, statuses, scores, total = [], Counter(), Counter(), 0.0
     print(f"{len(ids)}건 · 정답 {'있음' if labels else '없음'} · 기준 {basis.version[:12]}\n")
