@@ -219,6 +219,11 @@ COMPARE_META_PHRASES = ("판정하기 어렵", "기준 시장", "비교 종목�
 COMPARE_OPPOSITE_WORDING = "COMPARE_OPPOSITE_WORDING"
 COMPARE_JUDGE_WORDS = ("비슷하게", "함께", "다르게", "따라갔")
 _KOSPI_JUDGED = re.compile(r"코스피(?:와|과)는?\s*(?:비슷하게|함께|다르게)|코스피\s*흐름을\s*따라")
+# 입력 그룹 판정이 inconclusive 이고 비교 종목(members_used)이 둘 이상이면 비교 종목끼리 오르내린 방향이 엇갈린 그룹이다
+# (context.group_relation). 그 그룹을 가리키는 relative 문장에 그룹 등락률("안팎", median_change_rate_pct 수치)이나 판정하는
+# 말(COMPARE_JUDGE_WORDS)을 쓰면 오른 종목과 내린 종목이 같은 방향으로 움직인 것처럼 읽힌다. 그날은 방향이 엇갈렸다는 사실만
+# 쓴다(프롬프트 「동종 그룹」). 코스피에 붙은 말은 뺀다(_check_compare_opposite 와 같다). 경고다.
+COMPARE_MIXED_GROUP_RATE = "COMPARE_MIXED_GROUP_RATE"
 # 이름이 이것으로 끝나는 그룹은 지분으로 이어진 묶음이라 문장에 "<앞부분> 지분으로 이어진" 으로 쓴다(프롬프트 「동종 그룹」).
 LINKED_GROUP_SUFFIX = " 연동"
 
@@ -1283,6 +1288,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     MAIN_CAUSE_TOO_LONG         summary.main_cause 가 MAIN_CAUSE_MAX_SENTENCES 문장을 넘는다(러너 고정 문장 포함).
     COMPARE_META_PHRASE         독자가 읽는 칸에 비교 판정의 안쪽 말(COMPARE_META_PHRASES)이 있다. payload 없이 본다.
     COMPARE_OPPOSITE_WORDING    market_compare 판정이 opposite 인 비교에 "비슷하게"·"함께"·"다르게"·"따라갔" 를 썼다.
+    COMPARE_MIXED_GROUP_RATE    비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상)에 그룹 등락률이나 판정하는 말을 썼다.
     """
     if not isinstance(report, dict):
         return []
@@ -1318,6 +1324,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
                                            f"모델 몫 {main_cause_sentences(payload)})"))
     out += _check_quote_subjects(factors, str(payload.get("stock") or ""))
     out += _check_compare_opposite(report, payload)
+    out += _check_compare_mixed(report, payload)
     market = payload.get("market")
     summary = report.get("summary")
     move_text = summary.get("move") if isinstance(summary, dict) else None
@@ -1503,6 +1510,29 @@ def _check_compare_opposite(report: dict[str, Any], payload: dict[str, Any]) -> 
         if words:
             out.append(_p(COMPARE_OPPOSITE_WORDING,
                           f"{peer['group']} 그룹과 방향이 반대인 날인데 summary.relative 에 {words[0]!r}"))
+    return out
+
+
+def _check_compare_mixed(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
+    """비교 종목 방향이 엇갈린 그룹을 그룹 등락률·판정하는 말로 썼나. 그룹마다 경고 하나."""
+    compare = payload.get("market_compare")
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    relative = summary.get("relative")
+    if not isinstance(compare, dict) or compare.get("status") != "ok" or not isinstance(relative, str):
+        return []
+    sentences = [_KOSPI_JUDGED.sub("", s) for s in _SENTENCE_END.split(relative.strip())]
+    out: list[str] = []
+    for peer in compare.get("peers") or []:
+        if (not isinstance(peer, dict) or peer.get("relation") != "inconclusive"
+                or len(peer.get("members_used") or []) < 2 or not isinstance(peer.get("group"), str)):
+            continue
+        mention = group_mention(peer["group"])
+        rate = _decimal(peer.get("median_change_rate_pct"))
+        marks = ["안팎"] + ([f"{abs(rate):.2f}%"] if rate is not None else []) + list(COMPARE_JUDGE_WORDS)
+        found = [w for s in sentences if mention in s for w in marks if w in s]
+        if found:
+            out.append(_p(COMPARE_MIXED_GROUP_RATE,
+                          f"{peer['group']} 그룹은 비교 종목 방향이 엇갈렸는데 summary.relative 에 {found[0]!r}"))
     return out
 
 

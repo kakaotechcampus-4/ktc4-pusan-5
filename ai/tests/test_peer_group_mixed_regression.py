@@ -13,12 +13,16 @@ import re
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from app.services.market_data import IndexDaily, StockDaily
 from app.services.market_data.context import build_market_context
 from app.services.stock_analysis import generate as gen
 from app.services.stock_analysis import market_compare as mc
+from app.services.stock_analysis import repair
 from app.services.stock_analysis.verify import (
     COMPARE_META_PHRASE,
+    COMPARE_MIXED_GROUP_RATE,
     COMPARE_OPPOSITE_WORDING,
     check_warnings,
     code_of,
@@ -84,4 +88,43 @@ def test_mobis_canned_relative_does_not_say_group_moved_together() -> None:
     # 검증 통과, 비교 판정 금지 표현·opposite 표현 경고 없음
     assert verify(report, payload) == ("passed", [])
     warned = {code_of(w) for w in check_warnings(report, payload)}
-    assert not warned & {COMPARE_META_PHRASE, COMPARE_OPPOSITE_WORDING}
+    assert not warned & {COMPARE_META_PHRASE, COMPARE_OPPOSITE_WORDING, COMPARE_MIXED_GROUP_RATE}
+
+
+@pytest.mark.parametrize("relative", [
+    # LLM 이 프롬프트의 「동종 그룹」 규칙(두 종목 이상이면 "대체로 X% 안팎")을 그대로 따르면 나오는 문장
+    ("현대모비스는 코스피, 그리고 대체로 0.67% 안팎 오른 같은 자동차 그룹의 현대차·기아와 비슷하게 움직여 "
+     "시장 전체 흐름을 따라갔습니다."),
+    "같은 자동차 그룹의 현대차·기아는 0.67% 올랐습니다.",
+    "현대모비스는 같은 자동차 그룹의 현대차·기아와 함께 올랐습니다.",
+])
+def test_mobis_llm_group_rate_on_mixed_group_is_warned(relative) -> None:
+    payload = _mobis_payload()
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    warned = {code_of(w) for w in check_warnings(report, payload)}
+    assert COMPARE_MIXED_GROUP_RATE in warned
+
+
+def test_single_member_inconclusive_rate_is_not_warned() -> None:
+    """비교 종목이 하나뿐인 inconclusive 는 그 종목 등락률을 쓰는 게 규칙이다."""
+    payload = _mobis_payload()
+    peer = payload["market_compare"]["peers"][0]
+    peer["members_used"] = peer["members_used"][:1]
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = "같은 자동차 그룹의 현대차는 0.67% 올랐습니다."
+    assert COMPARE_MIXED_GROUP_RATE not in {code_of(w) for w in check_warnings(report, payload)}
+
+
+PROMPT_PATH = Path(gen.__file__).parents[2] / "llm" / "prompts" / "stock_analysis_system.md"
+
+
+@pytest.mark.parametrize("source", ["prompt", "repair"])
+def test_prompt_rules_cover_mixed_direction_inconclusive(source) -> None:
+    """inconclusive 를 「비교 종목이 하나뿐」으로만 설명하면 모델은 두 종목 그룹에 "대체로 X% 안팎" 규칙을 쓴다."""
+    text = PROMPT_PATH.read_text(encoding="utf-8") if source == "prompt" else repair.RELATIVE_SYSTEM
+    # 그룹 판정이 inconclusive 인 날을 설명하는 행(첫 칸이 그 판정). 「함께 읽습니다」 표의 묶음 행은 보지 않는다
+    rows = [x for x in text.splitlines()
+            if x.lstrip().startswith(("| `inconclusive`", "| 어느 쪽이든 · `inconclusive`"))]
+    assert len(rows) == (2 if source == "prompt" else 1)
+    assert all("엇갈" in row for row in rows)
