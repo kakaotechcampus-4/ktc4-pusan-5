@@ -4,6 +4,8 @@
                           적는다(과거 결과가 FK 로 가리킨다). 연결·관계는 통째로 바꾼다
     stored_basis_versions 기준표에 들어 있는 기준 버전. 분류 전에 기준 파일과 같은지 본다
     cards_to_classify     분류할 자료(뉴스·PDF·메시지)의 공통 ID
+    naver_news_days       그 자료들과 같은 날짜의 네이버 뉴스 전부. 종목당 상한 순위용(selection.py)
+    classification_cost_since  그 시각 이후 분류 회차의 비용 합계. 하루 비용 상한용
     save_run              분류 결과 하나를 회차로 저장한다. 현재 회차 교체와 source_card_stocks 갱신을
                           같은 트랜잭션에서 한다(4-3·4-6). 커밋은 부르는 쪽이 한다
     classified_sources    종목 하나의 판정 자료 + 공통 배경(거시·시장) 자료 (5-2, 생성 쪽에 넘기는 것)
@@ -13,11 +15,25 @@
 
 from datetime import datetime
 
-from sqlalchemy import and_, delete, exists, func, literal, not_, null, select, union, update
+from sqlalchemy import (
+    Date,
+    Float,
+    and_,
+    cast,
+    delete,
+    exists,
+    func,
+    literal,
+    not_,
+    null,
+    select,
+    union,
+    update,
+)
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import SourceCard
+from app.models import News, SourceCard
 from app.models.classification import (
     ClassificationEvent,
     ClassificationEventApplicability,
@@ -37,6 +53,7 @@ from app.repositories.source_card import (
 )
 from app.services.classification.basis import Basis
 from app.services.classification.pipeline import ClassificationResult
+from app.services.classification.selection import NewsCandidate
 
 CLASSIFIABLE_CARD_TYPES = ("news", "pdf", "message")
 TAGGED_BY = "classification"
@@ -140,6 +157,41 @@ async def cards_to_classify(
     if limit is not None:
         query = query.limit(limit)
     return list((await session.execute(query)).scalars().all())
+
+
+def _kst_day():
+    """카드 공개일(KST). 공개 시각을 모르면 자료 날짜."""
+    return func.coalesce(cast(func.timezone("Asia/Seoul", SourceCard.available_at), Date),
+                         SourceCard.event_date)
+
+
+async def naver_news_days(session: AsyncSession, card_ids: list[int]) -> list[NewsCandidate]:
+    """card_ids 중 네이버 뉴스가 있는 날짜의 네이버 뉴스 전부(이미 분류한 것 포함). 종목당 상한 순위용."""
+    if not card_ids:
+        return []
+    day = _kst_day()
+    days = (select(day).join(News, News.id == SourceCard.news_id)
+            .where(SourceCard.id.in_(card_ids), News.source == "naver").distinct())
+    rows = (await session.execute(
+        select(SourceCard.id, day, News.title, func.coalesce(News.cleaned_text, News.summary),
+               News.published_at)
+        .join(News, News.id == SourceCard.news_id)
+        .where(News.source == "naver", day.in_(days.scalar_subquery()))
+    )).all()
+    return [NewsCandidate(card_id=r[0], day=r[1], title=r[2] or "", body=r[3] or "", published_at=r[4])
+            for r in rows]
+
+
+async def classification_cost_since(session: AsyncSession, since: datetime) -> float:
+    """since 이후 분류 회차의 비용 합계(추출·표기 연결·판정). 통화는 회차를 만든 설정의 통화다."""
+    def stage(name: str):
+        return func.coalesce(cast(ClassificationRun.usage[name]["cost"].astext, Float), 0.0)
+
+    total = await session.scalar(
+        select(func.coalesce(func.sum(stage("extract") + stage("link") + stage("judge")), 0.0))
+        .where(ClassificationRun.classified_at >= since)
+    )
+    return float(total or 0.0)
 
 
 # ── 회차 저장 ─────────────────────────────────────────────────────────────

@@ -82,7 +82,7 @@ def harness(monkeypatch):
 def _args(**kw) -> argparse.Namespace:
     base = {"basis": None, "since": None, "ids": None, "limit": None, "retry": False,
             "experiment": False, "extract_model": None, "link_model": None, "judge_model": None,
-            "concurrency": 1}
+            "concurrency": 1, "per_stock_cap": None, "daily_budget": None}
     return argparse.Namespace(**{**base, **kw})
 
 

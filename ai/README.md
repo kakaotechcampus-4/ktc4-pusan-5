@@ -287,6 +287,8 @@ DB 가 후보 종목을 정하고(기준 JSON → 기준표), LLM 은 후보마�
 uv run alembic upgrade head                                  # 0027 이 분류 표 8개를 만든다
 uv run python -m app.services.classification basis           # 기준 JSON → 기준표 (먼저 검사한다)
 uv run python -m app.services.classification run --limit 20  # 회차가 없는 자료를 최근 것부터 분류
+uv run python -m app.services.classification run --since 2026-11-06 --per-stock-cap 20 --daily-budget 1500
+                                                              # 네이버 뉴스는 종목당 20건만, 오늘 ₩1,500 까지
 uv run python -m app.services.classification show 005930 --days 3   # 종목 하나에 붙는 자료
 ```
 
@@ -297,6 +299,10 @@ uv run python -m app.services.classification show 005930 --days 3   # 종목 하
   한 실행에 모델 하나만 쓸 수 있다.
 - 모델 비교는 DB 없이 `eval --articles eval_data/<폴더>/articles.json` 으로, DB 자료로 해 보려면
   `run --ids … --experiment`(저장하되 조회에 쓰는 회차는 바꾸지 않음)로 한다.
+- 비용 장치: `.env` 의 `CLASSIFICATION_PER_STOCK_CAP`(날마다 종목당 네이버 뉴스 상한)과
+  `CLASSIFICATION_DAILY_BUDGET`(오늘 분류 비용 상한)을 채우면 `run` 이 따른다. 비우면 지금처럼 다 분류한다.
+  고르지 않은 기사도 원문은 남는다. 텔레그램·PDF 는 상한 없이 먼저 분류한다. `--ids` 에는 걸지 않는다.
+  이유와 수치는 [docs/CLASSIFICATION_TUNING.md](docs/CLASSIFICATION_TUNING.md) 5-5.
 - DIRECT 판정은 `source_card_stocks` 에 `tagged_by = classification` 으로도 들어가므로
   `stock_card_ids` 에도 잡힌다. INDIRECT_CONTEXT·거시·시장 자료까지 보려면
   `app.repositories.classification.classified_sources` 를 쓴다.

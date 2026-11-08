@@ -117,6 +117,12 @@ class Settings(BaseSettings):
     classification_judge_model: str | None = None
     # 출력 상한(추론 토큰 포함). 판정 응답은 사건 × 후보 수만큼 길어진다.
     classification_max_tokens: int = 6000
+    # `run`(--ids 없이)에만 거는 비용 장치. 비우면 걸지 않는다(classification/selection.py).
+    # 종목당 상한: 날마다 종목마다 네이버 뉴스를 이만큼만 분류한다. 텔레그램·PDF 는 전부 분류한다.
+    classification_per_stock_cap: int | None = None
+    # 하루 비용 상한: 오늘(KST) 분류 비용 합계가 이 금액에 닿으면 새 자료를 시작하지 않는다.
+    # 통화는 비용 통화(Elice 원화, OpenRouter 달러)다.
+    classification_daily_budget: float | None = None
 
     @field_validator("stock_analysis_stream", mode="before")
     @classmethod
