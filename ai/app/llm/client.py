@@ -43,6 +43,15 @@ class LLMTimeout(LLMError):
     kind = "timeout"
 
 
+class LLMRateLimited(LLMError):
+    """속도 제한(HTTP 429)으로 거절됐다. 응답을 받지 못했으니 잠시 뒤 다시 보낼 수 있다.
+
+    complete() 가 먼저 settings.llm_max_retries 번까지 짧게 다시 보내고, 그래도 429 면 이 예외로 올린다.
+    분류(classification/llm.py)는 이 예외를 받으면 더 길게 기다렸다 complete() 를 다시 부른다 — 두 재시도가
+    곱해진다(단계 하나에 최대 (llm_max_retries + 1) × (RATE_LIMIT_WAITS + 1) 번). 한 곳으로 모으는 건 후속 정리다.
+    """
+
+
 class StreamInterrupted(LLMError):
     """스트림이 응답을 다 주기 전에 끊겼다. 받은 부분은 길이(글자 수)만 남긴다 —
     잘린 JSON 을 열어 보거나 저장하면 안 되므로 본문은 넘기지 않는다."""
@@ -214,7 +223,8 @@ async def complete(
 
     **일시적 실패는 여기서 다시 보낸다.** 429·5xx·연결 오류·시간 초과·스트림 끊김이면
     settings.llm_max_retries 번까지 지수 백오프로 다시 보낸다(_backoff). 429 를 뺀 4xx 와 응답 형식 오류는
-    바로 올린다. 재시도는 이 함수 한 곳에서만 한다 — 부르는 쪽이 또 감싸면 횟수가 곱해진다.
+    바로 올린다. 재시도는 이 함수 한 곳에서만 한다 — 부르는 쪽이 또 감싸면 횟수가 곱해진다(지금은 분류의 429
+    대기가 예외로 남아 있다. LLMRateLimited 참고).
     `attempts` 를 넘기면 실패한 시도마다 {attempt, kind, error, elapsed_sec, wait_sec, partial_chars} 를
     덧붙인다(성공했든 끝내 실패했든). 끊긴 시도는 usage 를 못 받아 비용에 들어가지 않는다.
 
@@ -313,7 +323,9 @@ async def _send(url: str, key: str, payload: dict, stream: bool) -> tuple[str, s
         # 상태 코드와 응답 앞부분을 남긴다. 예외 이름만 남기면 429(속도 제한)인지
         # 400(매개변수 거절)인지 몰라서 고칠 곳을 못 찾는다 — Elice 첫 실행에서 겪었다.
         status = exc.response.status_code
-        error = LLMError(f"LLM 호출 실패: HTTP {status} {_error_detail(exc.response.text, key)}")
+        # 429 는 LLMRateLimited 로 올린다. complete() 가 다 다시 보내고도 429 면 부르는 쪽이 이 종류로 알아본다
+        error_type = LLMRateLimited if status == 429 else LLMError
+        error = error_type(f"LLM 호출 실패: HTTP {status} {_error_detail(exc.response.text, key)}")
         # 429 와 5xx 만 다시 보낸다. 그 밖의 4xx 는 요청이 틀린 것이라 다시 보내도 같다
         if status == 429 or status >= 500:
             error.retryable, error.kind = True, f"http_{status}"

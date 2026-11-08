@@ -22,8 +22,10 @@ BEFORE_CLOSE). 입력 change_pct 는 기준 시각의 값이라 그대로 쓴다
 않으면 excess_pct(= change_pct − peer_median_pct)가 두 출처를 섞는다. 입력에 peer_median_pct 가 있으면 이미 받아 둔
 KRX 전 종목 응답으로 대형주 유니버스(stock_meta.universe_codes) 중간값과 상승·하락·전체 수를 다시 계산하고
 excess_pct 도 다시 계산한다(universe_peers). 대상 종목 자신과 응답에 없는·거래정지·등락률 빈 칸 종목은 뺀다.
-쓸 종목이 하나도 없으면 입력 중간값으로 excess_pct 만 다시 계산한다. 원래 값·다시 계산한 값·뺀 종목은 래퍼
-change_pct_override 에 남는다. 입력에 peer_median_pct 가 없으면 대형주 비교 수치는 건드리지 않는다(없던 비교를 켜지 않는다).
+쓸 종목이 하나도 없으면 대형주 비교 수치와 excess_pct 를 null 로 둔다 — 입력 중간값으로 excess_pct 를 내면
+종목은 KRX, 대형주는 입력 시세라 다시 두 출처가 섞인다. 키는 남겨 프롬프트 1부 스키마("없으면 null")와 맞추고,
+생성·검증은 null 이면 대형주 비교를 하지 않는다. 원래 값·다시 계산한 값(null 로 뒀으면 krx·recomputed 가 null)·뺀
+종목은 래퍼 change_pct_override 에 남는다. 입력에 peer_median_pct 가 없으면 대형주 비교 수치는 건드리지 않는다(없던 비교를 켜지 않는다).
 
 입력 market 이 null 이면(분류 어댑터 입력) 위 칸을 모두 KRX 로 새로 만든다 — 지수 "코스피"·KRX 코스피 등락률·장 마감
 시각, 대형주 비교 수치(universe_peers)와 excess_pct, url 은 "". 안 만들면 market.excess_pct 로 판단하는 상대 층과
@@ -257,10 +259,11 @@ def override_change_pct(
 
     입력 market 에 지수 등락률(change_pct)이 있으면 KRX 코스피 등락률과 그날 장 마감 시각(as_of)으로 바꾼다.
     peer_median_pct 가 있으면 대형주 비교 수치를 stocks(같은 날 KRX 전 종목)로 다시 계산하고 excess_pct 도 다시
-    계산한다. universe 를 안 주면 stock_meta 의 대형주 유니버스다.
+    계산한다. 쓸 유니버스 종목이 없으면(universe_peers 가 None) 대형주 비교 수치와 excess_pct 를 null 로 둔다.
+    universe 를 안 주면 stock_meta 의 대형주 유니버스다.
 
     입력 market 이 null 이면(분류 어댑터 입력) 지수·대형주 비교 칸을 모두 KRX 로 새로 만든다. 래퍼
-    market_created 가 true 다. 쓸 대형주가 없으면 peer_*·excess_pct 는 null 이다.
+    market_created 가 true 다. 쓸 대형주가 없으면 peer_*·excess_pct 는 null 이다(위와 같다).
     """
     krx = compare["kospi"]["stock_change_rate_pct"]
     out = {**payload, "change_pct": krx}
@@ -288,11 +291,15 @@ def override_change_pct(
         peers, excluded = universe_peers(stocks, str(payload["code"]),
                                          universe_codes() if universe is None else universe)
         record["peers"] = {"input": {key: market.get(key) for key in PEER_KEYS}, "krx": peers, "excluded": excluded}
-        new_market.update(peers or {})
-        # 새로 만든 market 에 쓸 대형주가 없으면 중간값이 null 이라 excess_pct 도 null 이다
-        median = new_market["peer_median_pct"]
-        excess = round(krx - median, RATE_DECIMALS) if _is_rate(median) else None
-        new_market["excess_pct"] = excess
+        if peers is None:
+            # 입력 중간값으로 excess_pct 를 내면 종목은 KRX, 대형주는 입력 시세라 두 출처가 섞인다. 비교를 null 로 둔다.
+            # 키는 지우지 않는다 — 프롬프트 1부 스키마가 "없으면 null" 이라 모델이 늘 같은 칸을 본다
+            new_market.update(dict.fromkeys((*PEER_KEYS, "excess_pct")))
+            excess = None
+        else:
+            new_market.update(peers)
+            excess = round(krx - peers["peer_median_pct"], RATE_DECIMALS)
+            new_market["excess_pct"] = excess
         record["excess_pct"] = {"input": market.get("excess_pct"), "recomputed": excess}
     out["market"] = new_market
     return out, record

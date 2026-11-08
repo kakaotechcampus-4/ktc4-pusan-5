@@ -69,6 +69,10 @@ class ClassificationResult:
     def cost(self) -> float:
         return sum(record["cost"] for record in self.usage.values())
 
+    @property
+    def rate_limit_retries(self) -> int:
+        return sum(call.rate_limit_retries for call in self.calls.values())
+
     def direct_stocks(self) -> set[str]:
         return {j.stock_code for e in self.events for j in e.judgments if j.label == "DIRECT"}
 

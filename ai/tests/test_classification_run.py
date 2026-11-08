@@ -6,6 +6,7 @@
 """
 
 import argparse
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
 import pytest
@@ -62,7 +63,12 @@ def harness(monkeypatch):
     async def fake_cards(session, **kwargs):
         return [11, 12]
 
+    @asynccontextmanager
+    async def fake_locks(session_factory, *names):  # 실행 잠금은 test_classification_concurrency 가 본다
+        yield
+
     monkeypatch.setattr(main, "SessionLocal", lambda: FakeSession(log))
+    monkeypatch.setattr(main, "collection_locks", fake_locks)
     monkeypatch.setattr(main, "save_run", fake_save_run)
     monkeypatch.setattr(main, "get_sources", fake_get_sources)
     monkeypatch.setattr(main, "classify", fake_classify)
@@ -75,7 +81,8 @@ def harness(monkeypatch):
 
 def _args(**kw) -> argparse.Namespace:
     base = {"basis": None, "since": None, "ids": None, "limit": None, "retry": False,
-            "experiment": False, "extract_model": None, "link_model": None, "judge_model": None}
+            "experiment": False, "extract_model": None, "link_model": None, "judge_model": None,
+            "concurrency": 1}
     return argparse.Namespace(**{**base, **kw})
 
 

@@ -8,6 +8,8 @@ DB 에 쓰는 명령
     … run --ids 101 102                    # 이 자료만 (회차가 있어도 새 회차를 만든다)
     … run --ids 101 --experiment --judge-model <모델>
                                            # 저장하되 조회에 쓰는 회차는 바꾸지 않는다(모델 비교)
+    … run --limit 20 --concurrency 8       # 자료 8건을 동시에. 비용은 같고 시간만 준다
+                                           # --ids 없는 run 은 한 번에 하나만 돈다. 나중 실행은 기다린다
     uv run python -m app.services.classification show 005930 --days 3
                                            # 종목 하나의 판정 자료·공통 배경 (생성 쪽에 넘기는 것)
 
@@ -35,6 +37,7 @@ from contextlib import suppress
 from dataclasses import asdict, replace
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from time import perf_counter
 
 from app.core.database import SessionLocal
 from app.core.scope import KST
@@ -47,6 +50,7 @@ from app.repositories.classification import (
     stored_basis_versions,
     sync_basis,
 )
+from app.repositories.scope import collection_locks
 from app.repositories.source_card import get_sources
 from app.services.classification import splitter
 from app.services.classification.basis import Basis, BasisError, load_basis
@@ -138,6 +142,21 @@ async def run_classify(args: argparse.Namespace) -> int:
     """
     basis = load_basis(args.basis)
     endpoint()  # 키가 없으면 자료를 읽기 전에 멈춘다
+    # --ids 는 직접 고른 자료라 막지 않는다. 막으면 전체 분류 중에는 모델 비교도 몇 시간씩 멈춘다
+    if args.ids is not None:
+        return await classify_cards(args, basis)
+    print("다른 분류 실행이 있으면 끝날 때까지 기다린다", flush=True)
+    # 고르기 전에 잡아 전부 저장할 때까지 쥔다. 회차는 분류 뒤에 생겨서, 겹친 실행은 같은 자료를 또 고른다
+    async with collection_locks(SessionLocal, "classification"):
+        return await classify_cards(args, basis)
+
+
+async def classify_cards(args: argparse.Namespace, basis: Basis) -> int:
+    """고른 카드를 (동시에) 분류해 저장한다. failed 카드 수를 돌려준다.
+
+    저장(save_run·commit)에 실패하면 롤백하고 그 카드를 failed 회차로 남긴다(쓴 비용 포함). 그 밖의 예상 밖
+    예외(본문 읽기 실패 등)는 그 카드만 건너뛰고 error 로 세며, 끝에 SystemExit 로 알린다.
+    """
     async with SessionLocal() as session:
         stored = await stored_basis_versions(session)
         if stored != {basis.version}:
@@ -148,38 +167,63 @@ async def run_classify(args: argparse.Namespace) -> int:
         since = datetime.combine(args.since, time(), KST) if args.since else None
         card_ids = await cards_to_classify(session, card_ids=args.ids, since=since,
                                            limit=args.limit, retry=args.retry)
-    print(f"{len(card_ids)}건 · 기준 {basis.version[:12]}"
+    print(f"{len(card_ids)}건 · 기준 {basis.version[:12]} · 동시 {args.concurrency}"
           + (" · 실험(현재 회차를 바꾸지 않음)" if args.experiment else ""))
 
     statuses: Counter = Counter()
     total = 0.0
+    retries = 0
+    done = 0
     save_failures = 0
-    for n, card_id in enumerate(card_ids, start=1):
-        async with SessionLocal() as session:
-            records = await get_sources(session, [card_id], include_body=True)
-        if not records:
-            continue
-        record = records[0]
-        result = await classify(record.title, record.body if record.has_body else None, basis,
-                                models=models_of(args))
+    started = perf_counter()
+    gate = asyncio.Semaphore(args.concurrency)
+
+    async def work(card_id: int) -> None:
+        nonlocal total, retries, done, save_failures
         try:
-            run_id = await _save(card_id, result, make_current=not args.experiment)
-        # 카드 하나의 저장 실패로 run 전체가 멈추면 앞에서 쓴 LLM 비용과 뒤 카드가 모두 날아간다.
-        # 롤백한 뒤 이 카드를 failed 회차로 남기고(비용 포함) 다음 카드로 넘어간다
-        except Exception as exc:  # noqa: BLE001 — 저장 실패의 종류는 error 칸에 남긴다
-            save_failures += 1
-            result = failed_on_save(result, exc)
-            run_id = await _record_save_failure(card_id, result)
+            # 본문을 게이트 안에서 읽는다. 밖에서 읽으면 대기하는 자료의 본문이 전부 메모리에 올라온다
+            async with gate:
+                async with SessionLocal() as session:
+                    records = await get_sources(session, [card_id], include_body=True)
+                if not records:
+                    return
+                record = records[0]
+                result = await classify(record.title, record.body if record.has_body else None,
+                                        basis, models=models_of(args))
+                # 저장에 실패해도 이미 쓴 비용과 재시도는 합계에 남긴다
+                total += result.cost
+                retries += result.rate_limit_retries
+                try:
+                    run_id = await _save(card_id, result, make_current=not args.experiment)
+                # 카드 하나의 저장 실패로 run 전체가 멈추면 앞에서 쓴 LLM 비용과 뒤 카드가 모두 날아간다.
+                # 롤백한 뒤 이 카드를 failed 회차로 남기고(비용 포함) 다음 카드로 넘어간다
+                except Exception as exc:  # noqa: BLE001 — 저장 실패의 종류는 error 칸에 남긴다
+                    save_failures += 1
+                    result = failed_on_save(result, exc)
+                    run_id = await _record_save_failure(card_id, result)
+            direct = ",".join(basis.stocks[c].name for c in sorted(result.direct_stocks())) or "-"
+        except Exception as exc:  # noqa: BLE001 — 한 건 때문에 몇 시간짜리 실행이 멈추지 않게 한다
+            # 저장 전(본문 읽기·분류 중)이면 회차가 없어 다시 돌릴 때 또 고른다
+            statuses["error"] += 1
+            done += 1
+            print(f"[{done:>3}/{len(card_ids)}] 자료 {card_id:<7} 오류 "
+                  f"{type(exc).__name__}: {str(exc)[:200]}", flush=True)
+            return
         statuses[result.status] += 1
-        total += result.cost
-        direct = ",".join(basis.stocks[c].name for c in sorted(result.direct_stocks())) or "-"
-        print(f"[{n:>3}/{len(card_ids)}] 자료 {card_id:<7} {record.kind:<8} {result.status:<8} "
+        done += 1
+        print(f"[{done:>3}/{len(card_ids)}] 자료 {card_id:<7} {record.kind:<8} {result.status:<8} "
               f"회차 {'-' if run_id is None else run_id:<6} 사건 {len(result.events):>2}  DIRECT {direct}  "
-              f"{format_cost(result.cost)}")
+              f"{format_cost(result.cost)}", flush=True)
         if result.error:
-            print(f"        오류 {result.error[:200]}")
-    print("\n상태 " + (", ".join(f"{k} {v}" for k, v in statuses.items()) or "없음")
-          + f"  비용 {format_cost(total)}")
+            print(f"        오류 {result.error[:200]}", flush=True)
+
+    try:
+        await asyncio.gather(*(work(card_id) for card_id in card_ids))
+    finally:
+        # Ctrl+C 로 멈춰도 그때까지 쓴 비용을 남긴다
+        print("\n상태 " + (", ".join(f"{k} {v}" for k, v in statuses.items()) or "없음")
+              + f"  비용 {format_cost(total)}  429 재시도 {retries}회"
+              + f"  소요 {perf_counter() - started:,.0f}초")
     failed = statuses["failed"]
     if failed:
         # 자동화가 알아채도록 종료 코드로도 알린다(main). 사유는 위의 카드별 「오류」 줄과 classification_runs.error
@@ -187,6 +231,8 @@ async def run_classify(args: argparse.Namespace) -> int:
               "`run --retry` 로 다시 분류한다")
     else:
         print("실패 0건")
+    if statuses["error"]:
+        raise SystemExit(f"오류 {statuses['error']}건. 위 오류 줄을 확인한다")
     return failed
 
 
@@ -351,6 +397,8 @@ def main() -> None:
     run.add_argument("--retry", action="store_true", help="현재 회차가 없는 자료(실패 등)도 다시")
     run.add_argument("--experiment", action="store_true",
                      help="저장만 하고 조회에 쓰는 회차를 바꾸지 않는다")
+    run.add_argument("--concurrency", type=int, default=1,
+                     help="동시에 분류할 자료 수. 8 까지 재 봤다. 429 로그가 자주 보이면 낮춘다")
     add_models(run)
 
     show = sub.add_parser("show", help="종목 하나에 붙는 분류 자료를 본다")
@@ -377,6 +425,8 @@ def main() -> None:
     if getattr(args, "limit", None) is not None and args.limit < 1:
         # 0 이 '제한 없음' 으로 읽히면 묶음 전체를 부른다
         parser.error("--limit 은 1 이상이어야 한다")
+    if getattr(args, "concurrency", 1) < 1:
+        parser.error("--concurrency 는 1 이상이어야 한다")
     try:
         if args.command == "basis":
             asyncio.run(run_basis(args.file, args.check))

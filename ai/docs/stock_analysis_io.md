@@ -211,12 +211,14 @@ KRX 는 장 마감 확정 데이터뿐이다. 기준 시각(`cutoff`)이 장 마
   - 대상 종목 자신, 응답에 없는 종목(`missing`), 거래정지(`no_trades`), 등락률 빈 칸(`no_rate`)은 뺀다.
   - 중간값은 소수 둘째 자리. 보합(0.00)은 `peer_total` 에만 들고 `peer_up`·`peer_down` 에는 들지 않는다.
   - `excess_pct` ← 새 `change_pct` − 새 `peer_median_pct`.
-  - 쓸 종목이 하나도 없으면 입력 중간값·종목 수를 그대로 두고 `excess_pct` 만 새 `change_pct` 로 다시 낸다.
+  - 쓸 종목이 하나도 없으면 `peer_median_pct`·`peer_up`·`peer_down`·`peer_total`·`excess_pct` 를 모두 null 로 둔다.
+    입력 중간값으로 `excess_pct` 를 다시 내면 종목은 KRX, 대형주는 입력 시세라 두 출처가 섞인다. 키는 지우지 않는다
+    (프롬프트 1부 스키마 "없으면 null"). 래퍼 `change_pct_override` 에는 `peers.krx`·`excess_pct.recomputed` 가 null 로 남는다.
   - 입력 `market` 이 있는데 `peer_median_pct` 가 없으면 대형주 비교 수치를 건드리지 않는다. 없던 비교를 새로 켜지 않는다.
 - **입력 `market` 이 null 이면 KRX 로 만든다.** 분류 어댑터 입력은 `market` 이 null 이라, 안 만들면 `excess_pct` 로 판단하는
   상대 층과 `summary.move` 의 비교 문장이 꺼진다. `index` `"코스피"`, `change_pct` ← `kospi.kospi_change_rate_pct`, `as_of` ← 그날
   장 마감 시각, `url` `""`, 대형주 비교 수치는 위와 같이 유니버스로 세고 `excess_pct` ← 새 `change_pct` − 새 `peer_median_pct`.
-  쓸 종목이 하나도 없으면 `peer_*`·`excess_pct` 는 null 이다. 래퍼 `change_pct_override.market_created` 가 `true` 다.
+  쓸 종목이 하나도 없으면 `peer_*`·`excess_pct` 는 null 이다(위와 같다). 래퍼 `change_pct_override.market_created` 가 `true` 다.
   장 마감 전·KRX 실패·`ok` 가 아닌 status 면 null 그대로다.
 - **지수 등락률도 KRX 로 맞춘다.** 입력 `market.change_pct` 가 숫자면 `kospi.kospi_change_rate_pct`(KRX 코스피 등락률)로,
   `market.as_of` 는 그날 장 마감 시각(`"15:30"`, 늦춰지는 날은 그 시각)으로 바꾼다. 안 바꾸면 모델 입력에 출처·시각이 다른

@@ -420,18 +420,40 @@ def test_universe_peers_none_when_nothing_usable() -> None:
     assert peers is None and excluded == [{"code": "000020", "reason": "missing"}]
 
 
-def test_override_falls_back_to_input_median_when_universe_is_empty() -> None:
-    """쓸 유니버스 종목이 하나도 없으면 입력 중간값·종목 수를 두고 excess_pct 만 새 change_pct 로 다시 낸다."""
+NULL_PEERS = {"peer_median_pct": None, "peer_up": None, "peer_down": None, "peer_total": None, "excess_pct": None}
+
+
+def test_override_nulls_peers_and_excess_when_universe_is_empty() -> None:
+    """쓸 유니버스 종목이 하나도 없으면 입력 대형주 비교 수치와 excess_pct 를 null 로 둔다. 입력 중간값(−0.6)으로
+    excess_pct 를 다시 내면(0.27 − (−0.6) = 0.87) 종목은 KRX, 대형주는 입력 시세라 두 출처가 섞인다.
+    키는 남긴다(프롬프트 스키마 "없으면 null"). 지수 칸은 그대로 KRX 로 바꾸고, 원래 값은 래퍼 기록에 남는다."""
     original = report_input()
     compare = mc.to_input(build_market_context("105560", DAY, KOSPI, STOCKS))
 
     sent, record = mc.override_change_pct(original, compare, STOCKS, universe=("999990",))
 
-    assert sent["market"] == {**original["market"], "excess_pct": 0.87,  # 0.27 − (−0.6)
-                              "change_pct": 3.09, "as_of": "15:30"}
+    assert sent["market"] == {"index": "코스피", "change_pct": 3.09, "as_of": "15:30", **NULL_PEERS}
     assert record["peers"] == {"input": {"peer_median_pct": -0.6, "peer_up": 5, "peer_down": 13, "peer_total": 19},
                                "krx": None, "excluded": [{"code": "999990", "reason": "missing"}]}
-    assert record["excess_pct"] == {"input": -3.6, "recomputed": 0.87}
+    assert record["excess_pct"] == {"input": -3.6, "recomputed": None}
+    # 받은 입력은 바꾸지 않는다
+    assert original["market"]["peer_median_pct"] == -0.6 and original["market"]["excess_pct"] == -3.6
+
+
+async def test_after_close_ok_nulls_stale_peers_when_universe_peers_is_none(krx, monkeypatch) -> None:
+    """apply 경로에서 universe_peers 가 None 이면 모델에 보낼 입력에 이전 입력의 peer_median_pct·excess_pct 가 남지 않고
+    키는 null 로 있다. change_pct 는 KRX 로 바뀌고 시장 맥락은 실패로 돌리지 않는다."""
+    monkeypatch.setattr(mc, "universe_peers", lambda stocks, code, universe: (None, []))
+    original = report_input()
+
+    sent, fields = await mc.MarketCompare(object()).apply(original)
+
+    assert fields["market_compare"]["status"] == "ok" and fields["market_compare_error"] is None
+    assert sent["change_pct"] == 0.27
+    assert sent["market"] == {"index": "코스피", "change_pct": 3.09, "as_of": "15:30", **NULL_PEERS}
+    override = fields["change_pct_override"]
+    assert override["peers"]["krx"] is None
+    assert override["excess_pct"] == {"input": -3.6, "recomputed": None}
 
 
 @pytest.mark.parametrize(("setup", "status"), [
