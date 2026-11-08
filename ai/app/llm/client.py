@@ -52,6 +52,7 @@ class LLMRateLimited(LLMError):
     HTTP 는 최대 len(RATE_LIMIT_WAITS) + 1 번이다. 짧은 재시도가 맞는 호출부(리포트 요약·종목 보고서 생성·고쳐 쓰기)는
     retry_rate_limited=True 를 넘겨 5xx 와 같은 예산(settings.llm_max_retries)으로 다시 보낸다.
     retryable·retry_after(Retry-After 헤더의 초)는 그대로 실려 있다.
+    스트림 중간에 429 오류 이벤트가 와도 같다(StreamRateLimited — 이 예외이면서 StreamInterrupted 다).
     """
 
 
@@ -70,6 +71,21 @@ class StreamInterrupted(LLMError):
         super().__init__(message)
         self.partial_chars = partial_chars
         self.retryable = retryable
+
+
+class StreamRateLimited(StreamInterrupted, LLMRateLimited):
+    """스트림 중간에 429 오류 이벤트가 왔다(헤더가 이미 200 이라 HTTP 상태로는 못 알린다).
+
+    HTTP 429 와 똑같이 다룬다 — complete() 는 retry_rate_limited=True 일 때만 같은 예산으로 다시 보내고, 아니면 바로
+    올린다(분류는 LLMRateLimited 로 받아 자기 대기로 다시 부른다). 끊긴 스트림이기도 해서 받은 길이(partial_chars)를
+    남기고 시도 기록의 kind 는 stream 이다(래퍼 stream_interruptions·오류 코드 STREAM_INTERRUPTED 가 그대로다).
+    Retry-After 는 없으므로 retry_after 는 None 이다.
+    """
+
+    retry_after = None
+
+    def __init__(self, message: str, partial_chars: int):
+        super().__init__(message, partial_chars, retryable=True)
 
 
 def _retryable_error(message: str, kind: str) -> LLMError:
@@ -357,17 +373,25 @@ async def _send(url: str, key: str, payload: dict, stream: bool) -> tuple[str, s
     return text, finish_reason, usage
 
 
-def _stream_error_retryable(error: object) -> bool:
-    """스트림 중 error 이벤트를 다시 보내 볼 만한가. 코드가 5xx(서버·상위 프로바이더 오류)일 때만이다.
-
-    OpenRouter 는 {"code": 502, "message": ...} 꼴로 준다. 코드가 없거나 4xx(컨텍스트 길이·검열 등)면 같은 요청을
-    다시 보내도 같은 오류라 다시 보내지 않는다. 429 도 여기서는 다시 보내지 않는다 — 429 재시도는 부르는 쪽이 정한다.
-    """
+def _stream_error_code(error: object) -> int | None:
+    """스트림 중 error 이벤트의 코드. OpenRouter 는 {"code": 502, "message": ...} 꼴로 준다(문자열 "502" 도 받는다)."""
     code = error.get("code") if isinstance(error, dict) else None
+    if isinstance(code, bool):
+        return None
     try:
-        return int(code) >= 500
+        return int(code)
     except (TypeError, ValueError):
-        return False
+        return None
+
+
+def _stream_error(error: object, message: str, partial_chars: int) -> StreamInterrupted:
+    """스트림 중 error 이벤트의 예외. 429 는 StreamRateLimited(HTTP 429 와 같이 다시 보낼지는 부르는 쪽이 정한다),
+    5xx(서버·상위 프로바이더 오류)는 다시 보낸다. 코드가 없거나 그 밖의 4xx(컨텍스트 길이·검열 등)는 같은 요청을
+    다시 보내도 같은 오류라 다시 보내지 않는다."""
+    code = _stream_error_code(error)
+    if code == 429:
+        return StreamRateLimited(message, partial_chars)
+    return StreamInterrupted(message, partial_chars, retryable=code is not None and code >= 500)
 
 
 async def _read_stream(response: httpx.Response, key: str) -> tuple[str, str | None, dict]:
@@ -380,7 +404,8 @@ async def _read_stream(response: httpx.Response, key: str) -> tuple[str, str | N
         - 읽는 중 연결 오류(httpx.TransportError: 끊김·프로토콜 오류·읽기 시간 초과) — 다시 보낸다
         - finish_reason 없이 스트림이 끝남 — 다시 보낸다
         - 이벤트에 error 가 실려 옴(헤더가 이미 200 이라 HTTP 상태로는 못 알린다). error 는 오류 문구에 남으므로
-          키를 지운다. 코드가 5xx 면 다시 보내고, 그 밖(4xx·코드 없음)은 다시 보내지 않는다(_stream_error_retryable)
+          키를 지운다. 코드가 5xx 면 다시 보내고, 429 는 StreamRateLimited(HTTP 429 와 같은 규칙), 그 밖(4xx·코드
+          없음)은 다시 보내지 않는다(_stream_error)
         - 이벤트가 JSON 이 아니거나 모양이 다름 — 다시 보내지 않는다
     finish_reason 까지 받았으면 끝난 것이다. 그 뒤 usage 이벤트가 안 와도 끊김이 아니라
     usage 누락이다(빈 dict 를 돌려준다).
@@ -409,9 +434,8 @@ async def _read_stream(response: httpx.Response, key: str) -> tuple[str, str | N
             if not isinstance(event, dict):
                 raise malformed("JSON 객체가 아니다")
             if event.get("error"):
-                raise StreamInterrupted(
-                    f"스트림 중 오류: {_error_detail(str(event['error']), key)}",
-                    len("".join(parts)), retryable=_stream_error_retryable(event["error"]))
+                raise _stream_error(event["error"], f"스트림 중 오류: {_error_detail(str(event['error']), key)}",
+                                    len("".join(parts)))
             choices = event.get("choices") or []
             if not isinstance(choices, list):
                 raise malformed("choices 가 배열이 아니다")

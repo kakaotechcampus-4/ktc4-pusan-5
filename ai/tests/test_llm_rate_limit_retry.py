@@ -191,3 +191,110 @@ async def test_rewrite_summary_retries_429_as_before(http, waits):
     rewrite = await repair.rewrite_main_cause(report, records, stream=False)
     assert rewrite["result"] == "failed" and "HTTP 429" in rewrite["error"]
     assert http.post.await_count == 3 and wait_seconds(waits) == [2.0, 4.0]
+
+
+# --- 스트림 중간 429: HTTP 429 와 같은 규칙 ------------------------------------------
+# 헤더가 이미 200 인 뒤 error 이벤트로 오는 429 다. 리포트 요약(analyst)은 스트리밍하지 않아(complete 에 stream 을
+# 넘기지 않는다) 여기서 보지 않는다.
+
+def mock_sse(event: dict) -> str:
+    return "data: " + json.dumps(event, ensure_ascii=False)
+
+
+MOCK_STREAM_429 = [mock_sse({"choices": [{"delta": {"content": "가나"}}]}),
+                   mock_sse({"error": {"code": 429, "message": "rate limited"}})]
+
+
+def mock_stream_ok(content: str) -> list[str]:
+    return [mock_sse({"choices": [{"delta": {"content": content}, "finish_reason": "stop"}]}), "data: [DONE]"]
+
+
+class MockStream:
+    def __init__(self, lines: list[str]):
+        self.lines, self.is_error = lines, False
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    def raise_for_status(self):
+        pass
+
+    async def aiter_lines(self):
+        for line in self.lines:
+            yield line
+
+
+@pytest.fixture
+def streams(monkeypatch) -> tuple[MagicMock, list[list[str]]]:
+    """(가짜 http, 앞으로 줄 스트림들). 줄 것이 떨어지면 늘 스트림 중간 429 를 준다."""
+    queued: list[list[str]] = []
+    mock_http = MagicMock()
+    mock_http.stream.side_effect = lambda *args, **kwargs: MockStream(queued.pop(0) if queued else MOCK_STREAM_429)
+    manager = AsyncMock()
+    manager.__aenter__.return_value = mock_http
+    monkeypatch.setattr(client.httpx, "AsyncClient", lambda **kwargs: manager)
+    return mock_http, queued
+
+
+async def test_classification_stream_429_waits_with_its_own_retries(streams, waits, monkeypatch):
+    """분류는 Elice 일 때 스트리밍한다. 스트림 중간 429 도 complete 가 다시 보내지 않고 LLMRateLimited 로 올려,
+    분류가 자기 대기(RATE_LIMIT_WAITS)로만 다시 부른다."""
+    monkeypatch.setattr(client.settings, "llm_provider", "elice")
+    monkeypatch.setattr(client.settings, "llm_base_url", "https://mlapi.run/mock/v1")
+    monkeypatch.setattr(client.settings, "llm_api_key", "test-only")
+    monkeypatch.setattr(client.settings, "llm_input_krw_per_m", 300.0)
+    monkeypatch.setattr(client.settings, "llm_output_krw_per_m", 2500.0)
+    mock_http, _ = streams
+    result = await classification_llm.call("judge", "classification_events", "본문")
+    expected = len(classification_llm.RATE_LIMIT_WAITS)
+    assert result.error.startswith("judge: 스트림 중 오류")
+    assert mock_http.stream.call_count == expected + 1 and result.rate_limit_retries == expected
+    seconds = wait_seconds(waits)
+    assert all(w <= s <= w * 1.5 for w, s in zip(classification_llm.RATE_LIMIT_WAITS, seconds, strict=True))
+
+
+async def test_stock_analysis_generate_retries_stream_429(streams, waits, monkeypatch):
+    monkeypatch.setattr(client.settings, "stock_analysis_stream", True)
+    mock_http, _ = streams
+    cause = json.loads((FIXTURES / "sample_cause.json").read_text(encoding="utf-8"))
+    wrapper = await gen.generate(cause, system="SYS", prompt_hash="abc", run_id="r1")
+    assert wrapper["is_error"] and wrapper["error_code"] == "STREAM_INTERRUPTED"
+    assert mock_http.stream.call_count == 3 and wait_seconds(waits) == [2.0, 4.0]
+    assert [(a["kind"], a["wait_sec"]) for a in wrapper["llm_retries"]] == [
+        ("stream", 2.0), ("stream", 4.0), ("stream", None)]
+    # 끊긴 스트림이라 받은 길이가 stream_interruptions 에 남는다
+    assert [s["partial_chars"] for s in wrapper["stream_interruptions"]] == [2, 2, 2]
+
+
+async def test_stock_analysis_generate_recovers_after_stream_429(streams, waits, monkeypatch):
+    monkeypatch.setattr(client.settings, "stock_analysis_stream", True)
+    mock_http, queued = streams
+    queued += [MOCK_STREAM_429, mock_stream_ok(json.dumps({"ticker": "999990"}))]
+    cause = json.loads((FIXTURES / "sample_cause.json").read_text(encoding="utf-8"))
+    wrapper = await gen.generate(cause, system="SYS", prompt_hash="abc", run_id="r1")
+    assert wrapper["error_code"] != "STREAM_INTERRUPTED" and wrapper["json_status"] is not None
+    assert mock_http.stream.call_count >= 2 and wait_seconds(waits)[:1] == [2.0]
+    assert wrapper["llm_retries"][0]["kind"] == "stream"
+
+
+async def test_repair_quotes_retries_stream_429(streams, waits):
+    mock_http, _ = streams
+    records = await repair.repair_quotes(mock_report(), MOCK_PAYLOAD, stream=True)
+    assert len(records) == 1 and "스트림 중 오류" in records[0]["error"]
+    assert mock_http.stream.call_count == 3 and wait_seconds(waits) == [2.0, 4.0]
+
+
+async def test_rewrite_summary_retries_stream_429(streams, waits):
+    mock_http, queued = streams
+    report = mock_report()
+    # 고쳐 쓴 quote 가 또 본문에 없어 factor 가 빠진다. 그다음 main_cause 다시 쓰기가 스트림 중간 429 를 만난다
+    queued.append(mock_stream_ok(json.dumps({"event": "행정명령", "detail": "",
+                                             "sources": [mock_source("여전히 없는 문장")]}, ensure_ascii=False)))
+    records = await repair.repair_quotes(report, MOCK_PAYLOAD, stream=True)
+    assert records[0]["result"] == "dropped" and mock_http.stream.call_count == 1
+    rewrite = await repair.rewrite_main_cause(report, records, stream=True)
+    assert rewrite["result"] == "failed" and "스트림 중 오류" in rewrite["error"]
+    assert mock_http.stream.call_count == 1 + 3 and wait_seconds(waits) == [2.0, 4.0]

@@ -428,6 +428,45 @@ async def test_stream_retries_only_transient_interruptions(monkeypatch, lines, f
     assert attempts[-1]["partial_chars"] == 2 and attempts[-1]["wait_sec"] is None
 
 
+_STREAM_429 = [_chunk("가나"), _sse({"error": {"code": 429, "message": "rate limited"}})]
+
+
+@pytest.mark.parametrize("error", [{"code": 429, "message": "rate limited"}, {"code": "429", "message": "x"}])
+async def test_stream_429_is_rate_limited_and_not_retried_by_default(monkeypatch, error):
+    """스트림 중간 429 도 HTTP 429 와 같다. 기본(분류)은 다시 보내지 않고 LLMRateLimited 로 올린다 —
+    분류가 이 종류를 보고 자기 대기로 다시 부른다."""
+    _elice(monkeypatch)
+    http = _fake_stream(monkeypatch, [_chunk("가나"), _sse({"error": error})])
+    attempts: list[dict] = []
+    with pytest.raises(client.LLMRateLimited) as info:
+        await client.complete("s", "u", stream=True, attempts=attempts)
+    assert isinstance(info.value, client.StreamInterrupted) and info.value.retryable
+    assert info.value.retry_after is None and info.value.partial_chars == 2
+    assert http.stream.call_count == 1
+    assert [(a["kind"], a["partial_chars"], a["wait_sec"]) for a in attempts] == [("stream", 2, None)]
+
+
+async def test_stream_429_is_retried_when_caller_opts_in(monkeypatch):
+    _elice(monkeypatch)
+    http = MagicMock()
+    http.stream.side_effect = [_FakeStream(_STREAM_429), _FakeStream([_chunk("{}"), _chunk(finish="stop")])]
+    manager = AsyncMock()
+    manager.__aenter__.return_value = http
+    monkeypatch.setattr(client.httpx, "AsyncClient", lambda **kwargs: manager)
+    attempts: list[dict] = []
+    text, _ = await client.complete("s", "u", stream=True, attempts=attempts, retry_rate_limited=True)
+    assert text == "{}" and http.stream.call_count == 2
+    assert [a["kind"] for a in attempts] == ["stream"]
+
+
+async def test_stream_429_gives_up_after_configured_retries(monkeypatch):
+    _elice(monkeypatch)
+    http = _fake_stream(monkeypatch, _STREAM_429)
+    with pytest.raises(client.LLMRateLimited):
+        await client.complete("s", "u", stream=True, retry_rate_limited=True)
+    assert http.stream.call_count == 3
+
+
 async def test_stream_without_usage_is_not_free(monkeypatch):
     """finish_reason 까지 왔으면 끊김이 아니다. usage 만 없다 — 비용을 0 원으로 계산하지 않는다."""
     _elice(monkeypatch)
