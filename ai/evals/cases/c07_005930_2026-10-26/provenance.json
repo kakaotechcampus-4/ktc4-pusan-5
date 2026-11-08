@@ -6,7 +6,8 @@
     "window": "직전 거래일(2026-10-23) 15:30 초과 ~ cutoff 이하",
     "message_filter": "본문에 종목명(또는 별칭)이 있는 텔레그램 공개 채널 메시지. 시황·테마 메시지(not_mentioned)는 넣지 않음. link_bodies·views·kind·after_prev_close 는 채우지 않음",
     "aliases": [
-      "삼성전자"
+      "삼성전자",
+      "Samsung Electronics"
     ],
     "change_pct_source": "KRX stock_change_rate_pct (러너가 마감 후 KRX 값으로 덮어씀)",
     "market": "null (러너가 KRX 로 market_compare 계산)"
@@ -50,24 +51,27 @@
       "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
       "flr_nm": "서경헌",
       "rcept_dt": "2026-10-23",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-23T13:48:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 일치"
     },
     {
       "rcept_no": "20261023000484",
       "report_nm": "주식등의대량보유상황보고서(일반)",
       "flr_nm": "삼성물산",
       "rcept_dt": "2026-10-23",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-23T13:51:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 일치"
     },
     {
       "rcept_no": "20261026000017",
       "report_nm": "임원ㆍ주요주주특정증권등소유상황보고서",
       "flr_nm": "이헌",
       "rcept_dt": "2026-10-26",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-26T08:53:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 일치"
     }
   ],
   "notes": [

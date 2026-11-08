@@ -6,7 +6,8 @@
     "window": "직전 거래일(2026-10-28) 15:30 초과 ~ cutoff 이하",
     "message_filter": "본문에 종목명(또는 별칭)이 있는 텔레그램 공개 채널 메시지. 시황·테마 메시지(not_mentioned)는 넣지 않음. link_bodies·views·kind·after_prev_close 는 채우지 않음",
     "aliases": [
-      "삼성전자"
+      "삼성전자",
+      "Samsung Electronics"
     ],
     "change_pct_source": "KRX stock_change_rate_pct (러너가 마감 후 KRX 값으로 덮어씀)",
     "market": "null (러너가 KRX 로 market_compare 계산)"
@@ -82,8 +83,9 @@
       "report_nm": "특수관계인과의보험거래",
       "flr_nm": "삼성전자",
       "rcept_dt": "2026-10-29",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-29T16:06:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 일치"
     },
     {
       "rcept_no": "20261029000539",
@@ -98,16 +100,18 @@
       "report_nm": "특수관계인에대한증여",
       "flr_nm": "삼성전자",
       "rcept_dt": "2026-10-29",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-29T16:24:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 일치"
     },
     {
       "rcept_no": "20261029000564",
       "report_nm": "특수관계인에대한증여",
       "flr_nm": "삼성전자",
       "rcept_dt": "2026-10-29",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-29T16:33:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 일치"
     },
     {
       "rcept_no": "20261029000567",
@@ -122,56 +126,63 @@
       "report_nm": "특수관계인에대한증여",
       "flr_nm": "삼성전자",
       "rcept_dt": "2026-10-29",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-29T16:15:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 일치"
     },
     {
       "rcept_no": "20261029800087",
       "report_nm": "연결재무제표기준영업(잠정)실적(공정공시)",
       "flr_nm": "삼성전자",
       "rcept_dt": "2026-10-29",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-29T09:50:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 8→0 대응, 회사·제목 일치"
     },
     {
       "rcept_no": "20261029800099",
       "report_nm": "[기재정정]연결재무제표기준영업(잠정)실적(공정공시)",
       "flr_nm": "삼성전자",
       "rcept_dt": "2026-10-29",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-29T10:00:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 8→0 대응, 회사·제목 일치"
     },
     {
       "rcept_no": "20261029800101",
       "report_nm": "현금ㆍ현물배당결정",
       "flr_nm": "삼성전자",
       "rcept_dt": "2026-10-29",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-29T09:53:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 8→0 대응, 회사·제목 일치"
     },
     {
       "rcept_no": "20261029800102",
       "report_nm": "장래사업ㆍ경영계획(공정공시)",
       "flr_nm": "삼성전자",
       "rcept_dt": "2026-10-29",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-29T10:02:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 8→0 대응, 회사·제목 일치"
     },
     {
       "rcept_no": "20261029800748",
       "report_nm": "기타경영사항(자율공시)",
       "flr_nm": "삼성전자",
       "rcept_dt": "2026-10-29",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-29T17:00:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 8→0 대응, 회사·제목 일치"
     },
     {
       "rcept_no": "20261029800752",
       "report_nm": "기타경영사항(자율공시)",
       "flr_nm": "삼성전자",
       "rcept_dt": "2026-10-29",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-29T17:01:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 8→0 대응, 회사·제목 일치"
     }
   ],
   "notes": [

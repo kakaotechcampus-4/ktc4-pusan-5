@@ -49,6 +49,13 @@
       "mention": "mentioned"
     },
     {
+      "channel": "KISGregKim",
+      "url": "https://t.me/KISGregKim/18851",
+      "datetime_kst": "2026-10-23T08:21:25+09:00",
+      "text": "KOSPI to open lower tracking Nasdaq -2.6% and SOX -6.7% plunge. DEFENSIVE and FIN (BANK/INSUR) to relatively out-perform, while most sectors lag.\n\n* 3Q TODAY: HANA FIN (15:00), WOORI FIN (16:00)\n* SK HYNIX (000660) scraps Solidigm US IPO plan amid concerns on shareholder backlash.\n* SEMCO (009150) set to receive combined W3.7tn in investment from Tesla and Nvidia to expand chip substrates production, press highlights.\n* DAEDUCK ELEC (353200) disclosed to invest W615bn in chip equipment capex by end-2030.\n* HD HYUNDAI (267250) is in final negotiations with U.S. construction and engineering co 'Kiewit' to establish a local JV.\n* HANWHA AERO (012450) to develop Korea's first 'orbit transfer vehicle' to send a communications satellite into lunar orbit by 2029.\n* YOUNG POONG (000670) and MBK Partners lost the first-round ruling in a suit against KOREA ZINC's (010130) tender offer for its own shares; co plans to appeal.\n* LG INNOTEK (011070) to collaborate with Nvidia to develop sensing solutions for Physical AI and robotics.\n* JB FIN (175330) to acquire Kyrgyzstan-based finance co,, Korky Credit and Korky Leasing through JB Woori Capital to foray into Central Asian market.",
+      "mention": "mentioned"
+    },
+    {
       "channel": "merITz_tech",
       "url": "https://t.me/merITz_tech/19176",
       "datetime_kst": "2026-10-23T10:03:36+09:00",
@@ -67,6 +74,13 @@
       "url": "https://t.me/skitteam/4774",
       "datetime_kst": "2026-10-23T12:47:56+09:00",
       "text": "[SK증권 반도체 한동희, 손 건]\n\n반도체 (비중확대): 다르다 (10/21)\n \n① 수요의 구조적 강세, 반복 재추정\n세트 메모리: 거시경제,성숙 산업. 구조적 Cyclical\nContents는 신모델이 확정되는 순간 상수\n-> 수요의 유의미한 재추정 제한적\n\nAI 메모리: 사이클 내에서 반복 재추정 구조. 수요처 (기업, Llabs, 국가 등), 워크로드 (토큰, 앱), 동시성 (세션, 에이전트), 집약도 (컨텍스트, KV), 복제율 (주권, 보안, 지연) 등 성숙되지 않는 다양한 변수들의 집합\n\nAgent 확산에 따른 AI 추론 수요 증가와 지속 학습 (Continual learning) 도입은 모든 메모리를 요구하며, AI 인프라 확장의 핵심 명분 중 하나\n\nAI 수요 강세, 메모리 수요의 반복 재추정은 공급 부족 장기화를 의미. 공급은 현실의 물리법칙에 따름. AI 강세 속 수요의 반복 재추정은 빠른 초과 수요 완화를 제한\n\n수요처는 이를 보완하기 위해 과거 대비 더 높은 증설 유인을 제공할 필요.  강화된 장기공급계약은 그 결과물. 이는 메모리의 Cyclical 성격을 크게 완화\n\n② 높은 LTA 위반 비용. 실적 가시성 제고\n장기공급계약은 실적 가시성을 제고하는 AI 시대 핵심 요소. 가격의 하단을 높이는 동시에 사이클의 진폭을 줄이는 계약. 신규 LTA와 미계약 물량 가격 상승에 따른 믹스 제고 등으로 메모리 가격은 지속 상승 가능\n\n또한 LTA는 쉽게 깨기 어려운 구조. 위반할 경우 고객은 다음 사이클에서 물량 배정의 후순위로 밀려나거나, 더 강화된 불리한 조건을 수용해야 함\n\n물량을 확보하지 못할 경우 AI 잠재 수요 흡수 지연, 경쟁력 저하까지 감당해야 함. 메모리 가격 하락 외 고려해야 할 ’잠재적 LTA 위반 비용‘이 매우 높은 구조\n\nAI 시대 차별화 포인트는 거시경제에 연동되지 않는 실적이었고, 이는 여전히 진행형이라 판단. 환율 하락에도 예상을 상회하는 메모리 가격으로 삼성전자, SK하이닉스의 2027년 실적 전망치는 재차 상향 중이며, 3Q26 실적 발표를 통해 AI 메모리의 경기 방어력을 증명할 것\n\n메모리 매수의 적기\nSK증권은 메모리 매수 적기 주장 유지. 삼성전자, SK하이닉스의 12MF P/E는 각각 3.5X, 2.8X 수준으로 역대 다운사이클 최하단을 하향 이탈. 이는 2028년 이후 큰 폭의 감익 사이클 시작을 가정하고 있기 때문\n\n다만 AI 수요 강세와 LTA의 위반 비용이 매우 높다는 점, 메모리 공급 부족 심화를 감안하면 극단적 침체를 가정한 과도한 비관론. 실적 가시성을 신뢰하지 않으므로, 밸류에이션도, 주주환원도 평가받지 못하는 상황\n\n다만 10~11월 빅테크들의 실적 발표를 통해 Agent AI 확산에 따른 AI의 성장성, 여전히 공고한 AI 로드맵 재확인, 설비투자 지속 가능성에 대한 극단적 우려 역시 완화될 것. GPU 임대 가격 상승세를 고려하면, 회수기간 축소 중. AI 인프라의 여전한 투자 매력도를 의미\n\n메모리 실적 발표에서 역시 공급 부족의 장기화, 장기공급계약에 대한 높은 수요, 주주환원에 대한 의지를 재확인할 전망. 반도체 비중 확대 의견 유지\n\n▶️ URL: https://buly.kr/5JQ2jCe\n\n* SK증권 리서치 IT팀 채널 : https://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "KISGregKim",
+      "url": "https://t.me/KISGregKim/18855",
+      "datetime_kst": "2026-10-23T14:26:26+09:00",
+      "text": "* SK Hynix  / SK Square recovering from the day's lows after Hynix disclosed that it has halted Solidigm IPO review process.\n\n=> There's been a lot of pushback on the Solidigm IPO since Solidigm is positioned at the very bottom of the corp governance structure of SK -> SK Square -> SK Hynix -> US intermediate holding company AI Company -> Solidigm, meaning the listing of Solidigm would result in a '5-tier multiple listing', excluding the ADR.\n\nNow, market will start to question how Hynix would fund Solidigm's future growth whilst protecting existing shareholders - various options are being discussed, ranging from utilizing internal cash flows to issuing corporate bonds, borrowing from financial institutions, and attracting strategic investors, according to multiple local press. In the near-term, Co's decision to protect the interest of existing shareholders could lift the shrs from the current oversold territory (RSI at 28).",
       "mention": "mentioned"
     },
     {

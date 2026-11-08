@@ -7,7 +7,9 @@
     "message_filter": "본문에 종목명(또는 별칭)이 있는 텔레그램 공개 채널 메시지. 시황·테마 메시지(not_mentioned)는 넣지 않음. link_bodies·views·kind·after_prev_close 는 채우지 않음",
     "aliases": [
       "SK하이닉스",
-      "하이닉스"
+      "하이닉스",
+      "SK Hynix",
+      "Hynix"
     ],
     "change_pct_source": "KRX stock_change_rate_pct (러너가 마감 후 KRX 값으로 덮어씀)",
     "market": "null (러너가 KRX 로 market_compare 계산)"
@@ -50,6 +52,12 @@
       "verified_by_human": false
     },
     {
+      "url": "https://t.me/KISGregKim/18851",
+      "datetime_kst": "2026-10-23T08:21:25+09:00",
+      "time_source": "telegram_messages.posted_at",
+      "verified_by_human": false
+    },
+    {
       "url": "https://t.me/merITz_tech/19176",
       "datetime_kst": "2026-10-23T10:03:36+09:00",
       "time_source": "telegram_messages.posted_at",
@@ -68,6 +76,12 @@
       "verified_by_human": false
     },
     {
+      "url": "https://t.me/KISGregKim/18855",
+      "datetime_kst": "2026-10-23T14:26:26+09:00",
+      "time_source": "telegram_messages.posted_at",
+      "verified_by_human": false
+    },
+    {
       "url": "https://t.me/skitteam/4777",
       "datetime_kst": "2026-10-23T16:49:18+09:00",
       "time_source": "telegram_messages.posted_at",
@@ -81,12 +95,14 @@
       "report_nm": "풍문또는보도에대한해명",
       "flr_nm": "SK하이닉스",
       "rcept_dt": "2026-10-23",
-      "rcept_time_kst": null,
-      "in_case_json": false
+      "rcept_time_kst": "2026-10-23T07:33:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 8→0 대응, 회사·제목 일치"
     }
   ],
   "notes": [
     "공시는 접수 시각을 DART 원문에서 확인하기 전이라 case.json 에 넣지 않음",
-    "gold·verification 은 아직 없음"
+    "gold·verification 은 아직 없음",
+    "영문 별칭 추가로 메시지 2건 보강(SK Hynix, Hynix)"
   ]
 }
