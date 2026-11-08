@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from app.services.classification.basis import Stock
+from app.services.classification.candidates import promotional
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,8 @@ def rank_news(candidates: Iterable[NewsCandidate], stocks: Iterable[Stock], cap:
     """날마다·종목마다 상위 cap 건을 고른다. {카드 id: 그 카드가 받은 가장 높은 순위(0부터)}.
 
     종목 안의 순서: 제목에 이름이 있는 기사 → 본문에 이름이 많이 나온 기사 → 최신 → 카드 id 큰 것.
+    단 제목에 홍보성 표현(수상·캠페인·사회공헌 등, candidates.NO_RELATION_PATTERN)이 있는 기사는 맨 뒤로
+    보낸다. 빼지는 않는다. 그날 기사가 상한보다 적으면 홍보성 기사도 분류한다.
     정규화한 제목이 같은 기사는 종목마다 하나만 센다. 한 기사가 여러 종목에서 뽑혀도 한 번만 분류한다.
     """
     if cap < 1:
@@ -51,12 +54,14 @@ def rank_news(candidates: Iterable[NewsCandidate], stocks: Iterable[Stock], cap:
     names = {stock.code: stock_names(stock) for stock in stocks}
     lists: dict[tuple[date, str], list[tuple]] = defaultdict(list)
     for news in candidates:
+        # 제목에 종목 이름이 있어 위로 올라오지만 주가 설명에는 쓸모가 적다. 자리를 차지하지 않게 내린다
+        promo = promotional(news.title)
         for code, stock_name_list in names.items():
             in_title = any(n in news.title for n in stock_name_list)
             count = sum(news.body.count(n) for n in stock_name_list)
             if in_title or count:
                 published = news.published_at.timestamp() if news.published_at else 0.0
-                key = (not in_title, -count, -published, -news.card_id)
+                key = (promo, not in_title, -count, -published, -news.card_id)
                 lists[(news.day, code)].append((key, normalize_title(news.title), news.card_id))
 
     best: dict[int, int] = {}

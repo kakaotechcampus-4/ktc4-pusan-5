@@ -42,6 +42,21 @@ def test_body_count_then_recency_break_ties():
     assert rank_news(candidates, [MOCK_SAMSUNG], cap=3) == {2: 0, 3: 1, 1: 2}
 
 
+def test_promotional_title_goes_behind_ordinary_news():
+    candidates = [
+        news(1, "삼성전자, 사회공헌 봉사활동 진행", "삼성전자 삼성전자 삼성전자", hour=11),
+        news(2, "반도체 업황 점검", "삼성전자"),
+    ]
+    # 홍보 기사는 제목에 이름이 있고 더 최신이어도, 제목에 이름이 없는 일반 기사보다 뒤다
+    assert rank_news(candidates, [MOCK_SAMSUNG], cap=1) == {2: 0}
+
+
+def test_promotional_news_is_still_picked_when_there_is_room():
+    candidates = [news(1, "삼성전자, 올해의 브랜드상 수상"), news(2, "삼성전자 실적")]
+    # 빼는 것이 아니라 내리는 것이다. 자리가 남으면 분류한다
+    assert rank_news(candidates, [MOCK_SAMSUNG], cap=2) == {2: 0, 1: 1}
+
+
 def test_aliases_and_subsidiaries_count_as_mentions():
     candidates = [news(1, "삼성디스플레이 OLED 투자"), news(2, "날씨", "맑음")]
     assert rank_news(candidates, STOCKS, cap=5) == {1: 0}
