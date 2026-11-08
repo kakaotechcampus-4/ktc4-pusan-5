@@ -13,6 +13,8 @@ DB 에 쓰는 명령
     uv run python -m app.services.classification show 005930 --days 3
                                            # 종목 하나의 판정 자료·공통 배경 (생성 쪽에 넘기는 것)
 
+run 은 failed 카드가 1건이라도 있으면 끝까지 돈 뒤 exit 1 로 끝난다. no_body·skipped 는 실패가 아니라 exit 0 이다.
+
 DB 를 쓰지 않는 명령 — 프롬프트·모델을 바꿔 가며 볼 때
     uv run python -m app.services.classification try 기사.txt --title "제목"
     uv run python -m app.services.classification eval --articles eval_data/news_compare_tg/articles.json
@@ -31,7 +33,8 @@ import asyncio
 import json
 import sys
 from collections import Counter
-from dataclasses import asdict
+from contextlib import suppress
+from dataclasses import asdict, replace
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from time import perf_counter
@@ -132,20 +135,28 @@ async def run_basis(path: Path | None, check_only: bool) -> None:
     print("넣음 " + ", ".join(f"{k} {v}" for k, v in counts.items()))
 
 
-async def run_classify(args: argparse.Namespace) -> None:
+async def run_classify(args: argparse.Namespace) -> int:
+    """카드를 분류해 회차로 저장한다. failed 카드 수를 돌려준다(main 이 1건 이상이면 exit 1).
+
+    no_body·skipped 는 실패가 아니다 — 분류할 본문이 없거나 상한을 넘은 자료라 다시 돌려도 같다.
+    """
     basis = load_basis(args.basis)
     endpoint()  # 키가 없으면 자료를 읽기 전에 멈춘다
     # --ids 는 직접 고른 자료라 막지 않는다. 막으면 전체 분류 중에는 모델 비교도 몇 시간씩 멈춘다
     if args.ids is not None:
-        await classify_cards(args, basis)
-        return
+        return await classify_cards(args, basis)
     print("다른 분류 실행이 있으면 끝날 때까지 기다린다", flush=True)
     # 고르기 전에 잡아 전부 저장할 때까지 쥔다. 회차는 분류 뒤에 생겨서, 겹친 실행은 같은 자료를 또 고른다
     async with collection_locks(SessionLocal, "classification"):
-        await classify_cards(args, basis)
+        return await classify_cards(args, basis)
 
 
-async def classify_cards(args: argparse.Namespace, basis: Basis) -> None:
+async def classify_cards(args: argparse.Namespace, basis: Basis) -> int:
+    """고른 카드를 (동시에) 분류해 저장한다. failed 카드 수를 돌려준다.
+
+    저장(save_run·commit)에 실패하면 롤백하고 그 카드를 failed 회차로 남긴다(쓴 비용 포함). 그 밖의 예상 밖
+    예외(본문 읽기 실패 등)는 그 카드만 건너뛰고 error 로 세며, 끝에 SystemExit 로 알린다.
+    """
     async with SessionLocal() as session:
         stored = await stored_basis_versions(session)
         if stored != {basis.version}:
@@ -163,11 +174,12 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> None:
     total = 0.0
     retries = 0
     done = 0
+    save_failures = 0
     started = perf_counter()
     gate = asyncio.Semaphore(args.concurrency)
 
     async def work(card_id: int) -> None:
-        nonlocal total, retries, done
+        nonlocal total, retries, done, save_failures
         try:
             # 본문을 게이트 안에서 읽는다. 밖에서 읽으면 대기하는 자료의 본문이 전부 메모리에 올라온다
             async with gate:
@@ -181,13 +193,17 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> None:
                 # 저장에 실패해도 이미 쓴 비용과 재시도는 합계에 남긴다
                 total += result.cost
                 retries += result.rate_limit_retries
-                async with SessionLocal() as session:
-                    run_id = await save_run(session, card_id, result,
-                                            make_current=not args.experiment)
-                    await session.commit()
+                try:
+                    run_id = await _save(card_id, result, make_current=not args.experiment)
+                # 카드 하나의 저장 실패로 run 전체가 멈추면 앞에서 쓴 LLM 비용과 뒤 카드가 모두 날아간다.
+                # 롤백한 뒤 이 카드를 failed 회차로 남기고(비용 포함) 다음 카드로 넘어간다
+                except Exception as exc:  # noqa: BLE001 — 저장 실패의 종류는 error 칸에 남긴다
+                    save_failures += 1
+                    result = failed_on_save(result, exc)
+                    run_id = await _record_save_failure(card_id, result)
             direct = ",".join(basis.stocks[c].name for c in sorted(result.direct_stocks())) or "-"
         except Exception as exc:  # noqa: BLE001 — 한 건 때문에 몇 시간짜리 실행이 멈추지 않게 한다
-            # 저장 전이면 회차가 없어 다시 돌릴 때 또 고른다
+            # 저장 전(본문 읽기·분류 중)이면 회차가 없어 다시 돌릴 때 또 고른다
             statuses["error"] += 1
             done += 1
             print(f"[{done:>3}/{len(card_ids)}] 자료 {card_id:<7} 오류 "
@@ -196,7 +212,7 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> None:
         statuses[result.status] += 1
         done += 1
         print(f"[{done:>3}/{len(card_ids)}] 자료 {card_id:<7} {record.kind:<8} {result.status:<8} "
-              f"회차 {run_id:<6} 사건 {len(result.events):>2}  DIRECT {direct}  "
+              f"회차 {'-' if run_id is None else run_id:<6} 사건 {len(result.events):>2}  DIRECT {direct}  "
               f"{format_cost(result.cost)}", flush=True)
         if result.error:
             print(f"        오류 {result.error[:200]}", flush=True)
@@ -208,8 +224,48 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> None:
         print("\n상태 " + (", ".join(f"{k} {v}" for k, v in statuses.items()) or "없음")
               + f"  비용 {format_cost(total)}  429 재시도 {retries}회"
               + f"  소요 {perf_counter() - started:,.0f}초")
+    failed = statuses["failed"]
+    if failed:
+        # 자동화가 알아채도록 종료 코드로도 알린다(main). 사유는 위의 카드별 「오류」 줄과 classification_runs.error
+        print(f"실패 {failed}건 (그중 저장 실패 {save_failures}건) — 종료 코드 1. "
+              "`run --retry` 로 다시 분류한다")
+    else:
+        print("실패 0건")
     if statuses["error"]:
         raise SystemExit(f"오류 {statuses['error']}건. 위 오류 줄을 확인한다")
+    return failed
+
+
+async def _save(card_id: int, result: ClassificationResult, *, make_current: bool) -> int:
+    """회차 하나를 저장하고 커밋한다. 실패하면 롤백하고 예외를 올린다."""
+    async with SessionLocal() as session:
+        try:
+            run_id = await save_run(session, card_id, result, make_current=make_current)
+            await session.commit()
+        except BaseException:
+            # 연결이 끊겼으면 롤백도 실패한다. 원래 예외를 가리지 않게 롤백 실패는 넘긴다
+            with suppress(Exception):
+                await session.rollback()
+            raise
+    return run_id
+
+
+def failed_on_save(result: ClassificationResult, exc: Exception) -> ClassificationResult:
+    """저장에 실패한 결과를 failed 회차로 바꾼다. 사건은 버리고 단계별 호출(사용량·비용·응답 원문)은 남긴다."""
+    error = f"save_failed: {type(exc).__name__}: {str(exc)[:300]}"
+    if result.error:
+        error += f" (분류 결과 {result.status}: {result.error[:200]})"
+    return replace(result, status="failed", events=[], error=error)
+
+
+async def _record_save_failure(card_id: int, result: ClassificationResult) -> int | None:
+    """failed 회차를 남긴다. 이것마저 실패하면(DB 가 내려감 등) 회차 없이 넘어가고 None."""
+    print(f"        저장 실패 — {result.error[:200]}")
+    try:
+        return await _save(card_id, result, make_current=False)
+    except Exception as exc:  # noqa: BLE001 — 기록마저 못 하면 화면에만 남기고 다음 카드로 간다
+        print(f"        failed 회차도 남기지 못함 — {type(exc).__name__}: {str(exc)[:200]}")
+        return None
 
 
 async def run_show(args: argparse.Namespace) -> None:
@@ -375,7 +431,9 @@ def main() -> None:
         if args.command == "basis":
             asyncio.run(run_basis(args.file, args.check))
         elif args.command == "run":
-            asyncio.run(run_classify(args))
+            # failed 카드가 1건이라도 있으면 끝까지 돈 뒤 exit 1. no_body·skipped 는 실패가 아니다
+            if asyncio.run(run_classify(args)):
+                raise SystemExit(1)
         elif args.command == "show":
             asyncio.run(run_show(args))
         elif args.command == "try":
