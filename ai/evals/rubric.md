@@ -49,28 +49,29 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 ### 4-2. 최대 강도 `max_causal_strength`
 
 보고서 문장이 이 사건을 어느 세기까지 말해도 되는지. 보고서가 이보다 세면 `OVERCLAIM`.
-`definitive`(원인 단정)는 gold 에서 **전면 금지**. "~때문에 ~했습니다"는 항상 상한 초과임.
+인과가 전혀 없는 사실 서술("~가 공시됐습니다")은 어느 사건에나 허용하므로 값이 아님(별도 `fact` 단계 없음, `coincident` 아래).
 
 | 값 | 의미 | 문장 예 |
 |---|---|---|
-| `fact` | 이런 일이 있었음. 인과 없음 | "~가 공시됐습니다" |
-| `coincident` | 같은 날 있었음, 관련 가능성 | "같은 날 ~도 있었습니다" |
-| `likely_cause` | 영향을 줬을 가능성이 큼 | "~영향으로 보입니다" |
+| `coincident` | 같은 시기에 발생했다 | "같은 날 ~도 있었습니다", "함께 거론됐습니다" |
+| `possible_contributor` | 영향을 줬을 가능성이 있다 | "~영향을 줬을 수 있습니다" |
+| `likely_cause` | 주요 원인으로 지목된다 | "~가 주된 요인으로 풀이됩니다" |
+
 
 재료 유형별 **기본 상한**(예외는 `rationale` 에 이유):
 
 | 재료 | 기본 상한 |
 |---|---|
 | 직접 공시 + 방향 일치 + 시간 선후 문제 없음 | `likely_cause` |
-| 복수 원인인 날의 개별 재료 | `must` → `likely_cause`, `should` → `coincident`, `optional` → `fact` |
+| 복수 원인인 날의 개별 재료 | `must` → `likely_cause`, `should` → `possible_contributor`, `optional` → `coincident` |
 | 간접 재료(업황, 경쟁사, 전방산업) | `coincident` |
 | 풍문·미확인·정정 전 보도 | `coincident` (`unconfirmed_items` 에도 적음) |
 | 방향이 반대인 재료(호재인데 하락) | `coincident` |
-| 결과 지표(수급 순위, 시황 요약) | `fact` |
-| 재료 공개가 급등락 **이후** | `coincident` 이하 |
-| 며칠 전 재료의 재탕 | `fact` |
+| 결과 지표(수급 순위, 시황 요약) | `coincident` (원인 자리에 쓰지 않음) |
+| 재료 공개가 급등락 **이후** | `coincident` |
+| 며칠 전 재료의 재탕 | `coincident` (이미 반영된 재료라 당일 인과 부여 금지) |
 
-- **복수 원인인 날:** `likely_cause` 를 받는 `must` 는 최대 2개. 단독·유일 원인으로 쓰면 `must` 도 `OVERCLAIM`, `should` 를 주도 원인으로 쓰거나 `optional` 에 인과를 붙여도 `OVERCLAIM`.
+- **복수 원인인 날:** `likely_cause` 를 받는 `must` 는 최대 2개. `must` 를 헤지 없이 단독·유일 원인으로 단정하면 `OVERCLAIM`, `should` 를 주된 요인으로 쓰거나 `optional` 에 영향 가능성 이상을 붙여도 `OVERCLAIM`.
 - **방향이 반대인 재료:** "공시가 나온 날 주가는 약세였습니다", "호재 공시에도 하락 마감했습니다" 같은 대조 서술은 허용. "호재 공시의 영향으로 하락했습니다"는 방향 뒤집기로 `HF_FALSE_CAUSE`.
 
 ### 4-3. 그 밖의 칸
@@ -95,7 +96,7 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
   "id": "f1",
   "type": "fabricated_cause",
   "subject": "외국인 매도",
-  "relation_min": "coincident",
+  "relation_min": "none",
   "object": "주가",
   "direction": "down",
   "example": "외국인 매도가 하락 원인이다"
@@ -106,7 +107,7 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 |---|---|---|
 | `type` | `false_cause` / `direction_flip` / `fabricated_cause` / `result_as_cause` / `market_direction` / `advice` | 금지 유형 (아래 목록) |
 | `subject` | 짧은 명사구 | 주장의 주체. 유사 표현까지 같은 대상으로 봄("외국인 매도세", "외국인 순매도") |
-| `relation_min` | `fact` / `coincident` / `likely_cause` / `asserted` | **이 세기 이상**으로 쓰면 금지. 입력에 없는 사건은 `fact`(언급만 해도 지어낸 것), 원인이 아닌 재료는 `likely_cause`(인과로 엮으면 금지), 원인일 수는 있으나 단독 원인으로 단정하는 것만 막을 때는 `asserted` |
+| `relation_min` | `none` / `coincident` / `possible_contributor` / `likely_cause` | **이 세기 이상**으로 쓰면 금지. 입력에 없는 사건은 `none`(언급만 해도 지어낸 것), 원인이 아닌 재료는 `possible_contributor`(영향 가능성까지 엮으면 금지) |
 | `object` | 짧은 명사구 | 주장이 향하는 대상. 대개 `주가`, 또는 `move`/`relative` 층 |
 | `direction` | `up` / `down` / `null` | 주장이 말하는 주가 방향. 방향 뒤집기나 시장 비교(더/덜)에 씀 |
 | `example` | 문장 | 사람이 읽기 위한 예시. **대조에 쓰지 않음** |
@@ -124,7 +125,11 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 문자열 일치는 쓰지 않음. "외국인 매도가 하락 원인이다"가 gold 에 있어도 보고서가 "외국인 매도세 역시 약세에 영향을 미쳤습니다"라고 쓰면 의미가 같음.
 
 **1단계. 보고서 주장 구조화:** 보고서의 문장마다 주장을 뽑아 `{subject, relation, object, direction, negated, quote}` 로 만듦.
-- `relation` 은 `none` / `fact` / `coincident` / `likely_cause` / `asserted`(원인 단정) 중 하나. 헤지 있으면(`~로 보입니다`, `~수 있습니다`) `likely_cause`, 헤지 없이 인과를 쓰면 `asserted`, 같은 날 언급이면 `coincident`, 일어났다고만 쓰면 `fact`.
+- `relation` 은 `none` / `coincident` / `possible_contributor` / `likely_cause` / `asserted` 중 하나. 앞의 넷은 §4-2 척도이고, `asserted` 는 **보고서 주장에만 있는 값**(gold 라벨이 아님)이라 `likely_cause` 보다 센 단정을 가리킴.
+  - `none`: 일어났다고만 씀("~가 공시됐습니다"). `coincident`: 같은 날·함께 거론.
+  - `possible_contributor`: "~영향을 줬을 수 있습니다"처럼 헤지된 영향 가능성.
+  - `likely_cause`: "주된 요인"처럼 원인으로 지목하되 헤지가 있음.
+  - `asserted`: 헤지 없이 "~때문에", "~로 올랐습니다"처럼 인과를 단정. 어느 사건이든 상한을 넘으므로 `OVERCLAIM`.
 - `negated` 는 "~때문이 아닙니다", "~는 확인되지 않았습니다" 같은 부정·모른다는 서술이면 true.
 - `quote` 는 보고서 원문 문장. 모든 판정에 인용을 남김.
 
@@ -144,7 +149,7 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 
 - 예: 수급·외국인·기관 매매, 덜/더 내린 이유, 실적이 엇갈릴 때 어느 쪽이 주가를 움직였는지, 일회성 여부(입력에 근거가 없을 때).
 - `max_causal_strength` 와의 차이: 상한은 **입력에 있는 사건**을 어디까지 말해도 되는지, `unknowns` 는 **입력에 없어서** 사건 자체가 없는 영역임.
-- `forbidden_claims` 와의 차이: 금지 주장은 주체·관계·방향이 정해진 조건, `unknowns` 는 영역(주제)임. 둘 다 §5-2 의 의미 대조로 판정하고, `unknowns` 는 보고서 주장의 `subject` 가 그 영역에 속하고 `relation` 이 `fact` 이상이면 걸림.
+- `forbidden_claims` 와의 차이: 금지 주장은 주체·관계·방향이 정해진 조건, `unknowns` 는 영역(주제)임. 둘 다 §5-2 의 의미 대조로 판정하고, `unknowns` 는 보고서 주장의 `subject` 가 그 영역에 속하고 `relation` 이 `none` 이상(언급만 해도)이면 걸림.
 - `unconfirmed_items` 와의 차이: 그쪽은 입력에 **있으나 미확인**인 항목(풍문·정정 전), `unknowns` 는 입력에 **없는** 것.
 - 판정: `unknowns` 를 단정하면 입력에 없는 사실은 `HF_FABRICATED`, 원인이면 `SPURIOUS_CAUSE`. "알 수 없습니다"로 쓴 것은 감점하지 않음.
 - 입력에 근거가 있는 것은 적지 않음. 원인이 없는 날(`none`)은 가장 중요한 항목을 적음.
