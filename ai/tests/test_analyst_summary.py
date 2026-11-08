@@ -121,6 +121,17 @@ async def test_generate_accumulates_usage_and_sends_validation_feedback(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_generate_stops_at_llm_error_without_regenerating(monkeypatch):
+    """호출 실패는 complete 가 이미 다시 보냈다. 검증 재생성 루프가 또 부르면 횟수가 곱해진다."""
+    complete = AsyncMock(side_effect=LLMError("LLM 호출 실패: HTTP 503"))
+    monkeypatch.setattr(summary_service, "complete", complete)
+    text, usage, result = await summary_service.generate("분석 본문", "산업.pdf")
+    assert complete.await_count == 1
+    assert (text, usage) == ("", {})
+    assert not result["ok"] and result["attempt"] == 1 and result["problems"] == ["LLM 호출 실패: HTTP 503"]
+
+
+@pytest.mark.asyncio
 async def test_generate_preserves_usage_after_final_error(monkeypatch):
     complete = AsyncMock(side_effect=[
         ("짧은 요약", {"prompt_tokens": 100, "completion_tokens": 20}),

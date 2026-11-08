@@ -138,13 +138,15 @@ async def test_stock_analysis_generate_retries_429_as_before(http, waits):
         (1, "http_429", 2.0), (2, "http_429", 4.0), (3, "http_429", None)]
 
 
-async def test_analyst_summary_retries_429_as_before(http, waits):
-    """요약은 검증 재생성(MAX_ATTEMPTS)이 LLMError 에도 다시 부른다. 그 한 번마다 HTTP 는 예전처럼 3번이다."""
-    http.post.return_value = mock_status(429)
+@pytest.mark.parametrize("code", [429, 503])
+async def test_analyst_summary_does_not_multiply_retries(http, waits, code):
+    """요약의 재생성(MAX_ATTEMPTS)은 검증에 걸렸을 때만이다. 호출 실패는 complete 가 다시 보낸 것으로 끝낸다 —
+    재생성까지 다시 부르면 3 × 3 = 9번이고, 시간 제한(summary_timeout_sec)이 시도마다 다시 걸린다."""
+    http.post.return_value = mock_status(code)
     text, _, result = await analyst_summary.generate("분석 본문", "산업.pdf")
-    assert text == "" and not result["ok"] and "HTTP 429" in result["problems"][0]
-    assert http.post.await_count == 3 * analyst_summary.MAX_ATTEMPTS
-    assert wait_seconds(waits) == [2.0, 4.0] * analyst_summary.MAX_ATTEMPTS
+    assert text == "" and not result["ok"] and f"HTTP {code}" in result["problems"][0]
+    assert result["attempt"] == 1
+    assert http.post.await_count == 3 and wait_seconds(waits) == [2.0, 4.0]
 
 
 def mock_source(quote: str) -> dict:
