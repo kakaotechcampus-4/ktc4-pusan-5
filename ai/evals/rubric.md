@@ -86,14 +86,57 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 
 ## 5. 금지 주장 `forbidden_claims`
 
-"이렇게 쓰면 실패" 문장. **입력만으로 반증되는 주장만** 적음.
+"이렇게 쓰면 실패"인 주장. **입력만으로 반증되는 주장만** 적음. 문자열이 아니라 **구조화된 조건**으로 적고, 의미로 대조함(§5-2).
 
-- 단정: 원인이 아닌 재료를 "~때문에"로 쓴 문장
-- 방향 뒤집기: 호재를 하락 원인으로, 악재를 상승 원인으로
-- 입력에 없는 원인(수급, 외국인 매도 등)
-- 결과 지표를 원인으로
-- 시장 비교 방향이 반대(더/덜)
-- 투자 권유·목표가
+### 5-0. 적는 형식
+
+```json
+{
+  "id": "f1",
+  "type": "fabricated_cause",
+  "subject": "외국인 매도",
+  "relation_min": "coincident",
+  "object": "주가",
+  "direction": "down",
+  "example": "외국인 매도가 하락 원인이다"
+}
+```
+
+| 칸 | 값 | 뜻 |
+|---|---|---|
+| `type` | `false_cause` / `direction_flip` / `fabricated_cause` / `result_as_cause` / `market_direction` / `advice` | 금지 유형 (아래 목록) |
+| `subject` | 짧은 명사구 | 주장의 주체. 유사 표현까지 같은 대상으로 봄("외국인 매도세", "외국인 순매도") |
+| `relation_min` | `fact` / `coincident` / `likely_cause` / `asserted` | **이 세기 이상**으로 쓰면 금지. 입력에 없는 사건은 `fact`(언급만 해도 지어낸 것), 원인이 아닌 재료는 `likely_cause`(인과로 엮으면 금지), 원인일 수는 있으나 단독 원인으로 단정하는 것만 막을 때는 `asserted` |
+| `object` | 짧은 명사구 | 주장이 향하는 대상. 대개 `주가`, 또는 `move`/`relative` 층 |
+| `direction` | `up` / `down` / `null` | 주장이 말하는 주가 방향. 방향 뒤집기나 시장 비교(더/덜)에 씀 |
+| `example` | 문장 | 사람이 읽기 위한 예시. **대조에 쓰지 않음** |
+
+유형:
+- `false_cause`: 원인이 아닌 재료를 인과로 단정
+- `direction_flip`: 호재를 하락 원인으로, 악재를 상승 원인으로
+- `fabricated_cause`: 입력에 없는 원인(수급, 외국인 매도 등)
+- `result_as_cause`: 결과 지표를 원인으로
+- `market_direction`: 시장 비교 방향이 반대(더/덜)
+- `advice`: 투자 권유·목표가
+
+### 5-2. 의미로 대조하는 방법
+
+문자열 일치는 쓰지 않음. "외국인 매도가 하락 원인이다"가 gold 에 있어도 보고서가 "외국인 매도세 역시 약세에 영향을 미쳤습니다"라고 쓰면 의미가 같음.
+
+**1단계. 보고서 주장 구조화:** 보고서의 문장마다 주장을 뽑아 `{subject, relation, object, direction, negated, quote}` 로 만듦.
+- `relation` 은 `none` / `fact` / `coincident` / `likely_cause` / `asserted`(원인 단정) 중 하나. 헤지 있으면(`~로 보입니다`, `~수 있습니다`) `likely_cause`, 헤지 없이 인과를 쓰면 `asserted`, 같은 날 언급이면 `coincident`, 일어났다고만 쓰면 `fact`.
+- `negated` 는 "~때문이 아닙니다", "~는 확인되지 않았습니다" 같은 부정·모른다는 서술이면 true.
+- `quote` 는 보고서 원문 문장. 모든 판정에 인용을 남김.
+
+**2단계. gold 조건과 비교:** 아래를 모두 만족하면 그 주장이 금지 조건에 걸림.
+- `subject` 가 같은 대상(동의어·상위/하위 표현 포함, 판단은 의미 기준)
+- `relation` 이 `relation_min` 이상
+- `object`·`direction` 이 서로 어긋나지 않음(방향이 반대로 쓰였으면 `direction_flip` 에 걸림)
+- `negated` 가 아님(모른다고 쓴 문장은 걸리지 않음)
+
+**3단계. 사람 확인:** 의미 일치 판정은 judge 가 하더라도 걸린 주장은 사람이 `quote` 로 확인함. 안 걸린 것도 `forbidden_claims`·`unknowns` 대상 주제가 보고서에 나왔는지 사람이 한 번 훑음.
+
+이 대조는 `max_causal_strength` 의 `OVERCLAIM` 판정과 같은 `relation` 척도를 씀. 보고서 주장의 `relation` 이 해당 사건의 상한보다 세면 `OVERCLAIM`.
 
 ### 5-1. 모르는 것 `unknowns`
 
@@ -101,7 +144,7 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 
 - 예: 수급·외국인·기관 매매, 덜/더 내린 이유, 실적이 엇갈릴 때 어느 쪽이 주가를 움직였는지, 일회성 여부(입력에 근거가 없을 때).
 - `max_causal_strength` 와의 차이: 상한은 **입력에 있는 사건**을 어디까지 말해도 되는지, `unknowns` 는 **입력에 없어서** 사건 자체가 없는 영역임.
-- `forbidden_claims` 와의 차이: 금지 주장은 구체적 문장, `unknowns` 는 영역이라 표현이 달라도 같은 영역을 단정하면 걸림.
+- `forbidden_claims` 와의 차이: 금지 주장은 주체·관계·방향이 정해진 조건, `unknowns` 는 영역(주제)임. 둘 다 §5-2 의 의미 대조로 판정하고, `unknowns` 는 보고서 주장의 `subject` 가 그 영역에 속하고 `relation` 이 `fact` 이상이면 걸림.
 - `unconfirmed_items` 와의 차이: 그쪽은 입력에 **있으나 미확인**인 항목(풍문·정정 전), `unknowns` 는 입력에 **없는** 것.
 - 판정: `unknowns` 를 단정하면 입력에 없는 사실은 `HF_FABRICATED`, 원인이면 `SPURIOUS_CAUSE`. "알 수 없습니다"로 쓴 것은 감점하지 않음.
 - 입력에 근거가 있는 것은 적지 않음. 원인이 없는 날(`none`)은 가장 중요한 항목을 적음.
@@ -144,7 +187,7 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 2. 사건 목록을 쓰고 사건마다 중요도·층·방향을 정함.
 3. 사건마다 최대 강도를 §4-2 기본 상한에서 시작해 조정함.
 4. 층별 `expected_verdict` → `confidence_level` 순으로 정하고 §2·§3 이 서로 맞는지 확인함.
-5. 금지 주장을 쓰고 입력으로 반증되는지 확인함.
+5. 금지 주장을 §5-0 형식(주체·관계·방향)으로 쓰고 입력으로 반증되는지 확인함.
 6. `unknowns` 에 입력으로 알 수 없는 것을 적음(입력에 근거가 있으면 뺌).
 7. 망설인 곳은 `notes.md` 에 적음.
 
