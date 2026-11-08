@@ -82,8 +82,19 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 | `stance` | `bullish` / `bearish` / `neutral` | **주가에 대한** 방향 (소식이 좋은지가 아님) |
 | `expected_mention` | `factors` / `background` / `either` | 원인 칸에 있어야 하는지, 배경 칸이어도 되는지 |
 | `published_at` | ISO 8601 | 공시는 DART 접수 시각, 메시지는 `posted_at`. `cutoff` 이전이어야 함 |
-| `acceptable_sources` | URL 목록 | `case.json` 에 있는 URL 만 |
-| `must_cite_quote_contains` | 단어 목록 | 인용 문장에 들어가야 할 핵심어. 원문에 실제로 있어야 함 |
+| `supporting_sources` | `{url, tier}` 목록 | 그 사건을 뒷받침하는 **입력 안의 source 전부**. `case.json` 에 있는 URL 만. `tier` 는 `primary`(공시·원문에 가까움) / `secondary`(증권사 요약·재인용), 기록용이고 감점 기준 아님 |
+| `key_facts` | 사실 목록(수치·주체·방향) | source 가 이 사건을 증명하려면 **그 본문에** 들어 있어야 하는 사실. 원문에 실제로 있어야 함 |
+
+**인용 판정(축 A):** URL 이 gold 의 것과 같은지가 아니라 그 source 가 사실을 증명하는지 봄.
+
+| 조건 | 판정 |
+|---|---|
+| URL 이 `supporting_sources` 에 있음 | 통과 |
+| URL 이 `case.json` 에 있고 본문에 사건의 `key_facts` 가 들어 있음 | 통과(gold 에 없던 근거). `supporting_sources` 에 추가 |
+| URL 이 `case.json` 에 있으나 `key_facts` 를 담지 않음 | `SOURCE_MISMATCH` |
+| URL 이 `case.json` 에 없음 | `HF_FABRICATED` 후보(입력 밖, 평가자가 확인할 수 없음) |
+
+"동일 사실을 독립적으로 증명"은 출처 계보의 독립성이 아니라 그 source 본문이 사실을 직접 담고 있는지로 봄. 판정은 §5-2 처럼 의미로 대조하고 걸린 건 사람이 인용으로 확인함.
 
 ## 5. 금지 주장 `forbidden_claims`
 
@@ -181,7 +192,7 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 | `OMISSION` | gold `must` 누락. `upstream`(입력에 없음) / `generation`(입력에 있는데 안 담음)으로 구분 | C |
 | `SPURIOUS_CAUSE` | gold 에 없고 수용 불가인 원인 | C |
 | `PLACEMENT` | 원인 칸과 배경 칸을 바꿔 둠 | C |
-| `SOURCE_MISMATCH` | 주장과 인용 출처의 의미가 안 맞음 | A |
+| `SOURCE_MISMATCH` | 인용한 source 본문이 사건의 `key_facts` 를 담지 않음(입력 안 source) | A |
 | `UNCERTAINTY_MISSING` | 원인이 없거나 약한 날 불확실성 표시 없음 | E |
 | `INCONSISTENT` | 판정·강도·서술이 서로 어긋남 | E |
 | `BEGINNER` | 용어 설명 부족 등 초보자 이해 실패 | F |

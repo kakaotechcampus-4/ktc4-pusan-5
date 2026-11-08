@@ -37,8 +37,8 @@
       "expected_mention": null,
       "stance": null,
       "max_causal_strength": null,
-      "acceptable_sources": [],
-      "must_cite_quote_contains": [],
+      "supporting_sources": [],
+      "key_facts": [],
       "published_at": null,
       "rationale": ""
     }
