@@ -80,3 +80,8 @@ ai/data/
 *.db
 .terraform/
 SOURCES.md
+
+# Playwright E2E 실행 결과물 (frontend/ 에서 npm run e2e 를 돌리면 생긴다)
+playwright-report/
+test-results/
+blob-report/
