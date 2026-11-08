@@ -21,7 +21,8 @@ DB 를 쓰지 않는 명령 — 프롬프트·모델을 바꿔 가며 볼 때
     … eval --articles … --limit 3 --judge-model <모델>
     … eval --articles … --review eval_data/news_compare_tg/classify_<시각>.json   # 검토표 CSV 만
 
-eval 은 같은 폴더에 labels.csv 가 있으면 ① 추출을 정답 문장과 대조한다(evaluate.py). 결과는
+eval 은 같은 폴더에 labels.csv 가 있으면 정답과 대조해 두 점수를 따로 낸다(evaluate.py).
+문장 재현율은 ① 추출만, 종목 연결은 정답 종목 판정(④)까지 본다. 결과는
 articles.json 옆에 classify_<시각>.json 으로 남는다(eval_data 는 git 에 안 올라간다).
 
 단계별 모델은 --extract-model / --link-model / --judge-model, 안 주면 .env 의
@@ -54,7 +55,12 @@ from app.repositories.scope import collection_locks
 from app.repositories.source_card import get_sources
 from app.services.classification import splitter
 from app.services.classification.basis import Basis, BasisError, load_basis
-from app.services.classification.evaluate import load_labels, score, write_review
+from app.services.classification.evaluate import (
+    load_labels,
+    sentence_recall,
+    stock_linked,
+    write_review,
+)
 from app.services.classification.judge import LABELS
 from app.services.classification.pipeline import ClassificationResult, classify
 
@@ -296,6 +302,22 @@ async def run_try(args: argparse.Namespace) -> None:
     print("\n".join(describe(result, body, basis)))
 
 
+def _score_lines(title: str, scores: Counter) -> list[str]:
+    """채점 하나의 합계. scores 의 키는 (원인 있는 기사인가, 판정)."""
+    with_cause = sum(v for (has, _), v in scores.items() if has)
+    no_cause = sum(v for (has, _), v in scores.items() if not has)
+    if not with_cause and not no_cause:
+        return []
+    lines = [title]
+    if with_cause:
+        lines.append(f"  원인 있는 기사 {with_cause}건: 전부 담음 {scores[(True, 'all')]} · "
+                     f"일부 {scores[(True, 'some')]} · 못 담음 {scores[(True, 'none')]}")
+    if no_cause:
+        lines.append(f"  원인 없는 기사 {no_cause}건: 걸러냄 {scores[(False, 'pass')]} · "
+                     f"그 종목 근거를 냄 {scores[(False, 'fail')]}")
+    return lines
+
+
 async def run_eval(args: argparse.Namespace) -> None:
     basis = load_basis(args.basis)
     articles: dict = json.loads(args.articles.read_text(encoding="utf-8"))
@@ -310,7 +332,8 @@ async def run_eval(args: argparse.Namespace) -> None:
     ids = ids[: args.limit] if args.limit else ids
     endpoint()
 
-    results, statuses, scores, total = [], Counter(), Counter(), 0.0
+    results, statuses, total = [], Counter(), 0.0
+    recall, linked, out_of_basis = Counter(), Counter(), 0
     print(f"{len(ids)}건 · 정답 {'있음' if labels else '없음'} · 기준 {basis.version[:12]}\n")
     for n, article_id in enumerate(ids, start=1):
         article = articles[article_id]
@@ -319,32 +342,38 @@ async def run_eval(args: argparse.Namespace) -> None:
         statuses[result.status] += 1
         total += result.cost
         label = labels.get(article_id)
-        verdict = (score([i.event for i in result.events], label)
-                   if label and result.status == "ok" else None)
-        if verdict:
-            scores[(bool(label.gold), verdict)] += 1
+        verdict = verdict_linked = None
+        if label and result.status == "ok":
+            verdict = sentence_recall([i.event for i in result.events], label)
+            recall[(bool(label.gold), verdict)] += 1
+            verdict_linked = stock_linked(result.events, label, basis)
+            if verdict_linked:
+                linked[(bool(label.gold), verdict_linked)] += 1
+            else:
+                out_of_basis += 1
+        graded = (f"문장 {verdict} · 연결 {verdict_linked or '기준 밖'}" if verdict else "")
         direct = ",".join(basis.stocks[c].name for c in sorted(result.direct_stocks())) or "-"
         print(f"[{n:>2}/{len(ids)}] {article_id} {result.status:<7} 사건 {len(result.events):>2}  "
-              f"{('정답 ' + verdict) if verdict else '':<9} DIRECT {direct}  {format_cost(result.cost)}")
+              f"{graded:<22} DIRECT {direct}  {format_cost(result.cost)}")
         if result.error:
             print(f"        오류 {result.error[:200]}")
         results.append({
             "id": article_id, "title": article.get("title"),
             "label": {"kind": label.kind, "stock": label.stock, "gold": sorted(label.gold),
                       "memo": label.memo, "reason": label.reason} if label else None,
-            "verdict": verdict, "cost": result.cost, "run": result_dict(result),
+            "verdict": verdict, "verdict_linked": verdict_linked,
+            "cost": result.cost, "run": result_dict(result),
         })
 
     print("\n=== 합계 ===")
     print("상태 " + ", ".join(f"{k} {v}" for k, v in statuses.items()))
-    with_cause = sum(v for (has, _), v in scores.items() if has)
-    no_cause = sum(v for (has, _), v in scores.items() if not has)
-    if with_cause:
-        print(f"원인 있는 기사 {with_cause}건: 전부 담음 {scores[(True, 'all')]} · "
-              f"일부 {scores[(True, 'some')]} · 못 담음 {scores[(True, 'none')]}")
-    if no_cause:
-        print(f"원인 없는 기사 {no_cause}건: 걸러냄 {scores[(False, 'pass')]} · "
-              f"그 종목 근거를 냄 {scores[(False, 'fail')]}")
+    # 두 점수는 다른 단계를 잰다. 합치지 않고 따로 찍는다(evaluate.py)
+    for line in _score_lines("문장 재현율 (① 추출: 어느 사건이든 정답 문장을 덮었나)", recall):
+        print(line)
+    for line in _score_lines("종목 연결 (①~④: 정답 종목에 붙은 사건이 정답 문장을 덮었나)", linked):
+        print(line)
+    if out_of_basis:
+        print(f"  정답 종목이 기준 밖이라 종목 연결을 못 잰 기사 {out_of_basis}건")
     print(f"비용 {format_cost(total)} (기사당 평균 {format_cost(total / max(len(ids), 1))})")
 
     out = args.out or args.articles.parent / f"classify_{datetime.now(KST):%Y%m%d-%H%M%S}.json"
