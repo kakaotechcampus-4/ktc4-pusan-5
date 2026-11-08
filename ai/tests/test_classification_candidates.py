@@ -104,6 +104,14 @@ def test_business_event_still_reaches_competitor() -> None:
     assert candidates_with_text("", "LG전자") == {"066570": "company", "005930": "relation"}
 
 
+def test_promo_from_outside_also_stops_relation() -> None:
+    """Jev 가 홍보성으로 본 사건(promo.py)은 정규식에 안 걸려도 관계로 넘기지 않는다."""
+    links = link_mentions(("LG전자",), BASIS, alias_index(BASIS)).links
+    found = collect_candidates(event("company", "LG전자"), links, BASIS,
+                               "LG전자가 미소금융재단에 8000억 원을 출연한다.", promo=True)
+    assert {c.stock_code: c.path for c in found} == {"066570": "company"}
+
+
 def test_external_company_is_origin_not_candidate() -> None:
     found = candidates("company", "엔비디아")
     assert set(found) == {"000660", "005930"}

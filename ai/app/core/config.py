@@ -117,6 +117,9 @@ class Settings(BaseSettings):
     classification_judge_model: str | None = None
     # 출력 상한(추론 토큰 포함). 판정 응답은 사건 × 후보 수만큼 길어진다.
     classification_max_tokens: int = 6000
+    # ③ 홍보성 사건 거르기에 Jev 를 더한다(classification/promo.py). 끄면 정규식만 본다.
+    # 켜면 아래 JEV_* 가 필요하고, Jev 비용이 원화라 LLM_PROVIDER=elice 일 때만 켤 수 있다.
+    classification_promo_jev: bool = False
 
     # Jev(TypeSafe, Elice 경유) 판단 전용 모델. 채팅 API 가 아니라 /v1/decisions 로 질문을 보내고
     # 질문마다 정해진 형식의 답(choice·noul·score)을 받는다(llm/jev.py). 위 LLM_* 와 따로 둔다 —
