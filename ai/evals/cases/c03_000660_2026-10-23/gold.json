@@ -1,0 +1,69 @@
+{
+  "case_id": "c03_000660_2026-10-23",
+  "status": "skeleton",
+  "label_source": "human",
+  "trap_ids": [
+    7
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": 4.42,
+    "kospi_change_pct": 0.3,
+    "kospi_basis": "kospi_ex_self",
+    "excess_vs_basis_pp": 5.17,
+    "kospi_relation": "diverges",
+    "peer_relations": {
+      "메모리반도체": "inconclusive"
+    },
+    "common_move": null,
+    "market_led": null,
+    "relative_direction": null,
+    "_note": "위 세 칸(common_move·market_led·relative_direction)은 코드 산출 뒤 사람이 검수. KRX 조회 원값에서 옮긴 칸은 검수만"
+  },
+  "time_expectation": {
+    "cutoff": "2026-10-23T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-10-23T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": null,
+    "relative": null
+  },
+  "confidence_level": null,
+  "events": [
+    {
+      "id": "e1",
+      "summary": "",
+      "importance": null,
+      "layer": [],
+      "expected_mention": null,
+      "stance": null,
+      "max_causal_strength": null,
+      "acceptable_sources": [],
+      "must_cite_quote_contains": [],
+      "published_at": null,
+      "rationale": ""
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [],
+  "unconfirmed_items": [],
+  "unknowns": [],
+  "beginner_terms": [],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}
