@@ -36,7 +36,9 @@ classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카�
 ## 중복 묶기
 
 본문이 같은 메시지는 하나만 넣는다. 공백을 한 칸으로 줄여 비교하고, 끝이 「…」인 글은 「…」를 뗀 나머지가 다른
-글의 앞부분이면 같은 글로 본다(채널이 긴 글을 잘라 다시 올린 경우). 대표는 가장 긴 글(같으면 먼저 나온 글)이다.
+글의 앞부분이면 같은 글로 본다(채널이 긴 글을 잘라 다시 올린 경우). 다만 그 나머지로 시작하는 글들이 서로 다른 글이면
+(「삼성전자…」 뒤에 실적 기사와 파업 기사) 어느 쪽인지 모르므로 묶지 않는다 — 묶으면 다른 글이 중복으로 빠진다.
+대표는 가장 긴 글(같으면 먼저 나온 글)이다.
 묶음 안에 company 경로가 하나라도 있으면 mentioned, 근거 칸 메시지가 하나라도 있으면 근거 칸이다(kind 는 대표
 자료의 종류대로 other·news). 기사는 제목을 뺀 본문으로 비교해, 기사 본문을 옮긴 텔레그램 메시지와도 묶인다.
 나머지는 meta dropped 에 대표 자료 ID 와 함께 남긴다. 공통 배경 MARKET_RECAP_LIMIT 은 묶은 뒤에 센다.
@@ -192,7 +194,13 @@ def same_text(a: str, b: str) -> bool:
 
 
 def group_duplicates(texts: list[str]) -> list[list[int]]:
-    """같은 글끼리 묶은 위치 목록. 묶음은 첫 위치 순, 묶음 안은 위치 순이다. A~B, B~C 면 A·B·C 를 한 묶음으로 본다."""
+    """같은 글끼리 묶은 위치 목록. 묶음은 첫 위치 순, 묶음 안은 위치 순이다.
+
+    본문(_dedup_key)이 같은 글을 먼저 묶는다. 끝이 「…」인 글은 「…」를 뗀 나머지로 시작하는 다른 본문들이 **모두 한 글의
+    앞부분들일 때만**(가장 긴 본문이 나머지 모두로 시작할 때만) 그 본문들과 묶는다. 「A 글…」·「A 글 전체…」·「A 글 전체
+    본문」은 한 묶음이고, 「삼성전자…」 뒤에 「삼성전자 3분기 실적…」·「삼성전자 노조 파업…」이 오면 어느 쪽도 묶지 않는다.
+    same_text 를 쌍마다 부르면 같은 본문을 몇 번씩 다시 정규화하므로 본문마다 한 번만 계산한다.
+    """
     parent = list(range(len(texts)))
 
     def root(i: int) -> int:
@@ -201,10 +209,29 @@ def group_duplicates(texts: list[str]) -> list[list[int]]:
             i = parent[i]
         return i
 
-    for i in range(len(texts)):
-        for j in range(i + 1, len(texts)):
-            if same_text(texts[i], texts[j]):
-                parent[root(j)] = root(i)
+    def union(i: int, j: int) -> None:
+        a, b = root(i), root(j)
+        if a != b:
+            parent[max(a, b)] = min(a, b)
+
+    keys = [_dedup_key(text) for text in texts]
+    first: dict[str, int] = {}  # 본문 → 그 본문인 첫 위치
+    cut_keys: set[str] = set()  # 끝이 「…」였던 글의 본문
+    for i, (key, cut) in enumerate(keys):
+        if key in first:
+            union(first[key], i)
+        else:
+            first[key] = i
+        if cut and key:
+            cut_keys.add(key)
+    for key in cut_keys:
+        longer = [other for other in first if other != key and other.startswith(key)]
+        if not longer:
+            continue
+        longest = max(longer, key=len)
+        if all(longest.startswith(other) for other in longer):
+            for other in longer:
+                union(first[key], first[other])
     groups: dict[int, list[int]] = {}
     for i in range(len(texts)):
         groups.setdefault(root(i), []).append(i)

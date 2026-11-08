@@ -241,6 +241,34 @@ def test_group_duplicates_is_transitive():
     assert ci.group_duplicates(texts) == [[0, 2, 3], [1]]
 
 
+@pytest.mark.parametrize("texts", [
+    ["삼성전자…", "삼성전자 3분기 실적 발표 영업이익 증가", "삼성전자 노조 파업 돌입"],
+    ["[속보]…", "[속보] A사 유상증자 결정", "[속보] B사 자사주 소각"],
+    ["삼성전자 3분기 실적 발표 영업이익 증가", "삼성전자…", "삼성전자 노조…", "삼성전자 노조 파업 돌입"],
+])
+def test_cut_prefix_does_not_bridge_different_texts(texts):
+    """「…」 앞부분이 서로 다른 글들의 앞부분이면 어느 쪽인지 모른다. 묶으면 다른 글이 중복으로 빠진다."""
+    groups = ci.group_duplicates(texts)
+    different = [i for i, t in enumerate(texts) if not t.endswith("…")]
+    assert all(sum(i in g for i in different) <= 1 for g in groups)
+
+
+def test_cut_prefix_still_groups_one_chain():
+    texts = ["A사 유상증자…", "A사 유상증자 결정 공시…", "A사 유상증자 결정 공시 전문", "B사 자사주 소각"]
+    assert ci.group_duplicates(texts) == [[0, 1, 2], [3]]
+
+
+def test_short_cut_message_keeps_unrelated_news():
+    """build_input 에서 보면: 짧게 잘린 메시지 하나 때문에 실적 기사와 파업 기사 중 하나가 「중복」으로 빠지면 안 된다."""
+    sources = [source(13, event("company")), source(12, event("company")), source(11, event("company"))]
+    records = [record(13, body="삼성전자…"), record(12, body="삼성전자 3분기 실적 발표 영업이익 증가"),
+               record(11, body="삼성전자 노조 파업 돌입")]
+    payload, meta = build(sources, records)
+    texts = [m["text"] for m in payload["messages"]]
+    assert "삼성전자 3분기 실적 발표 영업이익 증가" in texts and "삼성전자 노조 파업 돌입" in texts
+    assert meta["counts"]["duplicates"] == 0
+
+
 def test_duplicates_keep_longest_and_count_channels():
     cut = "[메리츠 반도체] 삼성전자: 확실한 저평가 - 영업이익…"
     sources = [source(13, event("industry")), source(12, event("company")), source(11, event("industry")),
