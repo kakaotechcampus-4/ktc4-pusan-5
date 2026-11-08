@@ -19,7 +19,7 @@
 부른다. 따옴표 하나가 빠지는 식의 깨짐은 다시 부르면 대개 열린다. 래퍼 json_retry 에 다시 불렀는지와
 첫 시도의 상태·원문을 남기고, 첫 시도 비용은 cost 에 더한다. 잘림(OUTPUT_TRUNCATED)·빈 응답·호출 실패는
 다시 부르지 않는다 — 같은 설정이면 같은 자리에서 또 잘리고, 호출 실패(429·5xx·연결·시간 초과·스트림 끊김)는
-app/llm/client.complete 가 지수 백오프로 이미 다시 보낸다(래퍼 llm_retries).
+app/llm/client.complete 가 지수 백오프로 이미 다시 보낸다(래퍼 llm_retries. 429 는 retry_rate_limited=True 로 맡긴다).
 
 ## 판단하지 않는 층에 원인을 달면 한 번 다시 부른다
 
@@ -100,6 +100,7 @@ _HHMM = re.compile(r"(\d{1,2}):(\d{2})")
 # check_input 의 target_date 형식. cutoff 도 이 꼴로 시작해야 한다(날짜만 있거나 시각만 있는 값을 막는다).
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 # 스트림 끊김·시간 초과·429·5xx 재시도는 app/llm/client.complete 한 곳에서 한다(settings.llm_max_retries).
+# 429 는 complete 가 기본으로 다시 보내지 않으므로 retry_rate_limited=True 를 넘겨 같은 예산에 넣는다.
 # 여기서 또 감싸면 횟수가 곱해지므로 이 모듈은 complete 를 한 번만 부르고, 시도 기록만 래퍼로 옮긴다.
 
 
@@ -681,7 +682,7 @@ async def _generate_once(
     attempts: list[dict[str, Any]] = []
     try:
         text, usage = await complete(system, user, max_tokens=max_tokens, stream=stream,
-                                     attempts=attempts)
+                                     attempts=attempts, retry_rate_limited=True)
     except LLMError as exc:
         # 재시도는 complete 가 이미 했다. 부분 응답은 열어 보지도 저장하지도 않는다(길이만 기록).
         logger.warning("%s: %s", run_id, exc)

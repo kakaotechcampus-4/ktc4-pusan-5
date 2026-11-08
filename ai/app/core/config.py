@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     # LLM 호출이 일시적으로 실패했을 때(429·5xx·연결 오류·시간 초과·스트림 끊김) 다시 보내는 횟수와 대기.
     # 대기는 llm_retry_backoff_sec × 2^(n-1) 초이고 llm_retry_backoff_max_sec 를 넘지 않는다(기본 2초, 4초).
     # 429 응답에 Retry-After(초)가 있으면 둘 중 긴 쪽을 기다린다. 0 이면 다시 보내지 않는다.
+    # 429 는 complete(retry_rate_limited=True) 로 부른 쪽만 이 예산으로 다시 보낸다. 분류는 따로 기다린다.
     # 429 를 뺀 4xx 는 요청 자체가 틀린 것이라 다시 보내지 않는다(app/llm/client.py).
     llm_max_retries: int = 2
     llm_retry_backoff_sec: float = 2.0

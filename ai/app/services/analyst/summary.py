@@ -257,7 +257,9 @@ async def generate(
     feedback = ""
     for attempt in range(1, attempts + 1):
         try:
-            text, usage = await complete(prompt, user + feedback)
+            # 429 는 complete 가 기본으로 다시 보내지 않는다. 이 모듈은 따로 기다리지 않으므로 기존처럼
+            # 5xx 와 같은 짧은 재시도(settings.llm_max_retries)를 맡긴다
+            text, usage = await complete(prompt, user + feedback, retry_rate_limited=True)
         except LLMError as exc:
             logger.warning("%s: %d/%d 실패 — %s", filename, attempt, attempts, exc)
             last = ("", total_usage, {"problems": [str(exc)], "ok": False, "attempt": attempt})

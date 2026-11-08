@@ -455,11 +455,12 @@ def _ok() -> MagicMock:
 
 @pytest.mark.parametrize("first", [429, 500, 502, 503])
 async def test_429_and_5xx_are_retried_and_recorded(monkeypatch, first):
+    """5xx 는 늘 다시 보낸다. 429 는 부르는 쪽이 retry_rate_limited 로 맡길 때만(test_llm_rate_limit_retry 참고)."""
     monkeypatch.setattr(client.settings, "openrouter_api_key", "test-only")
     http = _fake_http(monkeypatch, {})
     http.post.side_effect = [_status(first), _ok()]
     attempts: list[dict] = []
-    text, _ = await client.complete("s", "u", attempts=attempts)
+    text, _ = await client.complete("s", "u", attempts=attempts, retry_rate_limited=first == 429)
     assert text == "안녕" and http.post.await_count == 2
     assert [(a["attempt"], a["kind"]) for a in attempts] == [(1, f"http_{first}")]
     assert f"HTTP {first}" in attempts[0]["error"]
@@ -574,7 +575,7 @@ async def test_429_retry_after_header_sets_the_wait(monkeypatch):
     http = _fake_http(monkeypatch, {})
     http.post.side_effect = [_status(429, {"retry-after": "7"}), _ok()]
     attempts: list[dict] = []
-    await client.complete("s", "u", attempts=attempts)
+    await client.complete("s", "u", attempts=attempts, retry_rate_limited=True)
     # 상한을 0 으로 둬서 실제로는 기다리지 않지만, Retry-After 를 읽어 계산했는지는 상한 전 값으로 본다
     assert client._retry_after(_status(429, {"retry-after": "7"})) == 7.0
     assert client._retry_after(_status(429, {"retry-after": "Wed, 21 Oct 2026 07:28:00 GMT"})) is None

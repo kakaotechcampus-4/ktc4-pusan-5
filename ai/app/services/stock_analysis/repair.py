@@ -235,7 +235,8 @@ async def repair_quotes(
         rewritten = None
         try:
             text, usage = await complete(system, _repair_user(kind, item, failures, messages),
-                                         max_tokens=REPAIR_MAX_TOKENS, stream=stream)
+                                         max_tokens=REPAIR_MAX_TOKENS, stream=stream,
+                                         retry_rate_limited=True)
             record["usage"] = usage
             record["cost"], _ = cost_detail(usage)
             rewritten = _parse_rewrite(text)
@@ -422,7 +423,7 @@ async def rewrite_summary(
     try:
         text, usage = await complete(
             system, _summary_user(report, field, dropped, sentences, remaining, market_compare, stock),
-            max_tokens=REPAIR_MAX_TOKENS, stream=stream)
+            max_tokens=REPAIR_MAX_TOKENS, stream=stream, retry_rate_limited=True)
     except (LLMError, StreamInterrupted) as exc:
         logger.warning("%s: %s 다시 쓰기 실패: %s", run_id, field, exc)
         record["error"] = str(exc)

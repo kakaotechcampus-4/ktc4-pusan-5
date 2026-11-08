@@ -29,7 +29,8 @@ class LLMError(Exception):
     """LLM 호출 실패. 원인 예외는 __cause__ 에 남는다.
 
     retryable 은 같은 요청을 다시 보내 볼 만한 실패인가다(429·5xx·연결 오류). complete() 가 이 값으로
-    재시도를 정한다. 429 를 뺀 4xx·응답 형식 오류는 다시 보내도 같은 결과라 False 다.
+    재시도를 정한다(429 는 부르는 쪽이 retry_rate_limited 로 정한다). 429 를 뺀 4xx·응답 형식 오류는
+    다시 보내도 같은 결과라 False 다.
     """
 
     retryable = False
@@ -46,9 +47,11 @@ class LLMTimeout(LLMError):
 class LLMRateLimited(LLMError):
     """속도 제한(HTTP 429)으로 거절됐다. 응답을 받지 못했으니 잠시 뒤 다시 보낼 수 있다.
 
-    complete() 가 먼저 settings.llm_max_retries 번까지 짧게 다시 보내고, 그래도 429 면 이 예외로 올린다.
-    분류(classification/llm.py)는 이 예외를 받으면 더 길게 기다렸다 complete() 를 다시 부른다 — 두 재시도가
-    곱해진다(단계 하나에 최대 (llm_max_retries + 1) × (RATE_LIMIT_WAITS + 1) 번). 한 곳으로 모으는 건 후속 정리다.
+    complete() 는 기본으로 429 를 다시 보내지 않고 첫 429 에서 이 예외로 올린다. 재시도는 부르는 쪽이 정한다.
+    분류(classification/llm.py)는 이 예외를 받아 RATE_LIMIT_WAITS 만큼 길게 기다렸다 다시 부른다 — 단계 하나에
+    HTTP 는 최대 len(RATE_LIMIT_WAITS) + 1 번이다. 짧은 재시도가 맞는 호출부(리포트 요약·종목 보고서 생성·고쳐 쓰기)는
+    retry_rate_limited=True 를 넘겨 5xx 와 같은 예산(settings.llm_max_retries)으로 다시 보낸다.
+    retryable·retry_after(Retry-After 헤더의 초)는 그대로 실려 있다.
     """
 
 
@@ -218,15 +221,19 @@ async def complete(
     temperature: float | None = None,
     stream: bool = False,
     attempts: list[dict] | None = None,
+    retry_rate_limited: bool = False,
 ) -> tuple[str, dict]:
     """(응답 텍스트, 사용량). 실패하면 LLMError, 스트림이 중간에 끊기면 StreamInterrupted.
 
-    **일시적 실패는 여기서 다시 보낸다.** 429·5xx·연결 오류·시간 초과·스트림 끊김이면
-    settings.llm_max_retries 번까지 지수 백오프로 다시 보낸다(_backoff). 429 를 뺀 4xx 와 응답 형식 오류는
-    바로 올린다. 재시도는 이 함수 한 곳에서만 한다 — 부르는 쪽이 또 감싸면 횟수가 곱해진다(지금은 분류의 429
-    대기가 예외로 남아 있다. LLMRateLimited 참고).
+    **일시 오류(5xx·연결)는 여기서, 429는 호출하는 쪽에서 다시 보낸다.** 5xx·연결 오류·시간 초과·스트림
+    끊김이면 settings.llm_max_retries 번까지 지수 백오프로 다시 보낸다(_backoff). 429 는 다시 보내지 않고 바로
+    LLMRateLimited 로 올린다 — 분류처럼 부르는 쪽이 따로 기다렸다 다시 부르면 두 재시도가 곱해지기 때문이다.
+    부르는 쪽이 따로 기다리지 않고 같은 짧은 재시도를 원하면 `retry_rate_limited=True` 를 넘긴다. 그러면 429 도
+    5xx 와 **같은 예산** 안에서 다시 보낸다(Retry-After 가 더 길면 그만큼). 부르는 쪽이 complete() 를 루프로
+    감싸지 않게 하려는 것이다 — 감싸면 5xx 와 429 가 섞일 때 횟수가 다시 곱해진다.
+    429 를 뺀 4xx 와 응답 형식 오류는 바로 올린다.
     `attempts` 를 넘기면 실패한 시도마다 {attempt, kind, error, elapsed_sec, wait_sec, partial_chars} 를
-    덧붙인다(성공했든 끝내 실패했든). 끊긴 시도는 usage 를 못 받아 비용에 들어가지 않는다.
+    덧붙인다(성공했든 끝내 실패했든, 다시 보내지 않고 올린 429 도). 끊긴 시도는 usage 를 못 받아 비용에 들어가지 않는다.
 
     `stream` 은 기본이 False 다. 부르는 쪽이 켤 때만 스트리밍으로 받는다 — 리포트 요약
     (analyst)은 넘기지 않으므로 지금처럼 한 번에 받는다. 스트리밍이면 usage 는 마지막
@@ -255,7 +262,7 @@ async def complete(
         except LLMError as exc:
             if not exc.retryable:
                 raise
-            last = attempt > retries
+            last = attempt > retries or (isinstance(exc, LLMRateLimited) and not retry_rate_limited)
             wait = None if last else _backoff(attempt, getattr(exc, "retry_after", None))
             if attempts is not None:
                 attempts.append({
@@ -323,7 +330,7 @@ async def _send(url: str, key: str, payload: dict, stream: bool) -> tuple[str, s
         # 상태 코드와 응답 앞부분을 남긴다. 예외 이름만 남기면 429(속도 제한)인지
         # 400(매개변수 거절)인지 몰라서 고칠 곳을 못 찾는다 — Elice 첫 실행에서 겪었다.
         status = exc.response.status_code
-        # 429 는 LLMRateLimited 로 올린다. complete() 가 다 다시 보내고도 429 면 부르는 쪽이 이 종류로 알아본다
+        # 429 는 LLMRateLimited 로 올린다. 다시 보낼지는 부르는 쪽이 정하므로 이 종류로 알아보게 한다
         error_type = LLMRateLimited if status == 429 else LLMError
         error = error_type(f"LLM 호출 실패: HTTP {status} {_error_detail(exc.response.text, key)}")
         # 429 와 5xx 만 다시 보낸다. 그 밖의 4xx 는 요청이 틀린 것이라 다시 보내도 같다
