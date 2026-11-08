@@ -28,9 +28,9 @@ LLM 은 ② 가 넘긴 메시지 묶음 **안에서만** 근거를 찾는다(웹
 
     verdict      판정. 화면 맨 위
     summary      맨 위 요약 네 칸 (move / main_cause / counter / unexplained)
-    factors      아래 「이유」 절. main_cause 의 상세판이다
+    factors      아래 「이유」 절. main_cause 의 상세판이다. 원인 한 문장은 지금 event, 옛 회차는 claim
     terms        본문의 풀어 쓴 표현에 색을 입히고, 올리면 원래 전문용어를 띄운다
-    background   「참고」 절. 원인은 아니지만 그날 있었던 재료
+    background   「참고」 절. 원인은 아니지만 그날 있었던 재료. 지금 보고서는 항목마다 출처가 있다
     not_found    **검수자만 본다.** 화면에 나가지 않는다
 
 판정은 세 종류다. 어느 것이냐에 따라 뒤 칸의 모양이 달라진다.
@@ -342,17 +342,21 @@ def normalize_background(raw: Any) -> dict[str, list[dict[str, Any]]] | None:
     원인(factors)·반대 재료(counter)·시장 등락에 이미 쓴 재료는 여기 다시 오지 않는다 —
     같은 내용이 두 번 나오면 독자가 새 정보로 착각하기 때문이다.
 
-    항목은 두 형태로 온다.
+    항목은 세 형태로 온다.
 
-        "인도네시아가 니켈 가격 계산 비율을 낮췄습니다."            ← 보통 항목
-        {"text": "노사 총투표가 15~16일 진행됩니다.", "watch": true}  ← 앞으로 볼 것
+        "인도네시아가 니켈 가격 계산 비율을 낮췄습니다."            ← 옛 보고서의 보통 항목
+        {"text": "노사 총투표가 15~16일 진행됩니다.", "watch": true}  ← 옛 보고서의 앞으로 볼 것
+        {"text": "...", "sources": [{channel, url, datetime_kst, quote, mention}], "watch": true}
+                                                                    ← 지금 보고서. watch 는 있을 때만
 
     `watch` 는 "시점이 특정된 미래 사건" 이나 "되돌리기 어려운 변화" 에만 붙고,
     화면은 그 항목만 박스로 띄운다. 오늘 주가에 이미 반영된 것은 대상이 아니다.
 
-    **둘 다 정상값이다.** 모델에게 일관성을 요구하는 대신(그러려면 프롬프트를 고쳐야
-    하는데 검증 스크립트와 짝이라 못 건드린다) 적재가 `{text, watch}` 로 편다.
+    **모두 정상값이다.** 모델에게 일관성을 요구하는 대신(그러려면 프롬프트를 고쳐야
+    하는데 검증 스크립트와 짝이라 못 건드린다) 적재가 `{text, watch, sources}` 로 편다.
     화면이 매번 타입을 확인하지 않아도 되고, 원본 혼용은 raw_json 에 남는다.
+    출처는 원본 객체 그대로 둔다 — 화면이 출처를 띄우고 검수가 quote 를 원문과 대조한다.
+    출처가 없는 옛 항목은 빈 배열이다.
     """
     if not isinstance(raw, dict):
         return None
@@ -367,13 +371,21 @@ def normalize_background(raw: Any) -> dict[str, list[dict[str, Any]]] | None:
         normalized: list[dict[str, Any]] = []
         for item in items:
             if isinstance(item, str):
-                normalized.append({"text": item, "watch": False})
+                normalized.append({"text": item, "watch": False, "sources": []})
             elif isinstance(item, dict):
                 # bool() 로 받으면 "false" 문자열이 참이 되어 박스가 뜬다. 진짜 true 만
                 # 참이고 나머지(누락·문자열·숫자)는 전부 false 다 — 화면이 null 을 안 따지게
                 # 여기서는 _as_bool 의 None 을 그대로 두지 않는다.
+                sources = item.get("sources")
                 normalized.append(
-                    {"text": _as_str(item.get("text")), "watch": _as_bool(item.get("watch")) is True}
+                    {
+                        "text": _as_str(item.get("text")),
+                        "watch": _as_bool(item.get("watch")) is True,
+                        # 객체가 아닌 출처는 버린다. 원본은 raw_json 에 있다.
+                        "sources": [s for s in sources if isinstance(s, dict)]
+                        if isinstance(sources, list)
+                        else [],
+                    }
                 )
             # 문자열도 객체도 아니면 버린다. 원본은 raw_json 에 있다.
         out[slot] = normalized
@@ -523,7 +535,8 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveAna
     칸의 뜻은 이렇다. 앞의 셋은 "이 사건이 정말 오늘 이 등락의 원인인가" 를
     모델이 스스로 채점한 결과다.
 
-        claim / detail   화면에 나가는 원인 한 문장과 부연
+        claim / detail   화면에 나가는 원인 한 문장과 부연. 지금 보고서는 원인 한 문장을
+                         event 로 내고, 옛 보고서는 claim 으로 냈다. 칼럼은 claim 하나다
         stance           사건 **자체**가 주가를 올릴 성질(bullish)인지 내릴 성질
                          (bearish)인지. 그날 등락 방향과 무관하게 판단한다
         direction_match  stance 가 실제 등락 방향과 맞는가. **factors 에는 true 만
@@ -533,10 +546,15 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveAna
                          sufficient 가 하나라도 있으면 explained 다
         unconfirmed      "~설", 커뮤니티 전언처럼 출처가 스스로 확인되지 않았다고
                          밝힌 정보에 기댄 원인인가
+
+    지금 보고서는 direction_match·size_fit 을 factor 가 아니라 links 의 층마다 단다.
+    그래서 지금 보고서의 행은 이 두 칼럼이 NULL 이다.
     """
     factor = StockMoveAnalysisFactor(
         order_index=index,  # 배열 순서가 곧 중요도 순이다
-        claim=_as_str(f.get("claim")),
+        # event 칸이 있으면 그 값만 본다. 문자열이 아니어도 claim 으로 넘어가지 않는다 —
+        # 지금 보고서의 깨진 event 를 옛 칸으로 메우면 무엇을 적재했는지 헷갈린다.
+        claim=_as_str(f["event"] if "event" in f else f.get("claim")),
         detail=_as_str(f.get("detail")),
         stance=_as_str(f.get("stance")),
         direction_match=_as_bool(f.get("direction_match")),
