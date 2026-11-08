@@ -403,6 +403,31 @@ async def test_stream_malformed_event_is_llm_error(monkeypatch, line):
     assert info.value.partial_chars == 2
 
 
+@pytest.mark.parametrize("lines, fail_after, retried", [
+    # 같은 요청을 다시 보내도 같은 결과다. 끊긴 시도는 usage 가 없어 비용에 안 잡힌 채 과금될 수 있다
+    ([_chunk("가나"), _sse({"error": {"code": 400, "message": "context length exceeded"}})], None, False),
+    ([_chunk("가나"), _sse({"error": {"message": "flagged by moderation"}})], None, False),  # 코드 없음
+    ([_chunk("가나"), "data: {not json"], None, False),
+    ([_chunk("가나"), 'data: {"choices": "x"}'], None, False),
+    # 일시 오류라 다시 보낸다
+    ([_chunk("가나"), _sse({"error": {"code": 502, "message": "upstream"}})], None, True),
+    ([_chunk("가나"), _sse({"error": {"code": "503", "message": "upstream"}})], None, True),
+    ([_chunk("가나"), _chunk(finish="stop")], 1, True),  # 연결이 끊김
+    ([_chunk("가나")], None, True),  # finish_reason 없이 끝남
+])
+async def test_stream_retries_only_transient_interruptions(monkeypatch, lines, fail_after, retried):
+    _elice(monkeypatch)
+    http = _fake_stream(monkeypatch, lines, fail_after)
+    attempts: list[dict] = []
+    with pytest.raises(client.StreamInterrupted) as info:
+        await client.complete("s", "u", stream=True, attempts=attempts)
+    assert info.value.retryable is retried
+    assert http.stream.call_count == (3 if retried else 1)
+    # 다시 보내지 않은 끊김도 시도 기록에 남는다(래퍼 stream_interruptions 로 간다)
+    assert [a["kind"] for a in attempts] == ["stream"] * http.stream.call_count
+    assert attempts[-1]["partial_chars"] == 2 and attempts[-1]["wait_sec"] is None
+
+
 async def test_stream_without_usage_is_not_free(monkeypatch):
     """finish_reason 까지 왔으면 끊김이 아니다. usage 만 없다 — 비용을 0 원으로 계산하지 않는다."""
     _elice(monkeypatch)

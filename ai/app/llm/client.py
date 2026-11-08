@@ -57,14 +57,19 @@ class LLMRateLimited(LLMError):
 
 class StreamInterrupted(LLMError):
     """스트림이 응답을 다 주기 전에 끊겼다. 받은 부분은 길이(글자 수)만 남긴다 —
-    잘린 JSON 을 열어 보거나 저장하면 안 되므로 본문은 넘기지 않는다."""
+    잘린 JSON 을 열어 보거나 저장하면 안 되므로 본문은 넘기지 않는다.
 
-    retryable = True
+    retryable 은 끊긴 까닭에 따라 다르다(_read_stream). 연결이 끊기거나 끝 표시 없이 끝났으면 다시 보내 볼 만하다.
+    이벤트 모양이 틀렸거나 프로바이더가 5xx 가 아닌 오류를 실어 보냈으면(컨텍스트 길이·검열 등) 다시 보내도 같고,
+    끊긴 시도는 usage 를 못 받아 비용에 잡히지 않은 채 과금될 수 있어 다시 보내지 않는다.
+    """
+
     kind = "stream"
 
-    def __init__(self, message: str, partial_chars: int):
+    def __init__(self, message: str, partial_chars: int, *, retryable: bool = True):
         super().__init__(message)
         self.partial_chars = partial_chars
+        self.retryable = retryable
 
 
 def _retryable_error(message: str, kind: str) -> LLMError:
@@ -233,7 +238,7 @@ async def complete(
     감싸지 않게 하려는 것이다 — 감싸면 5xx 와 429 가 섞일 때 횟수가 다시 곱해진다.
     429 를 뺀 4xx 와 응답 형식 오류는 바로 올린다.
     `attempts` 를 넘기면 실패한 시도마다 {attempt, kind, error, elapsed_sec, wait_sec, partial_chars} 를
-    덧붙인다(성공했든 끝내 실패했든, 다시 보내지 않고 올린 429 도). 끊긴 시도는 usage 를 못 받아 비용에 들어가지 않는다.
+    덧붙인다(성공했든 끝내 실패했든, 다시 보내지 않고 올린 429·스트림 끊김도). 끊긴 시도는 usage 를 못 받아 비용에 들어가지 않는다.
 
     `stream` 은 기본이 False 다. 부르는 쪽이 켤 때만 스트리밍으로 받는다 — 리포트 요약
     (analyst)은 넘기지 않으므로 지금처럼 한 번에 받는다. 스트리밍이면 usage 는 마지막
@@ -260,9 +265,11 @@ async def complete(
             text, finish_reason, usage = await _send(url, key, payload, stream)
             break
         except LLMError as exc:
-            if not exc.retryable:
+            # 다시 보내지 않는 스트림 끊김도 시도 기록에는 남긴다(받은 길이가 래퍼 stream_interruptions 로 간다)
+            if not exc.retryable and not isinstance(exc, StreamInterrupted):
                 raise
-            last = attempt > retries or (isinstance(exc, LLMRateLimited) and not retry_rate_limited)
+            last = (not exc.retryable or attempt > retries
+                    or (isinstance(exc, LLMRateLimited) and not retry_rate_limited))
             wait = None if last else _backoff(attempt, getattr(exc, "retry_after", None))
             if attempts is not None:
                 attempts.append({
@@ -350,17 +357,31 @@ async def _send(url: str, key: str, payload: dict, stream: bool) -> tuple[str, s
     return text, finish_reason, usage
 
 
+def _stream_error_retryable(error: object) -> bool:
+    """스트림 중 error 이벤트를 다시 보내 볼 만한가. 코드가 5xx(서버·상위 프로바이더 오류)일 때만이다.
+
+    OpenRouter 는 {"code": 502, "message": ...} 꼴로 준다. 코드가 없거나 4xx(컨텍스트 길이·검열 등)면 같은 요청을
+    다시 보내도 같은 오류라 다시 보내지 않는다. 429 도 여기서는 다시 보내지 않는다 — 429 재시도는 부르는 쪽이 정한다.
+    """
+    code = error.get("code") if isinstance(error, dict) else None
+    try:
+        return int(code) >= 500
+    except (TypeError, ValueError):
+        return False
+
+
 async def _read_stream(response: httpx.Response, key: str) -> tuple[str, str | None, dict]:
     """SSE 를 끝까지 읽어 (본문, finish_reason, usage).
 
     `data:` 로 시작하지 않는 줄은 건너뛴다. 빈 줄은 이벤트 구분이고, `:` 로 시작하는 줄은
     OpenRouter 가 대기 중에 보내는 주석이다.
 
-    끊긴 것으로 보는 경우 — 모두 StreamInterrupted 다.
-        - 읽는 중 연결 오류(httpx.TransportError: 끊김·프로토콜 오류·읽기 시간 초과)
-        - 이벤트가 JSON 이 아니거나 모양이 다름, 또는 이벤트에 error 가 실려 옴(헤더가 이미
-          200 이라 HTTP 상태로는 못 알린다). error 는 오류 문구에 남으므로 키를 지운다
-        - finish_reason 없이 스트림이 끝남
+    끊긴 것으로 보는 경우 — 모두 StreamInterrupted 다. 다시 보낼지(retryable)는 경우마다 다르다.
+        - 읽는 중 연결 오류(httpx.TransportError: 끊김·프로토콜 오류·읽기 시간 초과) — 다시 보낸다
+        - finish_reason 없이 스트림이 끝남 — 다시 보낸다
+        - 이벤트에 error 가 실려 옴(헤더가 이미 200 이라 HTTP 상태로는 못 알린다). error 는 오류 문구에 남으므로
+          키를 지운다. 코드가 5xx 면 다시 보내고, 그 밖(4xx·코드 없음)은 다시 보내지 않는다(_stream_error_retryable)
+        - 이벤트가 JSON 이 아니거나 모양이 다름 — 다시 보내지 않는다
     finish_reason 까지 받았으면 끝난 것이다. 그 뒤 usage 이벤트가 안 와도 끊김이 아니라
     usage 누락이다(빈 dict 를 돌려준다).
 
@@ -371,7 +392,7 @@ async def _read_stream(response: httpx.Response, key: str) -> tuple[str, str | N
     usage: dict = {}
 
     def malformed(what: str) -> StreamInterrupted:
-        return StreamInterrupted(f"스트림 이벤트 형식 오류: {what}", len("".join(parts)))
+        return StreamInterrupted(f"스트림 이벤트 형식 오류: {what}", len("".join(parts)), retryable=False)
 
     try:
         async for line in response.aiter_lines():
@@ -381,13 +402,16 @@ async def _read_stream(response: httpx.Response, key: str) -> tuple[str, str | N
             data = line[len("data:"):].strip()
             if data == "[DONE]":
                 break
-            event = json.loads(data)
+            try:
+                event = json.loads(data)
+            except json.JSONDecodeError as exc:
+                raise malformed("JSON 이 아니다") from exc
             if not isinstance(event, dict):
                 raise malformed("JSON 객체가 아니다")
             if event.get("error"):
                 raise StreamInterrupted(
                     f"스트림 중 오류: {_error_detail(str(event['error']), key)}",
-                    len("".join(parts)))
+                    len("".join(parts)), retryable=_stream_error_retryable(event["error"]))
             choices = event.get("choices") or []
             if not isinstance(choices, list):
                 raise malformed("choices 가 배열이 아니다")
@@ -404,7 +428,7 @@ async def _read_stream(response: httpx.Response, key: str) -> tuple[str, str | N
                 finish_reason = choice.get("finish_reason") or finish_reason
             if isinstance(event.get("usage"), dict):
                 usage = dict(event["usage"])
-    except (httpx.TransportError, json.JSONDecodeError) as exc:
+    except httpx.TransportError as exc:
         raise StreamInterrupted(f"스트림이 끊겼다: {type(exc).__name__}",
                                 len("".join(parts))) from exc
     text = "".join(parts)
