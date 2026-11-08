@@ -373,9 +373,11 @@ async def load_input(
         since_basis = "market_calendar" if open_days is not None else "weekday_fallback"
         since = previous_close(cutoff.astimezone(KST).date(), open_days)
     found = await classified_sources(session, code, until=cutoff, since=since)
-    # 공시는 분류하지 않아 classified_sources 에 없다. 같은 기간에 이 종목으로 이어진 공시 카드를 뒤에 붙인다
-    linked = await get_sources(session, await stock_card_ids(session, code, until=cutoff, since=since))
-    found["sources"] += [disclosure_source(r.id) for r in linked if r.kind == DISCLOSURE_CARD_TYPE]
+    # 공시는 분류하지 않아 classified_sources 에 없다. 같은 기간에 이 종목으로 이어진 공시 카드를 뒤에 붙인다.
+    # 공시만 고르는 건 조회에서 한다 — 이어진 카드를 전부 get_sources 로 읽고 거르면 메시지·기사 카드의 링크·공유
+    # 메시지까지 읽게 된다
+    disclosures = await stock_card_ids(session, code, until=cutoff, since=since, card_type=DISCLOSURE_CARD_TYPE)
+    found["sources"] += [disclosure_source(card_id) for card_id in disclosures]
     ids = [s["source_card_id"] for s in found["sources"] if s["card_type"] in INPUT_CARD_TYPES]
     records = {r.id: r for r in await get_sources(session, ids, include_body=True, cutoff=cutoff)}
     payload, meta = build_input(found, records, code=code, cutoff=cutoff, change_pct=change_pct,

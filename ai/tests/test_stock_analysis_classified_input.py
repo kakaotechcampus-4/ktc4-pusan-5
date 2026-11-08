@@ -385,13 +385,15 @@ def test_load_input_default_since(monkeypatch, rows, basis, since):
         return found(source(10, event("company")), source(11, event("company"), card_type="news"),
                      source(12, event("company"), card_type="pdf"))
 
-    async def fake_linked(session, code, *, until, since):
+    async def fake_linked(session, code, *, until, since, card_type=None):
         seen["linked"] = (code, until, since)
-        return [10, 13, 14]  # 이 종목으로 이어진 카드. 공시(13)만 붙인다
+        # 공시만 조회에서 고른다. 이어진 카드 전부(메시지 10·14 포함)를 읽고 거르지 않는다
+        assert card_type == "disclosure"
+        return [13]
 
     async def fake_sources(session, ids, *, include_body=False, cutoff=None):
-        if not include_body:  # 이어진 카드의 종류만 본다
-            return [record(10), disclosure_record(13), record(14)]
+        # 본문을 읽는 한 번뿐이다. 공시를 고르려고 이어진 카드를 get_sources 로 다시 읽지 않는다
+        assert include_body, "공시를 고르려고 이어진 카드 전부를 get_sources 로 읽었다"
         seen["sources"] = (ids, include_body, cutoff)
         return [record(10), news_record(11), pdf_record(12), disclosure_record(13)]
 
@@ -413,8 +415,8 @@ def test_load_input_uses_given_since(monkeypatch):
         assert since == SINCE
         return found()
 
-    async def fake_linked(session, code, *, until, since):
-        assert since == SINCE
+    async def fake_linked(session, code, *, until, since, card_type=None):
+        assert since == SINCE and card_type == "disclosure"
         return []
 
     async def fake_sources(session, ids, *, include_body=False, cutoff=None):
