@@ -155,6 +155,8 @@ async def classify(title: str | None, body: str | None, basis: Basis, *,
                           basis, model=models.get("judge"))
     if judging.call is not None:
         result.calls["judge"] = judging.call
+    if judging.relation_call is not None:  # 관계 후보를 Jev 로 판정했을 때(judge_relation.py)
+        result.calls["judge_relation"] = judging.relation_call
     if judging.error:
         result.error = judging.error
         return result
