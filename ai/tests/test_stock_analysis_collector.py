@@ -788,12 +788,79 @@ async def test_unexpected_error_in_one_report_does_not_stop_the_run(fake_llm, tm
 
 
 def test_runner_error_wrapper_without_generated_wrapper(tmp_path):
-    """생성 전에 실패하면 빈 래퍼로 시작한다. 입력 경로·해시는 남는다."""
+    """생성 전에 실패하면 빈 래퍼로 시작한다. 입력 경로는 실제로 쓴 파일만 남고, 해시는 늘 남는다."""
     payload = json.loads((FIXTURES / "sample_cause.json").read_text(encoding="utf-8"))
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / "r1.json").write_text("{}", encoding="utf-8")  # 시장 맥락 전이라 inputs_used 는 아직 없다
     progress = {"stage": "시장 맥락", "payload": payload, "wrapper": None}
     w = collector.runner_error_wrapper(progress, ValueError("bad"), run_id="r1", prompt_hash="abc",
                                        run_dir=tmp_path, source=Path("in/x.json"), data=b"{}")
     assert w["is_error"] and w["error"] == "시장 맥락: ValueError: bad"
     assert w["verify_problems"] == ["RUNNER_ERROR: 시장 맥락: ValueError: bad"]
     assert w["input_path"] == "inputs/r1.json" and w["cost"] == 0.0
+    # 쓰지 않은 inputs_used 사본을 가리키면 검증을 다시 돌릴 때 없는 파일을 연다
+    assert w["input_used_path"] is None
+    assert w["input_sha256"] == hashlib.sha256(b"{}").hexdigest()
     assert all(w[key] == [] for key in collector.WARNING_KEYS)
+
+
+def test_runner_error_wrapper_before_input_copy_has_no_paths(tmp_path):
+    progress = {"stage": "입력 복사", "payload": {}, "wrapper": None}
+    w = collector.runner_error_wrapper(progress, OSError("disk"), run_id="r1", prompt_hash="abc",
+                                       run_dir=tmp_path, source=Path("in/x.json"), data=b"{}")
+    assert (w["input_path"], w["input_used_path"]) == (None, None)
+    assert w["input_original_path"] == "in/x.json"
+
+
+async def test_runner_error_survives_base_wrapper_failing_again(fake_llm, tmp_path, monkeypatch, capsys):
+    """판정 칸 계산(move_case)이 이 입력에서 터지면 생성의 _base_wrapper 도, 실행 오류 래퍼의 _base_wrapper 도 같은
+    입력으로 다시 터진다. 실행 오류 래퍼가 except 안에서 또 터지면 gather 가 실행 전체를 멈춘다(요약·적재·다른 보고서)."""
+    real_move_case = gen.move_case
+
+    def move_case_or_crash(payload):
+        if (payload.get("code"), payload.get("target_date")) == ("999990", "2026-09-18"):  # sample_cause 하나만
+            raise TypeError("market 모양이 이상하다")
+        return real_move_case(payload)
+
+    monkeypatch.setattr(gen, "move_case", move_case_or_crash)
+    total = len(list(FIXTURES.glob("*.json")))
+    result = await collector.run(FIXTURES, out_root=tmp_path)
+    assert result["total"] == total and result["errors"] == 1
+    wrappers = parsed(only_run_dir(tmp_path))
+    assert len(wrappers) == total
+    w = wrappers["sample_cause.json"]
+    assert w["error_code"] == "RUNNER_ERROR" and w["error"].startswith("보고서 생성: TypeError")
+    # 입력에서 계산하는 칸은 비어 있고, 실제로 쓴 입력 사본 경로는 남는다
+    assert w["move_case"] is None and w["run_id"].endswith("__r1")
+    assert w["input_path"].startswith("inputs/") and w["input_used_path"].startswith("inputs_used/")
+    assert "완료: 보고서" in capsys.readouterr().out
+
+
+async def test_parsed_write_error_is_counted_apart_from_failed(fake_llm, tmp_path, monkeypatch, capsys):
+    """검증은 통과했지만 parsed 파일을 못 쓴 보고서는 적재하지 않는다. 그 수를 따로 세야 요약에서 사라지지 않는다."""
+    session = MagicMock(commit=AsyncMock())
+
+    @asynccontextmanager
+    async def fake_session():
+        yield session
+
+    insert = AsyncMock(return_value=[])
+    monkeypatch.setattr(collector, "SessionLocal", fake_session)
+    monkeypatch.setattr(collector, "insert_analysis_files", insert)
+    real_write = Path.write_text
+    passed_id = "솔마루전자-2026-09-18-1530__r1"
+
+    def write_or_fail(self, *args, **kwargs):
+        if self.parent.name == "parsed" and self.stem == passed_id:
+            raise OSError("디스크가 가득 찼다")
+        return real_write(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", write_or_fail)
+    result = await collector.run(FIXTURES, out_root=tmp_path, load=True)
+    assert result["load_skipped_write_error"] == 1
+    assert result["load_skipped_failed"] == result["failed"] > 0
+    paths = insert.await_args.args[1]
+    assert len(paths) == result["passed"] - 1
+    assert passed_id not in insert.await_args.kwargs["verdicts"]
+    out = capsys.readouterr().out
+    assert f"검증 실패라 적재 안 함 {result['failed']}, parsed 파일을 못 써 적재 안 함 1)" in out
