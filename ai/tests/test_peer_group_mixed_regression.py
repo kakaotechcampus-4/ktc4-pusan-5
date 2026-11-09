@@ -76,7 +76,9 @@ def test_mobis_canned_relative_does_not_say_group_moved_together() -> None:
     report = gen.canned_report(payload)
     relative = report["summary"]["relative"]
     kospi_sentence = "현대모비스는 코스피와 비슷하게 움직여 시장 전체 흐름을 따라갔습니다."
-    assert relative == f"{kospi_sentence} 같은 자동차 그룹의 현대차·기아는 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."
+    # 그룹 등락률(0.67%) 없이 비교 종목 각자의 등락률을 쓰고 엇갈렸다고 덧붙인다
+    assert relative == (f"{kospi_sentence} 같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내려, "
+                        "방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다.")
     # 코스피 판정이 follows 라 종목 자신의 결론(코스피를 따라 시장 흐름을 따라갔다)은 남는다
     assert relative.startswith(kospi_sentence)
     # "비슷하게 움직여" 는 코스피에 붙은 한 번뿐이다. 그룹(현대차·기아)과 비슷하게 움직였다고 쓰지 않는다
@@ -167,7 +169,7 @@ def test_mobis_split_group_with_large_gap_canned_relative() -> None:
     report = gen.canned_report(payload)
     relative = report["summary"]["relative"]
     # 코스피 판정이 diverges 라 코스피 문장은 relative 앞에 붙지 않는다(summary.move 끝에 있다)
-    assert relative == "같은 자동차 그룹의 현대차·기아는 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."
+    assert relative == "같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내려, 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."
     assert report["summary"]["move"].endswith("현대모비스는 코스피와 다르게 움직였습니다.")
     assert "크게 달랐" not in relative and "안팎" not in relative and "0.67" not in relative
     assert verify(report, payload) == ("passed", [])

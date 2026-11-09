@@ -166,7 +166,9 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
 - `members_used[].in_sentence` — `summary.relative` 그룹 문장에 이름과 등락률로 쓸 종목. 그룹 등락률(중앙값)과 방향이 같은
   종목만 `true` 다(그룹 등락률이 보합이면 보합인 종목). 보합이거나 방향이 다른 종목이 섞인 그룹을 "대체로 X% 안팎" 으로 쓰면
   그 종목도 같은 방향으로 움직인 것처럼 읽히기 때문이다. `false` 인 종목은 따로 한 문장("같은 그룹의 현대차는 보합이었습니다.")으로
-  쓴다. `follows`·`diverges`·`opposite` 만 나눈다. `inconclusive`(엇갈린 그룹은 수치 없이)·`null` 은 모두 `true`.
+  쓴다. `follows`·`diverges`·`opposite` 만 나눈다. `inconclusive`·`null` 은 모두 `true`.
+  엇갈린 그룹(`inconclusive`, 비교 종목 둘 이상)은 그룹 등락률 없이 모든 비교 종목을 각자의 등락률로 쓰고 엇갈렸다고 덧붙인다
+  ("같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내려, 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다.").
 - `judge_in_sentence` — 그룹 문장에 판정하는 말("비슷하게"·"크게 달랐다")을 써도 되는가. `in_sentence: true` 종목만으로
   다시 판정해(그 종목들의 중앙값, `group_relation`, 비교 종목 수는 원래 수) 원래 판정과 같으면 `true`. 다르면 독자가 보는
   숫자와 판정이 어긋나 등락만 쓴다(예: 현대차 0.00·기아 +1.00 에 대상 +1.80 은 중앙값 0.50 기준 `diverges` 지만 기아와는
@@ -176,7 +178,9 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
   규칙은 판정대로라 그대로다.
 - 검증: 경고 `COMPARE_MEMBER_RATE`(relative 의 비교 종목 등락률·방향이 입력과 다름, 빠지는 종목이 있는 그룹에 그룹 등락률),
   `COMPARE_OPPOSITE_WORDING`(`judge_in_sentence: false` 그룹에 판정하는 말. relative 와 unexplained),
-  `COMPARE_TARGET_RATE_MISSING`(`judge_in_sentence: false` 인 `follows`·`diverges` 그룹을 relative 에 쓰면서 이 종목 등락률이 없음).
+  `COMPARE_TARGET_RATE_MISSING`(`judge_in_sentence: false` 인 `follows`·`diverges` 그룹을 relative 에 쓰면서 이 종목 등락률이 없음),
+  `COMPARE_MIXED_NOT_STATED`(엇갈린 그룹을 쓰면서 "방향이 엇갈려" 같은 말이 없음). `COMPARE_MEMBER_RATE` 는 엇갈린 그룹의 종목별
+  등락률도 보고, 엇갈린 그룹에 그룹 등락률을 쓰면 잡는다.
 
 ```jsonc
 // KB금융 2026-10-29 (실제 KRX 응답으로 계산)

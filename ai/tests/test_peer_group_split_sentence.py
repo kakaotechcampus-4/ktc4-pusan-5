@@ -18,6 +18,7 @@ from app.services.stock_analysis.verify import (
     COMPARE_MEMBER_RATE,
     COMPARE_META_PHRASE,
     COMPARE_MIXED_GROUP_RATE,
+    COMPARE_MIXED_NOT_STATED,
     COMPARE_OPPOSITE_WORDING,
     COMPARE_TARGET_RATE_MISSING,
     check_warnings,
@@ -30,7 +31,7 @@ TARGET = "012330"
 MEMBERS = [("005380", "현대차"), ("000270", "기아"), ("011210", "현대위아")]
 KOSPI_RATE = 0.62
 COMPARE_WARNINGS = {COMPARE_META_PHRASE, COMPARE_OPPOSITE_WORDING, COMPARE_MIXED_GROUP_RATE, COMPARE_MEMBER_RATE,
-                    COMPARE_TARGET_RATE_MISSING, COMPARE_KOSPI_CONTRAST}
+                    COMPARE_TARGET_RATE_MISSING, COMPARE_KOSPI_CONTRAST, COMPARE_MIXED_NOT_STATED}
 
 
 def _ctx(target: float, peers: list[float]):
@@ -88,7 +89,7 @@ def _compare_warnings(report: dict, payload: dict) -> set[str]:
     (2.00, [0.50, 1.50], "follows", [True, True], True),
     (3.00, [0.00, 0.00], "diverges", [True, True], True),
     (2.01, [1.00], "inconclusive", [True], False),
-    # 방향이 엇갈린 그룹(inconclusive)은 나누지 않는다 — 수치 없이 모든 종목을 쓴다
+    # 방향이 엇갈린 그룹(inconclusive)은 나누지 않는다 — 모든 종목을 각자의 등락률로 쓰고 엇갈렸다고 덧붙인다
     (2.50, [2.16, -0.83], "inconclusive", [True, True], False),
 ])
 def test_sentence_members(target, peers, relation, in_sentence, judge) -> None:
@@ -330,3 +331,77 @@ def test_kospi_same_direction_written_as_different_is_not_warned() -> None:
         "KB금융은 코스피와는 다르게 0.35~0.80% 오른 같은 은행지주 그룹의 신한지주·하나금융지주와 함께 움직였습니다. "
         "같은 그룹의 우리금융지주는 1.37% 내렸습니다.")
     assert _compare_warnings(report, payload) == set()
+
+
+# --- 방향이 엇갈린 그룹: 종목별 등락률 + "방향이 엇갈려" (COMPARE_MIXED_NOT_STATED·COMPARE_MEMBER_RATE) -----------------
+# 2026-11-09 실제 LLM 실행(리뷰 예시)에서 엇갈린 그룹을 종목별 등락률로 쓰고 엇갈렸다는 말을 뺐다. 종목별 등락률은 독자에게
+# 정보가 되므로 규칙을 그쪽으로 바꾸고(정형 보고서도), 엇갈렸다는 말은 꼭 덧붙이게 한다.
+
+MIXED_TAIL = "방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."
+
+
+@pytest.mark.parametrize(("target", "peers", "relative"), [
+    (2.50, [2.16, -0.83], f"같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내려, {MIXED_TAIL}"),  # 리뷰 예시
+    (0.10, [1.00, 0.00, -1.00],
+     ("현대모비스는 코스피와 비슷하게 움직여 시장 전체 흐름을 따라갔습니다. "
+      f"같은 자동차 그룹의 현대차는 1.00% 올랐고 기아는 보합이었고 현대위아는 1.00% 내려, {MIXED_TAIL}")),
+    (0.00, [-1.00, 1.00],
+     ("현대모비스는 코스피와 비슷하게 움직여 시장 전체 흐름을 따라갔습니다. "
+      f"같은 자동차 그룹의 현대차는 1.00% 내렸고 기아는 1.00% 올라, {MIXED_TAIL}")),
+])
+def test_canned_mixed_group_writes_member_rates_and_mixed_note(target, peers, relative) -> None:
+    payload = _payload(target, peers)
+    assert payload["market_compare"]["peers"][0]["relation"] == "inconclusive"
+    report = gen.canned_report(payload)
+    assert report["summary"]["relative"] == relative
+    assert verify(report, payload) == ("passed", [])
+    assert _compare_warnings(report, payload) == set()
+
+
+def test_canned_mixed_group_old_input_without_rates_has_no_numbers() -> None:
+    """종목별 등락률이 없는 입력(예전 형식)은 예전처럼 수치 없이 쓴다."""
+    payload = _payload(2.50, [2.16, -0.83])
+    for m in payload["market_compare"]["peers"][0]["members_used"]:
+        del m["change_rate_pct"], m["in_sentence"]
+    report = gen.canned_report(payload)
+    assert report["summary"]["relative"] == f"같은 자동차 그룹의 현대차·기아는 {MIXED_TAIL}"
+
+
+@pytest.mark.parametrize("relative", [
+    # 실제 LLM 출력 두 회차 — 종목별 등락률은 맞지만 엇갈렸다는 말이 없다
+    "현대모비스는 코스피와는 다르게 움직였습니다. 같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내렸습니다.",
+    "현대모비스는 코스피와는 다르게 움직였고, 같은 자동차 그룹의 현대차는 2.16% 올랐으며 기아는 0.83% 내렸습니다.",
+])
+def test_llm_mixed_group_without_mixed_note_is_warned(relative) -> None:
+    payload = _payload(2.50, [2.16, -0.83])
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert _compare_warnings(report, payload) == {COMPARE_MIXED_NOT_STATED}
+
+
+@pytest.mark.parametrize("relative", [
+    # 다음 문장에 있어도 된다(2026-11-09 첫 실행의 출력)
+    f"같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내렸습니다. 두 종목의 {MIXED_TAIL}",
+    "같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내려 두 종목의 방향이 서로 달랐습니다.",
+    f"같은 자동차 그룹의 현대차·기아는 {MIXED_TAIL}",  # 예전 꼴(수치 없음)도 규칙 위반은 아니다
+])
+def test_llm_mixed_group_with_mixed_note_is_not_warned(relative) -> None:
+    payload = _payload(2.50, [2.16, -0.83])
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert _compare_warnings(report, payload) == set()
+
+
+@pytest.mark.parametrize("relative", [
+    f"같은 자동차 그룹의 현대차는 2.61% 올랐고 기아는 0.83% 내려, {MIXED_TAIL}",  # 값이 틀림
+    f"같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 올라, {MIXED_TAIL}",  # 방향이 틀림
+    f"같은 자동차 그룹의 현대차는 보합이었고 기아는 0.83% 내려, {MIXED_TAIL}",  # 오른 종목을 보합으로
+    # 그룹 등락률(0.67%)은 엇갈린 그룹에 쓸 수 있는 수치가 아니다 — 예전에는 허용 수치에 들어 있었다
+    f"같은 자동차 그룹의 현대차(2.16%)·기아(0.67%)는 {MIXED_TAIL}",
+    f"같은 자동차 그룹의 현대차·기아는 대체로 0.67% 안팎 올라, {MIXED_TAIL}",
+])
+def test_llm_mixed_group_wrong_member_rate_is_warned(relative) -> None:
+    payload = _payload(2.50, [2.16, -0.83])
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert COMPARE_MEMBER_RATE in _compare_warnings(report, payload)

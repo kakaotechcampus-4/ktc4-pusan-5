@@ -376,7 +376,7 @@ def sentence_members(peer: PeerComparison) -> tuple[list[str], bool]:
     비교 종목이 하나뿐이면 단정하지 않는다는 규칙은 그룹 전체로 이미 넘었고, 문장에서 빠진 종목도 판정에는 들어 있다.
 
     나눌 게 없으면(모든 종목이 그룹 등락률과 같은 방향) 모든 종목이고 판정하는 말은 follows·diverges 일 때 쓴다.
-    opposite 는 나누되 판정하는 말을 쓰지 않는다. inconclusive·None 은 나누지 않는다(엇갈린 그룹은 수치 없이 모든 종목을 쓴다).
+    opposite 는 나누되 판정하는 말을 쓰지 않는다. inconclusive·None 은 나누지 않는다(엇갈린 그룹은 모든 종목을 각자의 등락률로 쓰고 엇갈렸다고 덧붙인다).
     """
     codes = list(peer.members_used)
     judged = peer.relation in ("follows", "diverges")

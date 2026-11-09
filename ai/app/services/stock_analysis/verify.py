@@ -242,17 +242,24 @@ _KOSPI_CONTRAST = re.compile(
     r"|코스피(?:는|가)?\s*(?:\d+(?:\.\d+)?%\s*)?(?:오른|내린|상승한|하락한)\s*(?:반면|것과\s*달리)")
 # 입력 그룹 판정이 inconclusive 이고 비교 종목(members_used)이 둘 이상이면 비교 종목끼리 오르내린 방향이 엇갈린 그룹이다
 # (context.group_relation). 그 그룹을 가리키는 relative 문장에 그룹 등락률("안팎", median_change_rate_pct 수치)이나 판정하는
-# 말(COMPARE_JUDGE_WORDS)을 쓰면 오른 종목과 내린 종목이 같은 방향으로 움직인 것처럼 읽힌다. 그날은 방향이 엇갈렸다는 사실만
-# 쓴다(프롬프트 「동종 그룹」). 코스피에 붙은 말은 뺀다(_check_compare_opposite 와 같다). 경고다.
+# 말(COMPARE_JUDGE_WORDS)을 쓰면 오른 종목과 내린 종목이 같은 방향으로 움직인 것처럼 읽힌다. 그날은 비교 종목 각자의 등락률을
+# 쓰고 방향이 엇갈렸다고 덧붙인다(프롬프트 「동종 그룹」). 코스피에 붙은 말은 뺀다(_check_compare_opposite 와 같다). 경고다.
+# 종목별 등락률이 맞는지는 COMPARE_MEMBER_RATE 가 본다.
 COMPARE_MIXED_GROUP_RATE = "COMPARE_MIXED_GROUP_RATE"
+# 방향이 엇갈린 그룹(위와 같은 그룹)을 relative 에 쓰면서 엇갈렸다는 말("방향이 엇갈려" 등, _MIXED_STATED)이 없다. 종목별
+# 등락률만 쓰면 그룹 흐름을 왜 말하지 않는지가 빠진다. 그룹을 가리키는 문장이나 바로 다음 문장에 있으면 된다
+# ("… 기아는 0.83% 내렸습니다. 두 종목의 방향이 엇갈려 …"). 경고다.
+COMPARE_MIXED_NOT_STATED = "COMPARE_MIXED_NOT_STATED"
+_MIXED_STATED = re.compile(r"엇갈|방향이\s*(?:서로\s*)?(?:달라|달랐|반대)")
 # 입력 members_used[].change_rate_pct(비교 종목 각자의 등락률)가 있는 그룹에서, summary.relative 에 쓴 비교 종목의 등락률·방향이
 # 입력과 다르다(프롬프트 「동종 그룹」). 이름 목록 앞뒤에 붙은 등락을 본다.
 #   "1.00% 오른 같은 자동차 그룹의 기아", "0.35~0.80% 오른 같은 자동차 그룹의 현대차·기아"   수치 → 이름 목록
 #   "같은 자동차 그룹의 기아는 1.00% 올랐", "같은 그룹의 현대차는 보합이었"                       이름 목록 → 수치
 # 한 값이면 목록의 종목 모두가 그 등락률, 범위면 끝값이 목록 종목들의 가장 작은·큰 등락률(절댓값)이어야 하고, 오르내린 말이
 # 등락률 부호와 맞아야 한다. "대체로 X% 안팎"·"대체로 보합인" 은 그룹 등락률이라 그 값과 맞아야 하고, 문장에서 빠지는
-# 종목(in_sentence: false)이 있는 그룹에는 쓰지 않는다. 그 밖에 비교 종목 이름이 나온 문장의 % 수치는 비교 종목 등락률·그룹
-# 등락률·이 종목 등락률 가운데 하나여야 한다("기아(1.20%)" 같은 꼴). 종목별 등락률이 없는 입력(예전 형식)은 보지 않는다.
+# 종목(in_sentence: false)이 있는 그룹과 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상)에는 쓰지 않는다. 그 밖에 비교 종목
+# 이름이 나온 문장의 % 수치는 비교 종목 등락률·그룹 등락률(그룹 등락률을 쓰는 그룹만)·이 종목 등락률 가운데 하나여야 한다
+# ("기아(1.20%)" 같은 꼴). 그룹 판정과 상관없이 모든 그룹을 본다. 종목별 등락률이 없는 입력(예전 형식)은 보지 않는다.
 # 다른 비교 경고와 같이 경고다 — 문장 꼴을 정규식으로 읽어 LLM 이 다르게 쓰면 놓치거나 잘못 잡을 수 있다.
 COMPARE_MEMBER_RATE = "COMPARE_MEMBER_RATE"
 _RATE_NUM = r"\d+(?:\.\d+)?"
@@ -1326,6 +1333,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     COMPARE_TARGET_RATE_MISSING judge_in_sentence 가 false 인 follows·diverges 그룹을 relative 에 쓰면서 이 종목 등락률을 빠뜨렸다.
     COMPARE_KOSPI_CONTRAST      이 종목과 기준 시장이 같은 방향인데 move·relative 에 "코스피는 올랐지만" 같은 반대를 잇는 말을 썼다.
     COMPARE_MIXED_GROUP_RATE    비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상)에 그룹 등락률이나 판정하는 말을 썼다.
+    COMPARE_MIXED_NOT_STATED    방향이 엇갈린 그룹을 relative 에 쓰면서 엇갈렸다는 말("방향이 엇갈려")이 없다.
     COMPARE_MEMBER_RATE         relative 에 쓴 비교 종목 등락률·방향이 입력 members_used[].change_rate_pct 와 다르거나, 문장에서
                                 빠지는 비교 종목이 있는 그룹을 그룹 등락률("대체로 X% 안팎")로 썼다.
     """
@@ -1364,6 +1372,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     out += _check_quote_subjects(factors, str(payload.get("stock") or ""))
     out += _check_compare_opposite(report, payload)
     out += _check_compare_mixed(report, payload)
+    out += _check_compare_mixed_stated(report, payload)
     out += _check_compare_member_rate(report, payload)
     out += _check_compare_target_rate(report, payload)
     out += _check_kospi_contrast(report, payload)
@@ -1660,6 +1669,26 @@ def _check_compare_mixed(report: dict[str, Any], payload: dict[str, Any]) -> lis
     return out
 
 
+def _check_compare_mixed_stated(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
+    """방향이 엇갈린 그룹을 쓴 문장(또는 바로 다음 문장)에 엇갈렸다는 말이 있나. 그룹마다 경고 하나."""
+    compare = payload.get("market_compare")
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    relative = summary.get("relative")
+    if not isinstance(compare, dict) or compare.get("status") != "ok" or not isinstance(relative, str):
+        return []
+    sentences = _SENTENCE_END.split(relative.strip())
+    out: list[str] = []
+    for peer in compare.get("peers") or []:
+        if not isinstance(peer, dict) or not isinstance(peer.get("group"), str) or not _is_mixed(peer):
+            continue
+        mention = group_mention(peer["group"])
+        at = [i for i, s in enumerate(sentences) if mention in s]
+        if at and not any(_MIXED_STATED.search(s) for i in at for s in sentences[i:i + 2]):
+            out.append(_p(COMPARE_MIXED_NOT_STATED,
+                          f"{peer['group']} 그룹은 비교 종목 방향이 엇갈렸는데 summary.relative 에 엇갈렸다는 말이 없다"))
+    return out
+
+
 def _member_rates(peer: Any) -> dict[str, Decimal] | None:
     """비교 종목 이름 → 등락률. 종목별 등락률이 하나라도 없으면(예전 입력 형식) None."""
     if not isinstance(peer, dict):
@@ -1686,7 +1715,7 @@ def _check_compare_member_rate(report: dict[str, Any], payload: dict[str, Any]) 
                if v is not None}
     for peer in peers:
         allowed |= {abs(r) for r in (_member_rates(peer) or {}).values()}
-        if (center := _decimal(peer.get("median_change_rate_pct"))) is not None and not _has_rest(peer):
+        if (center := _decimal(peer.get("median_change_rate_pct"))) is not None and not _no_group_rate(peer):
             allowed.add(abs(center))
     out: list[str] = []
     for peer in peers:
@@ -1704,11 +1733,22 @@ def _has_rest(peer: dict[str, Any]) -> bool:
     return any(isinstance(m, dict) and m.get("in_sentence") is False for m in peer.get("members_used") or [])
 
 
+def _is_mixed(peer: dict[str, Any]) -> bool:
+    """비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상, context.group_relation)인가."""
+    return peer.get("relation") == "inconclusive" and len(peer.get("members_used") or []) >= 2
+
+
+def _no_group_rate(peer: dict[str, Any]) -> bool:
+    """그룹 등락률("대체로 X% 안팎")을 쓰지 않는 그룹인가 — 빠지는 비교 종목이 있거나 방향이 엇갈린 그룹."""
+    return _has_rest(peer) or _is_mixed(peer)
+
+
 def _member_rate_problem(sentences: list[str], peer: dict[str, Any], rates: dict[str, Decimal],
                          allowed: set[Decimal]) -> str | None:
     """그룹 하나의 비교 종목 등락률 문제(첫 번째) 또는 None. COMPARE_MEMBER_RATE 주석의 규칙."""
     center = _decimal(peer.get("median_change_rate_pct"))
-    rest = _has_rest(peer)
+    rest = _no_group_rate(peer)
+    why = "방향이 엇갈린 그룹" if _is_mixed(peer) else "문장에서 빠지는 비교 종목이 있는 그룹"
     names = "|".join(re.escape(n) for n in sorted(rates, key=len, reverse=True))
     listed = rf"(?P<names>(?:{names})(?:·(?:{names}))*)"
     mention = rf"(?:같은\s+)?{re.escape(group_mention(peer['group']))}의?\s+"
@@ -1728,7 +1768,7 @@ def _member_rate_problem(sentences: list[str], peer: dict[str, Any], rates: dict
                 sign = 0 if not found.get("value") else 1 if found["verb"][0] in "오올상" else -1
                 if found.get("rough") or found.get("about"):  # 그룹 등락률 꼴
                     if rest:
-                        return f"문장에서 빠지는 비교 종목이 있는 그룹을 그룹 등락률로 썼다 {m.group(0)!r}"
+                        return f"{why}을 그룹 등락률로 썼다 {m.group(0)!r}"
                     if center is None or value != abs(center) or (center > 0) - (center < 0) != sign:
                         return f"그룹 등락률({center:.2f}%)과 다르다 {m.group(0)!r}" if center is not None else \
                             f"그룹 등락률이 없다 {m.group(0)!r}"

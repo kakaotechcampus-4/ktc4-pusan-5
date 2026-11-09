@@ -403,6 +403,33 @@ def _rest_sentence(peer: dict[str, Any]) -> str:
     return f" {head}{'고, '.join(clauses)}습니다."
 
 
+MIXED_TAIL = "방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."
+
+
+def _mixed_sentence(peer: dict[str, Any], who: str) -> str:
+    """비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상)의 문장. 비교 종목 각자의 등락률을 쓰고 엇갈렸다고 덧붙인다.
+
+    "같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내려, 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."
+    종목별 등락률이 없는 입력(예전 형식)이면 수치 없이 "같은 자동차 그룹의 현대차·기아는 방향이 엇갈려 …".
+    """
+    members = [m for m in peer.get("members_used") or [] if isinstance(m, dict)]
+    rates = [_decimal(m.get("change_rate_pct")) for m in members]
+    if len(members) < 2 or any(r is None for r in rates):
+        return f"{who}{_topic_josa(who)} {MIXED_TAIL}"
+    group = str(peer.get("group"))
+    head = f"{group_mention(group)} " if group.endswith(LINKED_GROUP_SUFFIX) else f"같은 {group_mention(group)}의 "
+    clauses = []
+    for i, (m, rate) in enumerate(zip(members, rates, strict=True)):
+        name = str(m.get("name"))
+        last = i == len(members) - 1
+        if not rate:
+            moved = "보합이라" if last else "보합이었고"
+        else:
+            moved = f"{_pct(rate)} {_went(rate) if last else _verb(rate) + '고'}"
+        clauses.append(f"{name}{_topic_josa(name)} {moved}")
+    return f"{head}{' '.join(clauses)}, {MIXED_TAIL}"
+
+
 def _group_amount(peer: dict[str, Any], *, noun: bool) -> str:
     """그룹 등락률. 두 종목 이상이면 "대체로 X% 안팎"(통계 용어를 쓰지 않는다), 한 종목이면 그 종목 등락률.
     noun 이면 "대체로 3.01% 안팎 오른"(뒤에 종목이 온다), 아니면 "대체로 3.01% 안팎 올랐".
@@ -480,9 +507,9 @@ def _canned_relative(payload: dict[str, Any]) -> str | None:
             sentence = f"{who}{_topic_josa(who)} {_group_amount(peer, noun=False)}고, {topic} {moved}습니다."
         elif len(peer.get("members_used") or []) >= 2:
             # inconclusive 인데 비교 종목이 둘 이상이면 비교 종목 방향이 엇갈린 그룹이다(context.group_relation).
-            # 중앙값 하나("대체로 X% 안팎")로 쓰면 오른 종목과 내린 종목이 같은 방향으로 움직인 것처럼 읽혀 수치를 쓰지 않는다.
-            # 종목별 등락률(members_used[].change_rate_pct)도 쓰지 않는다 — 방향이 엇갈렸다는 사실만.
-            sentence = f"{who}{_topic_josa(who)} 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."
+            # 중앙값 하나("대체로 X% 안팎")로 쓰면 오른 종목과 내린 종목이 같은 방향으로 움직인 것처럼 읽혀 그룹 등락률은 쓰지
+            # 않는다. 비교 종목 각자의 등락률로 쓰고 방향이 엇갈렸다고 덧붙인다(_mixed_sentence)
+            sentence = _mixed_sentence(peer, who)
             if kospi_relation == "follows":
                 # 그룹으로는 흐름을 말할 수 없어도 코스피는 따라갔다. 종목 자신의 결론을 먼저 쓴다(코스피는 한 번만)
                 sentence = f"{topic} {base}{_with_josa(base)} 비슷하게 움직여 시장 전체 흐름을 따라갔습니다. {sentence}"
