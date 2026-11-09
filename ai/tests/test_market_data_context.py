@@ -393,7 +393,9 @@ def test_group_uses_median_against_outlier(
 @pytest.mark.parametrize(("target_rate", "peer_rates", "excess", "relation"), [
     (-0.30, [0.40, 0.50], -0.75, "opposite"),  # 기준 안인데 그룹은 오르고 종목은 내렸다
     (-0.30, [0.45], -0.75, "opposite"),  # 비교 종목이 하나여도 기준 안이면 같은 규칙
-    (0.40, [-0.50, -0.30, 9.00], 0.70, "opposite"),  # 중앙값(−0.30)의 방향으로 본다
+    (0.40, [-0.50, -0.30, -0.10], 0.70, "opposite"),  # 중앙값(−0.30)의 방향으로 본다
+    # 평균(2.73)이 아니라 중앙값(−0.30) 방향이면 opposite 지만, 9.00 이 섞여 비교 종목 방향이 엇갈려 inconclusive 가 먼저다
+    (0.40, [-0.50, -0.30, 9.00], 0.70, "inconclusive"),
     (-0.60, [0.40, 0.50], -1.05, "diverges"),  # 기준을 넘으면 방향과 상관없이 지금처럼
     (-0.60, [0.45], -1.05, "inconclusive"),
     (0.00, [0.40, 0.50], -0.45, "follows"),  # 보합(0.00)은 방향이 없다
@@ -425,10 +427,19 @@ def test_group_relation_opposite_direction(
     (0.30, [0.40, -0.20, 0.50, -0.10], 0.15, "inconclusive"),
     # 넷 이상에서 과반이 없으면(오른 둘·내린 하나·보합 하나) inconclusive
     (0.30, [0.50, 0.20, -0.40, 0.00], 0.20, "inconclusive"),
-    # 기준 초과·반대 방향은 엇갈림과 상관없이 그대로
-    (3.00, [-0.50, 1.00], 2.75, "diverges"),
-    (-0.30, [0.90, -0.10], -0.70, "opposite"),
+    # 엇갈림이 차이 크기보다 먼저다. 기준을 넘어도 diverges, 중앙값과 방향이 반대여도 opposite 가 아니다
+    (2.50, [2.16, -0.83], 1.83, "inconclusive"),  # 리뷰 예시: 현대모비스 +2.50 vs 현대차 +2.16·기아 −0.83
+    (3.00, [-0.50, 1.00], 2.75, "inconclusive"),
+    (-3.00, [-0.50, 1.00], -3.25, "inconclusive"),
+    (-0.30, [0.90, -0.10], -0.70, "inconclusive"),
+    # 셋 이상에서 과반 방향이고 대상도 그 방향이어도, 기준을 넘으면 follows 예외가 아니라 inconclusive
+    (4.00, [1.00, 1.20, -0.30], 3.00, "inconclusive"),
+    (-1.50, [1.00, 1.20, -0.30], -2.50, "inconclusive"),
+    # 보합(0.00)은 방향이 없어 엇갈림이 아니다. 기준 초과면 diverges 그대로
+    (3.00, [0.00, 1.00], 2.50, "diverges"),
+    (-2.00, [0.00, 0.00], -2.00, "diverges"),
     (2.01, [1.00], 1.01, "inconclusive"),  # 비교 종목 하나: 지금처럼
+    (-0.30, [0.45], -0.75, "opposite"),  # 비교 종목 하나는 엇갈릴 수 없다
 ])
 def test_group_relation_mixed_direction(
     target_rate: float, peer_rates: list[float], excess: float, relation: str,
@@ -448,7 +459,7 @@ def test_is_mixed_ignores_flat() -> None:
     (1.28, [2.16, -0.83], False),  # 비교 종목 둘이면 유지하지 않는다
     (0.27, [0.35, 0.80, -1.37], True),
     (0.00, [-0.83, 1.24, 0.67], True),  # 대상 보합
-    (-0.10, [0.35, 0.80, -1.37], False),  # 대상이 과반 반대 방향(실제로는 opposite 가 먼저 걸린다)
+    (-0.10, [0.35, 0.80, -1.37], False),  # 대상이 과반 반대 방향(group_relation 은 inconclusive)
     (0.67, [-0.83, 1.24, 0.00], False),  # 반반
     (None, [0.35, 0.80, -1.37], False),
 ])

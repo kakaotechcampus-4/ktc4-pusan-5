@@ -128,3 +128,56 @@ def test_prompt_rules_cover_mixed_direction_inconclusive(source) -> None:
             if x.lstrip().startswith(("| `inconclusive`", "| 어느 쪽이든 · `inconclusive`"))]
     assert len(rows) == (2 if source == "prompt" else 1)
     assert all("엇갈" in row for row in rows)
+
+
+# --- 리뷰 예시: 차이가 기준을 넘어도 방향이 엇갈렸으면 inconclusive ---------------------------------------------
+# 현대모비스가 +2.50% 였다고 바꾼 가상의 2026-11-04. 비교 종목은 그날 그대로(현대차 +2.16, 기아 −0.83).
+# 중앙값 0.67 과의 차이 1.83%p 가 기준(1.0%p)을 넘어 예전에는 diverges 였고, 정형 보고서가 "대체로 0.67% 안팎 오른
+# 같은 자동차 그룹의 현대차·기아와 크게 달랐습니다" 라고 써 현대차와 거의 같이 오른 날을 그룹과 달랐다고 읽게 했다.
+MOBIS_HIGH = 2.50
+
+
+def _mobis_high_ctx():
+    kospi, stocks = _krx()
+    stocks = [s.model_copy(update={"change_rate": MOBIS_HIGH}) if s.code == "012330" else s for s in stocks]
+    return build_market_context("012330", DAY, kospi, stocks)
+
+
+def _mobis_high_payload() -> dict:
+    payload = _mobis_payload()
+    payload["change_pct"] = MOBIS_HIGH
+    payload["market"]["excess_pct"] = round(MOBIS_HIGH - payload["market"]["peer_median_pct"], 2)
+    payload["market_compare"] = {**mc.to_input(_mobis_high_ctx()), "kospi": {
+        **payload["market_compare"]["kospi"],
+        "stock_change_rate_pct": MOBIS_HIGH, "excess_vs_kospi_pp": 1.88, "excess_vs_kospi_ex_self_pp": 1.88,
+        "kospi_relation": "diverges"}}
+    return payload
+
+
+def test_mobis_split_group_is_inconclusive_even_when_gap_is_large() -> None:
+    [peer] = _mobis_high_ctx().peers
+    assert peer.members_used == ["005380", "000270"]
+    assert peer.median_change_rate_pct == 0.67
+    assert peer.excess_vs_group_pp == 1.83  # 기준(1.0%p) 초과 — 예전에는 diverges 였다
+    assert peer.relation == "inconclusive"
+
+
+def test_mobis_split_group_with_large_gap_canned_relative() -> None:
+    payload = _mobis_high_payload()
+    report = gen.canned_report(payload)
+    relative = report["summary"]["relative"]
+    # 코스피 판정이 diverges 라 코스피 문장은 relative 앞에 붙지 않는다(summary.move 끝에 있다)
+    assert relative == "같은 자동차 그룹의 현대차·기아는 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."
+    assert report["summary"]["move"].endswith("현대모비스는 코스피와 다르게 움직였습니다.")
+    assert "크게 달랐" not in relative and "안팎" not in relative and "0.67" not in relative
+    assert verify(report, payload) == ("passed", [])
+    warned = {code_of(w) for w in check_warnings(report, payload)}
+    assert not warned & {COMPARE_META_PHRASE, COMPARE_OPPOSITE_WORDING, COMPARE_MIXED_GROUP_RATE}
+
+
+def test_mobis_split_group_old_diverges_sentence_is_warned() -> None:
+    """예전 판정(diverges)대로 LLM 이 쓴 문장은 이제 COMPARE_MIXED_GROUP_RATE 경고에 걸린다."""
+    payload = _mobis_high_payload()
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = "현대모비스는 대체로 0.67% 안팎 오른 같은 자동차 그룹의 현대차·기아와 크게 달랐습니다."
+    assert COMPARE_MIXED_GROUP_RATE in {code_of(w) for w in check_warnings(report, payload)}

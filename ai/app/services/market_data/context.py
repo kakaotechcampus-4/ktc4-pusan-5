@@ -204,19 +204,20 @@ def group_relation(
 
     기준 안이어도 그룹과 오르내린 방향이 반대면 opposite 다. "같은 그룹과 함께 움직였다" 고 쓸 수 없다.
 
-    member_rates 는 비교 종목(members_used)의 반올림한 등락률이다. 기준 안이고 방향도 반대가 아니어서 follows 일
-    자리에서 비교 종목끼리 방향이 엇갈렸으면(is_mixed) inconclusive 로 둔다 — 그룹 중앙값 하나로 "그룹과 비슷하게"
-    라고 쓰면 오른 종목과 내린 종목이 함께 오르거나 내린 것처럼 읽힌다. 다만 비교 종목이 셋 이상이고 한 방향이
-    과반이면 follows 를 유지한다(mixed_still_follows). opposite·diverges 는 엇갈림과 상관없이 그대로다.
+    member_rates 는 비교 종목(members_used)의 반올림한 등락률이다. 비교 종목끼리 방향이 엇갈렸으면(is_mixed) 차이
+    크기를 보기 전에 inconclusive 로 둔다 — 그룹 중앙값 하나로 "그룹과 비슷하게"·"그룹과 크게 달랐다"·"그룹은 올랐고"
+    라고 쓰면 오른 종목과 내린 종목이 함께 오르거나 내린 것처럼 읽힌다. 예: 현대차 +2.16·기아 −0.83 이면 중앙값 0.67 은
+    어느 쪽도 대표하지 않아, 현대차와 비슷하게 오른 현대모비스(+2.50)가 "0.67% 안팎 오른 그룹과 크게 달랐다" 가 된다.
+    다만 비교 종목이 셋 이상이고 한 방향이 과반이며 대상도 그 방향이고 차이가 기준 안이면 follows 를 유지한다
+    (mixed_still_follows). 엇갈린 그룹은 opposite·diverges 가 되지 않는다.
     """
     if excess_pp is None:
         return None
-    if abs(excess_pp) <= GROUP_FOLLOW_THRESHOLD_PP:
-        if is_opposite(stock_rate, group_rate):
-            return "opposite"
-        if is_mixed(member_rates) and not mixed_still_follows(stock_rate, member_rates):
-            return "inconclusive"
-        return "follows"
+    within = abs(excess_pp) <= GROUP_FOLLOW_THRESHOLD_PP
+    if is_mixed(member_rates):
+        return "follows" if within and mixed_still_follows(stock_rate, member_rates) else "inconclusive"
+    if within:
+        return "opposite" if is_opposite(stock_rate, group_rate) else "follows"
     return "diverges" if peer_count >= 2 else "inconclusive"
 
 
