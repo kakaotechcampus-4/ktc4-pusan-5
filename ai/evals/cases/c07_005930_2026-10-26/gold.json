@@ -79,7 +79,35 @@
     }
   ],
   "acceptable_alternatives": [],
-  "forbidden_claims": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "false_cause",
+      "subject": "엔비디아향 HBM4 출하 시점 지연",
+      "relation_min": "likely_cause",
+      "object": "주가",
+      "direction": "down",
+      "example": "HBM4 지연이 삼성전자 하락의 주된 요인이다"
+    },
+    {
+      "id": "f2",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "down",
+      "example": "외국인·기관 순매도가 하락 원인이다"
+    },
+    {
+      "id": "f3",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름(삼성전자 고유 약세)",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "down",
+      "example": "대형주보다 더 내려 삼성전자만 약했다"
+    }
+  ],
   "unconfirmed_items": [],
   "unknowns": [],
   "beginner_terms": [],

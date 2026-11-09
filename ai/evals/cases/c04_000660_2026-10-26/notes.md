@@ -16,3 +16,9 @@ move no_clear_cause / relative partially_explained, confidence partial
 - move 는 -0.16% 라 judge_layers 가 false(절댓값 1 이하)라 no_clear_cause 로 고정.
 - relative(대형주 대비 +1.52, 덜 내림)에는 특별배당 추진 보도가 방향이 맞는 재료이지만 미확인이고 상한이 coincident. 방향은 맞아도 미확인·약해서 `partially_explained`(rubric §2).
 - 대안: relative no_clear_cause(확정되지 않은 보도라 설명으로 인정하지 않음). 이 경우 confidence 는 `none`.
+
+## 외국인·기관 매매(수급)를 forbidden_claims(f2)에 넣은 이유
+- 유형은 `fabricated_cause`(입력에 없는 원인). 이 케이스의 `case.json` 에는 외국인·기관의 순매수·순매도 자료가 없음.
+- 입력에 나오는 "수급"은 MLCC·메모리 등 제품의 수요·공급을 뜻하고, "기관"은 연구기관·단체 이름이라 투자자별 매매와 무관함.
+- 보고서가 외국인·기관 매매를 원인으로 쓰면 입력에서 근거를 댈 수 없는 지어낸 원인이라 `relation_min` 을 `none`(언급만 해도 금지)으로 둠. 모른다고 쓴 문장은 걸리지 않음.
+

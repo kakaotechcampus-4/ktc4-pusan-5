@@ -81,7 +81,35 @@
     }
   ],
   "acceptable_alternatives": [],
-  "forbidden_claims": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "direction_flip",
+      "subject": "영업이익·순이익 컨센서스 하회",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "up",
+      "example": "실적 호조가 주가 상승을 이끌었다"
+    },
+    {
+      "id": "f2",
+      "type": "false_cause",
+      "subject": "미국 반도체 강세·코스피 상승 출발",
+      "relation_min": "likely_cause",
+      "object": "주가",
+      "direction": "up",
+      "example": "미 반도체 강세가 상승의 주된 요인이다"
+    },
+    {
+      "id": "f3",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "up",
+      "example": "대형주보다 더 올랐다"
+    }
+  ],
   "unconfirmed_items": [],
   "unknowns": [],
   "beginner_terms": [],

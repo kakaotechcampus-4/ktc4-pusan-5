@@ -101,7 +101,35 @@
     }
   ],
   "acceptable_alternatives": [],
-  "forbidden_claims": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "false_cause",
+      "subject": "HD현대일렉트릭·HD현대중공업 3Q 실적(계열·유사 종목)",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "up",
+      "example": "계열사 실적의 영향으로 HD현대 주가가 올랐다"
+    },
+    {
+      "id": "f2",
+      "type": "false_cause",
+      "subject": "HD현대 교환사채(EB) 발행",
+      "relation_min": "likely_cause",
+      "object": "주가",
+      "direction": "up",
+      "example": "교환사채 발행이 주가 상승의 주된 요인이다"
+    },
+    {
+      "id": "f2",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "up",
+      "example": "외국인·기관 순매수가 상승 원인이다"
+    }
+  ],
   "unconfirmed_items": [],
   "unknowns": [],
   "beginner_terms": [],

@@ -86,7 +86,35 @@
     }
   ],
   "acceptable_alternatives": [],
-  "forbidden_claims": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "false_cause",
+      "subject": "영업이익·매출 컨센서스 하회",
+      "relation_min": "likely_cause",
+      "object": "주가",
+      "direction": "down",
+      "example": "실적 부진이 하락의 주된 요인이다"
+    },
+    {
+      "id": "f2",
+      "type": "false_cause",
+      "subject": "지배주주순이익 컨센서스 상회",
+      "relation_min": "likely_cause",
+      "object": "relative",
+      "direction": "up",
+      "example": "순이익 호조 덕에 덜 내렸다"
+    },
+    {
+      "id": "f3",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": null,
+      "example": "외국인·기관 순매수가 낙폭을 방어했다"
+    }
+  ],
   "unconfirmed_items": [],
   "unknowns": [],
   "beginner_terms": [],

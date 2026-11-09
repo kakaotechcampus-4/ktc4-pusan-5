@@ -188,7 +188,26 @@
     }
   ],
   "acceptable_alternatives": [],
-  "forbidden_claims": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "direction_flip",
+      "subject": "지배주주순이익 컨센서스 하회",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "down",
+      "example": "순이익이 컨센서스를 하회해 주가에 부담으로 작용했다"
+    },
+    {
+      "id": "f2",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "up",
+      "example": "외국인·기관 순매수가 상승을 이끌었다"
+    }
+  ],
   "unconfirmed_items": [],
   "unknowns": [],
   "beginner_terms": [],

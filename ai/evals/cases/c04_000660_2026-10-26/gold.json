@@ -89,7 +89,35 @@
     }
   ],
   "acceptable_alternatives": [],
-  "forbidden_claims": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "false_cause",
+      "subject": "엔비디아향 HBM4 출하 시점 지연",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "down",
+      "example": "HBM4 출하 지연이 주가 하락 요인이다"
+    },
+    {
+      "id": "f2",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": null,
+      "example": "외국인·기관 수급이 주가 등락을 좌우했다"
+    },
+    {
+      "id": "f3",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "down",
+      "example": "대형주보다 더 내렸다"
+    }
+  ],
   "unconfirmed_items": [
     "SK하이닉스 키옥시아 지분 차익 약 16조원 특별배당 추진(동아일보 보도, IB·재계 전언, 해명(미확정) 공시 단계)"
   ],

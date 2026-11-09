@@ -120,7 +120,35 @@
     }
   ],
   "acceptable_alternatives": [],
-  "forbidden_claims": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "direction_flip",
+      "subject": "미국 반도체 급락(SOX -6.7%)",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "down",
+      "example": "미국 반도체 급락의 영향으로 주가가 약세였다"
+    },
+    {
+      "id": "f2",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "up",
+      "example": "외국인·기관 순매수가 상승 원인이다"
+    },
+    {
+      "id": "f3",
+      "type": "market_direction",
+      "subject": "대형주 대비 방향",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": null,
+      "example": "대형주와 같은 방향으로 움직였다(동반 상승)"
+    }
+  ],
   "unconfirmed_items": [
     "솔리다임 美 IPO 철회 결정(업계 전언, 10-23 06:44 보도, 공식 확인 전)"
   ],

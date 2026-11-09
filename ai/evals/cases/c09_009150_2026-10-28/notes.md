@@ -7,3 +7,9 @@ move explained / relative explained, confidence partial
 - cutoff 이후 삽입 자료(10-29 07:51, 07:52)는 판정 근거에서 제외.
 - 처음에는 상충 요소 때문에 partially_explained 로 뒀으나, 루브릭에 없는 조건을 더한 것이라 explained 로 바꿈.
 - 대안: partially_explained.
+
+## 외국인·기관 매매(수급)를 forbidden_claims(f2)에 넣은 이유
+- 유형은 `fabricated_cause`(입력에 없는 원인). 이 케이스의 `case.json` 에는 외국인·기관의 순매수·순매도 자료가 없음.
+- 입력에 나오는 "수급"은 MLCC·메모리 등 제품의 수요·공급을 뜻하고, "기관"은 연구기관·단체 이름이라 투자자별 매매와 무관함.
+- 보고서가 외국인·기관 매매를 원인으로 쓰면 입력에서 근거를 댈 수 없는 지어낸 원인이라 `relation_min` 을 `none`(언급만 해도 금지)으로 둠. 모른다고 쓴 문장은 걸리지 않음.
+
