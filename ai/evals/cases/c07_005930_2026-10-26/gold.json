@@ -100,12 +100,12 @@
     },
     {
       "id": "f3",
-      "type": "market_direction",
-      "subject": "대형주 대비 상대 흐름(삼성전자 고유 약세)",
-      "relation_min": "none",
-      "object": "relative",
+      "type": "false_cause",
+      "subject": "삼성전자 고유 약세(삼성전자만의 문제)",
+      "relation_min": "possible_contributor",
+      "object": "주가",
       "direction": "down",
-      "example": "대형주보다 더 내려 삼성전자만 약했다"
+      "example": "삼성전자만의 악재(고유 요인) 때문에 주가가 하락했다"
     }
   ],
   "unconfirmed_items": [],
