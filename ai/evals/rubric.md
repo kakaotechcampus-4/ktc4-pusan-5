@@ -33,7 +33,21 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 | `common_move` | 대형주 전반이 종목과 함께 움직인 날 | true 면 `move` 판정은 `no_clear_cause`, 등락 층 원인을 세우지 않음 |
 | `market_led` | 시장을 움직이는 종목(시총 비중 10% 이상: 삼성전자, SK하이닉스)이 대형주와 함께 움직인 날 | true 면 `move` 층은 시장·업종 재료를 중심으로 봄 |
 | `move_strength_cap` | `partial` 이면 등락 층 인과 상한이 낮아짐 | `move` 층 사건은 `likely_cause` 를 쓰지 않고 `possible_contributor` 이하 |
-| `relative_direction` | 종목과 대형주 비교 문구(`더`/`덜`/`반대로`/`비슷하게`) | 보고서의 비교 방향과 맞는지 확인 |
+| `relative_direction` | 종목과 대형주 비교 문구. 코드 출력값 그대로 `더`(대형주보다 더 오르거나 내림), `덜`(덜 오르거나 내림), `반대로`(부호 반대), `비슷하게`(상대 층을 판단하지 않는 날) | 보고서의 비교 방향과 맞는지 확인 |
+
+**`move_strength_cap` 값**
+
+| 값 | 뜻 | gold 에서 |
+|---|---|---|
+| `null` | 상한 없음. 아래 `partial` 조건 중 하나라도 안 맞거나 대형주 비교값이 없는 날 | `move` 층 사건의 `max_causal_strength` 를 일반 규칙(§4-2)대로 정함 |
+| `partial` | 종목 등락의 절반 이상이 대형주 전반과 같은 몫이라, 종목 고유 재료만으로는 `move` 층을 충분히 설명할 수 없는 날 | `move` 층 사건은 `likely_cause` 를 쓰지 않고 `possible_contributor` 이하. `relative` 층 사건에는 적용 안 함 |
+
+`partial` 은 아래 세 조건을 **모두** 만족할 때만 나옴(`verify.py` 의 `move_strength_cap`).
+1. `move` 층을 판단하는 날(등락률 절댓값 1 초과, `judge_layers.move` 가 true)
+2. 종목 등락과 대형주 중간값의 부호가 같고 `|대형주 중간값| >= |종목 등락| x 0.5`
+3. 시장을 움직이는 종목(시총 비중 10% 이상: 삼성전자, SK하이닉스)이 아님
+
+이 10건에서는 c06, c08, c10 이 `partial`, 나머지는 `null`.
 
 ## 3. 확신 수준 `confidence_level`
 
