@@ -6,6 +6,7 @@ import { SplitLayout } from '@/components/layout/PageShell';
 import type { PricePeriod } from '@/lib/types';
 import { useStockDetail } from './useStockDetail';
 import { useStockFinancials } from './useStockFinancials';
+import { useStockReport } from './useStockReport';
 import { useWatchlistToggle } from './useWatchlistToggle';
 import { LoginModal } from '@/features/auth/LoginModal';
 import { StockHeader, StockHeaderSkeleton } from './components/StockHeader';
@@ -33,6 +34,7 @@ export function StockBriefingPage() {
     error: financialsError,
     retry: retryFinancials,
   } = useStockFinancials(code);
+  const { resource: report, error: reportError, retry: retryReport } = useStockReport(code);
   const [loginOpen, setLoginOpen] = useState(false);
   const watchlistToggle = useWatchlistToggle(code, () => setLoginOpen(true));
 
@@ -109,6 +111,9 @@ export function StockBriefingPage() {
         financials={financials}
         financialsError={financialsError}
         onRetryFinancials={retryFinancials}
+        report={report}
+        reportError={reportError}
+        onRetryReport={retryReport}
       />
     </>
   );

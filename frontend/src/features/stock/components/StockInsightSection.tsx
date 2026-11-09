@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { SectionHead } from '@/components/layout/PageShell';
-import { Card, Empty, Tabs } from '@/components/ui';
-import type { Resource, StockFinancials, StockMetricsData, StockQuoteData } from '@/lib/types';
+import { Tabs } from '@/components/ui';
+import type {
+  Resource,
+  StockFinancials,
+  StockMetricsData,
+  StockQuoteData,
+  StockReport,
+} from '@/lib/types';
+import { AiReportSection } from './AiReportSection';
 import { DetailInfoTab } from './DetailInfoTab';
 
 type InsightTab = 'ai' | 'detail';
@@ -16,12 +23,18 @@ export function StockInsightSection({
   financials,
   financialsError,
   onRetryFinancials,
+  report,
+  reportError,
+  onRetryReport,
 }: {
   quote: Resource<StockQuoteData> | null;
   metrics: Resource<StockMetricsData> | null;
   financials: StockFinancials | null;
   financialsError: Error | null;
   onRetryFinancials: () => void;
+  report: Resource<StockReport> | null;
+  reportError: Error | null;
+  onRetryReport: () => void;
 }) {
   const [tab, setTab] = useState<InsightTab>('ai');
   return (
@@ -29,9 +42,7 @@ export function StockInsightSection({
       <SectionHead title="AI 보고서 및 상세 정보" />
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
       {tab === 'ai' ? (
-        <Card tone="plain">
-          <Empty title="AI 보고서는 준비 중입니다" />
-        </Card>
+        <AiReportSection resource={report} error={reportError} onRetry={onRetryReport} />
       ) : (
         <DetailInfoTab
           quote={quote}

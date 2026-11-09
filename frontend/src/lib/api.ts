@@ -11,6 +11,8 @@ import type {
   StockOverview,
   StockPriceResource,
   StockFinancials,
+  StockReport,
+  Resource,
   PricePeriod,
   SearchResponse,
   User,
@@ -165,4 +167,11 @@ export function getStockPrices(
 
 export function getStockFinancials(code: string, signal?: AbortSignal): Promise<StockFinancials> {
   return request<StockFinancials>(`/api/stocks/${encodeURIComponent(code)}/financials`, { signal });
+}
+
+/** 장 마감 기준으로 미리 만들어 둔 변동 요인 보고서. 없으면 status 가 pending */
+export function getStockReport(code: string, signal?: AbortSignal): Promise<Resource<StockReport>> {
+  return request<Resource<StockReport>>(`/api/stocks/${encodeURIComponent(code)}/report`, {
+    signal,
+  });
 }
