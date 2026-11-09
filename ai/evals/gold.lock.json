@@ -1,0 +1,61 @@
+{
+  "set_version": "v0",
+  "lock_status": "provisional",
+  "locked_at": "2026-11-10T04:13:24+09:00",
+  "set_hash": "74d7445fcd0ebef93679bf0e4cc28e210f5ee18e51424f9660c011e27e7264ac",
+  "n_cases": 10,
+  "note": "잠정 잠금. 체크리스트·블라인드 재라벨링·verification 이 끝나지 않음. 정식 잠금 전에 gold 를 고치면 --write 로 기록을 다시 만들고 세트 버전을 올림",
+  "hash_scope": "case.json, provenance.json, gold.json(verification·status 제외), JSON 정규화(키 정렬) 후 sha256",
+  "cases": {
+    "c01_000660_2026-10-28": {
+      "case_json": "a3a48dff20612a8e5ddf17fc487be89d8134aeb9072defab3b1a0f5b8da4d2f7",
+      "provenance_json": "e3df584d42fc7006d759a237087aa1f933934558bd41e895703cdef2018808b8",
+      "gold_json": "e32e0ddc8e60b83e201afaf53caf8f8b6b0776b1920ad312b99b085b449be3a4"
+    },
+    "c02_005930_2026-10-29": {
+      "case_json": "fb94c617a509d60a9271823eaa2e437371846b9f3df6c06c7ddbb908c74aa36e",
+      "provenance_json": "e2940b5c1892545df3e22ef280f91f7338dcce0d3b40fa03f76339a6ea560d57",
+      "gold_json": "43b3df73b897827b7933ace6f64c42ca6134e5dc1eb96aa4f617ae58df6a2a15"
+    },
+    "c03_000660_2026-10-23": {
+      "case_json": "889791a45dc597bd130cc12ca58a586300072d12848b4bf3bc950b9b8ce15422",
+      "provenance_json": "3bb9f0f4eb155744a21aa09fd84f9a958bcbca30369ac0b1b14428ab4279ea68",
+      "gold_json": "f95af9e47cc50bb17949c8adbe06ff03db0299eeea0b216f0d5084d1cf5ad3a0"
+    },
+    "c04_000660_2026-10-26": {
+      "case_json": "e16b68425fad40414ffe2ec6cb7ed98bb7d7a5d97e57778a0c6c5625c62e62d9",
+      "provenance_json": "657f4a55f628bdd8dbe86d3fb63186890ffbe00cecd19f161644743c97e9b928",
+      "gold_json": "9561efb911fc948cdb1375d16d9025b88aec37e4f491321ae9d259d85616befd"
+    },
+    "c05_009150_2026-10-30": {
+      "case_json": "b47a526ad55033886c9fa0cbf53fbd6759df1154608781b7e37fef01c1ba7572",
+      "provenance_json": "3828fea94db6c18f42936fad0ceea8a56b702d017bc78b341946430a92fe0e62",
+      "gold_json": "ad571092d4cc2b7683ba3470b27debad6b0599d622313701b48049f10d770240"
+    },
+    "c06_267250_2026-10-28": {
+      "case_json": "e33f953907d2dcd0c7985de527f9592aad8c56617ee951f2a17dfbdab3a07d92",
+      "provenance_json": "1792b609f7987bb485a2e12aba2c62148ee3c5326fbafdb7963441d5cbec9907",
+      "gold_json": "12980818bcc61e9b7970c538fc9bc120a5f2397332864f434ad0f7180bcec5fe"
+    },
+    "c07_005930_2026-10-26": {
+      "case_json": "1ff086d0f54a4ae50ec9fbc1ae76b25cab6f4d904b9333cc6cdbc695409c03db",
+      "provenance_json": "40871fa012ee830f9e469fa30b760feec33dd7f453c7e84466dff816daef7e39",
+      "gold_json": "5ab8cfa9608eccba11b5830334973a0de2a332754c630b3ae3f3ce99fbccdd0f"
+    },
+    "c08_034220_2026-10-22": {
+      "case_json": "1b87b9420ef6bff2b1ee8a46ea42361c1020f59743c0a1be837337a7c0c38bfb",
+      "provenance_json": "80ddebbd318e5634c2c779655eb2a97e31bf8449d849637d4fccee75024fba59",
+      "gold_json": "fed2cdb3a37676e91eed16d6e32e9835b2e689ac327b61225fc0dc66707b3426"
+    },
+    "c09_009150_2026-10-28": {
+      "case_json": "5277be8b60a4378d38179a7d40b124811f2a53595e6e0a6a76328d588055e17b",
+      "provenance_json": "e8b7c59dcc9c17fe8630356bb6e1ff8357ab431670fdb5f6254654d6228ed5c7",
+      "gold_json": "fc42ce029775051698e51ab141d7570b2216f21a3018e2f42020c79e25ada9a1"
+    },
+    "c10_011070_2026-10-27": {
+      "case_json": "9eee1f3e22214bdf658552ed830bb224f9ad52bc6ebb3d7743122a2bd50013d1",
+      "provenance_json": "8fa50ace09eb1344c057dfb7e9a60413cd04980ec867575ef5a188f1b2c79cfb",
+      "gold_json": "ae46908e86a1d878f81432babe3a29e9594c583a3c8a923b72860527cb96df69"
+    }
+  }
+}

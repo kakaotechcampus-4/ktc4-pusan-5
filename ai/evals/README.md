@@ -15,6 +15,8 @@ ai/evals/
   rubric.md           gold 라벨링 기준(값 정의, 실패 유형)
   validate_gold.py    gold 검증 스크립트
   validate_gold.md    검증 스크립트 설명
+  lock_set.py         세트 잠금 기록·변경 확인 스크립트
+  gold.lock.json      잠금 기록(세트 버전, 상태, 케이스별 해시)
   cases/<case_id>/    케이스 10건
 ```
 
@@ -132,11 +134,11 @@ gold는 사건마다 "말해도 되는 최대 강도"를 정해 둡니다. 보�
 1. `case.json` 조립과 공시 접수 시각 확인
 2. gold 작성(모델 출력을 보지 않고 `case.json` 만 보고 작성)
 3. 검증: 체크리스트 10건(시각·출처·시장·판정·금지 주장)과 블라인드 재라벨링 10건
-4. gold 잠금: `verification` 을 기록하고 세트 버전·해시를 남깁니다. 잠금 뒤에 gold를 고치면 세트 버전을 올리고 baseline을 다시 돌립니다.
+4. gold 잠금: `verification` 을 기록하고 `lock_set.py` 로 세트 버전·해시를 `gold.lock.json` 에 남깁니다. 잠금 뒤에 gold를 고치면 세트 버전을 올리고 baseline을 다시 돌립니다. 방법은 6장을 보시면 됩니다.
 
 ### B. 평가 실행(프롬프트·모델이 바뀔 때마다)
 
-1. 케이스 10건을 각각 3회 생성합니다(총 30건). 마감 이후 케이스는 KRX로 시장 비교를 계산하므로 `ai/.env` 의 KRX 키가 동작해야 축 D가 채점됩니다.
+1. 케이스 10건을 생성합니다. 마감 이후 케이스는 KRX로 시장 비교를 계산하므로 `ai/.env` 의 KRX 키가 동작해야 축 D가 채점됩니다.
 2. `verify_status` 가 `passed` 가 아니면 Reject로 셉니다. 코드가 판정 일치, 시각, 시장 비교 수치·방향어를 대조합니다.
 3. 첫 baseline은 사람이 gold와 대조해 의미 판단(과장·누락·출처·불확실성)을 채점합니다.
 4. 그 뒤 judge(DeepSeek)를 같은 생성 결과에 3회 돌려 초안을 내고, 사람 채점과 비교해 얼마나 믿을지 봅니다. 갈린 쌍과 hard fail 후보는 사람이 확인합니다.
@@ -174,9 +176,11 @@ reports/<eval_run_id>/
 
 `summary.md` 는 `summary.json` 에서 자동 생성하고 새로운 판단을 더하지 않습니다. 시장 데이터를 받지 못한 케이스(`no_data`, 실패)는 축 D를 N/A로 분리해 분모에서 뺍니다. 전후 실행에서 시장 데이터 상태가 다른 케이스는 비교에서 제외합니다.
 
-## 6. gold 검증 스크립트
+## 6. gold 검증과 잠금 스크립트
 
-`ai/` 폴더에서 실행합니다. 외부 패키지 없이 `python3` 만 있으면 됩니다.
+`ai/` 폴더에서 실행합니다. 두 스크립트 모두 외부 패키지 없이 `python3` 만 있으면 됩니다.
+
+### 6-1. 검증
 
 ```bash
 python3 evals/validate_gold.py            # 10건 전체
@@ -185,6 +189,26 @@ python3 evals/validate_gold.py --strict   # 아직 안 채운 칸도 오류로 �
 ```
 
 오류가 0건이어야 합니다. 무엇을 어떻게 검사하는지는 `validate_gold.md` 를 보시면 됩니다.
+
+### 6-2. 잠금
+
+잠금은 파일 권한을 막는 것이 아니라, 잠금 시점의 입력과 gold의 해시(파일 내용의 지문)를 `gold.lock.json` 에 기록해 두고 이후 바뀌었는지 확인하는 방식입니다.
+
+```bash
+python3 evals/lock_set.py --check                                  # 기록과 현재 파일 비교
+python3 evals/lock_set.py --write --version v0 --provisional       # 잠정 잠금 기록
+python3 evals/lock_set.py --write --version v1                     # 정식 잠금 기록
+```
+
+| 항목 | 내용 |
+|---|---|
+| 해시 대상 | 케이스마다 `case.json`, `provenance.json`, `gold.json` |
+| 해시에서 빼는 칸 | `gold.json` 의 `verification`, `status`. 검증 기록을 채울 때 잠금이 깨지지 않게 하기 위함입니다 |
+| `provisional` | 잠정 잠금. 체크리스트·블라인드 재라벨링·`verification` 이 끝나기 전 상태입니다 |
+| `locked` | 정식 잠금. 위 검증을 모두 마친 뒤 `--provisional` 없이 기록합니다 |
+| `--check` 결과 | 바뀐 케이스와 파일을 알려 주고, 변경이 있으면 종료 코드 1을 냅니다 |
+
+잠금 뒤에 gold를 고치면 세트 버전을 올리고 `--write` 로 다시 기록한 다음 baseline을 다시 돌립니다. 현재 상태는 `gold.lock.json` 의 `lock_status` 로 확인합니다.
 
 ## 7. 지켜야 할 규칙
 

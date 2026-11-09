@@ -171,3 +171,20 @@ c09_009150_2026-10-28          11    3
 | `근거가 대상일 장 마감 이후...` | 대상일 15:30 이후 공개된 재료에 높은 상한을 줌 | 상한을 `coincident` 로 내림 |
 | `judge_layers false ...` | 판단하지 않는 층(절댓값 1 이하)에 사건이나 판정을 둠 | 그 층 사건을 빼고 `no_clear_cause` 로 둠 |
 | `must 가 3개` | 핵심 사건이 너무 많음 | 중요도를 다시 나눔 |
+
+## 9. 잠금 스크립트(`lock_set.py`)와의 관계
+
+`validate_gold.py` 는 gold 가 규칙에 맞는지 보고, 잠금 스크립트는 **확정한 뒤에 바뀌었는지** 봄. 역할이 달라 따로 돌림.
+
+```
+python3 evals/lock_set.py --check                              # 기록과 현재 파일 비교
+python3 evals/lock_set.py --write --version v0 --provisional   # 잠정 잠금 기록
+python3 evals/lock_set.py --write --version v1                 # 정식 잠금 기록
+```
+
+- 기록 파일: `ai/evals/gold.lock.json`(세트 버전, `lock_status`, 기록 시각, 세트 해시, 케이스별 해시).
+- 해시 대상: 케이스마다 `case.json`, `provenance.json`, `gold.json`. JSON 을 키 정렬로 정규화한 뒤 sha256 을 구함(들여쓰기·줄바꿈 차이는 무시).
+- `gold.json` 에서 `verification`, `status` 는 해시에서 뺌. 검증 기록을 채우거나 상태를 바꿔도 잠금이 깨지지 않게 하기 위함.
+- `provisional` 은 체크리스트·블라인드 재라벨링·`verification` 이 끝나기 전의 잠정 기록이고, 끝난 뒤 `--provisional` 없이 `--write` 하면 `locked` 가 됨.
+- `--check` 는 바뀐 케이스와 파일을 출력하고, 변경이 있으면 종료 코드 1 을 냄. 정상 변경이면 세트 버전을 올리고 `--write` 로 다시 기록함.
+- 권장 순서: `validate_gold.py` 오류 0건 확인 → `lock_set.py --write` → 이후 평가 전에 `lock_set.py --check`.
