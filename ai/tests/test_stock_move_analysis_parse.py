@@ -11,6 +11,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
+
 from app.repositories.stock_move_analysis import (
     KST,
     build_analysis,
@@ -24,6 +26,8 @@ FIXTURES = Path(__file__).parent / "fixtures" / "reports"
 SAMSUNG = FIXTURES / "삼성전자-2026-09-18-with-indirect__B__r1.json"
 HYNIX = FIXTURES / "SK하이닉스-2026-09-18-with-indirect__B__r1.json"
 NO_CAUSE = FIXTURES / "SK이노베이션-2026-09-18-with-indirect__B__r2.json"
+# 지금 형식(event·links, 참고 항목 출처, display_as_of) 실제 산출물
+CURRENT = FIXTURES / "SK하이닉스-2026-11-03-1845__r1.json"
 
 
 def test_wrapper_is_opened_then_final_text_reparsed() -> None:
@@ -96,7 +100,7 @@ def test_run_error_and_asked_question_become_schema_violation() -> None:
 def test_background_accepts_both_string_and_object_items() -> None:
     """프롬프트가 같은 칸에 두 형태를 섞어 낸다. **둘 다 정상값이다.**
     모델에게 일관성을 요구할 수 없으니(프롬프트는 검증 스크립트와 짝이라 못 고친다)
-    적재가 {text, watch} 로 펴서 화면이 매번 타입을 확인하지 않게 한다."""
+    적재가 {text, watch, sources} 로 펴서 화면이 매번 타입을 확인하지 않게 한다."""
     normalized = normalize_background(
         {
             "bullish": ["문자열 항목입니다."],
@@ -104,12 +108,27 @@ def test_background_accepts_both_string_and_object_items() -> None:
             "neutral": [{"text": "다음에 확인할 사건", "watch": True}, "또 문자열"],
         }
     )
-    assert normalized["bullish"] == [{"text": "문자열 항목입니다.", "watch": False}]
+    assert normalized["bullish"] == [{"text": "문자열 항목입니다.", "watch": False, "sources": []}]
     assert normalized["bearish"] == []
     assert normalized["neutral"] == [
-        {"text": "다음에 확인할 사건", "watch": True},
-        {"text": "또 문자열", "watch": False},
+        {"text": "다음에 확인할 사건", "watch": True, "sources": []},
+        {"text": "또 문자열", "watch": False, "sources": []},
     ]
+
+
+def test_background_keeps_item_sources() -> None:
+    """지금 보고서는 참고 항목마다 출처가 있다. 화면이 출처를 띄우고 검수가 quote 를 대조하므로
+    적재가 버리면 안 된다. 출처 객체는 그대로 두고, 객체가 아닌 출처만 뺀다."""
+    source = {"channel": "example", "url": "https://t.me/example/1", "datetime_kst": "2026-11-03T08:00:00+09:00",
+              "quote": "가상의 인용문", "mention": "not_mentioned"}
+    normalized = normalize_background(
+        {
+            "bullish": [{"text": "출처 있는 항목", "sources": [source, "문자열 출처"]}],
+            "neutral": [{"text": "출처가 배열이 아님", "sources": "x", "watch": True}],
+        }
+    )
+    assert normalized["bullish"] == [{"text": "출처 있는 항목", "watch": False, "sources": [source]}]
+    assert normalized["neutral"] == [{"text": "출처가 배열이 아님", "watch": True, "sources": []}]
 
 
 def test_background_watch_string_false_is_not_true() -> None:
@@ -134,8 +153,56 @@ def test_real_report_background_is_normalized() -> None:
     """합성 입력만으로는 부족하다. 실제 산출물에 watch 객체와 문자열이 같은 칸에 있다."""
     analysis = build_analysis(parse_analysis_file(SAMSUNG))
     neutral = analysis.background["neutral"]
-    assert all(set(item) == {"text", "watch"} for item in neutral)
+    assert all(set(item) == {"text", "watch", "sources"} for item in neutral)
     assert any(item["watch"] for item in neutral)
+
+
+def test_current_report_background_keeps_sources() -> None:
+    """지금 형식 실제 산출물. 참고 항목의 출처가 칼럼에 원본 그대로 남는다."""
+    analysis = build_analysis(parse_analysis_file(CURRENT))
+    raw = analysis.raw_json["background"]
+    for slot in ("bullish", "bearish", "neutral"):
+        assert [item["sources"] for item in analysis.background[slot]] == [item["sources"] for item in raw[slot]]
+    assert any(item["sources"] for item in analysis.background["bullish"])
+
+
+def test_current_report_event_is_stored_as_claim() -> None:
+    """지금 보고서는 원인 한 문장이 event 다. 칼럼 claim 에 들어가야 한다 — 비면 화면 「이유」 절이 빈다."""
+    analysis = build_analysis(parse_analysis_file(CURRENT))
+    events = [f["event"] for f in analysis.raw_json["factors"]]
+    assert events and [f.claim for f in analysis.factors] == events
+
+
+@pytest.mark.parametrize(("factor", "stored"), [
+    ({"event": "새 칸", "claim": "옛 칸"}, "새 칸"),  # 둘 다 있으면 event
+    ({"claim": "옛 칸"}, "옛 칸"),  # 옛 회차
+    ({"event": None, "claim": "옛 칸"}, None),  # event 칸이 있으면 깨져도 claim 으로 메우지 않는다
+    ({"detail": "d"}, None),
+])
+def test_claim_reads_event_first_then_legacy_claim(factor: dict, stored: str | None) -> None:
+    report = {"ticker": "000660", "date": "2026-11-03", "summary": {}, "factors": [factor]}
+    analysis = build_analysis(parse_wrapper({"run_id": "r", "final_text": json.dumps(report)}))
+    assert [f.claim for f in analysis.factors] == [stored]
+
+
+def test_legacy_source_match_is_stored_as_is() -> None:
+    """실제 산출물은 mention 이름을 바꾸기 전이라 출처가 match: direct 다. 칼럼(match)은 옛 값 그대로 받는다."""
+    analysis = build_analysis(parse_analysis_file(SAMSUNG))
+    sources = [s for f in analysis.factors for s in f.sources]
+    assert sources and all(s.match == "direct" for s in sources)
+    assert analysis.raw_json["factors"][0]["sources"][0]["match"] == "direct"  # 원본은 raw_json 에 그대로 남는다
+
+
+@pytest.mark.parametrize(("mention", "stored"), [
+    ("mentioned", "direct"), ("not_mentioned", "indirect"),
+    ("sideways", "sideways"),  # 목록 밖 값은 바꾸지 않는다(raw_json 과 대조할 수 있게)
+])
+def test_mention_is_stored_as_legacy_match_value(mention: str, stored: str) -> None:
+    """칼럼 match 는 옛 값(direct|indirect)만 담는다. 새 보고서의 mention 은 적재할 때 옛 값으로 바꾼다."""
+    report = {"ticker": "105560", "date": "2026-11-02", "summary": {},
+              "factors": [{"claim": "c", "sources": [{"url": "https://t.me/c/1", "mention": mention}]}]}
+    analysis = build_analysis(parse_wrapper({"run_id": "r", "final_text": json.dumps(report)}))
+    assert [s.match for f in analysis.factors for s in f.sources] == [stored]
 
 
 def test_null_counter_is_a_valid_value() -> None:
@@ -149,12 +216,26 @@ def test_null_counter_is_a_valid_value() -> None:
 
 
 def test_as_of_is_combined_with_date_into_kst_aware() -> None:
-    """프롬프트 출력은 'HH:MM' 문자열뿐이다. 루트 CLAUDE.md 가 naive datetime 을
+    """옛 보고서의 as_of 는 'HH:MM' 문자열뿐이다. 루트 CLAUDE.md 가 naive datetime 을
     금지하므로 date 와 합쳐 타임존을 붙인다. 원본 문자열은 raw_json 에 남는다."""
     analysis = build_analysis(parse_analysis_file(SAMSUNG))
     assert analysis.target_date == date(2026, 9, 18)
     assert analysis.as_of == datetime(2026, 9, 18, 15, 30, tzinfo=KST)
     assert analysis.raw_json["as_of"] == "15:30"
+
+
+@pytest.mark.parametrize(("as_of", "stored"), [
+    # 다음 날 아침 cutoff 는 날짜째 그대로다. target_date(11-02)와 합쳐 그날 08:30 이 되면 안 된다
+    ("2026-11-03T08:30:00+09:00", datetime(2026, 11, 3, 8, 30, tzinfo=KST)),
+    ("2026-11-02T11:00:00", datetime(2026, 11, 2, 11, 0, tzinfo=KST)),  # 시간대가 없으면 KST
+    ("오후", None),
+])
+def test_iso_as_of_is_stored_as_cutoff(as_of: str, stored: datetime | None) -> None:
+    report = {"ticker": "105560", "name": "KB금융", "date": "2026-11-02", "as_of": as_of,
+              "display_as_of": "2026-11-02T15:30:00+09:00", "display_is_close": True, "summary": {}}
+    analysis = build_analysis(parse_wrapper({"run_id": "r", "final_text": json.dumps(report)}))
+    assert analysis.as_of == stored
+    assert analysis.raw_json["display_as_of"] == "2026-11-02T15:30:00+09:00"  # 화면 기준 시각은 raw_json 에만
 
 
 def test_change_pct_keeps_its_exact_value() -> None:

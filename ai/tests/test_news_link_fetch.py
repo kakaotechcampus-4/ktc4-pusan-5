@@ -7,6 +7,8 @@
 import gzip
 import socket
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -15,6 +17,7 @@ from app.services.news_link import fetch
 from app.services.news_link.fetch import (
     MAX_HTML_BYTES,
     MAX_REDIRECTS,
+    RATE_LIMIT_WAITS,
     fetch_link,
     fetch_link_bodies,
     is_fetchable,
@@ -461,3 +464,110 @@ async def test_article_split_into_small_chunks_is_reassembled_intact() -> None:
     assert body.status == "ok"
     assert body.excerpt is not None
     assert body.excerpt.startswith("삼성전자가 차세대 메모리 기술을 공개했다고 밝혔다.")
+
+
+@pytest.fixture
+def waits(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+    sleep = AsyncMock()
+    monkeypatch.setattr(fetch.asyncio, "sleep", sleep)
+    return sleep
+
+
+def _responses(*responses: httpx.Response) -> tuple[list[httpx.Request], httpx.AsyncClient]:
+    """준 응답을 차례로 돌려주는 client 와, 받은 요청을 쌓는 목록."""
+    sent: list[httpx.Request] = []
+    remaining = iter(responses)
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return next(remaining)
+
+    return sent, _client(handler)
+
+
+async def test_rate_limited_link_is_opened_again(
+    waits: AsyncMock, caplog: pytest.LogCaptureFixture,
+) -> None:
+    sent, client = _responses(httpx.Response(429), httpx.Response(200, html=ARTICLE_HTML))
+    async with client:
+        body = await fetch_link(client, "https://example.com/busy")
+
+    assert body.status == "ok"
+    assert len(sent) == 2
+    assert 2 <= waits.await_args.args[0] <= 3
+    # 성공한 재시도는 결과에 남지 않으므로 로그로 세어 본다
+    assert [r.getMessage().split(": ")[0] for r in caplog.records] == [
+        "429 https://example.com/busy",
+    ]
+
+
+async def test_rate_limit_backoff_grows_up_to_one_minute_then_gives_up(waits: AsyncMock) -> None:
+    attempts = len(RATE_LIMIT_WAITS) + 1
+    sent, client = _responses(*(httpx.Response(429) for _ in range(attempts)))
+    async with client:
+        body = await fetch_link(client, "https://example.com/busy")
+
+    assert (body.status, body.http_status) == ("http_error", 429)
+    assert len(sent) == attempts
+    delays = [call.args[0] for call in waits.await_args_list]
+    assert len(delays) == len(RATE_LIMIT_WAITS)
+    for delay, wait in zip(delays, RATE_LIMIT_WAITS, strict=True):
+        assert wait <= delay <= min(wait * 1.5, 60)
+
+
+async def test_retry_after_longer_than_backoff_is_respected(waits: AsyncMock) -> None:
+    sent, client = _responses(
+        httpx.Response(429, headers={"retry-after": "30"}),
+        httpx.Response(200, html=ARTICLE_HTML),
+    )
+    async with client:
+        body = await fetch_link(client, "https://example.com/busy")
+
+    assert body.status == "ok"
+    assert len(sent) == 2
+    waits.assert_awaited_once_with(30.0)
+
+
+async def test_retry_after_over_the_limit_gives_up_this_run(waits: AsyncMock) -> None:
+    sent, client = _responses(httpx.Response(429, headers={"retry-after": "3600"}))
+    async with client:
+        body = await fetch_link(client, "https://example.com/busy")
+
+    assert (body.status, body.http_status) == ("http_error", 429)
+    assert len(sent) == 1
+    waits.assert_not_awaited()
+
+
+async def test_retry_after_date_falls_back_to_backoff(waits: AsyncMock) -> None:
+    _, client = _responses(
+        httpx.Response(429, headers={"retry-after": "Wed, 21 Oct 2026 07:28:00 GMT"}),
+        httpx.Response(200, html=ARTICLE_HTML),
+    )
+    async with client:
+        body = await fetch_link(client, "https://example.com/busy")
+
+    assert body.status == "ok"
+    assert 2 <= waits.await_args.args[0] <= 3
+
+
+async def test_other_http_errors_are_not_opened_again(waits: AsyncMock) -> None:
+    sent, client = _responses(httpx.Response(503))
+    async with client:
+        body = await fetch_link(client, "https://example.com/down")
+
+    assert body.http_status == 503
+    assert len(sent) == 1
+    waits.assert_not_awaited()
+
+
+async def test_fetched_at_is_the_last_attempt(
+    waits: AsyncMock, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """다음 실행의 429 대기가 이 시각부터 잰다. 첫 시도 시각이면 그만큼 일찍 풀린다."""
+    start, last = datetime(2026, 11, 3, 9, 0, tzinfo=UTC), datetime(2026, 11, 3, 9, 2, tzinfo=UTC)
+    monkeypatch.setattr(fetch, "utcnow", iter([start, last]).__next__)
+    _, client = _responses(*(httpx.Response(429) for _ in range(len(RATE_LIMIT_WAITS) + 1)))
+    async with client:
+        body = await fetch_link(client, "https://example.com/busy")
+
+    assert body.fetched_at == last

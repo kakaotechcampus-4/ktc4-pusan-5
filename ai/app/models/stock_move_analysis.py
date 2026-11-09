@@ -81,9 +81,10 @@ class StockMoveAnalysis(Base):
     # 출력 키는 date 지만 칼럼명으로 쓰면 날짜 타입명과 겹쳐 읽기 나쁘다.
     # 프롬프트 **입력**이 같은 값을 target_date 라고 부르므로 그 이름을 썼다.
     target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    # 프롬프트 출력은 "HH:MM" 문자열이다. target_date 와 합쳐 KST aware datetime 으로
-    # 저장한다 — 루트 CLAUDE.md 가 naive datetime 을 금지하고 응답은 ISO 8601 이어야 한다.
-    # 원본 "15:30" 은 raw_json 에 그대로 남아 진실의 출처가 둘로 갈리지 않는다.
+    # 메시지를 자른 시각(cutoff). 보고서 as_of 는 ISO 8601 이라 그대로, 옛 보고서의 "HH:MM" 은
+    # target_date 와 합쳐 KST aware datetime 으로 저장한다 — 루트 CLAUDE.md 가 naive datetime 을
+    # 금지하고 응답은 ISO 8601 이어야 한다. 원본은 raw_json 에 그대로 남아 진실의 출처가 둘로 갈리지 않는다.
+    # 화면 기준 시각(장 마감 뒤면 그날 장 마감)은 칼럼이 없다 — raw_json 의 display_as_of·display_is_close 다.
     as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # float 로 받으면 -2.01 이 -2.0100000000000002 로 굳는다. 루트 CLAUDE.md 가
     # "가공하지 않은 값" 을 요구하므로 DB 가 값을 흔들면 안 된다.
@@ -115,9 +116,9 @@ class StockMoveAnalysis(Base):
     # 화면이 통째로 받아 쓰는 덩어리라 행으로 쪼갤 이유가 없다.
     terms: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # [{plain, term}]
     # {bullish: [...], bearish: [...], neutral: [...]}
-    # 프롬프트는 항목을 문자열로도 {"text": ..., "watch": true} 객체로도 낸다.
-    # 둘 다 정상이므로 파서가 흡수해 여기서는 객체 형태로 통일해 둔다
-    # (정규화 규칙은 repositories/stock_move_analysis.py 참고). 원본 혼용은 raw_json 에 남는다.
+    # 옛 프롬프트는 항목을 문자열로도 {"text": ..., "watch": true} 객체로도 냈고, 지금 프롬프트는
+    # {"text", "sources", "watch"?} 객체로 낸다. 파서가 흡수해 여기서는 {text, watch, sources} 로
+    # 통일해 둔다 (정규화 규칙은 repositories/stock_move_analysis.py 참고). 원본 혼용은 raw_json 에 남는다.
     background: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # 검수용. 화면에 나가지 않지만 사후 환각 추적 수단이 이것뿐이라 반드시 넣는다.
     # 노출 제어는 backend 응답 단계에서 한다.
@@ -238,7 +239,10 @@ class StockMoveAnalysisFactorSource(Base):
     datetime_kst: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # 원문 그대로 40자 이내 발췌. 한 글자만 달라도 근거 검증에서 떨어진다.
     quote: Mapped[str | None] = mapped_column(Text, nullable=True)
-    match: Mapped[str | None] = mapped_column(String(16), nullable=True)  # direct | indirect
+    # 이 출처가 종목을 직접 다루는지. 값은 옛 이름 direct | indirect 로 고정이다. 보고서 칸은
+    # mention(mentioned | not_mentioned)으로 바뀌었지만 적재가 옛 값으로 바꿔 넣는다
+    # (repositories.stock_move_analysis.MENTION_TO_MATCH). 그래서 읽는 쪽은 바꿔 읽지 않아도 된다.
+    match: Mapped[str | None] = mapped_column(String(16), nullable=True)
     is_market_recap: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     # 이 출처의 공통 자료 ID. url 로 DB 에 저장된 원문을 찾아 적재 때 채운다(텔레그램 메시지는

@@ -40,6 +40,7 @@ DIALECT = postgresql.dialect()
 # 접두사로 고르므로 같은 무리의 표가 늘어나도 자동으로 포함된다.
 PREFIXES = (
     "stock_move_analysis", "telegram_message", "source_card_stock", "dart_disclosure",
+    "industries", "stock_industries", "external_compan", "company_relation", "classification_",
 )
 
 
@@ -161,7 +162,7 @@ def test_every_model_index_is_created_by_a_migration(migration_sql: str) -> None
     WHERE 절이 빠지면 인덱스는 생기는데 의도한 물건이 아니다.
     """
     emitted = {
-        _squash(s) for s in _statements(migration_sql) if _squash(s).startswith("create index")
+        _squash(s) for s in _statements(migration_sql) if _squash(s).startswith(("create index", "create unique index"))
     }
     for table in managed_tables().values():
         for index in table.indexes:

@@ -3,7 +3,7 @@
 ## 이 모듈이 파이프라인의 어디인가
 
     ① 텔레그램 수집       증권 채널 메시지를 긁는다
-    ② 필터 · 태깅         종목·시각으로 거르고 메시지마다 direct/indirect 를 붙인다
+    ② 필터 · 태깅         종목·시각으로 거르고 메시지마다 mention(mentioned/not_mentioned)을 붙인다
     ③ 보고서 생성 (LLM)   입력 JSON 하나를 주고 보고서 JSON 하나를 받는다
     ④ 실행 기록 래핑      러너가 보고서를 실행 지표로 감싸 runs/<타임스탬프>/parsed/ 에 쓴다
     ⑤ 근거 검증 · 점검    quote 가 원문에 정말 있는지, 상한을 지켰는지 본다
@@ -28,9 +28,9 @@ LLM 은 ② 가 넘긴 메시지 묶음 **안에서만** 근거를 찾는다(웹
 
     verdict      판정. 화면 맨 위
     summary      맨 위 요약 네 칸 (move / main_cause / counter / unexplained)
-    factors      아래 「이유」 절. main_cause 의 상세판이다
+    factors      아래 「이유」 절. main_cause 의 상세판이다. 원인 한 문장은 지금 event, 옛 회차는 claim
     terms        본문의 풀어 쓴 표현에 색을 입히고, 올리면 원래 전문용어를 띄운다
-    background   「참고」 절. 원인은 아니지만 그날 있었던 재료
+    background   「참고」 절. 원인은 아니지만 그날 있었던 재료. 지금 보고서는 항목마다 출처가 있다
     not_found    **검수자만 본다.** 화면에 나가지 않는다
 
 판정은 세 종류다. 어느 것이냐에 따라 뒤 칸의 모양이 달라진다.
@@ -96,10 +96,15 @@ from app.models.stock_move_analysis import (
     StockMoveAnalysisFactorSource,
 )
 from app.repositories.source_card import card_ids_for_urls
+from app.services.stock_analysis.verify import LEGACY_MENTIONS, mention_of
 
 logger = logging.getLogger(__name__)
 
-# 프롬프트의 as_of 는 "HH:MM" 뿐이라 날짜와 합칠 때 타임존을 우리가 붙여야 한다.
+# 출처 칼럼 match 의 값. 보고서 칸 이름이 match(direct|indirect) → mention(mentioned|not_mentioned)으로 바뀌었지만
+# 칼럼은 옛 값 그대로 둔다 — 이미 쌓인 행과 한 칼럼에 두 어휘가 섞이지 않게, 적재할 때 옛 값으로 바꿔 넣는다.
+MENTION_TO_MATCH = {new: old for old, new in LEGACY_MENTIONS.items()}
+
+# 옛 보고서의 as_of 는 "HH:MM" 뿐이라 날짜와 합칠 때 타임존을 우리가 붙여야 한다. 시간대 없는 ISO 시각도 같다.
 # 대상이 한국 증시 장중 시각이므로 KST 고정이다. 루트 CLAUDE.md 가 naive datetime 을 금지한다.
 KST = timezone(timedelta(hours=9))
 
@@ -266,22 +271,29 @@ def _as_date(value: Any) -> date | None:
 
 
 def _as_of_datetime(target_date: date | None, raw: Any) -> datetime | None:
-    """날짜 "YYYY-MM-DD" 와 시각 "HH:MM" 을 합쳐 KST aware datetime 으로 만든다.
+    """보고서 as_of 를 KST aware datetime 으로 만든다.
 
-    as_of 는 **기준 시각**이다. 이 시각까지 들어온 메시지만 보고 쓴 보고서라는 뜻이라,
-    같은 날 같은 종목이라도 11:00 판과 15:30 판은 내용이 다르다. 15:30 이면 장 마감
-    기준이고 그 전이면 확정값이 아니다. 자연키에 이 값이 들어가는 이유이기도 하다.
+    as_of 는 **메시지를 자른 시각(cutoff)** 이다. 이 시각까지 들어온 메시지만 보고 쓴 보고서라는 뜻이라,
+    같은 날 같은 종목이라도 11:00 판과 15:30 판, 다음 날 08:30 판은 내용이 다르다. 자연키에 이 값이
+    들어가는 이유이기도 하다. 화면 기준 시각(장 마감 뒤면 그날 장 마감)은 보고서 display_as_of 에
+    따로 있고 칼럼 없이 raw_json 에만 남는다.
 
-    날짜가 없으면 합칠 수 없어 NULL 이다. 원본 "15:30" 은 raw_json 에 남아 있으므로
-    여기서 놓쳐도 되살릴 수 있다.
+    지금 보고서는 날짜가 붙은 ISO 8601 시각이라 그대로 쓴다(다음 날 아침 cutoff 도 날짜가 맞다). 옛 보고서는
+    "HH:MM" 이라 target_date 와 합친다 — 날짜가 없으면 합칠 수 없어 NULL 이다. 원본은 raw_json 에 남아
+    있으므로 여기서 놓쳐도 되살릴 수 있다.
     """
-    if target_date is None or not isinstance(raw, str):
+    if not isinstance(raw, str):
         return None
+    text = raw.strip()
     try:
-        hhmm = time.fromisoformat(raw.strip())
+        hhmm = time.fromisoformat(text)
     except ValueError:
-        return None
-    return datetime.combine(target_date, hhmm, tzinfo=KST)
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=KST)
+    return None if target_date is None else datetime.combine(target_date, hhmm, tzinfo=KST)
 
 
 def _as_decimal(value: Any) -> Decimal | None:
@@ -300,6 +312,11 @@ def _as_decimal(value: Any) -> Decimal | None:
         return Decimal(str(value))
     except InvalidOperation:
         return None
+
+
+def _match_value(mention: Any) -> Any:
+    """보고서 mention 값을 칼럼 match 의 옛 값으로. 목록 밖 값은 그대로 둔다(raw_json 과 대조할 수 있게)."""
+    return MENTION_TO_MATCH.get(mention, mention) if isinstance(mention, str) else mention
 
 
 def _parse_kst_datetime(value: Any) -> datetime | None:
@@ -325,17 +342,21 @@ def normalize_background(raw: Any) -> dict[str, list[dict[str, Any]]] | None:
     원인(factors)·반대 재료(counter)·시장 등락에 이미 쓴 재료는 여기 다시 오지 않는다 —
     같은 내용이 두 번 나오면 독자가 새 정보로 착각하기 때문이다.
 
-    항목은 두 형태로 온다.
+    항목은 세 형태로 온다.
 
-        "인도네시아가 니켈 가격 계산 비율을 낮췄습니다."            ← 보통 항목
-        {"text": "노사 총투표가 15~16일 진행됩니다.", "watch": true}  ← 앞으로 볼 것
+        "인도네시아가 니켈 가격 계산 비율을 낮췄습니다."            ← 옛 보고서의 보통 항목
+        {"text": "노사 총투표가 15~16일 진행됩니다.", "watch": true}  ← 옛 보고서의 앞으로 볼 것
+        {"text": "...", "sources": [{channel, url, datetime_kst, quote, mention}], "watch": true}
+                                                                    ← 지금 보고서. watch 는 있을 때만
 
     `watch` 는 "시점이 특정된 미래 사건" 이나 "되돌리기 어려운 변화" 에만 붙고,
     화면은 그 항목만 박스로 띄운다. 오늘 주가에 이미 반영된 것은 대상이 아니다.
 
-    **둘 다 정상값이다.** 모델에게 일관성을 요구하는 대신(그러려면 프롬프트를 고쳐야
-    하는데 검증 스크립트와 짝이라 못 건드린다) 적재가 `{text, watch}` 로 편다.
+    **모두 정상값이다.** 모델에게 일관성을 요구하는 대신(그러려면 프롬프트를 고쳐야
+    하는데 검증 스크립트와 짝이라 못 건드린다) 적재가 `{text, watch, sources}` 로 편다.
     화면이 매번 타입을 확인하지 않아도 되고, 원본 혼용은 raw_json 에 남는다.
+    출처는 원본 객체 그대로 둔다 — 화면이 출처를 띄우고 검수가 quote 를 원문과 대조한다.
+    출처가 없는 옛 항목은 빈 배열이다.
     """
     if not isinstance(raw, dict):
         return None
@@ -350,13 +371,21 @@ def normalize_background(raw: Any) -> dict[str, list[dict[str, Any]]] | None:
         normalized: list[dict[str, Any]] = []
         for item in items:
             if isinstance(item, str):
-                normalized.append({"text": item, "watch": False})
+                normalized.append({"text": item, "watch": False, "sources": []})
             elif isinstance(item, dict):
                 # bool() 로 받으면 "false" 문자열이 참이 되어 박스가 뜬다. 진짜 true 만
                 # 참이고 나머지(누락·문자열·숫자)는 전부 false 다 — 화면이 null 을 안 따지게
                 # 여기서는 _as_bool 의 None 을 그대로 두지 않는다.
+                sources = item.get("sources")
                 normalized.append(
-                    {"text": _as_str(item.get("text")), "watch": _as_bool(item.get("watch")) is True}
+                    {
+                        "text": _as_str(item.get("text")),
+                        "watch": _as_bool(item.get("watch")) is True,
+                        # 객체가 아닌 출처는 버린다. 원본은 raw_json 에 있다.
+                        "sources": [s for s in sources if isinstance(s, dict)]
+                        if isinstance(sources, list)
+                        else [],
+                    }
                 )
             # 문자열도 객체도 아니면 버린다. 원본은 raw_json 에 있다.
         out[slot] = normalized
@@ -506,7 +535,8 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveAna
     칸의 뜻은 이렇다. 앞의 셋은 "이 사건이 정말 오늘 이 등락의 원인인가" 를
     모델이 스스로 채점한 결과다.
 
-        claim / detail   화면에 나가는 원인 한 문장과 부연
+        claim / detail   화면에 나가는 원인 한 문장과 부연. 지금 보고서는 원인 한 문장을
+                         event 로 내고, 옛 보고서는 claim 으로 냈다. 칼럼은 claim 하나다
         stance           사건 **자체**가 주가를 올릴 성질(bullish)인지 내릴 성질
                          (bearish)인지. 그날 등락 방향과 무관하게 판단한다
         direction_match  stance 가 실제 등락 방향과 맞는가. **factors 에는 true 만
@@ -516,10 +546,15 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveAna
                          sufficient 가 하나라도 있으면 explained 다
         unconfirmed      "~설", 커뮤니티 전언처럼 출처가 스스로 확인되지 않았다고
                          밝힌 정보에 기댄 원인인가
+
+    지금 보고서는 direction_match·size_fit 을 factor 가 아니라 links 의 층마다 단다.
+    그래서 지금 보고서의 행은 이 두 칼럼이 NULL 이다.
     """
     factor = StockMoveAnalysisFactor(
         order_index=index,  # 배열 순서가 곧 중요도 순이다
-        claim=_as_str(f.get("claim")),
+        # event 칸이 있으면 그 값만 본다. 문자열이 아니어도 claim 으로 넘어가지 않는다 —
+        # 지금 보고서의 깨진 event 를 옛 칸으로 메우면 무엇을 적재했는지 헷갈린다.
+        claim=_as_str(f["event"] if "event" in f else f.get("claim")),
         detail=_as_str(f.get("detail")),
         stance=_as_str(f.get("stance")),
         direction_match=_as_bool(f.get("direction_match")),
@@ -547,10 +582,12 @@ def _build_factor(index: int, f: dict[str, Any], *, source: str) -> StockMoveAna
                     # 검증기가 이 문자열을 원본 메시지에서 찾아보고, 한 글자라도
                     # 다르면 환각으로 본다. 그래서 적재가 다듬으면 안 된다.
                     quote=_as_str(s.get("quote")),
-                    # 이 메시지가 종목을 직접 다루는지(direct), 업황·경쟁사만
-                    # 다루는지(indirect). indirect 만으로 세운 원인은 size_fit 이
-                    # partial 을 넘을 수 없다.
-                    match=_as_str(s.get("match")),
+                    # 보고서 칸 mention: 이 메시지가 종목을 직접 다루는지(mentioned),
+                    # 업황·경쟁사만 다루는지(not_mentioned). not_mentioned 만으로 세운
+                    # 원인은 strength 가 partial 을 넘을 수 없다. 칼럼은 이름도 값도 옛 그대로라
+                    # mentioned → direct, not_mentioned → indirect 로 바꿔 넣는다(MENTION_TO_MATCH).
+                    # 옛 보고서의 match: direct|indirect 는 그대로 들어간다. 목록 밖 값은 바꾸지 않는다.
+                    match=_as_str(_match_value(mention_of(s))),
                     # "코스피 마감 시황" 류. 결과를 적은 것이지 원인이 아니라서,
                     # 이게 근거로 쓰이면 "내려서 내렸다" 는 순환 논리가 된다.
                     is_market_recap=_as_bool(s.get("is_market_recap")),

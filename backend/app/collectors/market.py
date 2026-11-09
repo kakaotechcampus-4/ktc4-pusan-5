@@ -9,6 +9,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
 from sqlalchemy import text
@@ -30,6 +31,16 @@ LOCK_ID = 4927105
 FETCH_TIMEOUT = 25
 Result = Quote | list[RankingItem] | list[FlowItem] | krx.MarketBatch
 SECTOR_CODES = {"kospi": "sectorKospi", "kosdaq": "sectorKosdaq"}
+# 수집 반복이 예외 없이 끝날 때마다 이 파일의 수정 시각을 갱신한다. docker compose 헬스체크가 이 시각을 본다.
+HEARTBEAT_PATH = Path("/tmp/collector-heartbeat")
+
+
+def touch_heartbeat(path: Path = HEARTBEAT_PATH) -> None:
+    """루프가 한 바퀴 끝까지 돌았다는 표시. 쓰지 못해도 수집을 멈추지 않는다(헬스체크만 실패한다)."""
+    try:
+        path.touch()
+    except OSError:
+        logger.warning("heartbeat: cannot write %s", path)
 
 
 async def fetch_result(code: str, fetch: Callable[[], Awaitable[Result]]):
@@ -190,6 +201,8 @@ async def run(loop: bool) -> None:
                                 await asyncio.sleep(
                                     min(1, max(0.1, next_market - time.monotonic()))
                                 )
+                            # 오류 없이 한 바퀴를 돌았을 때만 갱신한다. 멈추거나 계속 오류가 나면 갱신이 끊겨 헬스체크가 실패한다.
+                            touch_heartbeat()
                         except (SQLAlchemyError, OSError) as exc:
                             logger.error("Market collection failed: %s", type(exc).__name__)
                             if not loop:

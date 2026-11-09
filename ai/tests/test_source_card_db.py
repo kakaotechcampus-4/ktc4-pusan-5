@@ -346,6 +346,10 @@ def test_stock_card_ids_respects_the_cutoff(database):
     # since 로 앞쪽을 자른다
     assert find(datetime(2026, 10, 5, 15, 30, tzinfo=kst),
                 since=datetime(2026, 10, 5, 0, 0, tzinfo=kst)) == [ids["news1"]]
+    # card_type 을 주면 그 종류만 고른다(보고서 입력은 공시만 따로 붙인다)
+    until = datetime(2026, 10, 5, 15, 30, tzinfo=kst)
+    assert in_session(database, lambda s: stock_card_ids(s, "005930", until=until, card_type="news")) == [ids["news1"]]
+    assert in_session(database, lambda s: stock_card_ids(s, "005930", until=until, card_type="disclosure")) == []
 
 
 def test_get_sources_reports_the_public_time(database):

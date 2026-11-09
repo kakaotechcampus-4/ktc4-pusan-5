@@ -5,6 +5,7 @@
 """
 
 import asyncio
+import json
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -14,6 +15,7 @@ from tests.test_migrations import alembic, query
 
 FIXTURES = Path(__file__).parent / "fixtures" / "reports"
 SAMSUNG = FIXTURES / "삼성전자-2026-09-18-with-indirect__B__r1.json"
+CURRENT = FIXTURES / "SK하이닉스-2026-11-03-1845__r1.json"
 
 
 def load(url, paths):
@@ -97,3 +99,47 @@ def test_report_sources_are_linked_to_source_cards_now_or_later(database, tmp_pa
     regenerated.write_bytes(SAMSUNG.read_bytes() + b"\n")
     assert load(database, [regenerated]) == 1
     assert query(database, linked)[0][0] == wanted * 2
+
+
+def test_iso_as_of_is_stored_at_the_same_instant_as_hhmm(database, tmp_path):
+    """as_of 칼럼은 timestamptz 다. 새 보고서의 ISO(+09:00) 와 옛 보고서의 "HH:MM"(target_date 와 합쳐 KST)이 같은
+    시각으로 저장되고, 서버 시간대가 UTC 여도 9시간 밀리지 않는다. 다음 날 아침 cutoff 는 그 날짜 그대로 들어간다."""
+    from datetime import datetime
+
+    from app.repositories.stock_move_analysis import KST
+
+    alembic(database, "upgrade", "head")
+    files = []
+    for i, as_of in enumerate(["15:30", "2026-11-02T15:30:00+09:00", "2026-11-03T08:30:00+09:00"]):
+        report = {"ticker": "105560", "name": "KB금융", "date": "2026-11-02", "as_of": as_of, "summary": {}}
+        path = tmp_path / f"r{i}.json"
+        path.write_text(json.dumps({"run_id": f"r{i}", "final_text": json.dumps(report)}), encoding="utf-8")
+        files.append(path)
+    assert load(database, files) == 3
+
+    rows = query(database, "SELECT run_id, as_of, to_char(as_of AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') AS kst "
+                           "FROM stock_move_analyses ORDER BY run_id")
+    assert [(r["run_id"], r["kst"]) for r in rows] == [
+        ("r0", "2026-11-02 15:30"), ("r1", "2026-11-02 15:30"), ("r2", "2026-11-03 08:30")]
+    assert rows[0]["as_of"] == rows[1]["as_of"] == datetime(2026, 11, 2, 15, 30, tzinfo=KST)
+    assert rows[2]["as_of"] == datetime(2026, 11, 3, 8, 30, tzinfo=KST)
+
+
+def test_current_report_keeps_event_and_background_sources(database):
+    """지금 형식 보고서. 원인 한 문장(event)이 claim 칼럼에, 참고 항목 출처가 background 칼럼에 들어간다."""
+    alembic(database, "upgrade", "head")
+    assert load(database, [CURRENT]) == 1
+
+    claims = query(database, "SELECT f.claim, a.raw_json -> 'factors' -> f.order_index ->> 'event' AS event "
+                             "FROM stock_move_analysis_factors f JOIN stock_move_analyses a ON a.id = f.analysis_id")
+    assert claims and all(r["claim"] and r["claim"] == r["event"] for r in claims)
+
+    # 칼럼의 출처가 원본(raw_json)의 출처와 같다
+    same = query(database, """
+        SELECT bool_and(c.item -> 'sources' = r.item -> 'sources') AS same, count(*) AS n
+        FROM stock_move_analyses a,
+             LATERAL jsonb_array_elements(a.background -> 'bullish') WITH ORDINALITY c(item, i)
+             JOIN LATERAL jsonb_array_elements(a.raw_json -> 'background' -> 'bullish') WITH ORDINALITY r(item, i)
+               ON r.i = c.i
+    """)[0]
+    assert same["n"] > 0 and same["same"]

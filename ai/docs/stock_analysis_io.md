@@ -12,6 +12,7 @@
 | 러너가 정하는 칸(strength·판정 재계산, main_cause 고정 문장) | [app/services/stock_analysis/finalize.py](../app/services/stock_analysis/finalize.py) |
 | 스키마·규칙·근거 검증, 러너 계산 칸(judge_layers 등) | [app/services/stock_analysis/verify.py](../app/services/stock_analysis/verify.py) |
 | 종목 표(업종 라벨·유니버스 비중) | [app/services/stock_analysis/stock_meta.json](../app/services/stock_analysis/stock_meta.json) · [stock_meta.py](../app/services/stock_analysis/stock_meta.py) |
+| 시장 맥락 입력(`market_compare`, KRX) | [app/services/stock_analysis/market_compare.py](../app/services/stock_analysis/market_compare.py) · 계산 [app/services/market_data/context.py](../app/services/market_data/context.py) |
 | 러너(CLI) | [app/collectors/stock_analysis.py](../app/collectors/stock_analysis.py) |
 | 샘플 입력 | [tests/fixtures/stock_analysis/](../tests/fixtures/stock_analysis/) |
 
@@ -29,6 +30,11 @@
                                                                 relative 다시 쓰기)
 ```
 
+③ 바로 앞에서 KRX 로 시장 맥락을 계산해 입력 `market_compare` 칸에 넣는다(아래 「`market_compare`」). 기준 시각이 장 마감
+(평소 15:30, 늦춰지는 날은 그 시각) 전이면 넣지 않고, 장 마감 이후 시장 맥락이 ok 면 입력 `change_pct` 와 지수 등락률을
+KRX 등락률로 바꾼다. KRX 가 실패해도
+멈추지 않고 비교 문장만 빠진다.
+
 ```bash
 uv run python -m app.collectors.stock_analysis --input tests/fixtures/stock_analysis
 uv run python -m app.collectors.stock_analysis --input case.json --load
@@ -45,8 +51,9 @@ uv run python -m app.collectors.stock_analysis --input case.json --load
 
 ```
 runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해도 겹치지 않는다. 이미 있으면 멈춘다
-  inputs/<run_id>.json   받은 입력 바이트 그대로
-  parsed/<run_id>.json   실행 기록 래퍼 (아래 「래퍼」)
+  inputs/<run_id>.json        받은 입력 바이트 그대로
+  inputs_used/<run_id>.json   실제로 생성·검증에 쓴 입력(market_compare 를 넣고 KRX 로 덮어쓴 뒤). 검증을 다시 돌릴 때 쓴다
+  parsed/<run_id>.json        실행 기록 래퍼 (아래 「래퍼」)
 ```
 
 `run_id` 는 `<종목명>-<target_date>-<cutoff HHMM>__r<반복>` (예: `솔마루전자-2026-09-18-1530__r1`).
@@ -64,7 +71,7 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
   "target_date": "2026-09-18",                // 필수. YYYY-MM-DD
   "cutoff": "2026-09-18T15:30:00+09:00",      // 필수. 기준 시각. 이 시각까지의 메시지만 넣는다
   "change_pct": -4.2,                         // 필수. 숫자. 기준 시각의 등락률, 하락은 음수
-  "market": {                                 // 없으면 null
+  "market": {                                 // 없으면 null. 장 마감 이후 KRX ok 면 러너가 KRX 로 만든다(아래)
     "index": "코스피",
     "change_pct": -0.5,                       // 지수 등락률
     "as_of": "15:30",                         // 지수 수치의 시각 HH:MM. cutoff 와 같으면 종가
@@ -75,6 +82,7 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
     // judge_layers·common_move·move_strength_cap·market_led·move_comparison·universe_weight 는 넣지 않아도 된다.
     // 러너가 계산해 덮어쓴다(아래)
   },
+  // market_compare 는 넣지 않아도 된다. 러너가 code·target_date 로 KRX 에서 계산해 덮어쓴다(아래)
   "messages": [                               // 필수. 배열. 이미 종목·시간으로 걸러진 상태
     {
       "channel": "sample_channel_a",
@@ -82,7 +90,8 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
       "datetime_kst": "2026-09-18T08:10:00+09:00",
       "views": "1200",
       "text": "솔마루전자, 3분기 영업이익 잠정치 412억원… 시장 예상치 590억원 30% 하회",
-      "match": "direct",                      // direct: 이 종목을 직접 다룸(여러 소식 중 한 줄이라도) | indirect: 업황·경쟁사·전방산업만
+      "mention": "mentioned",                 // mentioned: 이 종목을 직접 다룸(여러 소식 중 한 줄이라도) | not_mentioned: 업황·경쟁사·전방산업만
+                                              // 옛 이름 match: direct|indirect 도 받는다(아래 「이전 형식 호환」)
       "kind": "news",                         // flow_rank | market_recap | theme_recap | news_digest | disclosure | news | other
       "after_prev_close": false,              // true 면 직전 거래일 장을 정리한 시황(오늘 원인이 아님)
       "first_seen_kst": null,                 // 직전 구간에 같은 내용이 처음 나온 시각. 없으면 null
@@ -112,11 +121,13 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
   `target_date` 는 run_id 를 거쳐 파일 이름이 되므로 형식이 틀리면 경로에 들어가기 전에 막는다.
 
 - `kind`·`after_prev_close`·`first_seen_kst` 는 입력 생성 단계가 붙인다. 러너 `check_input()` 은 보지 않는다.
-  그날 시장 시황·테마 동향 메시지가 종목과 상관없이 `match: indirect` 로 최대 3건 함께 들어온다.
+  그날 시장 시황·테마 동향 메시지가 종목과 상관없이 `mention: not_mentioned` 로 최대 3건 함께 들어온다.
+- 뉴스 기사도 메시지 하나로 넣는다(`kind: "news"`). `channel` 은 언론사, `url` 은 기사 주소, `text` 는 제목 + 빈 줄 + 본문이다.
 
 ### 러너가 모델에 보내는 입력 — `generate.model_input()`
 
-받은 입력을 그대로 보내지 않는다. `inputs/` 사본은 받은 바이트 그대로이고, 같은 함수로 언제든 다시 만들 수 있다.
+받은 입력을 그대로 보내지 않는다. 이 함수에 넘기는 입력은 `inputs_used/` 사본(시장 맥락을 넣고 KRX 로 덮어쓴 뒤)이고,
+그 사본으로 같은 함수를 부르면 언제든 다시 만들 수 있다. `inputs/` 사본은 받은 바이트 그대로라 덮어쓰기 전 값이다.
 검증·출처 대조는 나누기 전 입력 전체로 한다.
 
 - **메시지를 세 칸으로 나눈다**(`verify.split_messages`).
@@ -133,7 +144,88 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
   `universe_weight`, 아래). 입력에 값이 있어도 덮어쓴다. `market` 이 null 이면 넣지 않는다. 계산은 verify 의 함수 한 곳이고
   검증도 같은 함수를 본다.
 - **맨 위에 `sector`·`main_cause_sentences` 를 넣는다**(아래). `market` 과 상관없이 늘 넣는다.
+- **맨 위에 `market_compare` 를 넣는다**(아래). 이 칸은 `model_input()` 이 아니라 러너가 생성 전에 입력에 넣는다.
+  입력에 값이 있어도 덮어쓴다.
 - `move_case` 는 모델에 보내지 않는다. 래퍼 `move_case` 와 러너 집계에만 남긴다.
+
+#### `market_compare` — 코스피·동종 그룹 비교
+
+러너가 `code`·`target_date` 로 KRX 장 마감 확정 데이터(코스피 지수, 유가증권 전 종목)를 받아 계산한다
+(`market_compare.MarketCompare` → `market_data.build_market_context`). 형식은 프롬프트 1부 그대로다 — 비교 판정
+`kospi.kospi_basis`(`kospi` | `kospi_ex_self`, 코스피 비중 10% 이상이면 자기 제외 코스피)·`kospi.kospi_relation`
+(`follows` | `opposite` | `diverges` | null)과 그룹마다 `peers[].relation`(`follows` | `opposite` | `diverges` | `inconclusive` | null).
+`opposite` 는 차이가 기준 안이지만 오르내린 방향이 반대인 날이다(보합 0.00 은 방향 없음). 판정 기준은
+`market_data/context.py` 상수(`KOSPI_EX_SELF_WEIGHT_PCT`, `KOSPI_FOLLOW_THRESHOLD_PP`, `GROUP_FOLLOW_THRESHOLD_PP`)다.
+프롬프트에 없는 계산 칸(비중 분모, 재계산 코스피, `weight_basis`)은 보내지 않고, `members_used` 는 `{code, name}` 으로 바꾼다.
+
+```jsonc
+// KB금융 2026-10-29 (실제 KRX 응답으로 계산)
+"market_compare": {
+  "status": "ok",                    // ok | no_data | stock_not_found | no_trades
+  "status_reason": null,
+  "kospi": { "stock_change_rate_pct": 1.82, "kospi_change_rate_pct": -1.24, "excess_vs_kospi_pp": 3.06,
+             "kospi_weight_pct": 1.14, "kospi_contribution_pp": 0.021, "kospi_ex_self_change_rate_pct": -1.28,
+             "excess_vs_kospi_ex_self_pp": 3.1, "kospi_basis": "kospi", "kospi_relation": "diverges" },
+  // 그룹 등락률은 신한지주 0.80·우리금융지주 3.01·하나금융지주 3.82 의 중앙값. 평균(2.54)이었으면 초과분 −0.72%p 로 follows 였다
+  "peers": [ { "group": "은행지주", "median_change_rate_pct": 3.01, "excess_vs_group_pp": -1.19, "peer_count": 3,
+               "relation": "diverges",
+               "members_used": [ { "code": "055550", "name": "신한지주" }, … ],
+               "members_excluded": [ { "code": "105560", "name": "KB금융", "reason": "self" } ] } ]
+}
+```
+
+- **KRX 는 실행 하나 안에서 기준일마다 한 번** 부른다(코스피 지수·전 종목 한 번씩, 코스피가 없는 날은 지수만). 같은 날 보고서는
+  그 응답을 함께 쓰고 종목마다 계산만 따로 한다. 동시에 들어온 같은 날 보고서도 같은 호출을 기다린다.
+- **실패해도 보고서는 만든다.** KRX 호출 실패·응답 깨짐·`KRX_AUTH_KEY` 없음·계산 불가면 칸이 `null` 이고 사유는 래퍼
+  `market_compare_error` 에 남는다. 실패도 기준일마다 한 번만 시도하고 그 날 보고서 모두 같은 사유를 쓴다.
+- **예상 밖 예외도 실행을 멈추지 않는다.** 시장 맥락에서 난 예외는 종류와 상관없이 여기서 멈춘다 — KRX 응답 처리에서 났으면 그
+  날짜 보고서 모두, 종목별 계산·입력 덮어쓰기에서 났으면 그 보고서만 시장 맥락 실패다(칸 `null`, 입력 등락률 그대로).
+  예상한 실패(`market_compare.EXPECTED_ERRORS` — `RuntimeError`·`ValueError`, `KrxError` 등 포함)가 아니면
+  (`AttributeError`·`ZeroDivisionError`·`KeyError` …) 래퍼 `market_compare_unexpected: true`, traceback 이 붙은 ERROR 로그,
+  러너 요약의 「예상 밖 예외」 줄로 드러낸다. 코드 버그나 KRX 응답 모양이 바뀐 것이다.
+- 기준일 데이터가 없으면(당일·휴장일, KRX 는 T+1) 실패가 아니라 `status: "no_data"` 인 칸이 간다.
+- `null`·`no_data`·`stock_not_found`·`no_trades` 면 프롬프트 3단계 「비교 수치」가 비교 문장을 쓰지 않게 한다. 나머지는 그대로다.
+
+##### 기준 시각과 입력 등락률
+
+KRX 는 장 마감 확정 데이터뿐이다. 기준 시각(`cutoff`)이 장 마감 전이면 그날 종가는 기준 시각 뒤의 일이고, 장 마감 이후면
+입력 `change_pct` 와 KRX 등락률이 한 입력에 함께 있어 어긋날 수 있다. 그래서 `cutoff` 를 `target_date` 의 장 마감
+(`market_compare.market_close` — 평소 `MARKET_CLOSE` = 15:30 KST, `LATE_CLOSE` 에 있는 날은 그 시각)과 견줘
+정한다(`market_compare.after_close`). 날짜까지 함께 보므로 다음 날 아침
+기준 시각은 장 마감 이후다. 시간대가 다른 `cutoff` 도 KST 로 맞춰 본다.
+
+| 경우 | `market_compare` | `change_pct`·`market.excess_pct` | 래퍼 |
+| --- | --- | --- | --- |
+| `cutoff` < 15:30 (15:29 포함) | `null`. KRX 를 부르지 않는다 | 입력 그대로 | `market_compare_skipped: "BEFORE_CLOSE"` |
+| `cutoff` ≥ 15:30, status `ok` | 계산한 칸 | `change_pct` ← `kospi.stock_change_rate_pct`(KRX 등락률). 입력 `market.change_pct`(지수)가 있으면 그 값과 `as_of` 도 KRX 로 바꾼다. 입력 `market.peer_median_pct` 가 있으면 대형주 비교 수치와 `excess_pct` 도 KRX 로 다시 낸다. 입력 `market` 이 null 이면 KRX 로 새로 만든다(아래) | `change_pct_override` 에 원래 값·다시 계산한 값·출처, `market` 을 새로 만들었으면 `market_created: true` |
+| `cutoff` ≥ 15:30, `no_data`·`no_trades`·`stock_not_found` | status 만 있는 칸 | 입력 그대로 | — |
+| `cutoff` ≥ 15:30, KRX 실패 | `null` | 입력 그대로 | `market_compare_error` 에 사유 |
+
+- 바꾼 값은 모델 입력뿐 아니라 러너 계산 칸(`judge_layers`·`common_move`·`move_case` 등), 검증(`CHANGE_PCT_MISMATCH` 포함),
+  정형 보고서에도 그대로 쓰인다. `inputs/` 사본은 받은 바이트 그대로라 바꾸기 전 값이고, 바꾼 뒤 입력은 `inputs_used/` 사본이다.
+- `no_trades` 의 등락률 0.00 은 보합이 아니라 거래가 없던 것이라 덮어쓰지 않는다.
+- **대형주 비교 수치도 KRX 로 맞춘다.** 입력 `peer_median_pct`·`peer_up`·`peer_down`·`peer_total` 은 입력을 만든 쪽 시세라
+  `change_pct` 만 바꾸면 `excess_pct` 가 두 출처를 섞는다. 입력에 `peer_median_pct` 가 있으면 이미 받아 둔 KRX 전 종목
+  응답으로 대형주 유니버스(`stock_meta.json` 의 `universe_weight` 가 있는 20종목, `stock_meta.universe_codes`)를 다시 센다
+  (`market_compare.universe_peers`).
+  - 대상 종목 자신, 응답에 없는 종목(`missing`), 거래정지(`no_trades`), 등락률 빈 칸(`no_rate`)은 뺀다.
+  - 중간값은 소수 둘째 자리. 보합(0.00)은 `peer_total` 에만 들고 `peer_up`·`peer_down` 에는 들지 않는다.
+  - `excess_pct` ← 새 `change_pct` − 새 `peer_median_pct`.
+  - 쓸 종목이 하나도 없으면 `peer_median_pct`·`peer_up`·`peer_down`·`peer_total`·`excess_pct` 를 모두 null 로 둔다.
+    입력 중간값으로 `excess_pct` 를 다시 내면 종목은 KRX, 대형주는 입력 시세라 두 출처가 섞인다. 키는 지우지 않는다
+    (프롬프트 1부 스키마 "없으면 null"). 래퍼 `change_pct_override` 에는 `peers.krx`·`excess_pct.recomputed` 가 null 로 남는다.
+  - 입력 `market` 이 있는데 `peer_median_pct` 가 없으면 대형주 비교 수치를 건드리지 않는다. 없던 비교를 새로 켜지 않는다.
+- **입력 `market` 이 null 이면 KRX 로 만든다.** 분류 어댑터 입력은 `market` 이 null 이라, 안 만들면 `excess_pct` 로 판단하는
+  상대 층과 `summary.move` 의 비교 문장이 꺼진다. `index` `"코스피"`, `change_pct` ← `kospi.kospi_change_rate_pct`, `as_of` ← 그날
+  장 마감 시각, `url` `""`, 대형주 비교 수치는 위와 같이 유니버스로 세고 `excess_pct` ← 새 `change_pct` − 새 `peer_median_pct`.
+  쓸 종목이 하나도 없으면 `peer_*`·`excess_pct` 는 null 이다(위와 같다). 래퍼 `change_pct_override.market_created` 가 `true` 다.
+  장 마감 전·KRX 실패·`ok` 가 아닌 status 면 null 그대로다.
+- **지수 등락률도 KRX 로 맞춘다.** 입력 `market.change_pct` 가 숫자면 `kospi.kospi_change_rate_pct`(KRX 코스피 등락률)로,
+  `market.as_of` 는 그날 장 마감 시각(`"15:30"`, 늦춰지는 날은 그 시각)으로 바꾼다. 안 바꾸면 모델 입력에 출처·시각이 다른
+  코스피 등락률이 둘 있고, 정형 보고서 `summary.move` 도 입력 값을 쓴다. 입력 지수 등락률이 null 이거나 없으면 건드리지 않는다.
+- **장 마감이 늦춰지는 날**(수능일 등)은 `market_compare.LATE_CLOSE` 에 날짜와 마감 시각을 적는다. 지금은 2026-11-19
+  (16:30)뿐이다. **매년 추가 필요** — 거래소가 그해 수능일 장 운영 시간을 공지하면 넣는다. 빠뜨리면 그날은 15:30 으로
+  판정해, 장중 기준 시각에 늦춰진 마감의 종가가 들어간다.
 
 `judge_layers` — 층마다 이 입력에서 원인을 판단하는가. `false` 인 층에는 link 를 달지 않고 그 층 판정은 `no_clear_cause`.
 
@@ -186,7 +278,7 @@ judge 재시도 대상이다.
 
 ### 직접 언급·테마 동향이 0건이면 — 정형 보고서
 
-`messages` 칸에 `match: "direct"` 메시지와 `kind: "theme_recap"` 메시지가 하나도 없으면(시장 시황·매매 순위만 있어도) LLM 을 부르지 않고
+`messages` 칸에 `mention: "mentioned"` 메시지와 `kind: "theme_recap"` 메시지가 하나도 없으면(시장 시황·매매 순위만 있어도) LLM 을 부르지 않고
 `generate.canned_report()` 로 정형 보고서를 낸다. 두 판정 `no_clear_cause`, `factors`·`background`·`terms`·`events` 는 비고,
 `summary.move` 는 입력 숫자로 채운 문장, `main_cause` 는 "제공된 메시지에서 확인된 원인은 없습니다."(`common_move` 날은
 앞에 "대형주 전반이 함께 오른/내린 날이었습니다."), `unexplained` 는 "이 종목을 직접 다룬 소식이 수집되지 않았습니다."
@@ -218,7 +310,9 @@ LLM 을 부른다(`generate.needs_llm`).
   "ticker": "999990",
   "name": "솔마루전자",
   "date": "2026-09-18",
-  "as_of": "15:30",                       // cutoff 의 HH:MM
+  "as_of": "2026-09-18T15:30:00+09:00",   // 입력 cutoff 그대로(메시지를 자른 시각). 러너가 넣는다
+  "display_as_of": "2026-09-18T15:30:00+09:00",  // 화면 기준 시각. 장 마감 뒤면 target_date 장 마감 시각. 러너가 넣는다
+  "display_is_close": true,               // 장 마감 기준인가. 장중 cutoff 면 false
   "change_pct": -4.2,                     // 입력 값을 옮긴 것 (0.01 차이까지 허용)
   "verdict": "explained",                 // explained | partially_explained | no_clear_cause
   "relative_verdict": "partially_explained",
@@ -243,7 +337,7 @@ LLM 을 부른다(`generate.needs_llm`).
           "url": "https://t.me/sample_channel_a/101",  // 입력 messages[].url 그대로
           "datetime_kst": "2026-09-18T08:10:00+09:00",
           "quote": "3분기 영업이익 잠정치 412억원",      // 메시지 text 글자 그대로, 40자 이내
-          "match": "direct",                           // 입력 값 그대로
+          "mention": "mentioned",                      // 입력 값 그대로
           "is_market_recap": false                     // 입력 kind 가 market_recap·theme_recap 이면 true. 검증은 입력 kind 를 본다
         }
       ],
@@ -290,8 +384,8 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verdict`, `relative_verdict` | `explained`, `partially_explained`, `no_clear_cause` | 그 층 link 중 `sufficient` 1개 이상 → `explained`, link 는 있으나 전부 `partial`/`insufficient` → `partially_explained`, link 없음 → `no_clear_cause` |
 | `factors[].stance` | `bullish`, `bearish`, `neutral` | |
 | `links[].layer` | `move`, `relative` | |
-| `links[].strength` | `sufficient`, `partial`, `insufficient` | 모델에는 "출처 중 하나라도 direct 이고 방향이 맞으면 `sufficient`, 아니면 `partial`" 로 쓰게 한다. **최종 값은 러너가 다시 정한다** — 사건의 이슈가 direct 메시지에서 나왔는가 기준(아래 「러너가 정하는 칸」 `strength_recomputed`). 반대 재료는 낮추지 않는다(counter 로). `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial` 이 상한 |
-| `sources[].match` | `direct`, `indirect` | |
+| `links[].strength` | `sufficient`, `partial`, `insufficient` | 모델에는 "출처 중 하나라도 mentioned 이고 방향이 맞으면 `sufficient`, 아니면 `partial`" 로 쓰게 한다. **최종 값은 러너가 다시 정한다** — 사건의 이슈가 mentioned 메시지에서 나왔는가 기준(아래 「러너가 정하는 칸」 `strength_recomputed`). 반대 재료는 낮추지 않는다(counter 로). `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial` 이 상한 |
+| `sources[].mention` | `mentioned`, `not_mentioned` | 옛 값 `match: direct\|indirect` 는 검증 전에 옮긴다(「이전 형식 호환」) |
 | `events[].placed` | `factors`, `background`, `dropped` | 모델은 `factors`·`background` 만. `dropped` 는 러너가 quote 실패로 뺀 항목 |
 | `events[].reason` | `quote_verify_fail` | `dropped` 일 때만. 러너만 쓴다(repair) |
 
@@ -321,6 +415,30 @@ LLM 을 부른다(`generate.needs_llm`).
 옛 보고서처럼 factor 에 `links` 대신 `layer`·`size_fit`·`direction_match`·`claim` 이 직접 있으면,
 검증 전에 `normalize_report()` 가 `links` 하나로 옮긴다(`note: null`, `converted: true`).
 
+**`match` → `mention` (2026-11).** 메시지·출처의 `match: direct|indirect` 를 `mention: mentioned|not_mentioned` 로
+바꿨다. 뜻은 같다. 분류 모듈(PR #81)의 `DIRECT` 는 산업 기사도 포함해 뜻이 다른데 이름이 같아 헷갈렸다.
+옛 값은 읽을 때 새 값으로 옮긴다. 규칙은 `verify.LEGACY_MENTIONS` 한 곳에 있다.
+
+| 옛 값 | 새 값 |
+| --- | --- |
+| `match: "direct"` | `mention: "mentioned"` |
+| `match: "indirect"` | `mention: "not_mentioned"` |
+
+- `mention` 이 있으면 그것을 쓰고 `match` 는 무시한다. 둘 다 없으면 값이 없는 것이다(스키마가 `SCHEMA_MISSING`).
+- 위 표 밖의 옛 값은 바꾸지 않고 `mention` 으로만 옮긴다. 스키마가 `SCHEMA_VALUE` 로 잡는다.
+- 보고서 — `normalize_report()` 가 factor·background 출처의 `match` 를 같은 자리의 `mention` 으로 옮긴다.
+  검증 함수마다 처음에 부르므로 옛 보고서도 같은 규칙으로 판정한다. 원본은 고치지 않는다. 출처를 읽는
+  나머지 곳(repair 의 다시 쓰기 입력, 적재)은 `mention_of()` 로 읽는다.
+- 입력 — `generate.model_input()` 이 `verify.normalize_payload()` 로 세 칸 메시지 모두 `mention` 으로 옮겨 보낸다
+  (프롬프트는 `mention` 만 설명한다). 검증은 메시지를 `verify.mention_of()` 로 읽어 옛 입력도 같은 값으로 본다.
+  `inputs/`·`inputs_used/` 사본은 받은 그대로라 옛 입력이면 `match` 가 남는다.
+- DB — `stock_move_analysis_factor_sources.match` 칼럼은 이름도 값도 옛 그대로(`direct`·`indirect`)다. 적재
+  (`repositories.stock_move_analysis`)는 `mention_of()` 로 읽은 값을 위 표의 반대 방향으로 바꿔 넣는다(`MENTION_TO_MATCH`).
+  이름을 바꾸기 전에 적재한 행과 한 칼럼에 두 어휘가 섞이지 않아, 읽는 쪽은 바꿔 읽지 않아도 된다. 목록 밖 값은 그대로
+  들어간다. `raw_json` 은 보고서 원본 그대로다(새 보고서면 `mention`, 옛 보고서면 `match`).
+- 바꾸지 않은 이름 — 경고 코드 `DIRECT_SOURCE_MISSING`, 래퍼 `skipped_llm: "NO_DIRECT_MESSAGES"` 는 쌓인 래퍼·DB
+  `verify_error` 와 집계가 이어지도록 그대로 둔다. 이슈의 `relation: "direct"` 는 다른 칸(1-2 이슈 관련)이라 그대로다.
+
 ---
 
 ## 3. 래퍼 — `runs/.../parsed/<run_id>.json`
@@ -342,6 +460,10 @@ LLM 을 부른다(`generate.needs_llm`).
 | `issue_trace` | 모델이 낸 이슈 목록 |
 | `move_case` / `judge_layers` / `common_move` / `move_strength_cap` / `market_led` / `move_comparison` | 러너가 계산한 값(`market` 이 null 이면 null). `move_case` 는 모델에 보내지 않는다 |
 | `main_cause_sentences` / `sector` / `universe_weight` | 모델 입력 맨 위·market 에 넣은 값(종목 표에 없으면 `sector`·`universe_weight` 는 null) |
+| `market_compare` / `market_compare_error` | 모델에 보낸 `market_compare` 칸과, KRX 호출·계산·입력 덮어쓰기가 실패해 칸이 null 일 때 그 사유(`"KrxError: …"` 처럼 `<예외 이름>: <메시지>`). 성공·`no_data`·장 마감 전이면 사유는 null. `inputs/` 사본에는 이 칸이 없고 `inputs_used/` 사본에는 있다 |
+| `market_compare_error_type` / `market_compare_unexpected` | 실패한 예외 이름(`"KrxError"`, `"AttributeError"` …, 실패가 아니면 null)과 그것이 예상 밖 예외(`RuntimeError`·`ValueError` 계열이 아님)인지(`true`/`false`) |
+| `market_compare_skipped` | 기준 시각이 장 마감(평소 15:30, `LATE_CLOSE` 날은 그 시각) 전이라 시장 맥락을 넣지 않았으면 `"BEFORE_CLOSE"`, 그 밖 null |
+| `change_pct_override` | 장 마감 이후 시장 맥락이 ok 라 입력 등락률을 바꿨을 때 `{input, krx, source, market_created, index, peers, excess_pct}`, 그 밖 null. `market_created` 는 입력 `market` 이 null 이라 KRX 로 새로 만들었으면 `true`(그때 `index`·`peers`·`excess_pct` 의 `input` 안 값은 모두 null). `source` 는 `"KRX /sto/stk_bydd_trd <target_date> FLUC_RT"`. `index` 는 `{input: {change_pct, as_of}, krx: {change_pct, as_of}, source: "KRX /idx/kospi_dd_trd <target_date> 코스피 FLUC_RT"}`, 입력 지수 등락률이 없어 바꾸지 않았으면 null. `peers` 는 `{input: {peer_median_pct, peer_up, peer_down, peer_total}, krx: 같은 모양 \| null(쓸 종목 없음), excluded: [{code, reason}]}`, `excess_pct` 는 `{input, recomputed}`. 입력에 `peer_median_pct` 가 없어 다시 계산하지 않았으면 둘 다 null |
 
 ### 검증 결과
 
@@ -350,7 +472,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verify_status` | `passed` / `failed`. 스키마·규칙·근거 중 하나라도 걸리면 failed |
 | `verify_problems` | `"<코드>: <상세>"` 문자열 배열 (예: `QUOTE_NOT_IN_SOURCE: factors[0].sources[0] ...`) |
 | `events_status` / `events_problems` | `events` 칸 검사. `passed` / `failed` / `missing`. 판정과 별개. 형식(`SCHEMA_*`, `EVENT_REASON_MISMATCH`)과 실제 칸 대조: `EVENT_BACKGROUND_REF_MISSING`·`_REF_DUPLICATE`·`_UNREFERENCED`(background 항목과 사건이 하나씩 짝), `EVENT_FACTOR_COUNT`·`_REF_MISSING`·`_DUPLICATE`, `ISSUE_ID_DUPLICATE` |
-| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`·`RELATIVE_STALE`(근거를 뺐는데 그 칸을 다시 쓰지 못함), `REPAIR_SKIPPED_OVER_CAP`(개수 상한을 넘어 quote 고쳐 쓰기를 하지 않음), `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 direct 메시지에서 나왔는데 출처에 direct 가 없음), `MAIN_CAUSE_TOO_LONG`(최종 main_cause 가 러너 고정 문장 포함 3문장 초과. 자르지 않음), `STRENGTH_MISMATCH`(모델 strength 가 정의와 어긋남 — 사건 이슈가 direct(입력 match) 메시지에서 나왔는데 partial, 아닌데 sufficient. issue_trace 가 없으면 출처로 봄. 미확인·대형주 몫 상한은 예외) |
+| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`·`RELATIVE_STALE`(근거를 뺐는데 그 칸을 다시 쓰지 못함), `REPAIR_SKIPPED_OVER_CAP`(개수 상한을 넘어 quote 고쳐 쓰기를 하지 않음), `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 mentioned 메시지에서 나왔는데 출처에 mentioned 가 없음), `MAIN_CAUSE_TOO_LONG`(최종 main_cause 가 러너 고정 문장 포함 3문장 초과. 자르지 않음), `STRENGTH_MISMATCH`(모델 strength 가 정의와 어긋남 — 사건 이슈가 mentioned(입력 mention) 메시지에서 나왔는데 partial, 아닌데 sufficient. issue_trace 가 없으면 출처로 봄. 미확인·대형주 몫 상한은 예외), `COMPARE_META_PHRASE`(독자가 읽는 칸 — summary, factor event·detail·links note, background text — 에 비교 판정의 안쪽 말 "판정하기 어렵"·"기준 시장"·"비교 종목이 하나뿐" 이 있음. quote 는 보지 않음) |
 | `issue_trace_warnings` / `issue_trace_stats` | `ISSUE_TRACE_MISSING_URL`(messages 칸 누락)·`ISSUE_ID_UNKNOWN` 경고와 집계(`messages_traced`, `messages_total`, `relations`, `issues_used`) |
 
 ### 재시도·고쳐 쓰기 기록
@@ -359,12 +481,13 @@ LLM 을 부른다(`generate.needs_llm`).
 | --- | --- |
 | `json_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {json_status, asked_question, raw_text, usage, cost, duration_ms}}`. 정상 종료인데 JSON 이 깨졌을 때만 1회 재호출 |
 | `judge_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {problems, final_text, json_retry, usage, cost, duration_ms}}`. 열린 보고서가 `judge_layers` 가 false 인 층에 link·판정을 달았거나(`FLAT_*`) `move_strength_cap` 을 어겼을 때(`MOVE_SUFFICIENT_STOCK_ONLY`) 같은 입력으로 1회 재호출. 비용은 `cost` 에 합친다 |
-| `timeouts` | 시간 제한(`SUMMARY_TIMEOUT_SEC`, 기본 420초)에 걸린 시도마다 `{error, seconds}`. 스트림 끊김과 합쳐 1회 재시도하고, 다시 걸리면 `LLM_ERROR` |
-| `stream_interruptions` | 끊긴 시도마다 `{partial_chars, error}`. 끊김은 1회 재전송 |
+| `llm_retries` | LLM 클라이언트(`app/llm/client.complete`)가 실패해 다시 보낸 시도마다 `{attempt, kind, error, elapsed_sec, wait_sec, partial_chars}`. `kind` 는 `http_429`·`http_5xx`·`connect`·`timeout`·`stream`. 처음 1번에 `LLM_MAX_RETRIES`(기본 2)번까지 다시 보내고, 대기는 `LLM_RETRY_BACKOFF_SEC`×2^(n-1)초(기본 2초, 4초, 상한 `LLM_RETRY_BACKOFF_MAX_SEC`). 429 를 뺀 4xx 와 응답 형식 오류는 다시 보내지 않는다. 끝내 실패하면 `LLM_ERROR`(스트림 끊김이면 `STREAM_INTERRUPTED`) |
+| `timeouts` | 시간 제한(`SUMMARY_TIMEOUT_SEC`, 기본 420초)에 걸린 시도마다 `{error, seconds}`. `llm_retries` 중 `kind: timeout` 만 옮긴 칸이다 |
+| `stream_interruptions` | 끊긴 시도마다 `{partial_chars, error}`. `llm_retries` 중 `kind: stream` 만 옮긴 칸이다. 끊긴 시도는 usage 를 받지 못해 `cost` 에 들어가지 않는다 |
 | `repair_limit` | `{hit, factors, background, max_items}`. factor 가 4개를, background 전체가 6개를 넘으면 `hit: true` 이고 quote 고쳐 쓰기를 하지 않는다(비용 상한). 틀린 quote 는 남아 검증에서 실패하고 경고 `REPAIR_SKIPPED_OVER_CAP` 이 붙는다. 상한 안이면 repair 대상은 많아야 `max_items`(10)개 |
 | `quote_repair` | quote 가 원문에 없던 factor·background 항목마다 `{kind, result: fixed\|dropped, failed, retry_failed, quotes, rejected, ...}`(background 는 `slot` 도). repair 는 quote(sources)만 고친다. 다시 쓴 event(background 는 text)가 원래와 한 글자라도 다르면 `rejected: "event_changed"` 로 받지 않고 뺀다. 다시 써도 없으면 항목을 빼고 그 항목을 가리키던 `events` 사건을 `dropped`/`quote_verify_fail` 로 바꾼다(뒤 항목의 순번은 당긴다). counter 가 요약하는 칸(하락일 `bullish`, 상승일 `bearish`) 항목을 빼거나 background 가 모두 비면 `summary.counter` 를 null 로 두고 `counter_cleared: true` 를 남긴다(다시 쓰지 않는다) |
 | `main_cause_rewrite` | 뺀 factor 에 `move` link 가 있었을 때 `{result: rewritten\|failed, dropped, before, after, cost, error}`. 남은 등락 층 근거만으로 `main_cause_sentences` 문장 이하로 1회 다시 쓴다. 다시 쓴 문장에도 finalize 가 고정 문장을 붙인다. failed 면 경고 `MAIN_CAUSE_STALE` |
-| `relative_rewrite` | 뺀 factor 에 `relative` link 가 있었고 `summary.relative` 가 있을 때 `{result: rewritten\|cleared\|failed, ...}`(같은 형태). 남은 상대 층 근거로 3문장 이하로 1회 다시 쓴다. 남은 상대 층 근거가 없으면 LLM 을 부르지 않고 null 로 둔다(`cleared`). failed 면 경고 `RELATIVE_STALE` |
+| `relative_rewrite` | 뺀 factor 에 `relative` link 가 있었고 `summary.relative` 가 있을 때 `{result: rewritten\|cleared\|failed, ...}`(같은 형태). 남은 상대 층 근거와 모델에 보낸 `market_compare` 로 3문장 이하로 1회 다시 쓴다. `kospi_ex_self` 날 "<종목명>을 뺀 코스피" 에 쓰도록 입력 종목명(`stock`)도 함께 보낸다. 첫 문장의 코스피·그룹 비교는 빠진 근거와 상관없어 지우지 않는다 — 남은 상대 층 근거가 없어도 쓸 그룹 비교(`status: ok` 이고 `peers[].relation` 이 null 이 아닌 그룹이 있음)가 있으면 비교 문장만 남게 다시 쓴다. 남은 근거도 쓸 그룹 비교도 없으면 LLM 을 부르지 않고 null 로 둔다(`cleared`). 코스피 판정만 있는 날은 relative 에 비교 문장을 쓰지 않으므로(코스피 판정 문장은 `move`) 여기에 들어간다. 다시 쓴 응답이 null 이어도 `cleared` 다. failed 면 경고 `RELATIVE_STALE` |
 
 ### 러너가 정하는 칸 (`finalize`)
 
@@ -372,16 +495,17 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
 
 | 키 | 뜻 |
 | --- | --- |
-| `strength_recomputed` | link 마다 `{factor, layer, model, final, basis}`. 그 factor 사건의 이슈(`events.issue_ids` → `issue_trace`)가 하나라도 입력 match=direct 메시지에서 나왔으면 `sufficient`, 아니면 `partial`(`basis: "issues"`, DIRECT_SOURCE_MISSING 과 같은 판단 `verify.factor_has_direct`). issue_trace 가 없거나 사건에 issue_ids 가 없으면 출처로 본다(`basis: "sources"`). `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial`. `insufficient`·`direction_match: false` link 는 그대로 둔다. 경고 `STRENGTH_MISMATCH` 는 `model` 값을 같은 정의로 본다 |
+| `strength_recomputed` | link 마다 `{factor, layer, model, final, basis}`. 그 factor 사건의 이슈(`events.issue_ids` → `issue_trace`)가 하나라도 입력 mention=mentioned 메시지에서 나왔으면 `sufficient`, 아니면 `partial`(`basis: "issues"`, DIRECT_SOURCE_MISSING 과 같은 판단 `verify.factor_has_direct`). issue_trace 가 없거나 사건에 issue_ids 가 없으면 출처로 본다(`basis: "sources"`). `unconfirmed: true` 와 `move_strength_cap` 이 partial 인 날 등락 층은 `partial`. `insufficient`·`direction_match: false` link 는 그대로 둔다. 경고 `STRENGTH_MISMATCH` 는 `model` 값을 같은 정의로 본다 |
 | `verdict_recomputed` | `[{key: verdict\|relative_verdict, model, final}]`. 검증 판정표 그대로 — 그 층 link 에 `sufficient` 가 있으면 `explained`, link 가 있으면 `partially_explained`, 없으면 `no_clear_cause`(`finalize.layer_verdict`). `judge_layers` 가 false 인 층은 link 가 없으면 이 표로도 `no_clear_cause` 다. link 가 남아 있으면 판정만 바꾸지 않는다 — 판정만 no_clear_cause 로 두면 검증 사유가 실제 잘못(그 층 link, `FLAT_*`)이 아니라 `VERDICT_SIZE_FIT` 로 바뀌어 가려진다 |
 | `main_cause_fixed` | `common_move`·`market_led` 날 `{before, after}`, 그 밖 null. 앞에 "대형주 전반이 함께 오른(내린) 날이었습니다.", `common_move` 날은 끝에 "이 종목만의 원인은 따로 확인되지 않았습니다." 를 붙인다. 모델이 같은 문장을 썼으면 지우고 한 번만 붙인다 |
+| `as_of_fixed` | LLM 경로에서 모델이 적은 `as_of` 가 입력 `cutoff` 와 다르면 `{before, after}`, 같으면 null. `as_of` 는 `cutoff` 로 덮어쓰고 `display_as_of`·`display_is_close` 는 러너가 항상 넣는다 |
 
 ### 운영 지표
 
 `provider`, `model`, `stream`, `max_completion_tokens`, `reasoning_effort`, `usage`, `input_tokens`,
 `cost`, `cost_currency`, `cost_basis`(`provider`|`token_rates`|`unavailable`), `cost_rates`,
 `truncation`(잘렸을 때만), `duration_ms`, `prompt_name`, `prompt_sha256`, `generated_at`(KST ISO 8601),
-`input_path`, `input_original_path`, `input_sha256`.
+`input_path`, `input_used_path`(`inputs_used/` 사본, 실행 디렉터리 기준 상대 경로), `input_original_path`, `input_sha256`(받은 바이트).
 
 ---
 
@@ -402,12 +526,20 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
   "warning_counts": { "issue_trace_warnings": 3, "events_problems": 1, "verify_warnings": 4 },  // 경고 건수 합
   "retried": { "json_retry": 0, "judge_retry": 1 },  // LLM 을 다시 부른 회차 수
   "skipped_llm": 1,                                  // 정형 보고서 회차 수
+  // 시장 맥락 status 별 보고서 수(나온 것만). before_close 는 장 마감 전이라 넣지 않음, failed 는 KRX 실패로 칸이 null
+  "market_compare": { "before_close": 1, "failed": 1, "ok": 7 },
+  "change_pct_overridden": 7,                        // 입력 change_pct 를 KRX 등락률로 바꾼 보고서 수
+  "market_compare_errors": { "AttributeError": 1 },  // 시장 맥락 실패의 예외 종류별 보고서 수
+  "market_compare_unexpected": 1,                    // 그중 예상 밖 예외인 보고서 수
   "issue_trace_messages": { "traced": 30, "total": 31 },
   "loaded": null                                     // --load 면 적재 건수
 }
 ```
 
 보고서마다 찍는 줄 끝에 `issue_trace_warnings=… events_problems=… verify_warnings=…` 건수가 붙는다.
+끝에 `시장 맥락 (ok 밖은 비교 문장 없이 만듦): before_close=… ok=… · change_pct 를 KRX 등락률로 바꿈: …` 줄을 찍는다.
+실패가 있으면 `시장 맥락 실패 종류: KrxError=…` 줄이 붙고, 예상 밖 예외가 있으면 그 줄 끝에
+`· 예상 밖 예외 N건 — 로그의 traceback 을 확인한다` 가 붙는다.
 
 종료 코드: 호출 자체가 실패한 건(`errors`)이 있으면 1. 검증 실패는 데이터라 0.
 
@@ -418,5 +550,8 @@ quote 고쳐 쓰기 뒤, 검증 앞에서 러너가 다시 정한다. 정형 보
 - **DB 적재는 아직 옛 형식 기준이다.** `stock_move_analyses` 에는 `relative_verdict`, `summary.relative`,
   `links` 를 담는 칼럼이 없다. 새 칸은 `raw_json` 에만 들어간다. 백엔드가 두 층을 화면에 내려면 적재 쪽 스키마 정리가 먼저 필요하다.
 - 보고서 JSON 키는 **snake_case** 다. 루트 CLAUDE.md 의 camelCase 규약은 백엔드 응답 직렬화에서 맞춘다.
-- `as_of` 는 `"HH:MM"` 문자열이다. 적재 시 `target_date` 와 합쳐 KST aware datetime 으로 저장한다.
-- `not_found`, `events`, `sources[].match`, `sources[].is_market_recap` 은 검수용이라 화면에 내지 않는다.
+- `as_of` 는 입력 `cutoff` 그대로(ISO 8601)이고 적재 시 그대로 DB `as_of` 가 된다. 이전 보고서는 `"HH:MM"` 이라
+  `target_date` 와 합쳐 KST aware datetime 으로 저장한다.
+- 화면에 띄울 기준 시각은 `as_of` 가 아니라 `display_as_of`·`display_is_close` 다. cutoff 가 다음 날 08:30 이어도
+  `display_as_of` 는 target_date 장 마감 시각이다. 두 칸은 DB 칼럼이 없고 `raw_json` 에만 있다.
+- `not_found`, `events`, `sources[].mention`, `sources[].is_market_recap` 은 검수용이라 화면에 내지 않는다.

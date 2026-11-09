@@ -1,0 +1,70 @@
+{
+  "name": "mock — 테스트용. 연결·관계는 실제 확인한 것이 아니다. A~D사(9000xx)는 CLASSIFICATION_DB_DRAFT 5-1 예시의 가상 회사",
+  "industries": [
+    {"code": "krx_electronics", "name": "전기전자", "parent": null, "aliases": []},
+    {"code": "semiconductor", "name": "반도체", "parent": "krx_electronics", "aliases": ["반도체 업황"]},
+    {"code": "memory", "name": "메모리반도체", "parent": "semiconductor", "aliases": ["D램", "HBM"]},
+    {"code": "foundry", "name": "파운드리", "parent": "semiconductor", "aliases": ["파운드리"]},
+    {"code": "display", "name": "디스플레이 패널", "parent": "krx_electronics", "aliases": ["OLED"]},
+    {"code": "smartphone", "name": "스마트폰", "parent": "krx_electronics", "aliases": ["스마트폰"]},
+    {"code": "home_appliance", "name": "가전·TV", "parent": "krx_electronics", "aliases": ["가전"]},
+    {"code": "substrate", "name": "기판", "parent": "krx_electronics", "aliases": ["기판"]},
+    {"code": "fcbga_high", "name": "FC-BGA 고사양", "parent": "substrate", "aliases": ["고사양 FC-BGA"]},
+    {"code": "fcbga_low_mid", "name": "FC-BGA 중·저사양", "parent": "substrate", "aliases": ["중·저사양 FC-BGA"]},
+    {"code": "pcb", "name": "일반 PCB", "parent": "substrate", "aliases": ["PCB"]},
+    {"code": "krx_transport_equip", "name": "운송장비·부품", "parent": null, "aliases": []},
+    {"code": "auto_electronics", "name": "전장", "parent": "krx_transport_equip", "aliases": ["전장"]},
+    {"code": "krx_pharma", "name": "제약", "parent": null, "aliases": []},
+    {"code": "biosimilar", "name": "바이오시밀러", "parent": "krx_pharma", "aliases": ["바이오시밀러"]},
+    {"code": "krx_finance", "name": "금융", "parent": null, "aliases": []},
+    {"code": "holding", "name": "지주·투자", "parent": "krx_finance", "aliases": ["지주사"]}
+  ],
+  "supply_roles": {},
+  "stocks": [
+    {"code": "005930", "name": "삼성전자", "aliases": ["삼전", "Samsung Electronics"], "subsidiaries": ["삼성디스플레이", "하만"]},
+    {"code": "000660", "name": "SK하이닉스", "aliases": ["하이닉스"], "subsidiaries": []},
+    {"code": "402340", "name": "SK스퀘어", "aliases": [], "subsidiaries": []},
+    {"code": "066570", "name": "LG전자", "aliases": [], "subsidiaries": []},
+    {"code": "068270", "name": "셀트리온", "aliases": [], "subsidiaries": []},
+    {"code": "034730", "name": "SK", "aliases": ["SK㈜"], "subsidiaries": []},
+    {"code": "900001", "name": "A사", "aliases": [], "subsidiaries": []},
+    {"code": "900002", "name": "B사", "aliases": [], "subsidiaries": []},
+    {"code": "900003", "name": "C사", "aliases": [], "subsidiaries": []},
+    {"code": "900004", "name": "D사", "aliases": [], "subsidiaries": []}
+  ],
+  "blocked_aliases": ["삼성", "SK"],
+  "external_companies": [
+    {"code": "nvidia", "name": "엔비디아", "country": "US", "stock_code": null, "ticker": "NVDA", "aliases": ["NVIDIA"], "subsidiaries": []},
+    {"code": "apple", "name": "애플", "country": "US", "stock_code": null, "ticker": "AAPL", "aliases": [], "subsidiaries": []},
+    {"code": "samsung_epis", "name": "삼성에피스홀딩스", "country": "KR", "stock_code": "0126Z0", "ticker": null, "aliases": [], "subsidiaries": ["삼성바이오에피스"]}
+  ],
+  "stock_industries": [
+    {"stock": "005930", "industry": "memory", "exposure": "own", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "005930", "industry": "foundry", "exposure": "own", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "005930", "industry": "smartphone", "exposure": "own", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "005930", "industry": "home_appliance", "exposure": "own", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "005930", "industry": "display", "exposure": "subsidiary", "via_company": "삼성디스플레이", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "005930", "industry": "auto_electronics", "exposure": "subsidiary", "via_company": "하만", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "000660", "industry": "memory", "exposure": "own", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "402340", "industry": "holding", "exposure": "own", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "402340", "industry": "memory", "exposure": "stake", "via_company": "SK하이닉스", "via_stock_code": "000660", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "066570", "industry": "home_appliance", "exposure": "own", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "068270", "industry": "biosimilar", "exposure": "own", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "034730", "industry": "holding", "exposure": "own", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "900001", "industry": "fcbga_high", "exposure": "own", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "900002", "industry": "fcbga_low_mid", "exposure": "own", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"},
+    {"stock": "900003", "industry": "pcb", "exposure": "own", "stage": "operating", "source": "mock", "source_as_of": "2026-10-30"}
+  ],
+  "company_relations": [
+    {"from": "402340", "to": "000660", "type": "ownership", "industry": "memory", "source": "mock", "note": "범위 지분"},
+    {"from": "034730", "to": "402340", "type": "ownership", "industry": null, "source": "mock", "note": "범위 지분"},
+    {"from": "000660", "to": "nvidia", "type": "supplier", "industry": "memory", "source": "mock", "note": "범위 HBM. 단계 공급 확인"},
+    {"from": "005930", "to": "nvidia", "type": "supplier", "industry": "memory", "source": "mock", "note": "범위 HBM4. 단계 공급 확인"},
+    {"from": "005930", "to": "apple", "type": "supplier", "industry": "display", "source": "mock", "note": "범위 OLED 패널. 실제 당사자 삼성디스플레이"},
+    {"from": "apple", "to": "005930", "type": "competitor", "industry": "smartphone", "source": "mock", "note": "범위 스마트폰"},
+    {"from": "066570", "to": "005930", "type": "competitor", "industry": "home_appliance", "source": "mock", "note": "범위 가전·TV"},
+    {"from": "samsung_epis", "to": "068270", "type": "competitor", "industry": "biosimilar", "source": "mock", "note": "실제 당사자 삼성바이오에피스"},
+    {"from": "900002", "to": "900004", "type": "supplier", "industry": "fcbga_low_mid", "source": "mock", "note": "B사는 D사의 공급사"},
+    {"from": "900001", "to": "900002", "type": "competitor", "industry": "substrate", "source": "mock", "note": null}
+  ]
+}

@@ -9,6 +9,7 @@ on:
       - 'docker-compose.yml'
       - 'Caddyfile'
       - '.github/workflows/backend-deploy.yml'
+      - 'scripts/**'
   workflow_dispatch:
 
 permissions:
@@ -39,12 +40,13 @@ jobs:
         run: |
           # 트리거된 커밋(SHA)을 그대로 서버에 올린다. git pull은 그 사이 들어온 최신 커밋을 끌어올 수 있다.
           # --wait-timeout 은 아직 정하지 않았다. 서버에서 up --wait 소요 시간을 측정한 뒤 그 값을 근거로 추가한다.
+          # 측정용으로 scripts/deploy.sh 가 up --wait 의 시작/종료 시각(up-wait-start/end)을 stdout 에 남긴다.
           # 그 전까지는 아래 폴링 루프의 상한(10분)이 전체 대기 시간을 제한한다.
-          # 측정용: 빌드와 up --wait 를 나누고 up --wait 의 시작/종료 시각을 stdout 에 남긴다. (\$ 는 서버 셸에서 평가)
-          # 실패해도 종료 시각과 exit code 를 출력한 뒤 원래 exit code 로 끝낸다.
           # SSM은 root로 실행되어 ubuntu 소유 저장소에서 git이 'dubious ownership'으로 거부한다(HOME도 비어 있어 전역 safe.directory가 안 먹는다).
-          # 저장소 소유자인 ubuntu로 실행해 소유권 불일치 자체를 없앤다. 안쪽 \$ 는 ubuntu 셸에서 평가된다.
-          COMMAND="sudo -H -u ubuntu bash -c 'cd /home/ubuntu/ktc4-pusan-5 && git fetch origin ${DEPLOY_SHA} && git reset --hard ${DEPLOY_SHA} && docker compose build && echo up-wait-start: \$(date +%T) && docker compose up -d --wait; RC=\$?; echo up-wait-end: \$(date +%T) rc=\$RC; exit \$RC'"
+          # 저장소 소유자인 ubuntu로 실행해 소유권 불일치 자체를 없앤다.
+          # 서버에서 할 일은 scripts/deploy.sh 가 한다(백업 → 빌드 → 기동 → 실패 시 롤백). 여기서는 코드를 맞춰 호출만 한다.
+          # PREV 는 reset 전 서버 HEAD 로, 마지막 성공 기록이 없을 때 백업 파일 이름에만 쓴다. (\$ 는 ubuntu 셸에서 평가)
+          COMMAND="sudo -H -u ubuntu bash -c 'cd /home/ubuntu/ktc4-pusan-5 && PREV=\$(git rev-parse HEAD) && git fetch origin ${DEPLOY_SHA} && git reset --hard ${DEPLOY_SHA} && bash scripts/deploy.sh ${DEPLOY_SHA} \$PREV'"
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
@@ -85,3 +87,30 @@ jobs:
             echo "::error::배포 실패 (status: $STATUS)"
             exit 1
           fi
+
+      - name: Smoke test (외부 주소)
+        env:
+          API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: |
+          # 프론트가 호출하는 API 주소(VITE_API_BASE_URL)와 같은 값을 쓴다. 변수가 비어 있으면 운영 도메인으로 대체한다.
+          BASE="${API_BASE_URL:-https://marketlit.duckdns.org}"
+          # 끝의 슬래시를 떼서 //health 가 되는 것을 막는다.
+          BASE="${BASE%/}"
+
+          # 배포 직후 Caddy/백엔드가 잠깐 불안정할 수 있어, 최대 12회(약 1분) 재시도한다.
+          check() {
+            url="$1"
+            for i in $(seq 1 12); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$url" || echo 000)
+              echo "[$i] $url -> $code"
+              if [ "$code" = "200" ]; then
+                return 0
+              fi
+              sleep 5
+            done
+            echo "::error::smoke test 실패: $url"
+            return 1
+          }
+
+          check "$BASE/health"
+          check "$BASE/api/concepts"

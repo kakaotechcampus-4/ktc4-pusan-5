@@ -245,6 +245,10 @@ async def generate(
 ) -> tuple[str, dict, dict]:
     """(요약, 사용량, 채점). 검증에 걸리면 다시 생성하고 마지막 결과를 돌려준다.
 
+    다시 생성하는 건 **검증에 걸렸을 때만**이다. 호출 실패(LLMError)는 complete 가 이미 다시 보냈으므로(5xx·연결 오류,
+    retry_rate_limited 로 429 도) 여기서 또 부르지 않고 그 자리에서 멈춘다 — 또 부르면 횟수가 곱해져 시간 제한
+    (summary_timeout_sec)이 시도마다 다시 걸린다.
+
     통과하지 못해도 마지막 것을 돌려준다. 호출부가 `grade["ok"]` 를 보고
     저장할지 정한다 — 세 번 다 걸리는 건 대개 본문 자체가 이상한 경우다.
     """
@@ -257,11 +261,13 @@ async def generate(
     feedback = ""
     for attempt in range(1, attempts + 1):
         try:
-            text, usage = await complete(prompt, user + feedback)
+            # 429 는 complete 가 기본으로 다시 보내지 않는다. 이 모듈은 따로 기다리지 않으므로 기존처럼
+            # 5xx 와 같은 짧은 재시도(settings.llm_max_retries)를 맡긴다
+            text, usage = await complete(prompt, user + feedback, retry_rate_limited=True)
         except LLMError as exc:
-            logger.warning("%s: %d/%d 실패 — %s", filename, attempt, attempts, exc)
+            logger.warning("%s: %d/%d 실패, 다시 생성하지 않는다 — %s", filename, attempt, attempts, exc)
             last = ("", total_usage, {"problems": [str(exc)], "ok": False, "attempt": attempt})
-            continue
+            break
         _accumulate_usage(total_usage, usage)
         text = clean(text)
         result = grade(text, body, expect_goal)

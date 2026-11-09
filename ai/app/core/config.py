@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     telegram_api_hash: str | None = None
     telegram_session: str | None = None
 
+    # 시장 데이터(services/market_data). 코스피 대비 초과 등락·환율·기준금리를 읽는다.
+    # KRX 키는 openapi.krx.co.kr 에서 받는다. 키와 별개로 API 마다 이용신청 승인이 필요하다
+    # (kospi_dd_trd, stk_bydd_trd). 승인이 안 된 API 는 같은 401 이라도 메시지가 다르다(krx.py 참고).
+    # ECOS 키는 요청 주소 경로에 그대로 들어간다. 주소를 로그·예외에 남기면 키가 샌다(ecos.py 참고).
+    krx_auth_key: str | None = None
+    ecos_api_key: str | None = None
+
     # 텔레그램 리포트 요약 생성. 네이버는 API 가 요약을 줘서 필요 없다(5종 100/100 확인).
     #
     openrouter_api_key: str | None = None
@@ -56,6 +63,14 @@ class Settings(BaseSettings):
     # 호출 전체 시간 제한. 종목 보고서는 입력이 크고(메시지 50~70건) 추론이 길어 180초에서 정상 호출도
     # 175초까지 걸리고 큰 입력이 연달아 끊겼다(2026-10-24). 출력 상한을 40000 으로 올리면서 420초로 둔다(2026-10-25).
     summary_timeout_sec: float = 420.0
+    # LLM 호출이 일시적으로 실패했을 때(429·5xx·연결 오류·시간 초과·스트림 끊김) 다시 보내는 횟수와 대기.
+    # 대기는 llm_retry_backoff_sec × 2^(n-1) 초이고 llm_retry_backoff_max_sec 를 넘지 않는다(기본 2초, 4초).
+    # 429 응답에 Retry-After(초)가 있으면 둘 중 긴 쪽을 기다린다. 0 이면 다시 보내지 않는다.
+    # 429 는 complete(retry_rate_limited=True) 로 부른 쪽만 이 예산으로 다시 보낸다. 분류는 따로 기다린다.
+    # 429 를 뺀 4xx 는 요청 자체가 틀린 것이라 다시 보내지 않는다(app/llm/client.py).
+    llm_max_retries: int = 2
+    llm_retry_backoff_sec: float = 2.0
+    llm_retry_backoff_max_sec: float = 30.0
 
     # LLM 을 어디로 보내나. **기본은 openrouter 다** — 이 줄이 없는 .env 는 동작이 안 바뀐다.
     #   openrouter  OPENROUTER_API_KEY 로 보낸다. 비용은 응답의 usage.cost 를 쓴다
@@ -93,6 +108,15 @@ class Settings(BaseSettings):
     # 추론 모델 중에는 기본값(1) 말고는 400 으로 거절하는 것이 있다(Elice luna).
     # 그런 모델은 .env 에 `LLM_TEMPERATURE=` 로 비워 두면 요청에서 필드를 아예 뺀다.
     llm_temperature: float | None = 0.2
+
+    # 자료 분류(services/classification)의 단계별 모델. 비우면 SUMMARY_MODEL 을 쓴다.
+    # 단계마다 모델을 바꿔 보는 실험용이다(classification/llm.py). OpenRouter 는 모델 이름만 바꾸면
+    # 되지만, Elice 는 모델마다 주소(LLM_BASE_URL)가 달라서 한 실행에 모델 하나만 쓸 수 있다.
+    classification_extract_model: str | None = None
+    classification_link_model: str | None = None
+    classification_judge_model: str | None = None
+    # 출력 상한(추론 토큰 포함). 판정 응답은 사건 × 후보 수만큼 길어진다.
+    classification_max_tokens: int = 6000
 
     @field_validator("stock_analysis_stream", mode="before")
     @classmethod
@@ -155,6 +179,21 @@ class Settings(BaseSettings):
                 "요약 생성에 OPENROUTER_API_KEY 가 필요하다. ai/.env 에 넣는다."
             )
         return self.openrouter_api_key
+
+    def require_krx(self) -> str:
+        return self._require_key("krx_auth_key", "KRX 시세 조회", "openapi.krx.co.kr")
+
+    def require_ecos(self) -> str:
+        return self._require_key("ecos_api_key", "ECOS 환율·금리 조회", "ecos.bok.or.kr/api")
+
+    def _require_key(self, name: str, purpose: str, issuer: str) -> str:
+        # `KRX_AUTH_KEY=` 처럼 비워 둔 줄은 빈 문자열로 읽힌다. 없는 것과 같게 본다.
+        value = (getattr(self, name) or "").strip()
+        if not value:
+            raise RuntimeError(
+                f"{purpose}에 {name.upper()} 가 필요하다. ai/.env 에 넣는다. 키는 {issuer} 에서 받는다."
+            )
+        return value
 
     def require_telegram(self, *, require_session: bool = True) -> None:
         """텔레그램 설정이 없으면 여기서 멈춘다.
