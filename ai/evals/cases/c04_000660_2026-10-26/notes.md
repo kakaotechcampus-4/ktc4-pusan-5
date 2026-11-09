@@ -10,3 +10,9 @@
 
 ## e2(HBM4 출하 지연)를 `optional` 로 둔 이유
 - 16:28 장 마감 후 공개라 그날 움직임의 원인이 될 수 없음. 맥락 정보로만 둠.
+
+## 판정 근거(expected_verdict, confidence_level)
+move no_clear_cause / relative partially_explained, confidence partial
+- move 는 -0.16% 라 judge_layers 가 false(절댓값 1 이하)라 no_clear_cause 로 고정.
+- relative(대형주 대비 +1.52, 덜 내림)에는 특별배당 추진 보도가 방향이 맞는 재료이지만 미확인이고 상한이 coincident. 방향은 맞아도 미확인·약해서 `partially_explained`(rubric §2).
+- 대안: relative no_clear_cause(확정되지 않은 보도라 설명으로 인정하지 않음). 이 경우 confidence 는 `none`.

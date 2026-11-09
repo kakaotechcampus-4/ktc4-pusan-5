@@ -34,10 +34,10 @@
     "display_as_of": "2026-10-29T15:30:00+09:00"
   },
   "expected_verdict": {
-    "move": null,
-    "relative": null
+    "move": "no_clear_cause",
+    "relative": "no_clear_cause"
   },
-  "confidence_level": null,
+  "confidence_level": "none",
   "events": [
     {
       "id": "e1",
@@ -68,7 +68,7 @@
         "3Q26 실적",
         "영업이익"
       ],
-      "rationale": "컨센 부합인데 -4.13% 하락이라 입력으로 원인을 알 수 없는 날(판정 none 후보)이라 must 를 두지 않음. 방향이 불분명해 상한은 coincident"
+      "rationale": "그 날 가장 큰 직접 공시이지만 컨센 부합인데 -4.13% 하락이라 방향이 맞지 않음. 직접 재료의 방향이 불분명·반대라 판정은 no_clear_cause 이고 none 이라 must 를 두지 않음. 상한 coincident"
     },
     {
       "id": "e2",

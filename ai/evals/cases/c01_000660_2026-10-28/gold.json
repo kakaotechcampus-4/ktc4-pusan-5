@@ -33,10 +33,10 @@
     "display_as_of": "2026-10-28T15:30:00+09:00"
   },
   "expected_verdict": {
-    "move": null,
-    "relative": null
+    "move": "explained",
+    "relative": "explained"
   },
-  "confidence_level": null,
+  "confidence_level": "partial",
   "events": [
     {
       "id": "e1",
@@ -69,7 +69,7 @@
       ],
       "key_facts": [
         "3Q26 실적",
-        "영업이익 83조원"
+        "영업이익"
       ],
       "rationale": "직접 공시이고 영업이익 상회로 주가 방향과 일치. 순이익은 컨센 하회라 혼재이므로 단정은 불가"
     },
@@ -106,7 +106,8 @@
         }
       ],
       "key_facts": [
-        "주주환원"
+        "주주환원",
+        "자사주"
       ],
       "rationale": "전날부터 기대가 반영돼 있어(e5) 실적보다 보조 재료로 봄"
     },

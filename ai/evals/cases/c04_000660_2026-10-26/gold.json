@@ -34,10 +34,10 @@
     "display_as_of": "2026-10-26T15:30:00+09:00"
   },
   "expected_verdict": {
-    "move": null,
-    "relative": null
+    "move": "no_clear_cause",
+    "relative": "partially_explained"
   },
-  "confidence_level": null,
+  "confidence_level": "partial",
   "events": [
     {
       "id": "e1",

@@ -29,15 +29,15 @@
     "display_as_of": "2026-10-22T15:30:00+09:00"
   },
   "expected_verdict": {
-    "move": null,
-    "relative": null
+    "move": "no_clear_cause",
+    "relative": "no_clear_cause"
   },
-  "confidence_level": null,
+  "confidence_level": "none",
   "events": [
     {
       "id": "e1",
       "summary": "3Q26 실적: 매출 6.28조원(컨센 6.64조원 하회), 영업이익 2,506억원(컨센 2,591억원 소폭 하회), 지배주주순이익 7,467억원(컨센 2,603억원 상회)",
-      "importance": "must",
+      "importance": "should",
       "layer": [
         "move",
         "relative"
@@ -63,7 +63,7 @@
         "3Q26 실적",
         "영업이익 2,506억원"
       ],
-      "rationale": "영업이익은 하회, 순이익은 상회로 방향이 혼재해 어느 쪽이 주가를 움직였는지 알 수 없음"
+      "rationale": "영업이익·매출 하회와 순이익 상회가 섞여 방향이 혼재. 직접 공시이지만 판정은 no_clear_cause 이고 none 이라 must 를 두지 않음. 상한 coincident"
     },
     {
       "id": "e2",
