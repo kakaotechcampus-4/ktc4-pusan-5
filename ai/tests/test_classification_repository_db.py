@@ -162,8 +162,11 @@ def test_classification_cost_since_sums_stage_costs(database):
     add_run({"extract": {"cost": 2.0}}, "2026-11-06T18:00:00+09:00")  # 표기 연결·판정 없음
     add_run({}, "2026-11-06T19:00:00+09:00")  # 비용 없음(본문 없음 등)
     add_run({"extract": {"cost": 9.0}}, "2026-11-05T23:59:00+09:00")  # 전날
+    # Jev 단계(관계 후보 판정·홍보성 거르기)도 하루 비용에 들어간다
+    add_run({"extract": {"cost": 1.0}, "judge": {"cost": 0.5}, "judge_relation": {"cost": 0.2},
+             "promo": {"cost": 0.05}}, "2026-11-06T20:00:00+09:00")
     since = datetime.fromisoformat("2026-11-06T00:00:00+09:00")
-    assert in_session(database, lambda s: classification_cost_since(s, since)) == pytest.approx(3.75)
+    assert in_session(database, lambda s: classification_cost_since(s, since)) == pytest.approx(5.5)
 
 
 def test_save_run_makes_current_and_indexes_direct(database, monkeypatch):

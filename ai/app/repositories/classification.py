@@ -182,14 +182,19 @@ async def naver_news_days(session: AsyncSession, card_ids: list[int]) -> list[Ne
             for r in rows]
 
 
+# 하루 비용 상한이 세는 usage 단계. LLM(추출·표기 연결·판정)과 Jev(관계 후보 판정·홍보성 거르기)를 함께 센다.
+# Jev 를 켜지 않은 회차에는 judge_relation·promo 가 없어 0 으로 더해진다. 단계를 새로 만들면 여기에도 넣는다.
+COST_STAGES = ("extract", "link", "judge", "judge_relation", "promo")
+
+
 async def classification_cost_since(session: AsyncSession, since: datetime) -> float:
-    """since 이후 분류 회차의 비용 합계(추출·표기 연결·판정). 통화는 회차를 만든 설정의 통화다."""
+    """since 이후 분류 회차의 비용 합계(COST_STAGES). 통화는 회차를 만든 설정의 통화다."""
     def stage(name: str):
         return func.coalesce(cast(ClassificationRun.usage[name]["cost"].astext, Float), 0.0)
 
+    run_cost = sum((stage(s) for s in COST_STAGES[1:]), stage(COST_STAGES[0]))
     total = await session.scalar(
-        select(func.coalesce(func.sum(stage("extract") + stage("link") + stage("judge")), 0.0))
-        .where(ClassificationRun.classified_at >= since)
+        select(func.coalesce(func.sum(run_cost), 0.0)).where(ClassificationRun.classified_at >= since)
     )
     return float(total or 0.0)
 
