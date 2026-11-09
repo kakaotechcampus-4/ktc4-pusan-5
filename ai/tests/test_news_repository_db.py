@@ -83,7 +83,7 @@ def test_repeated_failures_keep_the_latest_reason(database):
     assert (news["body_status"], news["body_error"]) == ("failed", "extract_empty")
     assert news["body_fetched_at"] == T0 + timedelta(hours=1)
     # 처음 실패(failed() 기본값 503)는 일시 실패라 세지 않는다. 추출 실패 한 번만 센다
-    assert news["body_failures"] == 1
+    assert news["body_extract_failures"] == 1
 
 
 def test_transient_and_rate_limit_failures_do_not_use_up_extract_attempts(database):
@@ -94,7 +94,7 @@ def test_transient_and_rate_limit_failures_do_not_use_up_extract_attempts(databa
     for n, body_error in enumerate(errors):
         save(database, [failed(body_error=body_error, body_fetched_at=T0 + timedelta(hours=n))])
     [news] = stored(database)
-    assert news["body_failures"] == 2
+    assert news["body_extract_failures"] == 2
 
     async def work(session):
         return await failed_news(session, source="naver", since=T0 - timedelta(hours=1),
@@ -115,7 +115,7 @@ def test_failure_count_counts_only_opened_attempts(database):
     for n in range(3):
         save(database, [failed(body_error="extract_empty",
                                body_fetched_at=T0 + timedelta(hours=n))])
-    counts = {r["url"]: r["body_failures"] for r in stored(database)}
+    counts = {r["url"]: r["body_extract_failures"] for r in stored(database)}
     assert counts == {unopened: 0, URL: 3}
 
     async def work(session):

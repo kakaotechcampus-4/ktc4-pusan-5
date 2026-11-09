@@ -72,7 +72,7 @@ class News(Base):
     # 본문을 열었다가 추출 실패·알 수 없는 실패로 못 얻은 횟수. 일시 실패·429·영구 실패와
     # 열지 않고 넣은 행(수집량 상한 등)은 세지 않는다. 몇 번이면 그만 열지
     # services/news/failure.py 가 이 값으로 정한다. 0030 이전의 그런 실패 행은 1 로 채웠다.
-    body_failures: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    body_extract_failures: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # 보관 정책으로 본문을 지운 시각과 사유(repositories/retention.py). 행·id·출처 정보는 남긴다.
     purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     purge_reason: Mapped[str | None] = mapped_column(Text)

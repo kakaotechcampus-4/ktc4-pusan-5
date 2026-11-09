@@ -112,7 +112,7 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 | `body_error` | text | NULL | 실패 사유(`http_error: 404`, `extract_empty`, `no_body` …). 이관 전 실패 행은 `unrecorded`. 예전 네이버 행의 `http_404` 도 같은 뜻으로 읽는다 | 🆕 |
 | `body_fetched_at` | timestamptz | NULL | 본문을 받으러 마지막으로 연 시각. 기준 시각 이후 본문을 거를 때 쓴다 | 🆕 |
 | `body_extractor` | varchar(32) | NULL | `trafilatura` \| `news_link` | 🆕 |
-| `body_failures` | integer | NN, 기본 `0` | 본문을 열었다가 추출 실패·알 수 없는 실패로 못 얻은 횟수. 일시 실패·429·영구 실패와 열지 않고 넣은 행은 세지 않는다. 3이 되면 더 열지 않는다. `0030` 이전의 그런 실패 행은 `1` 로 채웠다 | 🆕 `0030` |
+| `body_extract_failures` | integer | NN, 기본 `0` | 본문을 열었다가 추출 실패·알 수 없는 실패로 못 얻은 횟수. 일시 실패·429·영구 실패와 열지 않고 넣은 행은 세지 않는다. 3이 되면 더 열지 않는다. `0030` 이전의 그런 실패 행은 `1` 로 채웠다 | 🆕 `0030` |
 | `purged_at` | timestamptz | NULL | 보관 정책으로 본문을 지운 시각 | 🆕 |
 | `purge_reason` | text | NULL | 지운 사유(어느 정책인지) | 🆕 |
 | `collected_at` | timestamptz | NN, 기본 `now()` | 행을 넣은 시각 | |
@@ -125,7 +125,7 @@ source_card ◄── source_card_stocks.source_card_id             (자료 ↔ 
 
 규칙
 
-- **본문은 한 번 확보하면 덮어쓰지 않는다.** 브리핑이 인용한 문장과 원문이 어긋나거나 기준 시각 이후 수정이 섞이는 걸 막는다. `failed` 인 본문만 다음 수집에서 채운다. 단, 404·410 같은 영구 실패는 다시 열지 않는다. 추출 실패는 30분 뒤에 다시 열고 3번 실패하면 더 열지 않는다. 판별은 `body_error`·`body_failures` 로 한다(`services/news/failure.py`).
+- **본문은 한 번 확보하면 덮어쓰지 않는다.** 브리핑이 인용한 문장과 원문이 어긋나거나 기준 시각 이후 수정이 섞이는 걸 막는다. `failed` 인 본문만 다음 수집에서 채운다. 단, 404·410 같은 영구 실패는 다시 열지 않는다. 추출 실패는 30분 뒤에 다시 열고 3번 실패하면 더 열지 않는다. 판별은 `body_error`·`body_extract_failures` 로 한다(`services/news/failure.py`).
 - `purged` 행은 다시 수집해도 본문을 되살리지 않는다.
 
 기존 행 이관(0020 실행 시 자동)

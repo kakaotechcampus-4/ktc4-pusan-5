@@ -108,7 +108,7 @@ class TelegramMessageLink(Base):
                     not_opened     링크를 열지 않는 설정(--no-links)으로 수집해서
                     out_of_scope   수집 범위 밖이라서 (telegram_link 가 꺼졌거나 수집량 상한)
                     permanent_fail 이미 404 같은 영구 실패로 확인됐거나, 추출 실패를 정해진
-                                   횟수만큼 한 기사라서 (news.body_error·body_failures)
+                                   횟수만큼 한 기사라서 (news.body_error·body_extract_failures)
                     retry_wait     429·추출 실패 뒤 재시도 대기 시간이 지나지 않아서
     kind = attachment  메시지에 붙은 PDF. position 은 1 이다
         status  saved      이 메시지의 PDF 를 analyst_reports 에 저장했다

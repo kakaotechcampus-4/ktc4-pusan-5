@@ -90,7 +90,7 @@ def _merge(news: News, row: dict, key: str) -> bool:
             for name in RETRY_FIELDS:
                 setattr(news, name, row[name])
             if counts_toward_limit(row["body_error"]):
-                news.body_failures += 1
+                news.body_extract_failures += 1
     if news.published_at is None and row.get("published_at") is not None:
         news.published_at = row["published_at"]
     if not news.title and row.get("title"):
@@ -121,7 +121,8 @@ async def save_news(session: AsyncSession, rows: list[dict]) -> NewsSaveResult:
             counted = (row["body_status"] == "failed"
                        and row.get("body_fetched_at") is not None
                        and counts_toward_limit(row.get("body_error")))
-            news = News(**{**row, "canonical_url": key, "body_failures": 1 if counted else 0})
+            news = News(**{**row, "canonical_url": key,
+                           "body_extract_failures": 1 if counted else 0})
             session.add(news)
             await session.flush()  # 같은 묶음에 같은 기사가 또 있으면 다음 _find 가 찾는다
             result.inserted += 1
@@ -154,7 +155,7 @@ class KnownArticle:
     status: str
     fetched_at: datetime | None
     error: str | None = None  # body_error. 실패 기사를 재시도할지 정할 때 쓴다
-    # body_failures. 추출 실패를 몇 번 했는지 보고 그만 열지 정한다. 기본값을 두지 않는다 —
+    # body_extract_failures. 추출 실패를 몇 번 했는지 보고 그만 열지 정한다. 기본값을 두지 않는다 —
     # 빠뜨리면 0 으로 읽혀 추출 실패를 끝없이 다시 연다(failure.py is_retryable)
     failures: int = field(kw_only=True)
 
@@ -164,7 +165,7 @@ async def known_articles(session: AsyncSession, urls: list[str]) -> dict[str, Kn
     if not urls:
         return {}
     columns = (News.id, News.url, News.canonical_url, News.body_status, News.body_fetched_at,
-               News.body_error, News.body_failures)
+               News.body_error, News.body_extract_failures)
     result: dict[str, KnownArticle] = {}
     rows = await session.execute(
         select(TelegramMessageLink.discovered_url, *columns)
@@ -212,7 +213,7 @@ async def failed_news(
     targets = []
     try:
         async for news in rows:
-            if retry_due(news.body_error, news.body_fetched_at, failures=news.body_failures,
+            if retry_due(news.body_error, news.body_fetched_at, failures=news.body_extract_failures,
                          now=now):
                 targets.append(news)
                 if len(targets) == limit:
