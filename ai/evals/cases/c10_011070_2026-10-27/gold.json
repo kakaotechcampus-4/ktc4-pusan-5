@@ -102,7 +102,11 @@
     }
   ],
   "unconfirmed_items": [],
-  "unknowns": [],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "영업이익이 컨센서스의 절반 수준인데도 주가가 올랐던 이유",
+    "대형주 전반 상승 중 종목 고유 요인이 차지한 몫"
+  ],
   "beginner_terms": [],
   "verification": {
     "checklist": {

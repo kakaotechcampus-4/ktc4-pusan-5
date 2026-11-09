@@ -109,7 +109,11 @@
     }
   ],
   "unconfirmed_items": [],
-  "unknowns": [],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "삼성전자 -1.16% 하락의 원인(원인 없는 날)",
+    "HBM4 출하 시점 지연이 이 날 주가에 미친 영향"
+  ],
   "beginner_terms": [],
   "verification": {
     "checklist": {

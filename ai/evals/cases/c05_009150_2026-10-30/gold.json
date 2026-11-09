@@ -120,7 +120,11 @@
     }
   ],
   "unconfirmed_items": [],
-  "unknowns": [],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "공급계약 호재 공시에도 주가가 -7.5% 하락한 이유",
+    "대형주 중간값보다 더 내린 이유"
+  ],
   "beginner_terms": [],
   "verification": {
     "checklist": {

@@ -109,7 +109,10 @@
     }
   ],
   "unconfirmed_items": [],
-  "unknowns": [],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "실적과 컨퍼런스콜(AI 데이터센터 수요) 중 어느 재료가 상승폭을 얼마나 설명하는지(재료별 기여 비율)"
+  ],
   "beginner_terms": [],
   "verification": {
     "checklist": {

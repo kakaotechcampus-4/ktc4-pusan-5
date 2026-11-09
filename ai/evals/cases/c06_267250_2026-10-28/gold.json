@@ -131,7 +131,11 @@
     }
   ],
   "unconfirmed_items": [],
-  "unknowns": [],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "교환사채 발행이 주가에 미친 영향의 방향과 크기",
+    "대형주 중간값보다 더 오른 이유(+3.07%p)"
+  ],
   "beginner_terms": [],
   "verification": {
     "checklist": {
