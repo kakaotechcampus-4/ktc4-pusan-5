@@ -15,10 +15,17 @@
     "peer_relations": {
       "전자부품": "inconclusive"
     },
-    "common_move": null,
-    "market_led": null,
-    "relative_direction": null,
-    "_note": "위 세 칸(common_move·market_led·relative_direction)은 코드 산출 뒤 사람이 검수. KRX 조회 원값에서 옮긴 칸은 검수만"
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "더",
+    "peer_median_pct": -2.9,
+    "excess_vs_peers_pp": -4.6,
+    "judge_layers": {
+      "move": true,
+      "relative": true
+    },
+    "move_strength_cap": null,
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
   },
   "time_expectation": {
     "cutoff": "2026-10-30T18:45:00+09:00",

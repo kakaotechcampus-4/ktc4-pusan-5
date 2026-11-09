@@ -11,7 +11,7 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 
 ## 2. 판정값 `expected_verdict`
 
-두 층을 따로 판정함: `move`(종목 등락률), `relative`(코스피 대비 초과분).
+두 층을 따로 판정함: `move`(종목 등락률), `relative`(대형주 유니버스 중간값 대비 초과분, 파이프라인 `market.excess_pct`). 코스피가 아니라 대형주 기준임. 코스피 비교는 보고서의 별도 비교 문장에만 쓰임.
 
 | 값 | 뜻 |
 |---|---|
@@ -21,7 +21,19 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 
 - 층의 절댓값이 **1 이하**(등락률 %, 초과분 %p)이면 `no_clear_cause`. 이 층에는 사건을 달지 않음.
 - 재료가 있어도 **방향이 반대**면(호재인데 하락) `explained` 로 쓰지 않음. `partially_explained` 또는 `no_clear_cause` 로 쓰고 이유를 적음.
-- 종목 등락 ≈ 코스피 등락인 날은 `relative` 를 `no_clear_cause` 로 둠.
+- 종목 등락이 대형주 전반과 같은 몫인 날은 아래 시장 칸 규칙을 따름.
+
+### 2-1. 시장 칸 (`market_expectation`)은 파이프라인 값을 따름
+
+`gold.json` 의 시장 칸은 사람이 정하지 않고 파이프라인 코드(`verify.py`)가 같은 입력으로 계산한 값을 옮기고 검수만 함.
+
+| 칸 | 뜻 | gold 에 미치는 영향 |
+|---|---|---|
+| `judge_layers` | 층마다 원인을 판단하는지(절댓값 1 이하면 false, 경계 포함) | false 인 층은 `no_clear_cause`, 사건을 달지 않음 |
+| `common_move` | 대형주 전반이 종목과 함께 움직인 날 | true 면 `move` 판정은 `no_clear_cause`, 등락 층 원인을 세우지 않음 |
+| `market_led` | 시장을 움직이는 종목(시총 비중 10% 이상: 삼성전자, SK하이닉스)이 대형주와 함께 움직인 날 | true 면 `move` 층은 시장·업종 재료를 중심으로 봄 |
+| `move_strength_cap` | `partial` 이면 등락 층 인과 상한이 낮아짐 | `move` 층 사건은 `likely_cause` 를 쓰지 않고 `possible_contributor` 이하 |
+| `relative_direction` | 종목과 대형주 비교 문구(`더`/`덜`/`반대로`/`비슷하게`) | 보고서의 비교 방향과 맞는지 확인 |
 
 ## 3. 확신 수준 `confidence_level`
 
