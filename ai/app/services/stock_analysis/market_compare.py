@@ -344,6 +344,13 @@ def to_input(ctx: MarketContext, groups: Mapping[str, Mapping[str, str]] = GROUP
 
 
 def _peer_input(p: PeerComparison, groups: Mapping[str, Mapping[str, str]]) -> dict[str, Any]:
+    """그룹 하나의 모델 입력.
+
+    judge_in_sentence 는 판정하는 말을 쓰는 판정(follows·diverges)에만 true/false 를 넣고 그 밖은 null 이다. opposite·
+    inconclusive 는 원래 판정하는 말을 쓰지 않아 칸이 필요 없고, false 로 보내면 모델이 follows·diverges 용 규칙(등락만
+    쓰고 이 종목 등락률을 붙인다)을 가져다 써 엇갈린 그룹의 "방향이 엇갈려" 를 빠뜨렸다(2026-11-09 실제 LLM 실행).
+    mixed 는 비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상 — context.group_relation)이다.
+    """
     shown, judge = sentence_members(p)
     rates = p.member_rates_pct if len(p.member_rates_pct) == len(p.members_used) else [None] * len(p.members_used)
     return {
@@ -352,7 +359,8 @@ def _peer_input(p: PeerComparison, groups: Mapping[str, Mapping[str, str]]) -> d
         "excess_vs_group_pp": p.excess_vs_group_pp,
         "peer_count": p.peer_count,
         "relation": p.relation,
-        "judge_in_sentence": judge,
+        "mixed": p.relation == "inconclusive" and len(p.members_used) >= 2,
+        "judge_in_sentence": judge if p.relation in ("follows", "diverges") else None,
         "members_used": [{"code": c, "name": groups[p.group][c], "change_rate_pct": r, "in_sentence": c in shown}
                          for c, r in zip(p.members_used, rates)],
         "members_excluded": [e.model_dump() for e in p.members_excluded],

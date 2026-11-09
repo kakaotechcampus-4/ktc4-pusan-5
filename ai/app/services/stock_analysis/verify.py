@@ -218,8 +218,8 @@ COMPARE_META_PHRASES = ("판정하기 어렵", "기준 시장", "비교 종목�
 # 섞이면 잘못 잡을 수 있어 경고다.
 # 그룹 판정이 follows·diverges 여도 입력 judge_in_sentence 가 false 면(문장에 쓸 비교 종목만으로 다시 판정하면 판정이 달라지는
 # 그룹, market_compare.sentence_members) 같은 경고다. 그날은 "크게 달랐" 도 판정하는 말로 본다.
-# judge_in_sentence 가 false 인 그룹(입력에 그 칸이 없으면 opposite·inconclusive 그룹)은 summary.unexplained 에도 그룹과의
-# 차이를 판정하는 말을 쓰지 않는다(프롬프트 「동종 그룹」·4부 unexplained). unexplained 는 그룹 비교 문장이 아니라 다른 말과 섞여
+# judge_in_sentence 가 false 인 follows·diverges 그룹과 opposite·inconclusive 그룹(judge_in_sentence 는 null)은
+# summary.unexplained 에도 그룹과의 차이를 판정하는 말을 쓰지 않는다(프롬프트 「동종 그룹」·4부 unexplained). unexplained 는 그룹 비교 문장이 아니라 다른 말과 섞여
 # 있어("대형주 전반과 비슷하게 움직였지만, 같은 자동차 그룹과 다르게 오른 이유는 …") 문장 단위로 보지 않고, 그룹을 가리키는
 # 말·비교 종목 이름에 바로 붙은 판정하는 말(_unexplained_group_judged)만 찾는다.
 COMPARE_OPPOSITE_WORDING = "COMPARE_OPPOSITE_WORDING"
@@ -1575,7 +1575,8 @@ def _check_compare_opposite(report: dict[str, Any], payload: dict[str, Any]) -> 
 
 
 def _unexplained_group_judged(text: str, peer: dict[str, Any], *, single: bool) -> str | None:
-    """judge_in_sentence 가 false 인 그룹(그 칸이 없으면 opposite·inconclusive)을 가리키는 말에 판정하는 말이 붙은 첫 꼴.
+    """판정하는 말을 쓰지 않는 그룹을 가리키는 말에 판정하는 말이 붙은 첫 꼴. judge_in_sentence 가 false 인 follows·diverges
+    그룹과, opposite·inconclusive 그룹(judge_in_sentence 가 null 이거나 칸이 없음)이다.
 
     그룹을 가리키는 말은 group_mention("자동차 그룹", "SK하이닉스 지분으로 이어진")과 비교 종목 이름이다. 비교 그룹이 하나뿐인
     보고서면 "같은 그룹" 도 그 그룹이다.
@@ -1734,7 +1735,8 @@ def _has_rest(peer: dict[str, Any]) -> bool:
 
 
 def _is_mixed(peer: dict[str, Any]) -> bool:
-    """비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상, context.group_relation)인가."""
+    """비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상, context.group_relation)인가.
+    입력 mixed 칸과 같은 뜻이다. 그 칸이 없는 예전 입력도 보도록 판정과 종목 수로 정한다."""
     return peer.get("relation") == "inconclusive" and len(peer.get("members_used") or []) >= 2
 
 

@@ -323,8 +323,8 @@ _RELATIVE_COMPARE_RULES = """
 
 - 그룹 이름, 비교한 종목, 그룹 등락률(median_change_rate_pct)을 쓰고, 코스피는 수치 없이 말로만 씁니다. 초과분 숫자는 쓰지 않습니다.
   그룹 등락률은 "대체로 X% 안팎 내린 같은 … 그룹의 A·B" 처럼 쓰고 "평균"·"중앙값"·"중간값" 같은 통계 용어는 쓰지 않습니다.
-  `inconclusive` 이고 비교 종목이 둘 이상인 그룹은 그룹 등락률을 쓰지 않고 종목별 등락률(`change_rate_pct`)로 쓴 뒤
-  방향이 엇갈렸다고 덧붙입니다(방향이 엇갈린 그룹).
+  `mixed` 가 `true` 인 그룹(`inconclusive` 이고 비교 종목이 둘 이상)은 그룹 등락률을 쓰지 않고 종목별 등락률(`change_rate_pct`)로
+  쓴 뒤 방향이 엇갈렸다고 덧붙입니다(방향이 엇갈린 그룹). 이 종목 등락률을 함께 써도 엇갈렸다는 말은 빼지 않습니다.
   수치는 market_compare 에 있는 값만 씁니다. 직접 계산하지 않습니다.
 - `kospi_basis` 가 `kospi_ex_self` 면 코스피 대신 "<종목명>을 뺀 코스피" 와 비교합니다. 종목명은 입력 `stock` 입니다.
   코스피 판정이 `null` 이면 그룹 쪽만 씁니다.
@@ -333,7 +333,7 @@ _RELATIVE_COMPARE_RULES = """
 - `members_used` 에 `in_sentence: false` 인 종목이 있으면(보합이거나 그룹 등락률과 방향이 다른 종목이 섞인 그룹) 그룹 등락률을 쓰지
   않습니다. `in_sentence: true` 인 종목만 각자의 등락률(`change_rate_pct`, 둘 이상이면 "0.35~0.80%")로 쓰고, `in_sentence: false`
   인 종목은 바로 뒤에 따로 한 문장으로 씁니다("같은 그룹의 현대차는 보합이었습니다.").
-- `judge_in_sentence` 가 `false` 인 그룹은 판정하는 말("비슷하게"·"함께"·"다르게"·"크게 달랐다"·"따라갔다") 없이 등락만
+- `judge_in_sentence` 는 `follows`·`diverges` 그룹에만 값이 있습니다(그 밖은 `null`). `false` 인 그룹은 판정하는 말("비슷하게"·"함께"·"다르게"·"크게 달랐다"·"따라갔다") 없이 등락만
   씁니다("같은 자동차 그룹의 기아는 1.00% 올랐고, 현대모비스는 1.80% 올랐습니다."). 그룹 판정이 `follows`·`diverges` 면 이
   종목의 등락률(입력 `change_pct`)을 그 문장에 반드시 씁니다. 그룹과 다르게 움직인 이유를 찾지 못했다는 말도 쓰지 않습니다.
 - market_compare 가 `null` 이거나 `status` 가 `ok` 가 아니거나, `peers` 가 비었거나 `peers[].relation` 이 모두 `null` 이면

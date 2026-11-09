@@ -97,7 +97,9 @@ def test_sentence_members(target, peers, relation, in_sentence, judge) -> None:
     assert peer["relation"] == relation
     assert [m["in_sentence"] for m in peer["members_used"]] == in_sentence
     assert [m["change_rate_pct"] for m in peer["members_used"]] == peers
-    assert peer["judge_in_sentence"] is judge
+    # judge_in_sentence 는 판정하는 말을 쓰는 follows·diverges 에만 값이 있다. 엇갈린 그룹은 mixed 로 가른다
+    assert peer["judge_in_sentence"] is (judge if relation in ("follows", "diverges") else None)
+    assert peer["mixed"] is (relation == "inconclusive" and len(peers) >= 2)
 
 
 # --- 정형 보고서 relative ---------------------------------------------------------------------------------------
@@ -231,12 +233,14 @@ LLM_RELATIVE_NO_TARGET = "코스피와 다르게 움직였습니다. 같은 자�
     (1.80, [0.00, 1.00], "현대모비스가 기아와 다르게 움직인 이유는 메시지에서 확인되지 않습니다."),
     (1.80, [0.00, 1.00], "같은 그룹과 크게 달랐던 이유는 메시지에서 확인되지 않습니다."),
     (0.60, [0.00, 3.00], "현대모비스는 같은 자동차 그룹 흐름을 따라갔지만 그 이유는 메시지에서 확인되지 않습니다."),
-    # 엇갈린 그룹(inconclusive)도 judge_in_sentence 가 false 다 — 리뷰 예시
+    # 엇갈린 그룹(inconclusive, mixed)도 unexplained 에 그룹 판정을 쓰지 않는다 — 리뷰 예시
     (2.50, [2.16, -0.83], "현대모비스가 같은 자동차 그룹과 다르게 오른 이유는 메시지에서 확인되지 않습니다."),
 ])
 def test_llm_unexplained_group_judgment_is_warned(target, peers, unexplained) -> None:
     payload = _payload(target, peers)
-    assert payload["market_compare"]["peers"][0]["judge_in_sentence"] is False
+    peer = payload["market_compare"]["peers"][0]
+    # 판정하는 말을 빼는 follows·diverges 그룹(false)과 엇갈린 그룹(null, mixed)
+    assert peer["judge_in_sentence"] is False or (peer["judge_in_sentence"] is None and peer["mixed"])
     report = gen.canned_report(payload)
     report["summary"]["unexplained"] = unexplained
     warnings = [w for w in check_warnings(report, payload) if code_of(w) == COMPARE_OPPOSITE_WORDING]
