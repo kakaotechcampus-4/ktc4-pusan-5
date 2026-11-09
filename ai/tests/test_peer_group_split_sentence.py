@@ -14,6 +14,7 @@ from app.services.market_data.context import build_market_context, kospi_relatio
 from app.services.stock_analysis import generate as gen
 from app.services.stock_analysis import market_compare as mc
 from app.services.stock_analysis.verify import (
+    COMPARE_KOSPI_CONTRAST,
     COMPARE_MEMBER_RATE,
     COMPARE_META_PHRASE,
     COMPARE_MIXED_GROUP_RATE,
@@ -29,7 +30,7 @@ TARGET = "012330"
 MEMBERS = [("005380", "현대차"), ("000270", "기아"), ("011210", "현대위아")]
 KOSPI_RATE = 0.62
 COMPARE_WARNINGS = {COMPARE_META_PHRASE, COMPARE_OPPOSITE_WORDING, COMPARE_MIXED_GROUP_RATE, COMPARE_MEMBER_RATE,
-                    COMPARE_TARGET_RATE_MISSING}
+                    COMPARE_TARGET_RATE_MISSING, COMPARE_KOSPI_CONTRAST}
 
 
 def _ctx(target: float, peers: list[float]):
@@ -280,4 +281,52 @@ def test_target_rate_present_or_not_required_is_not_warned(target, peers, relati
     payload = _payload(target, peers)
     report = gen.canned_report(payload)
     report["summary"]["relative"] = relative
+    assert _compare_warnings(report, payload) == set()
+
+
+# --- 코스피와 같은 방향인 날 반대를 잇는 말 (COMPARE_KOSPI_CONTRAST) ---------------------------------------------
+# 2026-11-09 실제 LLM 실행(KB금융 2026-10-27, 코스피 +3.09·KB금융 +0.27, 코스피 diverges·그룹 follows)에서 둘 다 올랐는데
+# "코스피는 올랐지만 KB금융은 … 함께 올랐습니다" 로 썼다. 방향이 같으면 "코스피와는 다르게" 로 쓴다.
+
+LLM_KB_RELATIVE = ("코스피는 올랐지만 KB금융은 0.35~0.80% 오른 같은 은행지주 그룹의 신한지주·하나금융지주와 함께 올랐습니다. "
+                   "같은 그룹의 우리금융지주는 1.37% 내렸습니다.")
+
+
+def _kb_payload() -> dict:
+    compare = mc.to_input(build_market_context("105560", DAY, KOSPI, STOCKS))
+    return _report_input("KB금융", "105560", 0.27, compare["kospi"]["kospi_change_rate_pct"], compare)
+
+
+@pytest.mark.parametrize(("key", "text"), [
+    ("relative", LLM_KB_RELATIVE),  # 실제 LLM 출력
+    ("move", "오후 3시 30분 장 마감 기준 코스피는 3.09% 올랐지만 KB금융은 0.27% 오르는 데 그쳤습니다."),
+    ("relative", ("코스피가 오른 반면 KB금융은 0.35~0.80% 오른 같은 은행지주 그룹의 신한지주·하나금융지주와 함께 움직였습니다. "
+                  "같은 그룹의 우리금융지주는 1.37% 내렸습니다.")),
+])
+def test_llm_kospi_contrast_on_same_direction_is_warned(key, text) -> None:
+    payload = _kb_payload()
+    kospi = payload["market_compare"]["kospi"]
+    assert kospi["kospi_relation"] == "diverges" and kospi["stock_change_rate_pct"] > 0 and kospi["kospi_change_rate_pct"] > 0
+    report = gen.canned_report(payload)
+    report["summary"][key] = text
+    warnings = [w for w in check_warnings(report, payload) if code_of(w) == COMPARE_KOSPI_CONTRAST]
+    assert len(warnings) == 1 and f"summary.{key}" in warnings[0]
+    assert _compare_warnings(report, payload) == {COMPARE_KOSPI_CONTRAST}  # 비교 종목 숫자는 맞다
+
+
+def test_kospi_contrast_on_opposite_direction_is_not_warned() -> None:
+    """방향이 다르면 "코스피는 올랐지만 이 종목은 내렸습니다" 가 맞는 꼴이다."""
+    payload = _payload(-1.50, [-1.20, -1.40])
+    assert payload["market_compare"]["kospi"]["kospi_relation"] == "diverges"
+    report = gen.canned_report(payload)
+    report["summary"]["move"] = "오후 3시 30분 장 마감 기준 코스피는 0.62% 올랐지만 현대모비스는 1.50% 내렸습니다."
+    assert COMPARE_KOSPI_CONTRAST not in _compare_warnings(report, payload)
+
+
+def test_kospi_same_direction_written_as_different_is_not_warned() -> None:
+    payload = _kb_payload()
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = (
+        "KB금융은 코스피와는 다르게 0.35~0.80% 오른 같은 은행지주 그룹의 신한지주·하나금융지주와 함께 움직였습니다. "
+        "같은 그룹의 우리금융지주는 1.37% 내렸습니다.")
     assert _compare_warnings(report, payload) == set()
