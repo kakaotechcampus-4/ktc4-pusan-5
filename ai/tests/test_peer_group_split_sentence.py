@@ -8,6 +8,9 @@
 그룹은 대상 현대모비스와 비교 종목 현대차·기아·현대위아로 만든 시험용이다(실제 그룹 정의가 아니다). 코스피는 0.62% 로 둔다.
 """
 
+import itertools
+from collections import Counter
+
 import pytest
 
 from app.services.market_data.context import build_market_context, kospi_relation
@@ -36,25 +39,25 @@ COMPARE_WARNINGS = {COMPARE_META_PHRASE, COMPARE_OPPOSITE_WORDING, COMPARE_MIXED
                     COMPARE_KOSPI_RATE_IN_RELATIVE}
 
 
-def _ctx(target: float, peers: list[float]):
+def _ctx(target: float, peers: list[float], kospi_rate: float = KOSPI_RATE):
     members = MEMBERS[:len(peers)]
     groups = {"자동차": {TARGET: "현대모비스", **dict(members)}}
     stocks = [stock(TARGET, 100, target)] + [stock(code, 100, rate) for (code, _), rate in zip(members, peers)]
-    ctx = build_market_context(TARGET, DAY, kospi(KOSPI_RATE), stocks, groups=groups, stock_groups={TARGET: ("자동차",)})
+    ctx = build_market_context(TARGET, DAY, kospi(kospi_rate), stocks, groups=groups, stock_groups={TARGET: ("자동차",)})
     return ctx, groups
 
 
-def _payload(target: float, peers: list[float]) -> dict:
-    ctx, groups = _ctx(target, peers)
+def _payload(target: float, peers: list[float], kospi_rate: float = KOSPI_RATE) -> dict:
+    ctx, groups = _ctx(target, peers, kospi_rate)
     compare = mc.to_input(ctx, groups=groups)
-    excess = round(target - KOSPI_RATE, 2)
+    excess = round(target - kospi_rate, 2)
     # 시험용 시장이라 코스피 비중·기여도는 의미가 없다. 대상과 코스피 등락률로 판정만 맞춘다
     compare["kospi"] = {
-        "stock_change_rate_pct": target, "kospi_change_rate_pct": KOSPI_RATE, "excess_vs_kospi_pp": excess,
-        "kospi_weight_pct": 0.7, "kospi_contribution_pp": 0.0, "kospi_ex_self_change_rate_pct": KOSPI_RATE,
+        "stock_change_rate_pct": target, "kospi_change_rate_pct": kospi_rate, "excess_vs_kospi_pp": excess,
+        "kospi_weight_pct": 0.7, "kospi_contribution_pp": 0.0, "kospi_ex_self_change_rate_pct": kospi_rate,
         "excess_vs_kospi_ex_self_pp": excess, "kospi_basis": "kospi",
-        "kospi_relation": kospi_relation(excess, target, KOSPI_RATE)}
-    return _report_input("현대모비스", TARGET, target, KOSPI_RATE, compare)
+        "kospi_relation": kospi_relation(excess, target, kospi_rate)}
+    return _report_input("현대모비스", TARGET, target, kospi_rate, compare)
 
 
 def _report_input(name: str, code: str, change: float, kospi_rate: float, compare: dict) -> dict:
@@ -450,3 +453,79 @@ def test_group_rate_after_kospi_words_is_not_kospi_rate() -> None:
         "KB금융은 코스피와는 다르게 0.35~0.80% 오른 같은 은행지주 그룹의 신한지주·하나금융지주와 함께 움직였습니다. "
         "같은 그룹의 우리금융지주는 1.37% 내렸습니다.")
     assert _compare_warnings(report, payload) == set()
+
+
+# --- 리뷰 후속: 홀수 엇갈린 그룹의 중앙값, 대상 등락률을 찾는 범위, 정형 보고서 전수 점검 ------------------------------
+
+def test_odd_mixed_group_median_is_a_member_rate_and_not_warned() -> None:
+    """비교 종목이 홀수면 중앙값이 한 종목의 등락률이다. 현대차 +0.40 이 중앙값이라 예전에는 "현대차는 0.40% 올랐고" 가
+    그룹 등락률로 잡혔다(COMPARE_MIXED_GROUP_RATE)."""
+    payload = _payload(-0.60, [0.40, 1.20, -0.50])  # 현대차 +0.40·기아 +1.20·현대위아 −0.50
+    [peer] = payload["market_compare"]["peers"]
+    assert peer["relation"] == "inconclusive" and peer["mixed"] is True
+    assert peer["median_change_rate_pct"] == 0.40
+    report = gen.canned_report(payload)
+    assert report["summary"]["relative"] == (
+        f"같은 자동차 그룹의 현대차는 0.40% 올랐고 기아는 1.20% 올랐고 현대위아는 0.50% 내려, {MIXED_TAIL}")
+    assert verify(report, payload) == ("passed", [])
+    assert _compare_warnings(report, payload) == set()
+    # LLM 이 다른 꼴로 맞게 써도 걸리지 않는다
+    report["summary"]["relative"] = (f"같은 자동차 그룹의 현대차는 0.40%, 기아는 1.20% 올랐고 현대위아는 0.50% 내렸습니다. "
+                                     f"세 종목의 {MIXED_TAIL}")
+    assert _compare_warnings(report, payload) == set()
+
+
+def test_target_rate_equal_to_member_rate_is_not_mistaken() -> None:
+    """대상(+2.40)과 기아(+2.40)의 등락률이 같다. 그룹 문장에 기아 수치만 있어도 예전에는 relative 전체에서 2.40 을 찾아
+    대상 등락률이 있는 것으로 봤다."""
+    payload = _payload(2.40, [0.00, 2.40])  # 중앙값 1.20 기준 diverges, 기아와는 0.00%p 라 판정하는 말을 뺀다
+    [peer] = payload["market_compare"]["peers"]
+    assert (peer["relation"], peer["judge_in_sentence"]) == ("diverges", False)
+    report = gen.canned_report(payload)
+    assert report["summary"]["relative"] == (
+        "같은 자동차 그룹의 기아는 2.40% 올랐고, 현대모비스는 2.40% 올랐습니다. 같은 그룹의 현대차는 보합이었습니다.")
+    assert _compare_warnings(report, payload) == set()
+    report["summary"]["relative"] = ("현대모비스는 코스피와는 다르게 움직였고, 같은 자동차 그룹의 기아는 2.40% 올랐습니다. "
+                                     "같은 그룹의 현대차는 보합이었습니다.")
+    assert _compare_warnings(report, payload) == {COMPARE_TARGET_RATE_MISSING}
+
+
+def test_target_rate_in_next_sentence_is_found() -> None:
+    payload = _payload(1.80, [0.00, 1.00])
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = ("같은 자동차 그룹의 기아는 1.00% 올랐고 현대차는 보합이었습니다. "
+                                     "현대모비스는 1.80% 올랐습니다.")
+    assert _compare_warnings(report, payload) == set()
+
+
+# 비교 종목 1~3개(홀수·짝수), 보합 포함, 엇갈림, 과반 예외가 모두 나오게 고른 등락률. 대상은 비교 종목과 같은 값도 넣는다.
+GRID_PEER_RATES = (-1.50, -0.50, 0.00, 0.40, 1.20, 2.40)
+GRID_TARGETS = (-2.00, -0.60, 0.00, 0.40, 1.00, 1.80, 2.40, 3.20)
+GRID_KOSPI = (-1.00, 0.62, 3.09)
+
+
+def test_canned_report_never_trips_its_own_compare_warnings() -> None:
+    """정형 보고서는 verify 를 통과하고 비교 경고(COMPARE_WARNINGS)가 0건이어야 한다. 판정·문장 규칙을 바꿨을 때 정형 문장과
+    검증 정규식이 어긋나면 여기서 걸린다."""
+    seen: Counter = Counter()
+    failures = []
+    for n in (1, 2, 3):
+        for peers in itertools.combinations_with_replacement(GRID_PEER_RATES, n):
+            for target in GRID_TARGETS:
+                for kospi_rate in GRID_KOSPI:
+                    payload = _payload(target, list(peers), kospi_rate)
+                    [peer] = payload["market_compare"]["peers"]
+                    seen[peer["relation"]] += 1
+                    seen["mixed"] += peer["mixed"]
+                    seen["split"] += any(m["in_sentence"] is False for m in peer["members_used"])
+                    seen["unjudged"] += peer["judge_in_sentence"] is False
+                    seen["majority_follows"] += peer["relation"] == "follows" and min(peers) < 0 < max(peers)
+                    report = gen.canned_report(payload)
+                    status = verify(report, payload)
+                    warned = sorted(w for w in check_warnings(report, payload) if code_of(w) in COMPARE_WARNINGS)
+                    if status != ("passed", []) or warned:
+                        failures.append((target, peers, kospi_rate, report["summary"]["relative"], status, warned))
+    # 조합이 판정·문장 경우를 모두 덮는지
+    for key in ("follows", "diverges", "opposite", "inconclusive", "mixed", "split", "unjudged", "majority_follows"):
+        assert seen[key] > 0, key
+    assert failures == [], f"{len(failures)}건: {failures[:5]}"

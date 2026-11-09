@@ -231,7 +231,8 @@ _GROUP_JUDGED_TAIL = r"(?:\s*종목들?)?(?:과|와)는?\s*(?:비슷하게|함�
 _GROUP_FLOW_TAIL = r"\s*흐름을?\s*따라"
 # 입력 그룹 판정이 follows·diverges 인데 judge_in_sentence 가 false 면 relative 는 판정하는 말 없이 등락만 쓰고, 독자가 견줄 수
 # 있게 이 종목 등락률(market_compare.kospi.stock_change_rate_pct, 없으면 입력 change_pct)을 반드시 쓴다(프롬프트 「동종 그룹」).
-# relative 에 그 그룹을 가리키는 말이 있는데 이 종목 등락률(보합이면 이 종목 이름과 "보합")이 없으면 경고다.
+# relative 에 그 그룹을 가리키는 말이 있는데 그 문장과 바로 다음 문장에 이 종목 이름 뒤로 붙은 이 종목 등락률(보합이면
+# "보합")이 없으면 경고다. relative 전체에서 수치만 찾으면, 이 종목과 등락률이 같은 비교 종목의 수치를 이 종목 것으로 본다.
 COMPARE_TARGET_RATE_MISSING = "COMPARE_TARGET_RATE_MISSING"
 # 이 종목과 기준 시장(kospi_basis 쪽 코스피)이 같은 방향으로 움직였는데(둘 다 0.00 이 아님) summary.move·relative 에서 코스피를
 # 반대를 잇는 말("코스피는 올랐지만", "코스피가 오른 반면")로 받았다. 둘 다 오른 날 "코스피는 올랐지만 … 올랐습니다" 는 무엇이
@@ -246,7 +247,7 @@ _KOSPI_CONTRAST = re.compile(
     r"코스피(?:는|가|도)?\s*(?:\d+(?:\.\d+)?%\s*)?(?:올랐|내렸|상승했|하락했)(?:지만|으나|는데도)"
     r"|코스피(?:는|가)?\s*(?:\d+(?:\.\d+)?%\s*)?(?:오른|내린|상승한|하락한)\s*(?:반면|것과\s*달리)")
 # 입력 그룹 판정이 inconclusive 이고 비교 종목(members_used)이 둘 이상이면 비교 종목끼리 오르내린 방향이 엇갈린 그룹이다
-# (context.group_relation). 그 그룹을 가리키는 relative 문장에 그룹 등락률("안팎", median_change_rate_pct 수치)이나 판정하는
+# (context.group_relation). 그 그룹을 가리키는 relative 문장에 그룹 등락률("안팎")이나 판정하는
 # 말(COMPARE_JUDGE_WORDS)을 쓰면 오른 종목과 내린 종목이 같은 방향으로 움직인 것처럼 읽힌다. 그날은 비교 종목 각자의 등락률을
 # 쓰고 방향이 엇갈렸다고 덧붙인다(프롬프트 「동종 그룹」). 코스피에 붙은 말은 뺀다(_check_compare_opposite 와 같다). 경고다.
 # 종목별 등락률이 맞는지는 COMPARE_MEMBER_RATE 가 본다.
@@ -1616,20 +1617,42 @@ def _check_compare_target_rate(report: dict[str, Any], payload: dict[str, Any]) 
     if rate is None:
         return []
     stock = payload.get("stock") if isinstance(payload.get("stock"), str) else ""
-    if rate == 0:
-        shown = bool(stock) and any(stock in s and "보합" in s for s in _SENTENCE_END.split(relative.strip()))
-    else:
-        shown = abs(rate) in {Decimal(x) for x in _PERCENT.findall(relative)}
+    sentences = _SENTENCE_END.split(relative.strip())
     out: list[str] = []
     for peer in compare.get("peers") or []:
         if (not isinstance(peer, dict) or not isinstance(peer.get("group"), str)
                 or peer.get("relation") not in ("follows", "diverges") or peer.get("judge_in_sentence") is not False):
             continue
-        if group_mention(peer["group"]) in relative and not shown:
+        mention = group_mention(peer["group"])
+        at = [i for i, s in enumerate(sentences) if mention in s]
+        if not at:
+            continue
+        names = [m["name"] for m in peer.get("members_used") or [] if isinstance(m, dict) and isinstance(m.get("name"), str)]
+        window = [s for i in at for s in sentences[i:i + 2]]
+        if not any(_stock_rate_in(s, stock, rate, names) for s in window):
             out.append(_p(COMPARE_TARGET_RATE_MISSING,
                           f"{peer['group']} 그룹을 판정하는 말 없이 쓰는 날인데 summary.relative 에 이 종목 등락률 "
                           f"{abs(rate):.2f}% 가 없다"))
     return out
+
+
+def _stock_rate_in(sentence: str, stock: str, rate: Decimal, member_names: list[str]) -> bool:
+    """문장에 이 종목 이름 뒤로 이 종목 등락률(보합이면 "보합")이 붙어 있나. 이름과 수치 사이에 비교 종목 이름이 끼면
+    그 수치는 비교 종목 것이라 보지 않는다 — "현대모비스는 코스피와는 다르게 움직였고, 같은 … 그룹의 기아는 1.00% 올랐습니다"
+    의 1.00% 는 이 종목 등락률이 1.00% 여도 기아 것이다."""
+    if not stock:
+        return False
+    for m in re.finditer(re.escape(stock), sentence):
+        rest = sentence[m.end():]
+        found = re.search(r"보합", rest) if rate == 0 else _PERCENT.search(rest)
+        if found is None:
+            continue
+        between = rest[:found.start()]
+        if any(n in between for n in member_names if n != stock):
+            continue
+        if rate == 0 or Decimal(found.group(1)) == abs(rate):
+            return True
+    return False
 
 
 def _check_kospi_rate_in_relative(report: dict[str, Any]) -> list[str]:
@@ -1673,12 +1696,13 @@ def _check_compare_mixed(report: dict[str, Any], payload: dict[str, Any]) -> lis
     sentences = [_KOSPI_JUDGED.sub("", s) for s in _SENTENCE_END.split(relative.strip())]
     out: list[str] = []
     for peer in compare.get("peers") or []:
-        if (not isinstance(peer, dict) or peer.get("relation") != "inconclusive"
-                or len(peer.get("members_used") or []) < 2 or not isinstance(peer.get("group"), str)):
+        if not isinstance(peer, dict) or not isinstance(peer.get("group"), str) or not is_mixed_peer(peer):
             continue
         mention = group_mention(peer["group"])
-        rate = _decimal(peer.get("median_change_rate_pct"))
-        marks = ["안팎"] + ([f"{abs(rate):.2f}%"] if rate is not None else []) + list(COMPARE_JUDGE_WORDS)
+        # 그룹 등락률 수치(중앙값)는 표지로 보지 않는다. 비교 종목이 홀수면 중앙값이 곧 한 종목의 등락률이라, 종목별
+        # 등락률로 맞게 쓴 문장("현대차는 0.40% 올랐고 …")도 걸린다. 그룹 등락률을 수치로 쓴 문장은 "안팎" 이나
+        # COMPARE_MEMBER_RATE(종목별 등락률과 다름, 엇갈린 그룹에는 그룹 등락률을 허용하지 않음)가 잡는다
+        marks = ["안팎", *COMPARE_JUDGE_WORDS]
         found = [w for s in sentences if mention in s for w in marks if w in s]
         if found:
             out.append(_p(COMPARE_MIXED_GROUP_RATE,
@@ -1696,7 +1720,7 @@ def _check_compare_mixed_stated(report: dict[str, Any], payload: dict[str, Any])
     sentences = _SENTENCE_END.split(relative.strip())
     out: list[str] = []
     for peer in compare.get("peers") or []:
-        if not isinstance(peer, dict) or not isinstance(peer.get("group"), str) or not _is_mixed(peer):
+        if not isinstance(peer, dict) or not isinstance(peer.get("group"), str) or not is_mixed_peer(peer):
             continue
         mention = group_mention(peer["group"])
         at = [i for i, s in enumerate(sentences) if mention in s]
@@ -1750,15 +1774,17 @@ def _has_rest(peer: dict[str, Any]) -> bool:
     return any(isinstance(m, dict) and m.get("in_sentence") is False for m in peer.get("members_used") or [])
 
 
-def _is_mixed(peer: dict[str, Any]) -> bool:
-    """비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상, context.group_relation)인가.
-    입력 mixed 칸과 같은 뜻이다. 그 칸이 없는 예전 입력도 보도록 판정과 종목 수로 정한다."""
+def is_mixed_peer(peer: dict[str, Any]) -> bool:
+    """비교 종목 방향이 엇갈려 inconclusive 가 된 그룹인가. 입력 mixed 칸(PeerComparison.mixed)을 읽는다.
+    그 칸이 없는 예전 입력(mixed 를 넣기 전에 저장된 inputs_used)만 판정과 종목 수로 정한다 — 그때는 둘이 같은 뜻이었다."""
+    if "mixed" in peer:
+        return peer["mixed"] is True
     return peer.get("relation") == "inconclusive" and len(peer.get("members_used") or []) >= 2
 
 
 def _no_group_rate(peer: dict[str, Any]) -> bool:
     """그룹 등락률("대체로 X% 안팎")을 쓰지 않는 그룹인가 — 빠지는 비교 종목이 있거나 방향이 엇갈린 그룹."""
-    return _has_rest(peer) or _is_mixed(peer)
+    return _has_rest(peer) or is_mixed_peer(peer)
 
 
 def _member_rate_problem(sentences: list[str], peer: dict[str, Any], rates: dict[str, Decimal],
@@ -1766,7 +1792,7 @@ def _member_rate_problem(sentences: list[str], peer: dict[str, Any], rates: dict
     """그룹 하나의 비교 종목 등락률 문제(첫 번째) 또는 None. COMPARE_MEMBER_RATE 주석의 규칙."""
     center = _decimal(peer.get("median_change_rate_pct"))
     rest = _no_group_rate(peer)
-    why = "방향이 엇갈린 그룹" if _is_mixed(peer) else "문장에서 빠지는 비교 종목이 있는 그룹"
+    why = "방향이 엇갈린 그룹" if is_mixed_peer(peer) else "문장에서 빠지는 비교 종목이 있는 그룹"
     names = "|".join(re.escape(n) for n in sorted(rates, key=len, reverse=True))
     listed = rf"(?P<names>(?:{names})(?:·(?:{names}))*)"
     mention = rf"(?:같은\s+)?{re.escape(group_mention(peer['group']))}의?\s+"

@@ -71,6 +71,7 @@ from app.services.stock_analysis.verify import (
     check_schema,
     common_move,
     group_mention,
+    is_mixed_peer,
     judge_layers,
     main_cause_sentences,
     market_led,
@@ -505,8 +506,8 @@ def _canned_relative(payload: dict[str, Any]) -> str | None:
         elif relation == "opposite":
             moved = f"{_pct(change)} {_verb(change)}" if change else "보합이었"
             sentence = f"{who}{_topic_josa(who)} {_group_amount(peer, noun=False)}고, {topic} {moved}습니다."
-        elif len(peer.get("members_used") or []) >= 2:
-            # inconclusive 인데 비교 종목이 둘 이상이면 비교 종목 방향이 엇갈린 그룹이다(context.group_relation).
+        elif is_mixed_peer(peer):
+            # 비교 종목 방향이 엇갈려 inconclusive 가 된 그룹(입력 mixed, PeerComparison.mixed).
             # 중앙값 하나("대체로 X% 안팎")로 쓰면 오른 종목과 내린 종목이 같은 방향으로 움직인 것처럼 읽혀 그룹 등락률은 쓰지
             # 않는다. 비교 종목 각자의 등락률로 쓰고 방향이 엇갈렸다고 덧붙인다(_mixed_sentence)
             sentence = _mixed_sentence(peer, who)

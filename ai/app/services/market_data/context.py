@@ -184,14 +184,17 @@ def peer_comparisons(
         if center_pct is not None and not stock.no_trades and stock.change_rate is not None:
             excess = round(stock.change_rate - center_pct, RATE_DECIMALS)
         shown_rates = [_round(r, RATE_DECIMALS) for r in rates]
+        relation = group_relation(excess, len(used), stock.change_rate, center_pct, shown_rates)
         result.append(PeerComparison(
             group=group,
             median_change_rate_pct=center_pct,
             excess_vs_group_pp=excess,
             peer_count=len(used),
-            relation=group_relation(excess, len(used), stock.change_rate, center_pct, shown_rates),
+            relation=relation,
             members_used=used,
             member_rates_pct=shown_rates,
+            # 엇갈려서 inconclusive 가 된 그룹. 과반 예외로 follows 가 된 그룹은 엇갈렸어도 아니다(group_relation)
+            mixed=relation == "inconclusive" and is_mixed(shown_rates),
             members_excluded=excluded,
         ))
     return result

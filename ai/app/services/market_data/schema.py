@@ -134,6 +134,8 @@ class PeerComparison(BaseModel):
     relation: Literal["follows", "opposite", "diverges", "inconclusive"] | None
     members_used: list[str] = Field(default_factory=list)  # 중앙값에 쓴 종목 코드
     member_rates_pct: list[float] = Field(default_factory=list)  # members_used 순서의 등락률 (%, 반올림한 보이는 값)
+    # 비교 종목 방향이 엇갈려 inconclusive 가 된 그룹(context.is_mixed). 문장·검증·모델 입력(mixed)이 모두 이 값을 읽는다
+    mixed: bool = False
     members_excluded: list[PeerExclusion] = Field(default_factory=list)
 
 

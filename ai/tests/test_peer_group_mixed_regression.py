@@ -21,6 +21,7 @@ from app.services.stock_analysis import generate as gen
 from app.services.stock_analysis import market_compare as mc
 from app.services.stock_analysis import repair
 from app.services.stock_analysis.verify import (
+    COMPARE_MEMBER_RATE,
     COMPARE_META_PHRASE,
     COMPARE_MIXED_GROUP_RATE,
     COMPARE_OPPOSITE_WORDING,
@@ -93,19 +94,21 @@ def test_mobis_canned_relative_does_not_say_group_moved_together() -> None:
     assert not warned & {COMPARE_META_PHRASE, COMPARE_OPPOSITE_WORDING, COMPARE_MIXED_GROUP_RATE}
 
 
-@pytest.mark.parametrize("relative", [
+@pytest.mark.parametrize(("relative", "code"), [
     # LLM 이 프롬프트의 「동종 그룹」 규칙(두 종목 이상이면 "대체로 X% 안팎")을 그대로 따르면 나오는 문장
-    ("현대모비스는 코스피, 그리고 대체로 0.67% 안팎 오른 같은 자동차 그룹의 현대차·기아와 비슷하게 움직여 "
-     "시장 전체 흐름을 따라갔습니다."),
-    "같은 자동차 그룹의 현대차·기아는 0.67% 올랐습니다.",
-    "현대모비스는 같은 자동차 그룹의 현대차·기아와 함께 올랐습니다.",
+    (("현대모비스는 코스피, 그리고 대체로 0.67% 안팎 오른 같은 자동차 그룹의 현대차·기아와 비슷하게 움직여 "
+      "시장 전체 흐름을 따라갔습니다."), COMPARE_MIXED_GROUP_RATE),
+    # 그룹 등락률(중앙값) 수치는 COMPARE_MIXED_GROUP_RATE 의 표지가 아니다(홀수 그룹은 중앙값이 한 종목 등락률이라 맞는
+    # 문장도 걸린다). 현대차·기아 각자의 등락률(2.16·−0.83)과 달라 COMPARE_MEMBER_RATE 가 잡는다
+    ("같은 자동차 그룹의 현대차·기아는 0.67% 올랐습니다.", COMPARE_MEMBER_RATE),
+    ("현대모비스는 같은 자동차 그룹의 현대차·기아와 함께 올랐습니다.", COMPARE_MIXED_GROUP_RATE),
 ])
-def test_mobis_llm_group_rate_on_mixed_group_is_warned(relative) -> None:
+def test_mobis_llm_group_rate_on_mixed_group_is_warned(relative, code) -> None:
     payload = _mobis_payload()
     report = gen.canned_report(payload)
     report["summary"]["relative"] = relative
     warned = {code_of(w) for w in check_warnings(report, payload)}
-    assert COMPARE_MIXED_GROUP_RATE in warned
+    assert code in warned
 
 
 def test_single_member_inconclusive_rate_is_not_warned() -> None:
