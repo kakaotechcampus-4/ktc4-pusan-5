@@ -1,6 +1,6 @@
 {
   "case_id": "c03_000660_2026-10-23",
-  "status": "skeleton",
+  "status": "labeled",
   "label_source": "human",
   "trap_ids": [
     7
@@ -157,7 +157,12 @@
     "업계 전언(06:44 보도)과 공식 확인 중 어느 쪽이 주가를 얼마나 움직였는지",
     "솔리다임 재료가 +4.42% 상승 중 차지하는 비중(나머지가 다른 요인인지 여부)"
   ],
-  "beginner_terms": [],
+  "beginner_terms": [
+    "IPO",
+    "프리 IPO",
+    "풍문 해명 공시",
+    "SOX"
+  ],
   "verification": {
     "checklist": {
       "time": null,

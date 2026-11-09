@@ -1,6 +1,6 @@
 {
   "case_id": "c02_005930_2026-10-29",
-  "status": "skeleton",
+  "status": "labeled",
   "label_source": "human",
   "trap_ids": [
     8,
@@ -151,7 +151,13 @@
     "실적 부합·주주환원 발표에도 주가가 -4.13% 하락한 이유",
     "대형주 중간값보다 더 내린 이유"
   ],
-  "beginner_terms": [],
+  "beginner_terms": [
+    "컨센서스",
+    "잠정실적",
+    "주주환원",
+    "시설투자",
+    "CAPEX"
+  ],
   "verification": {
     "checklist": {
       "time": null,

@@ -1,6 +1,6 @@
 {
   "case_id": "c08_034220_2026-10-22",
-  "status": "skeleton",
+  "status": "labeled",
   "label_source": "human",
   "trap_ids": [],
   "market_expectation": {
@@ -122,7 +122,12 @@
     "순이익 상회가 일회성인지(입력에 근거 없음)",
     "대형주 중간값보다 덜 내린 이유"
   ],
-  "beginner_terms": [],
+  "beginner_terms": [
+    "컨센서스",
+    "영업이익",
+    "지배주주순이익",
+    "OLED"
+  ],
   "verification": {
     "checklist": {
       "time": null,

@@ -1,6 +1,6 @@
 {
   "case_id": "c07_005930_2026-10-26",
-  "status": "skeleton",
+  "status": "labeled",
   "label_source": "human",
   "trap_ids": [
     2,
@@ -114,7 +114,10 @@
     "삼성전자 -1.16% 하락의 원인(원인 없는 날)",
     "HBM4 출하 시점 지연이 이 날 주가에 미친 영향"
   ],
-  "beginner_terms": [],
+  "beginner_terms": [
+    "HBM4",
+    "CES"
+  ],
   "verification": {
     "checklist": {
       "time": null,

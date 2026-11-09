@@ -1,6 +1,6 @@
 {
   "case_id": "c05_009150_2026-10-30",
-  "status": "skeleton",
+  "status": "labeled",
   "label_source": "human",
   "trap_ids": [
     17
@@ -125,7 +125,12 @@
     "공급계약 호재 공시에도 주가가 -7.5% 하락한 이유",
     "대형주 중간값보다 더 내린 이유"
   ],
-  "beginner_terms": [],
+  "beginner_terms": [
+    "MLCC",
+    "공급계약",
+    "컨센서스",
+    "매출 대비 비중"
+  ],
   "verification": {
     "checklist": {
       "time": null,

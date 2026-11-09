@@ -1,6 +1,6 @@
 {
   "case_id": "c06_267250_2026-10-28",
-  "status": "skeleton",
+  "status": "labeled",
   "label_source": "human",
   "trap_ids": [
     9,
@@ -121,7 +121,7 @@
       "example": "교환사채 발행이 주가 상승의 주된 요인이다"
     },
     {
-      "id": "f2",
+      "id": "f3",
       "type": "fabricated_cause",
       "subject": "외국인·기관 매매(수급)",
       "relation_min": "none",
@@ -136,7 +136,13 @@
     "교환사채 발행이 주가에 미친 영향의 방향과 크기",
     "대형주 중간값보다 더 오른 이유(+3.07%p)"
   ],
-  "beginner_terms": [],
+  "beginner_terms": [
+    "교환사채",
+    "EB",
+    "컨센서스",
+    "디레이팅",
+    "선행 P/E"
+  ],
   "verification": {
     "checklist": {
       "time": null,

@@ -1,6 +1,6 @@
 {
   "case_id": "c10_011070_2026-10-27",
-  "status": "skeleton",
+  "status": "labeled",
   "label_source": "human",
   "trap_ids": [
     5
@@ -107,7 +107,12 @@
     "영업이익이 컨센서스의 절반 수준인데도 주가가 올랐던 이유",
     "대형주 전반 상승 중 종목 고유 요인이 차지한 몫"
   ],
-  "beginner_terms": [],
+  "beginner_terms": [
+    "컨센서스",
+    "잠정실적",
+    "영업이익",
+    "SOX(필라델피아 반도체지수)"
+  ],
   "verification": {
     "checklist": {
       "time": null,

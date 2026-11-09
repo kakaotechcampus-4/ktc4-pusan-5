@@ -1,6 +1,6 @@
 {
   "case_id": "c01_000660_2026-10-28",
-  "status": "skeleton",
+  "status": "labeled",
   "label_source": "human",
   "trap_ids": [
     8
@@ -214,7 +214,13 @@
     "지배주주순이익 컨센 하회(영업외손실 -32.6조원)가 주가에 미친 영향의 크기",
     "실적·주주환원·컨퍼런스콜 중 어느 재료가 상승폭을 얼마나 설명하는지(재료별 기여 비율)"
   ],
-  "beginner_terms": [],
+  "beginner_terms": [
+    "컨센서스",
+    "영업외손익",
+    "자기주식 취득",
+    "솔드아웃",
+    "DRAM B/G"
+  ],
   "verification": {
     "checklist": {
       "time": null,
