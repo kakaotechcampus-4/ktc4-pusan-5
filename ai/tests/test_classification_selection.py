@@ -11,6 +11,8 @@ from app.services.classification.selection import (
     normalize_title,
     order_for_classification,
     rank_news,
+    same_story,
+    title_words,
 )
 
 MOCK_SAMSUNG = Stock(code="005930", name="삼성전자", aliases=("삼전",), subsidiaries=("삼성디스플레이",))
@@ -33,10 +35,11 @@ def test_title_mention_ranks_above_body_mentions():
 
 
 def test_body_count_then_recency_break_ties():
+    # 제목은 서로 다른 소식이어야 한다(낱말이 겹치면 같은 소식으로 묶인다)
     candidates = [
-        news(1, "업황", "삼성전자", hour=10),
-        news(2, "업황 둘", "삼성전자 삼전", hour=9),
-        news(3, "업황 셋", "삼성전자", hour=11),
+        news(1, "D램 가격 반등", "삼성전자", hour=10),
+        news(2, "파운드리 수주 경쟁", "삼성전자 삼전", hour=9),
+        news(3, "가전 판매 부진", "삼성전자", hour=11),
     ]
     # 본문 언급 2회인 2 가 먼저, 같은 1회끼리는 최신(3)이 먼저
     assert rank_news(candidates, [MOCK_SAMSUNG], cap=3) == {2: 0, 3: 1, 1: 2}
@@ -71,6 +74,34 @@ def test_same_title_from_other_publishers_counts_once():
     # 1·2 는 정규화하면 같은 제목. 최신인 2 만 남고 다음 자리는 3 이 받는다
     assert normalize_title(candidates[0].title) == normalize_title(candidates[1].title)
     assert rank_news(candidates, [MOCK_SAMSUNG], cap=2) == {2: 0, 3: 1}
+
+
+def test_similar_titles_count_as_one_story_and_free_the_slot():
+    candidates = [
+        news(1, "삼성전자, 천장형 디지털 엑스레이 'GC85A Fit' 출시", hour=11),
+        news(2, "삼성전자, 천장형 디지털 엑스레이 신제품 출시", hour=10),
+        news(3, "삼성전자, 3분기 영업이익 12조", hour=9),
+    ]
+    # 2 는 1 과 낱말이 많이 겹쳐 같은 소식이다. 그 자리는 다른 소식인 3 이 받는다(11-09 실제 제목)
+    assert same_story(title_words(candidates[0].title, ("삼성전자",)),
+                      title_words(candidates[1].title, ("삼성전자",)))
+    assert rank_news(candidates, [MOCK_SAMSUNG], cap=2) == {1: 0, 3: 1}
+
+
+def test_title_words_drop_stock_names_brackets_and_one_particle():
+    words = title_words("[단독] 삼성물산, 목동13단지 재건축을 수주", ("삼성물산",))
+    assert words == frozenset({"목동13단지", "재건축", "수주"})
+
+
+def test_stock_name_alone_does_not_make_titles_the_same_story():
+    # 종목 이름을 빼고 비교하므로 '삼성전자' 만 같은 제목은 다른 소식이다
+    candidates = [news(1, "삼성전자 노조 파업", hour=9), news(2, "삼성전자 HBM 공급 계약", hour=8)]
+    assert rank_news(candidates, [MOCK_SAMSUNG], cap=2) == {1: 0, 2: 1}
+
+
+def test_titles_without_words_are_not_the_same_story():
+    assert not same_story(frozenset(), frozenset({"실적"}))
+    assert not same_story(frozenset(), frozenset())
 
 
 def test_cap_is_per_stock_and_per_day_and_union_keeps_best_rank():
