@@ -329,6 +329,11 @@ _RELATIVE_COMPARE_RULES = """
   코스피 판정이 `null` 이면 그룹 쪽만 씁니다.
 - `members_used` 가 한 종목이면 "대체로 … 안팎" 이라 하지 않고 그 종목의 등락률로 씁니다. 이름에 "연동" 이 들어간 그룹은 지분으로 이어진
   종목 묶음입니다 — 같은 업종이라고 쓰지 않습니다.
+- `members_used` 에 `in_sentence: false` 인 종목이 있으면(보합이거나 그룹 등락률과 방향이 다른 종목이 섞인 그룹) 그룹 등락률을 쓰지
+  않습니다. `in_sentence: true` 인 종목만 각자의 등락률(`change_rate_pct`, 둘 이상이면 "0.35~0.80%")로 쓰고, `in_sentence: false`
+  인 종목은 바로 뒤에 따로 한 문장으로 씁니다("같은 그룹의 현대차는 보합이었습니다.").
+- `judge_in_sentence` 가 `false` 인 그룹은 판정하는 말("비슷하게"·"함께"·"다르게"·"크게 달랐다"·"따라갔다") 없이 등락만
+  씁니다("같은 자동차 그룹의 기아는 1.00% 올랐고, 현대모비스는 1.80% 올랐습니다.").
 - market_compare 가 `null` 이거나 `status` 가 `ok` 가 아니거나, `peers` 가 비었거나 `peers[].relation` 이 모두 `null` 이면
   비교 문장을 쓰지 않습니다.
 """ + "- " + "·".join(f'"{phrase}"' for phrase in COMPARE_META_PHRASES) + " 같은 안쪽 말은 쓰지 않습니다.\n"

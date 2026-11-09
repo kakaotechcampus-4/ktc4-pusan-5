@@ -52,9 +52,13 @@ def test_kb_follows_prompt_input_format() -> None:
 
     [peer] = compare["peers"]
     assert peer["group"] == "은행지주" and peer["relation"] == "follows"
+    # 오른 둘·내린 하나라 과반 예외로 follows. 그룹 등락률(0.35)과 방향이 다른 우리금융지주는 문장에서 빼고 따로 쓴다.
+    # 신한지주·하나금융지주(중앙값 0.58)로 다시 판정해도 follows 라 판정하는 말을 쓴다
+    assert peer["judge_in_sentence"] is True
     assert peer["members_used"] == [
-        {"code": "055550", "name": "신한지주"}, {"code": "086790", "name": "하나금융지주"},
-        {"code": "316140", "name": "우리금융지주"}]
+        {"code": "055550", "name": "신한지주", "change_rate_pct": 0.35, "in_sentence": True},
+        {"code": "086790", "name": "하나금융지주", "change_rate_pct": 0.8, "in_sentence": True},
+        {"code": "316140", "name": "우리금융지주", "change_rate_pct": -1.37, "in_sentence": False}]
     assert peer["members_excluded"] == [{"code": "105560", "name": "KB금융", "reason": "self"}]
     json.dumps(compare, ensure_ascii=False)  # 모델 입력에 그대로 들어간다
 
@@ -63,7 +67,9 @@ def test_samsung_compares_with_kospi_ex_self() -> None:
     compare = mc.to_input(build_market_context("005930", DAY, KOSPI, STOCKS))
     assert compare["kospi"]["kospi_basis"] == "kospi_ex_self"
     assert compare["kospi"]["excess_vs_kospi_ex_self_pp"] == 2.23
-    assert compare["peers"][0]["members_used"] == [{"code": "000660", "name": "SK하이닉스"}]
+    assert compare["peers"][0]["members_used"] == [
+        {"code": "000660", "name": "SK하이닉스", "change_rate_pct": 5.18, "in_sentence": True}]
+    assert compare["peers"][0]["judge_in_sentence"] is True
 
 
 def test_status_only_context_has_no_kospi() -> None:

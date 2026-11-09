@@ -216,6 +216,8 @@ COMPARE_META_PHRASES = ("판정하기 어렵", "기준 시장", "비교 종목�
 # 찾는다. 그룹은 relative 에서 그 그룹을 가리키는 문장을 보되 코스피에 붙은 말은 빼고 COMPARE_JUDGE_WORDS 를 찾는다 — "코스피는
 # 내렸고 …는 같은 … 그룹과 함께 올랐습니다"(코스피 opposite·그룹 follows)의 "함께" 는 그룹 쪽 말이다. 한 문장에 다른 비교가
 # 섞이면 잘못 잡을 수 있어 경고다.
+# 그룹 판정이 follows·diverges 여도 입력 judge_in_sentence 가 false 면(문장에 쓸 비교 종목만으로 다시 판정하면 판정이 달라지는
+# 그룹, market_compare.sentence_members) 같은 경고다. 그날은 "크게 달랐" 도 판정하는 말로 본다.
 COMPARE_OPPOSITE_WORDING = "COMPARE_OPPOSITE_WORDING"
 COMPARE_JUDGE_WORDS = ("비슷하게", "함께", "다르게", "따라갔")
 _KOSPI_JUDGED = re.compile(r"코스피(?:와|과)는?\s*(?:비슷하게|함께|다르게)|코스피\s*흐름을\s*따라")
@@ -224,6 +226,18 @@ _KOSPI_JUDGED = re.compile(r"코스피(?:와|과)는?\s*(?:비슷하게|함께|�
 # 말(COMPARE_JUDGE_WORDS)을 쓰면 오른 종목과 내린 종목이 같은 방향으로 움직인 것처럼 읽힌다. 그날은 방향이 엇갈렸다는 사실만
 # 쓴다(프롬프트 「동종 그룹」). 코스피에 붙은 말은 뺀다(_check_compare_opposite 와 같다). 경고다.
 COMPARE_MIXED_GROUP_RATE = "COMPARE_MIXED_GROUP_RATE"
+# 입력 members_used[].change_rate_pct(비교 종목 각자의 등락률)가 있는 그룹에서, summary.relative 에 쓴 비교 종목의 등락률·방향이
+# 입력과 다르다(프롬프트 「동종 그룹」). 이름 목록 앞뒤에 붙은 등락을 본다.
+#   "1.00% 오른 같은 자동차 그룹의 기아", "0.35~0.80% 오른 같은 자동차 그룹의 현대차·기아"   수치 → 이름 목록
+#   "같은 자동차 그룹의 기아는 1.00% 올랐", "같은 그룹의 현대차는 보합이었"                       이름 목록 → 수치
+# 한 값이면 목록의 종목 모두가 그 등락률, 범위면 끝값이 목록 종목들의 가장 작은·큰 등락률(절댓값)이어야 하고, 오르내린 말이
+# 등락률 부호와 맞아야 한다. "대체로 X% 안팎"·"대체로 보합인" 은 그룹 등락률이라 그 값과 맞아야 하고, 문장에서 빠지는
+# 종목(in_sentence: false)이 있는 그룹에는 쓰지 않는다. 그 밖에 비교 종목 이름이 나온 문장의 % 수치는 비교 종목 등락률·그룹
+# 등락률·이 종목 등락률 가운데 하나여야 한다("기아(1.20%)" 같은 꼴). 종목별 등락률이 없는 입력(예전 형식)은 보지 않는다.
+# 다른 비교 경고와 같이 경고다 — 문장 꼴을 정규식으로 읽어 LLM 이 다르게 쓰면 놓치거나 잘못 잡을 수 있다.
+COMPARE_MEMBER_RATE = "COMPARE_MEMBER_RATE"
+_RATE_NUM = r"\d+(?:\.\d+)?"
+_PERCENT = re.compile(rf"({_RATE_NUM})\s*(?:~|%(?!p))")
 # 이름이 이것으로 끝나는 그룹은 지분으로 이어진 묶음이라 문장에 "<앞부분> 지분으로 이어진" 으로 쓴다(프롬프트 「동종 그룹」).
 LINKED_GROUP_SUFFIX = " 연동"
 
@@ -1287,8 +1301,11 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     MARKET_LED_DIRECT_FACTOR    market_led 날 등락 층 factor 의 이슈가 모두 relation: direct 다. issue_trace 가 있어야 본다.
     MAIN_CAUSE_TOO_LONG         summary.main_cause 가 MAIN_CAUSE_MAX_SENTENCES 문장을 넘는다(러너 고정 문장 포함).
     COMPARE_META_PHRASE         독자가 읽는 칸에 비교 판정의 안쪽 말(COMPARE_META_PHRASES)이 있다. payload 없이 본다.
-    COMPARE_OPPOSITE_WORDING    market_compare 판정이 opposite 인 비교에 "비슷하게"·"함께"·"다르게"·"따라갔" 를 썼다.
+    COMPARE_OPPOSITE_WORDING    market_compare 판정이 opposite 인 비교에 "비슷하게"·"함께"·"다르게"·"따라갔" 를 썼다. 그룹
+                                판정이 follows·diverges 여도 judge_in_sentence 가 false 면 같고, "크게 달랐" 도 본다.
     COMPARE_MIXED_GROUP_RATE    비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상)에 그룹 등락률이나 판정하는 말을 썼다.
+    COMPARE_MEMBER_RATE         relative 에 쓴 비교 종목 등락률·방향이 입력 members_used[].change_rate_pct 와 다르거나, 문장에서
+                                빠지는 비교 종목이 있는 그룹을 그룹 등락률("대체로 X% 안팎")로 썼다.
     """
     if not isinstance(report, dict):
         return []
@@ -1325,6 +1342,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     out += _check_quote_subjects(factors, str(payload.get("stock") or ""))
     out += _check_compare_opposite(report, payload)
     out += _check_compare_mixed(report, payload)
+    out += _check_compare_member_rate(report, payload)
     market = payload.get("market")
     summary = report.get("summary")
     move_text = summary.get("move") if isinstance(summary, dict) else None
@@ -1503,13 +1521,18 @@ def _check_compare_opposite(report: dict[str, Any], payload: dict[str, Any]) -> 
         return out
     sentences = [_KOSPI_JUDGED.sub("", s) for s in _SENTENCE_END.split(relative.strip())]
     for peer in compare.get("peers") or []:
-        if not isinstance(peer, dict) or peer.get("relation") != "opposite" or not isinstance(peer.get("group"), str):
+        if not isinstance(peer, dict) or not isinstance(peer.get("group"), str):
+            continue
+        # 문장에 쓸 비교 종목만으로는 판정이 달라지는 그룹(follows·diverges 인데 judge_in_sentence false)
+        unjudged = peer.get("relation") in ("follows", "diverges") and peer.get("judge_in_sentence") is False
+        if peer.get("relation") != "opposite" and not unjudged:
             continue
         mention = group_mention(peer["group"])
-        words = [w for s in sentences if mention in s for w in COMPARE_JUDGE_WORDS if w in s]
+        judge_words = COMPARE_JUDGE_WORDS + (("달랐",) if unjudged else ())
+        words = [w for s in sentences if mention in s for w in judge_words if w in s]
         if words:
-            out.append(_p(COMPARE_OPPOSITE_WORDING,
-                          f"{peer['group']} 그룹과 방향이 반대인 날인데 summary.relative 에 {words[0]!r}"))
+            why = "문장에 쓴 비교 종목만으로는 판정이 달라지는" if unjudged else "그룹과 방향이 반대인"
+            out.append(_p(COMPARE_OPPOSITE_WORDING, f"{peer['group']} {why} 날인데 summary.relative 에 {words[0]!r}"))
     return out
 
 
@@ -1534,6 +1557,94 @@ def _check_compare_mixed(report: dict[str, Any], payload: dict[str, Any]) -> lis
             out.append(_p(COMPARE_MIXED_GROUP_RATE,
                           f"{peer['group']} 그룹은 비교 종목 방향이 엇갈렸는데 summary.relative 에 {found[0]!r}"))
     return out
+
+
+def _member_rates(peer: Any) -> dict[str, Decimal] | None:
+    """비교 종목 이름 → 등락률. 종목별 등락률이 하나라도 없으면(예전 입력 형식) None."""
+    if not isinstance(peer, dict):
+        return None
+    members = [m for m in peer.get("members_used") or [] if isinstance(m, dict) and isinstance(m.get("name"), str)]
+    rates = {m["name"]: _decimal(m.get("change_rate_pct")) for m in members}
+    if not rates or any(r is None for r in rates.values()):
+        return None
+    return rates  # type: ignore[return-value]
+
+
+def _check_compare_member_rate(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
+    """summary.relative 에 쓴 비교 종목 등락률이 입력 members_used[].change_rate_pct 와 맞나. 그룹마다 경고 하나."""
+    compare = payload.get("market_compare")
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    relative = summary.get("relative")
+    if not isinstance(compare, dict) or compare.get("status") != "ok" or not isinstance(relative, str):
+        return []
+    sentences = [_KOSPI_JUDGED.sub("", s) for s in _SENTENCE_END.split(relative.strip())]
+    peers = [p for p in compare.get("peers") or [] if isinstance(p, dict) and isinstance(p.get("group"), str)]
+    # 비교 종목 이름이 나온 문장에 쓸 수 있는 % 수치. 한 문장에 그룹이 둘 섞일 수 있어 모든 그룹 값을 함께 둔다
+    kospi = compare.get("kospi") if isinstance(compare.get("kospi"), dict) else {}
+    allowed = {abs(v) for v in (_decimal(payload.get("change_pct")), _decimal(kospi.get("stock_change_rate_pct")))
+               if v is not None}
+    for peer in peers:
+        allowed |= {abs(r) for r in (_member_rates(peer) or {}).values()}
+        if (center := _decimal(peer.get("median_change_rate_pct"))) is not None and not _has_rest(peer):
+            allowed.add(abs(center))
+    out: list[str] = []
+    for peer in peers:
+        rates = _member_rates(peer)
+        if rates is None:
+            continue
+        problem = _member_rate_problem(sentences, peer, rates, allowed)
+        if problem:
+            out.append(_p(COMPARE_MEMBER_RATE, f"{peer['group']} 그룹 비교 종목: summary.relative 에 {problem}"))
+    return out
+
+
+def _has_rest(peer: dict[str, Any]) -> bool:
+    """문장에서 빠지는 비교 종목(in_sentence: false)이 있는 그룹인가."""
+    return any(isinstance(m, dict) and m.get("in_sentence") is False for m in peer.get("members_used") or [])
+
+
+def _member_rate_problem(sentences: list[str], peer: dict[str, Any], rates: dict[str, Decimal],
+                         allowed: set[Decimal]) -> str | None:
+    """그룹 하나의 비교 종목 등락률 문제(첫 번째) 또는 None. COMPARE_MEMBER_RATE 주석의 규칙."""
+    center = _decimal(peer.get("median_change_rate_pct"))
+    rest = _has_rest(peer)
+    names = "|".join(re.escape(n) for n in sorted(rates, key=len, reverse=True))
+    listed = rf"(?P<names>(?:{names})(?:·(?:{names}))*)"
+    mention = rf"(?:같은\s+)?{re.escape(group_mention(peer['group']))}의?\s+"
+    amount = rf"(?P<rough>대체로\s*)?(?:(?P<low>{_RATE_NUM})\s*~\s*)?(?P<value>{_RATE_NUM})%\s*(?P<about>안팎\s*)?"
+    patterns = [
+        re.compile(rf"{amount}(?P<verb>오른|내린|상승한|하락한)\s+{mention}{listed}"),
+        re.compile(rf"(?<![가-힣A-Za-z0-9]){listed}(?:은|는|이|가)\s+{amount}(?P<verb>올랐|내렸|올라|내려|상승|하락)"),
+        re.compile(rf"(?P<rough>대체로\s*)?보합인\s+{mention}{listed}"),
+        re.compile(rf"(?<![가-힣A-Za-z0-9]){listed}(?:은|는|이|가)\s+(?P<rough>대체로\s*)?보합"),
+    ]
+    for s in sentences:
+        for pattern in patterns:
+            for m in pattern.finditer(s):
+                found = m.groupdict()
+                listed_rates = [rates[n] for n in found["names"].split("·")]
+                value = Decimal(found["value"]) if found.get("value") else Decimal(0)
+                sign = 0 if not found.get("value") else 1 if found["verb"][0] in "오올상" else -1
+                if found.get("rough") or found.get("about"):  # 그룹 등락률 꼴
+                    if rest:
+                        return f"문장에서 빠지는 비교 종목이 있는 그룹을 그룹 등락률로 썼다 {m.group(0)!r}"
+                    if center is None or value != abs(center) or (center > 0) - (center < 0) != sign:
+                        return f"그룹 등락률({center:.2f}%)과 다르다 {m.group(0)!r}" if center is not None else \
+                            f"그룹 등락률이 없다 {m.group(0)!r}"
+                    continue
+                if found.get("low"):
+                    expected = (min(abs(r) for r in listed_rates), max(abs(r) for r in listed_rates))
+                    if (Decimal(found["low"]), value) != expected:
+                        return f"범위가 {expected[0]:.2f}~{expected[1]:.2f}% 가 아니다 {m.group(0)!r}"
+                elif any(abs(r) != value for r in listed_rates):
+                    return f"입력 등락률({'·'.join(f'{r:.2f}%' for r in listed_rates)})과 다르다 {m.group(0)!r}"
+                if any((r > 0) - (r < 0) != sign for r in listed_rates):
+                    return f"오르내린 방향이 입력 등락률과 다르다 {m.group(0)!r}"
+        if any(n in s for n in rates):
+            for m in _PERCENT.finditer(s):
+                if Decimal(m.group(1)) not in allowed:
+                    return f"입력에 없는 수치 {m.group(1)}% 를 비교 종목 문장에 썼다 {s!r}"
+    return None
 
 
 def _check_theme_recap_sector(report: dict[str, Any], kinds: dict[Any, Any],

@@ -133,6 +133,7 @@ class PeerComparison(BaseModel):
     # None         초과분이 없다(중앙값을 못 냈거나 대상이 거래정지)
     relation: Literal["follows", "opposite", "diverges", "inconclusive"] | None
     members_used: list[str] = Field(default_factory=list)  # 중앙값에 쓴 종목 코드
+    member_rates_pct: list[float] = Field(default_factory=list)  # members_used 순서의 등락률 (%, 반올림한 보이는 값)
     members_excluded: list[PeerExclusion] = Field(default_factory=list)
 
 

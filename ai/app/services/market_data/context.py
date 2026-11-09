@@ -183,14 +183,15 @@ def peer_comparisons(
         # 보이는 중앙값(반올림 값)과 뺀다. 반올림 전 값과 빼면 1.0 경계에서 판정이 보이는 숫자와 어긋난다.
         if center_pct is not None and not stock.no_trades and stock.change_rate is not None:
             excess = round(stock.change_rate - center_pct, RATE_DECIMALS)
+        shown_rates = [_round(r, RATE_DECIMALS) for r in rates]
         result.append(PeerComparison(
             group=group,
             median_change_rate_pct=center_pct,
             excess_vs_group_pp=excess,
             peer_count=len(used),
-            relation=group_relation(excess, len(used), stock.change_rate, center_pct,
-                                    [_round(r, RATE_DECIMALS) for r in rates]),
+            relation=group_relation(excess, len(used), stock.change_rate, center_pct, shown_rates),
             members_used=used,
+            member_rates_pct=shown_rates,
             members_excluded=excluded,
         ))
     return result

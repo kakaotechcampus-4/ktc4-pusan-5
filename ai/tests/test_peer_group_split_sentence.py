@@ -1,0 +1,212 @@
+"""보합·다른 방향 비교 종목이 섞인 동종 그룹의 relative 문장.
+
+그룹 등락률(중앙값)은 보합이나 다른 방향 종목까지 넣어 낸 값이다. 현대차 0.00·기아 +1.00 이면 "대체로 0.50% 안팎 오른
+현대차·기아" 가 되어 보합인 현대차도 오른 것처럼 읽혔다. 판정은 그대로 두고, 문장에는 그룹 등락률과 방향이 같은 종목만 각자의
+등락률로 쓰고 나머지는 따로 한 문장으로 쓴다(market_compare.sentence_members, generate._canned_relative). 그 종목들로 다시
+판정해 원래 판정과 다르면 판정하는 말 없이 등락만 쓴다. LLM 이 쓴 비교 종목 등락률은 COMPARE_MEMBER_RATE 가 입력과 대조한다.
+
+그룹은 대상 현대모비스와 비교 종목 현대차·기아·현대위아로 만든 시험용이다(실제 그룹 정의가 아니다). 코스피는 0.62% 로 둔다.
+"""
+
+import pytest
+
+from app.services.market_data.context import build_market_context, kospi_relation
+from app.services.stock_analysis import generate as gen
+from app.services.stock_analysis import market_compare as mc
+from app.services.stock_analysis.verify import (
+    COMPARE_MEMBER_RATE,
+    COMPARE_META_PHRASE,
+    COMPARE_MIXED_GROUP_RATE,
+    COMPARE_OPPOSITE_WORDING,
+    check_warnings,
+    code_of,
+    verify,
+)
+from tests.test_market_data_context import DAY, KOSPI, STOCKS, kospi, stock
+
+TARGET = "012330"
+MEMBERS = [("005380", "현대차"), ("000270", "기아"), ("011210", "현대위아")]
+KOSPI_RATE = 0.62
+COMPARE_WARNINGS = {COMPARE_META_PHRASE, COMPARE_OPPOSITE_WORDING, COMPARE_MIXED_GROUP_RATE, COMPARE_MEMBER_RATE}
+
+
+def _ctx(target: float, peers: list[float]):
+    members = MEMBERS[:len(peers)]
+    groups = {"자동차": {TARGET: "현대모비스", **dict(members)}}
+    stocks = [stock(TARGET, 100, target)] + [stock(code, 100, rate) for (code, _), rate in zip(members, peers)]
+    ctx = build_market_context(TARGET, DAY, kospi(KOSPI_RATE), stocks, groups=groups, stock_groups={TARGET: ("자동차",)})
+    return ctx, groups
+
+
+def _payload(target: float, peers: list[float]) -> dict:
+    ctx, groups = _ctx(target, peers)
+    compare = mc.to_input(ctx, groups=groups)
+    excess = round(target - KOSPI_RATE, 2)
+    # 시험용 시장이라 코스피 비중·기여도는 의미가 없다. 대상과 코스피 등락률로 판정만 맞춘다
+    compare["kospi"] = {
+        "stock_change_rate_pct": target, "kospi_change_rate_pct": KOSPI_RATE, "excess_vs_kospi_pp": excess,
+        "kospi_weight_pct": 0.7, "kospi_contribution_pp": 0.0, "kospi_ex_self_change_rate_pct": KOSPI_RATE,
+        "excess_vs_kospi_ex_self_pp": excess, "kospi_basis": "kospi",
+        "kospi_relation": kospi_relation(excess, target, KOSPI_RATE)}
+    return _report_input("현대모비스", TARGET, target, KOSPI_RATE, compare)
+
+
+def _report_input(name: str, code: str, change: float, kospi_rate: float, compare: dict) -> dict:
+    return {
+        "stock": name, "code": code, "target_date": DAY.isoformat(), "cutoff": f"{DAY.isoformat()}T15:30:00+09:00",
+        "change_pct": change,
+        "market": {"index": "코스피", "change_pct": kospi_rate, "as_of": "15:30", "url": "", "peer_median_pct": 0.84,
+                   "peer_up": 12, "peer_down": 7, "peer_total": 20, "excess_pct": round(change - 0.84, 2)},
+        "messages": [{"channel": "c", "url": "https://t.me/c/1", "datetime_kst": f"{DAY.isoformat()}T15:00:00+09:00",
+                      "text": "코스피 마감 시황", "mention": "not_mentioned", "kind": "market_recap"}],
+        "market_compare": compare,
+    }
+
+
+def _compare_warnings(report: dict, payload: dict) -> set[str]:
+    return {code_of(w) for w in check_warnings(report, payload)} & COMPARE_WARNINGS
+
+
+# --- 문장에 쓸 종목과 판정하는 말 (market_compare.sentence_members) ----------------------------------------------
+
+@pytest.mark.parametrize(("target", "peers", "relation", "in_sentence", "judge"), [
+    # 보합 하나·오른 하나. 중앙값 0.50 은 오른 쪽이라 기아만 문장에 쓴다
+    (3.00, [0.00, 1.00], "diverges", [False, True], True),  # 기아(+1.00)와도 2.00%p 차이라 diverges 그대로
+    (1.80, [0.00, 1.00], "diverges", [False, True], False),  # 기아와는 0.80%p 차이라 다시 판정하면 follows
+    (0.50, [0.00, 1.00], "follows", [False, True], True),
+    (0.60, [0.00, 3.00], "follows", [False, True], False),  # 기아(+3.00)와는 2.40%p 차이라 다시 판정하면 diverges
+    (-0.30, [0.00, 0.80], "opposite", [False, True], False),  # opposite 는 원래 판정하는 말을 쓰지 않는다
+    (3.00, [1.00, 1.20, 0.00], "diverges", [True, True, False], True),
+    # 중앙값이 보합이면 보합인 종목을 문장에 쓴다
+    (1.00, [0.00, 0.00, 2.00], "follows", [True, True, False], True),
+    # 과반 예외로 follows(오른 둘·내린 하나). 내린 현대위아는 문장에서 뺀다. 현대차·기아(중앙값 0.58)로도 follows
+    (0.27, [0.35, 0.80, -1.37], "follows", [True, True, False], True),
+    # 나눌 게 없다: 모두 같은 방향, 모두 보합, 비교 종목 하나
+    (2.00, [0.50, 1.50], "follows", [True, True], True),
+    (3.00, [0.00, 0.00], "diverges", [True, True], True),
+    (2.01, [1.00], "inconclusive", [True], False),
+    # 방향이 엇갈린 그룹(inconclusive)은 나누지 않는다 — 수치 없이 모든 종목을 쓴다
+    (2.50, [2.16, -0.83], "inconclusive", [True, True], False),
+])
+def test_sentence_members(target, peers, relation, in_sentence, judge) -> None:
+    [peer] = _payload(target, peers)["market_compare"]["peers"]
+    assert peer["relation"] == relation
+    assert [m["in_sentence"] for m in peer["members_used"]] == in_sentence
+    assert [m["change_rate_pct"] for m in peer["members_used"]] == peers
+    assert peer["judge_in_sentence"] is judge
+
+
+# --- 정형 보고서 relative ---------------------------------------------------------------------------------------
+
+@pytest.mark.parametrize(("target", "peers", "relative"), [
+    # 기아와 비교해도 크게 달랐다 → 판정하는 말을 쓴다. 보합인 현대차는 따로
+    (3.00, [0.00, 1.00],
+     "현대모비스는 1.00% 오른 같은 자동차 그룹의 기아와 크게 달랐습니다. 같은 그룹의 현대차는 보합이었습니다."),
+    # 판정(diverges)은 중앙값 0.50 기준. 문장에 보이는 기아 +1.00 과는 0.80%p 라 "크게 달랐다" 를 쓰지 않고 등락만
+    (1.80, [0.00, 1.00],
+     "같은 자동차 그룹의 기아는 1.00% 올랐고, 현대모비스는 1.80% 올랐습니다. 같은 그룹의 현대차는 보합이었습니다."),
+    # 판정(follows)은 중앙값 1.50 기준. 기아 +3.00 과 "비슷하게" 라고 쓰지 않는다. 코스피는 따라갔으니 그 문장은 남긴다
+    (0.60, [0.00, 3.00],
+     ("현대모비스는 코스피와 비슷하게 움직여 시장 전체 흐름을 따라갔습니다. "
+      "같은 자동차 그룹의 기아는 3.00% 올랐고, 현대모비스는 0.60% 올랐습니다. 같은 그룹의 현대차는 보합이었습니다.")),
+    # 과반 예외 follows. 예전에는 "대체로 0.35% 안팎 오른 … 현대차·기아·현대위아" 로 내린 현대위아도 오른 것처럼 읽혔다
+    (0.27, [0.35, 0.80, -1.37],
+     ("현대모비스는 코스피, 그리고 0.35~0.80% 오른 같은 자동차 그룹의 현대차·기아와 비슷하게 움직여 시장 전체 흐름을 "
+      "따라갔습니다. 같은 그룹의 현대위아는 1.37% 내렸습니다.")),
+    (-0.30, [0.00, 0.80],
+     "같은 자동차 그룹의 기아는 0.80% 올랐고, 현대모비스는 0.30% 내렸습니다. 같은 그룹의 현대차는 보합이었습니다."),
+    (3.00, [1.00, 1.20, 0.00],
+     "현대모비스는 1.00~1.20% 오른 같은 자동차 그룹의 현대차·기아와 크게 달랐습니다. 같은 그룹의 현대위아는 보합이었습니다."),
+    # 나눌 게 없으면 지금처럼 그룹 등락률
+    (3.00, [0.00, 0.00], "현대모비스는 대체로 보합인 같은 자동차 그룹의 현대차·기아와 크게 달랐습니다."),
+])
+def test_canned_relative(target, peers, relative) -> None:
+    payload = _payload(target, peers)
+    report = gen.canned_report(payload)
+    assert report["summary"]["relative"] == relative
+    assert verify(report, payload) == ("passed", [])
+    assert _compare_warnings(report, payload) == set()
+
+
+def test_kb_real_day_majority_group_sentence() -> None:
+    """2026-10-27 KB금융(+0.27%) 실제 응답. 신한지주 +0.35·하나금융지주 +0.80·우리금융지주 −1.37 로 과반 예외 follows 다."""
+    compare = mc.to_input(build_market_context("105560", DAY, KOSPI, STOCKS))
+    payload = _report_input("KB금융", "105560", 0.27, compare["kospi"]["kospi_change_rate_pct"], compare)
+    report = gen.canned_report(payload)
+    assert report["summary"]["relative"] == (
+        "KB금융은 코스피와는 다르게 0.35~0.80% 오른 같은 은행지주 그룹의 신한지주·하나금융지주와 함께 움직였습니다. "
+        "같은 그룹의 우리금융지주는 1.37% 내렸습니다.")
+    assert verify(report, payload) == ("passed", [])
+    assert _compare_warnings(report, payload) == set()
+
+
+# --- LLM 이 쓴 비교 종목 등락률 검증 (COMPARE_MEMBER_RATE) -------------------------------------------------------
+
+@pytest.mark.parametrize(("target", "peers", "relative"), [
+    # 기아는 +1.00
+    (3.00, [0.00, 1.00], "현대모비스는 1.20% 오른 같은 자동차 그룹의 기아와 크게 달랐습니다. 같은 그룹의 현대차는 보합이었습니다."),
+    (3.00, [0.00, 1.00], "같은 자동차 그룹의 기아는 1.10% 올랐고, 현대모비스는 3.00% 올랐습니다. 같은 그룹의 현대차는 보합이었습니다."),
+    (3.00, [0.00, 1.00], "현대모비스는 같은 자동차 그룹의 기아(1.20%)와 크게 달랐습니다. 같은 그룹의 현대차는 보합이었습니다."),
+    # 방향이 반대
+    (3.00, [0.00, 1.00], "현대모비스는 1.00% 내린 같은 자동차 그룹의 기아와 크게 달랐습니다. 같은 그룹의 현대차는 보합이었습니다."),
+    # 보합인 현대차를 오른 것처럼
+    (3.00, [0.00, 1.00], "현대모비스는 1.00% 오른 같은 자동차 그룹의 기아와 크게 달랐습니다. 같은 그룹의 현대차는 0.50% 올랐습니다."),
+    (3.00, [0.00, 1.00], "현대모비스는 1.00% 오른 같은 자동차 그룹의 현대차·기아와 크게 달랐습니다."),
+    # 문장에서 빠지는 종목이 있는 그룹을 그룹 등락률로(이번 수정 전 문장)
+    (3.00, [0.00, 1.00], "현대모비스는 대체로 0.50% 안팎 오른 같은 자동차 그룹의 현대차·기아와 크게 달랐습니다."),
+    # 범위 끝값이 틀렸다(0.35~0.80 이어야 한다)
+    (0.27, [0.35, 0.80, -1.37],
+     ("현대모비스는 코스피, 그리고 0.35~1.37% 오른 같은 자동차 그룹의 현대차·기아와 비슷하게 움직여 시장 전체 흐름을 "
+      "따라갔습니다. 같은 그룹의 현대위아는 1.37% 내렸습니다.")),
+    # 내린 현대위아를 오른 것으로
+    (0.27, [0.35, 0.80, -1.37],
+     ("현대모비스는 코스피, 그리고 0.35~0.80% 오른 같은 자동차 그룹의 현대차·기아와 비슷하게 움직여 시장 전체 흐름을 "
+      "따라갔습니다. 같은 그룹의 현대위아는 1.37% 올랐습니다.")),
+    # 나눌 게 없는 그룹인데 그룹 등락률이 틀렸다(1.00 이어야 한다)
+    (2.00, [0.50, 1.50], "현대모비스는 대체로 1.50% 안팎 오른 같은 자동차 그룹의 현대차·기아와 비슷하게 움직였습니다."),
+])
+def test_llm_wrong_member_rate_is_warned(target, peers, relative) -> None:
+    payload = _payload(target, peers)
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert COMPARE_MEMBER_RATE in _compare_warnings(report, payload)
+
+
+@pytest.mark.parametrize(("target", "peers", "relative"), [
+    # 정형 문장과 꼴이 달라도 숫자가 맞으면 걸리지 않는다
+    (3.00, [0.00, 1.00], "같은 자동차 그룹의 현대차는 보합이었고 기아는 1.00% 올랐습니다. 현대모비스는 3.00% 올랐습니다."),
+    (0.27, [0.35, 0.80, -1.37],
+     "같은 자동차 그룹의 현대차는 0.35%, 기아는 0.80% 올랐고 현대위아는 1.37% 내렸습니다."),
+    (2.00, [0.50, 1.50], "현대모비스는 대체로 1.00% 안팎 오른 같은 자동차 그룹의 현대차·기아와 비슷하게 움직였습니다."),
+])
+def test_llm_right_member_rate_is_not_warned(target, peers, relative) -> None:
+    payload = _payload(target, peers)
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert COMPARE_MEMBER_RATE not in _compare_warnings(report, payload)
+
+
+def test_old_input_without_member_rates_is_not_checked() -> None:
+    """종목별 등락률이 없는 예전 입력은 대조할 값이 없어 보지 않는다."""
+    payload = _payload(3.00, [0.00, 1.00])
+    for m in payload["market_compare"]["peers"][0]["members_used"]:
+        del m["change_rate_pct"], m["in_sentence"]
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = "현대모비스는 1.20% 오른 같은 자동차 그룹의 기아와 크게 달랐습니다."
+    assert COMPARE_MEMBER_RATE not in _compare_warnings(report, payload)
+
+
+@pytest.mark.parametrize(("target", "peers", "relative"), [
+    # judge_in_sentence false 인 그룹에 판정하는 말
+    (1.80, [0.00, 1.00], "현대모비스는 1.00% 오른 같은 자동차 그룹의 기아와 크게 달랐습니다. 같은 그룹의 현대차는 보합이었습니다."),
+    (0.60, [0.00, 3.00],
+     ("현대모비스는 코스피, 그리고 3.00% 오른 같은 자동차 그룹의 기아와 비슷하게 움직여 시장 전체 흐름을 따라갔습니다. "
+      "같은 그룹의 현대차는 보합이었습니다.")),
+])
+def test_llm_judge_words_when_shown_members_disagree_are_warned(target, peers, relative) -> None:
+    payload = _payload(target, peers)
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    warned = _compare_warnings(report, payload)
+    assert COMPARE_OPPOSITE_WORDING in warned
+    assert COMPARE_MEMBER_RATE not in warned  # 숫자는 맞다
