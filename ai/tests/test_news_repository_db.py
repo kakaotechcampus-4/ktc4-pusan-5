@@ -82,7 +82,28 @@ def test_repeated_failures_keep_the_latest_reason(database):
     [news] = stored(database)
     assert (news["body_status"], news["body_error"]) == ("failed", "extract_empty")
     assert news["body_fetched_at"] == T0 + timedelta(hours=1)
+    # 처음 실패(failed() 기본값 503)는 일시 실패라 세지 않는다. 추출 실패 한 번만 센다
+    assert news["body_failures"] == 1
+
+
+def test_transient_and_rate_limit_failures_do_not_use_up_extract_attempts(database):
+    """일시 실패·429 가 섞여도 추출 실패를 세 번 해야 재시도 대상에서 빠진다."""
+    alembic(database, "upgrade", "head")
+    errors = ["http_error: 503", "request_failed: ReadTimeout", "http_error: 429",
+              "extract_empty", "extract_empty"]
+    for n, body_error in enumerate(errors):
+        save(database, [failed(body_error=body_error, body_fetched_at=T0 + timedelta(hours=n))])
+    [news] = stored(database)
     assert news["body_failures"] == 2
+
+    async def work(session):
+        return await failed_news(session, source="naver", since=T0 - timedelta(hours=1),
+                                 limit=10, now=T0 + timedelta(hours=10))
+
+    assert [n.url for n in in_session(database, work)] == [URL], "아직 한 번 더 연다"
+    save(database, [failed(body_error="extract_empty",
+                           body_fetched_at=T0 + timedelta(hours=len(errors)))])
+    assert in_session(database, work) == []
 
 
 def test_failure_count_counts_only_opened_attempts(database):

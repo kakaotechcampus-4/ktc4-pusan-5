@@ -13,7 +13,9 @@ body_status 는 ok·failed·purged 만 둔다. 실패의 종류는 body_error �
                   3번 실패하면 포기한다
     unknown       사유가 없거나(이관 전 행 unrecorded) 처음 보는 사유. extract 처럼 다룬다
 
-재시도 횟수는 news.body_failures(본문을 열었다가 실패한 횟수)로 센다.
+재시도 횟수는 news.body_failures 로 센다. 본문을 열었다가 extract·unknown 으로 실패한 횟수만이다.
+일시 실패·429 는 세지 않는다. 그 횟수가 섞이면 추출 실패를 한 번만 해도 바로 포기하게 된다
+(counts_toward_limit).
 
 HTTP 오류는 `http_error: 404` 로 적는다. 예전 네이버 행의 `http_404` 도 같은 뜻으로 읽는다.
 
@@ -116,6 +118,11 @@ def failure_kind(body_error: str | None) -> FailureKind:
     if head in _EXTRACT:
         return "extract"
     return "unknown"
+
+
+def counts_toward_limit(body_error: str | None) -> bool:
+    """이번 실패를 news.body_failures 에 더하는가. 횟수로 포기하는 종류(extract·unknown)만 센다."""
+    return failure_kind(body_error) in _LIMITED_KINDS
 
 
 def is_retryable(body_error: str | None, failures: int = 0) -> bool:

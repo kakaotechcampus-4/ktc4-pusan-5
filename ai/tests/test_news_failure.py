@@ -4,7 +4,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.services.news.failure import failure_kind, http_error, is_retryable, retry_due
+from app.services.news.failure import (
+    counts_toward_limit,
+    failure_kind,
+    http_error,
+    is_retryable,
+    retry_due,
+)
 
 
 @pytest.mark.parametrize("error", ["http_error: 429", "http_429"])
@@ -48,6 +54,21 @@ def test_transient_and_rate_limit_are_not_capped_by_count(error):
     mock_now = datetime(2026, 11, 6, tzinfo=UTC)
     assert retry_due(error, mock_now - timedelta(hours=1), failures=10, now=mock_now)
     assert is_retryable(error, failures=10)
+
+
+@pytest.mark.parametrize(("body_error", "counted"), [
+    ("extract_empty", True),
+    ("no_body", True),
+    ("unrecorded", True),
+    (None, True),
+    ("request_failed: ReadTimeout", False),
+    ("http_error: 503", False),
+    ("http_error: 429", False),
+    ("http_error: 404", False),
+])
+def test_only_extract_and_unknown_failures_count_toward_the_limit(body_error, counted):
+    """일시 실패·429 가 횟수에 섞이면 추출 실패를 한 번만 해도 바로 포기하게 된다."""
+    assert counts_toward_limit(body_error) is counted
 
 
 @pytest.mark.parametrize(("body_error", "kind"), [

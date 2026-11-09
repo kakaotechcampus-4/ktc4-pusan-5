@@ -6,8 +6,9 @@ backend `repositories/news.py` 는 URL 이 같으면 건너뛰기만 했다. 여
     본문         실패였고 이번에 성공했으면 채운다. 이미 성공한 본문은 그대로 둔다 — 이번에
                  받은 본문이 성공이든 실패든. 실패가 반복되면 마지막 시도의 사유·시각만 남긴다.
                  보관 정책으로 지운 본문(purged)은 다시 받아도 되살리지 않는다
-    실패 횟수    본문을 열었다가 못 얻을 때마다(body_fetched_at 이 있는 실패 행) 1 씩 올린다.
-                 열지 않고 넣은 행은 세지 않는다. 몇 번 실패하면 그만 열지는 failure.py 가 정한다
+    실패 횟수    본문을 열었다가(body_fetched_at 이 있는 실패 행) 추출 실패·알 수 없는 실패로
+                 못 얻을 때마다 1 씩 올린다. 일시 실패·429·영구 실패와 열지 않고 넣은 행은 세지
+                 않는다. 무엇을 세고 몇 번이면 그만 열지는 failure.py 가 정한다
     발행 시각    비어 있으면 채운다 (텔레그램 링크로 먼저 들어온 기사를 네이버가 다시 찾은 경우)
     제목·요약    비어 있으면 채운다
     주소·경로    처음 것을 둔다. 다른 경로로 발견한 기록은 telegram_message_links 에 남는다
@@ -23,7 +24,7 @@ from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import News, TelegramMessageLink
-from app.services.news.failure import retry_due
+from app.services.news.failure import counts_toward_limit, retry_due
 from app.services.news.url import canonical_url
 
 # 본문 칼럼. 성공한 본문을 채울 때 함께 바뀐다.
@@ -88,7 +89,8 @@ def _merge(news: News, row: dict, key: str) -> bool:
         elif row.get("body_fetched_at") is not None:
             for name in RETRY_FIELDS:
                 setattr(news, name, row[name])
-            news.body_failures += 1
+            if counts_toward_limit(row["body_error"]):
+                news.body_failures += 1
     if news.published_at is None and row.get("published_at") is not None:
         news.published_at = row["published_at"]
     if not news.title and row.get("title"):
@@ -116,10 +118,10 @@ async def save_news(session: AsyncSession, rows: list[dict]) -> NewsSaveResult:
             raise ValueError(f"본문 없이 ok 로 저장할 수 없다: {row['url']}")
         news = await _find(session, key, row["url"])
         if news is None:
-            opened_and_failed = (row["body_status"] == "failed"
-                                 and row.get("body_fetched_at") is not None)
-            news = News(**{**row, "canonical_url": key,
-                           "body_failures": 1 if opened_and_failed else 0})
+            counted = (row["body_status"] == "failed"
+                       and row.get("body_fetched_at") is not None
+                       and counts_toward_limit(row.get("body_error")))
+            news = News(**{**row, "canonical_url": key, "body_failures": 1 if counted else 0})
             session.add(news)
             await session.flush()  # 같은 묶음에 같은 기사가 또 있으면 다음 _find 가 찾는다
             result.inserted += 1
@@ -188,7 +190,8 @@ async def failed_news(
 ) -> list[News]:
     """본문을 못 얻은 기사 중 발행(모르면 수집)이 since 이후인 것. 재시도 대상이다.
 
-    영구 실패와 429 대기 중인 행은 공통 정책으로 거른다. 서버 커서로 조금씩 읽고
+    영구 실패, 429·추출 실패 대기 중인 행, 추출 실패를 정해진 횟수만큼 한 행은 공통 정책
+    (services/news/failure.py retry_due)으로 거른다. 서버 커서로 조금씩 읽고
     재시도 대상이 limit개 모이면 멈춰 전체 실패 행을 메모리에 올리지 않는다.
     """
     if limit <= 0:
