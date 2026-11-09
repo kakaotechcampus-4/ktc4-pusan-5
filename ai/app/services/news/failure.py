@@ -125,10 +125,11 @@ def counts_toward_limit(body_error: str | None) -> bool:
     return failure_kind(body_error) in _LIMITED_KINDS
 
 
-def is_retryable(body_error: str | None, failures: int = 0) -> bool:
+def is_retryable(body_error: str | None, failures: int) -> bool:
     """다시 열어 볼 만한 실패인가. 영구 실패와, 추출 실패를 정해진 횟수만큼 한 기사를 뺀다.
 
-    failures 는 news.body_failures. 모르면 0 으로 두어 횟수로는 포기하지 않는다.
+    failures 는 news.body_failures. 기본값을 두지 않는다. 빠뜨리면 0 으로 읽혀 추출 실패를
+    끝없이 다시 열기 때문이다.
     """
     kind = failure_kind(body_error)
     if kind == "permanent":
@@ -137,7 +138,7 @@ def is_retryable(body_error: str | None, failures: int = 0) -> bool:
 
 
 def retry_due(
-    body_error: str | None, fetched_at: datetime | None, *, failures: int = 0,
+    body_error: str | None, fetched_at: datetime | None, *, failures: int,
     now: datetime | None = None,
 ) -> bool:
     """재시도 가능한 실패 중 지금 요청할 것. 시각 없는 기존 행은 한 번 더 확인한다.

@@ -16,23 +16,26 @@ from app.services.news.failure import (
 @pytest.mark.parametrize("error", ["http_error: 429", "http_429"])
 def test_rate_limit_waits_ten_minutes(error):
     mock_now = datetime(2026, 10, 28, tzinfo=UTC)
-    assert not retry_due(error, mock_now, now=mock_now)
-    assert not retry_due(error, mock_now - timedelta(minutes=9, seconds=59), now=mock_now)
-    assert retry_due(error, mock_now - timedelta(minutes=10), now=mock_now)
-    assert retry_due(error, None, now=mock_now)
-    assert retry_due("http_error: 503", mock_now, now=mock_now)
-    assert not retry_due("http_error: 404", None, now=mock_now)
+    assert not retry_due(error, mock_now, failures=0, now=mock_now)
+    assert not retry_due(error, mock_now - timedelta(minutes=9, seconds=59), failures=0,
+                         now=mock_now)
+    assert retry_due(error, mock_now - timedelta(minutes=10), failures=0, now=mock_now)
+    assert retry_due(error, None, failures=0, now=mock_now)
+    assert retry_due("http_error: 503", mock_now, failures=0, now=mock_now)
+    assert not retry_due("http_error: 404", None, failures=0, now=mock_now)
 
 
 @pytest.mark.parametrize("error", ["extract_failed", "extract_empty", "no_body", "unrecorded", None])
 def test_extract_and_unknown_failures_wait_thirty_minutes(error):
     """구조적으로 못 읽는 사이트를 수집 주기마다 다시 열지 않는다. 일시 실패는 바로 다시 연다."""
     mock_now = datetime(2026, 11, 6, tzinfo=UTC)
-    assert not retry_due(error, mock_now, now=mock_now)
-    assert not retry_due(error, mock_now - timedelta(minutes=29, seconds=59), now=mock_now)
-    assert retry_due(error, mock_now - timedelta(minutes=30), now=mock_now)
-    assert retry_due(error, None, now=mock_now)  # 시각 없는 기존 행은 한 번 더 확인한다
-    assert retry_due("request_failed: ReadTimeout", mock_now, now=mock_now)
+    assert not retry_due(error, mock_now, failures=0, now=mock_now)
+    assert not retry_due(error, mock_now - timedelta(minutes=29, seconds=59), failures=0,
+                         now=mock_now)
+    assert retry_due(error, mock_now - timedelta(minutes=30), failures=0, now=mock_now)
+    # 시각 없는 기존 행은 한 번 더 확인한다
+    assert retry_due(error, None, failures=0, now=mock_now)
+    assert retry_due("request_failed: ReadTimeout", mock_now, failures=0, now=mock_now)
 
 
 @pytest.mark.parametrize("error", ["extract_empty", "no_body", "unrecorded", None])
@@ -71,6 +74,14 @@ def test_only_extract_and_unknown_failures_count_toward_the_limit(body_error, co
     assert counts_toward_limit(body_error) is counted
 
 
+def test_failure_count_is_required():
+    """빠뜨리면 0 으로 읽혀 추출 실패를 끝없이 다시 열므로 기본값을 두지 않는다."""
+    with pytest.raises(TypeError):
+        retry_due("extract_empty", None)  # type: ignore[call-arg]
+    with pytest.raises(TypeError):
+        is_retryable("extract_empty")  # type: ignore[call-arg]
+
+
 @pytest.mark.parametrize(("body_error", "kind"), [
     ("http_error: 404", "permanent"),
     ("http_error: 410", "permanent"),
@@ -103,9 +114,9 @@ def test_failure_kind(body_error, kind):
 
 
 def test_only_permanent_failures_are_not_retried():
-    assert not is_retryable("http_error: 404")
-    assert is_retryable("http_error: 429")
-    assert is_retryable("unrecorded")
+    assert not is_retryable("http_error: 404", 0)
+    assert is_retryable("http_error: 429", 0)
+    assert is_retryable("unrecorded", 0)
 
 
 def test_http_error_format_is_shared():

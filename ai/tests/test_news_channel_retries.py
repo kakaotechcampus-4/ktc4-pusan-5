@@ -18,7 +18,7 @@ MOCK_TRANSIENT = "request_failed: ReadTimeout"
 
 def mock_article(url, status, error=None):
     return KnownArticle(id=1, url=url, canonical_url=url, status=status, fetched_at=NOW,
-                        error=error)
+                        error=error, failures=0)
 
 
 async def test_known_success_and_failure_do_not_consume_new_article_budget():

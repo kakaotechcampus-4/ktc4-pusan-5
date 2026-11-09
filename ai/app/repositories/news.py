@@ -154,7 +154,9 @@ class KnownArticle:
     status: str
     fetched_at: datetime | None
     error: str | None = None  # body_error. 실패 기사를 재시도할지 정할 때 쓴다
-    failures: int = 0  # body_failures. 추출 실패를 몇 번 했는지 보고 그만 열지 정한다
+    # body_failures. 추출 실패를 몇 번 했는지 보고 그만 열지 정한다. 기본값을 두지 않는다 —
+    # 빠뜨리면 0 으로 읽혀 추출 실패를 끝없이 다시 연다(failure.py is_retryable)
+    failures: int = field(kw_only=True)
 
 
 async def known_articles(session: AsyncSession, urls: list[str]) -> dict[str, KnownArticle]:
@@ -171,12 +173,12 @@ async def known_articles(session: AsyncSession, urls: list[str]) -> dict[str, Kn
     )
     for discovered, news_id, url, key, status, fetched, error, failures in rows:
         result.setdefault(discovered, KnownArticle(news_id, url, key or canonical_url(url),
-                                                  status, fetched, error, failures))
+                                                  status, fetched, error, failures=failures))
     keys = {canonical_url(url) for url in urls}
     rows = await session.execute(select(*columns).where(
         or_(News.canonical_url.in_(keys), News.url.in_(urls))))
     by_key = {key or canonical_url(url): KnownArticle(
-        news_id, url, key or canonical_url(url), status, fetched, error, failures
+        news_id, url, key or canonical_url(url), status, fetched, error, failures=failures
     ) for news_id, url, key, status, fetched, error, failures in rows}
     for url in urls:
         if canonical_url(url) in by_key:
