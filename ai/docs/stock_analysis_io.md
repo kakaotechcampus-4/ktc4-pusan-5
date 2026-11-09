@@ -155,7 +155,8 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
 (`follows` | `opposite` | `diverges` | null)과 그룹마다 `peers[].relation`(`follows` | `opposite` | `diverges` | `inconclusive` | null).
 `opposite` 는 차이가 기준 안이지만 오르내린 방향이 반대인 날이다(보합 0.00 은 방향 없음). `diverges` 인데 이 종목과
 기준 시장의 방향이 같으면 "코스피와는 다르게" 로 쓰고 "코스피는 올랐지만" 같은 반대를 잇는 말은 쓰지 않는다(경고
-`COMPARE_KOSPI_CONTRAST`, summary.move·relative). 판정 기준은
+`COMPARE_KOSPI_CONTRAST`, summary.move·relative). 코스피 수치는 summary.move 에만 쓰고 relative 에는 쓰지 않는다(경고
+`COMPARE_KOSPI_RATE_IN_RELATIVE`). 판정 기준은
 `market_data/context.py` 상수(`KOSPI_EX_SELF_WEIGHT_PCT`, `KOSPI_FOLLOW_THRESHOLD_PP`, `GROUP_FOLLOW_THRESHOLD_PP`)다.
 프롬프트에 없는 계산 칸(비중 분모, 재계산 코스피, `weight_basis`)은 보내지 않고, `members_used` 는
 `{code, name, change_rate_pct, in_sentence}` 로 바꾼다.

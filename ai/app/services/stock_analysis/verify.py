@@ -237,6 +237,11 @@ COMPARE_TARGET_RATE_MISSING = "COMPARE_TARGET_RATE_MISSING"
 # 반대를 잇는 말("코스피는 올랐지만", "코스피가 오른 반면")로 받았다. 둘 다 오른 날 "코스피는 올랐지만 … 올랐습니다" 는 무엇이
 # 달랐는지 읽히지 않는다. 방향이 같으면 "코스피와는 다르게" 로 쓴다(프롬프트 3단계 「비교 수치」). 경고다.
 COMPARE_KOSPI_CONTRAST = "COMPARE_KOSPI_CONTRAST"
+# summary.relative 에 코스피 등락률(% 수치)을 썼다. 코스피 수치는 summary.move 에만 쓰고 relative 에서는 말로만 쓴다(프롬프트
+# 4부 relative 첫 문장, 「칸마다 쓰는 것」 표). 코스피(또는 "<종목>을 뺀 코스피")에 조사·"지수"·괄호를 거쳐 바로 붙은 수치만
+# 본다 — "코스피와는 다르게 0.35~0.80% 오른 같은 … 그룹" 의 수치는 그룹 쪽이라 걸리지 않는다. 경고다.
+COMPARE_KOSPI_RATE_IN_RELATIVE = "COMPARE_KOSPI_RATE_IN_RELATIVE"
+_KOSPI_RATE = re.compile(r"코스피(?:는|가|도|의)?\s*(?:지수(?:는|가|도)?\s*)?\(?\s*[+\-−]?\d+(?:\.\d+)?\s*%")
 _KOSPI_CONTRAST = re.compile(
     r"코스피(?:는|가|도)?\s*(?:\d+(?:\.\d+)?%\s*)?(?:올랐|내렸|상승했|하락했)(?:지만|으나|는데도)"
     r"|코스피(?:는|가)?\s*(?:\d+(?:\.\d+)?%\s*)?(?:오른|내린|상승한|하락한)\s*(?:반면|것과\s*달리)")
@@ -1332,6 +1337,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
                                 judge_in_sentence 가 false 인 그룹은 summary.unexplained 에서도 그룹에 붙은 판정하는 말을 본다.
     COMPARE_TARGET_RATE_MISSING judge_in_sentence 가 false 인 follows·diverges 그룹을 relative 에 쓰면서 이 종목 등락률을 빠뜨렸다.
     COMPARE_KOSPI_CONTRAST      이 종목과 기준 시장이 같은 방향인데 move·relative 에 "코스피는 올랐지만" 같은 반대를 잇는 말을 썼다.
+    COMPARE_KOSPI_RATE_IN_RELATIVE  relative 에 코스피 등락률(% 수치)을 썼다. 코스피 수치는 move 에만 쓴다.
     COMPARE_MIXED_GROUP_RATE    비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상)에 그룹 등락률이나 판정하는 말을 썼다.
     COMPARE_MIXED_NOT_STATED    방향이 엇갈린 그룹을 relative 에 쓰면서 엇갈렸다는 말("방향이 엇갈려")이 없다.
     COMPARE_MEMBER_RATE         relative 에 쓴 비교 종목 등락률·방향이 입력 members_used[].change_rate_pct 와 다르거나, 문장에서
@@ -1376,6 +1382,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     out += _check_compare_member_rate(report, payload)
     out += _check_compare_target_rate(report, payload)
     out += _check_kospi_contrast(report, payload)
+    out += _check_kospi_rate_in_relative(report)
     market = payload.get("market")
     summary = report.get("summary")
     move_text = summary.get("move") if isinstance(summary, dict) else None
@@ -1623,6 +1630,15 @@ def _check_compare_target_rate(report: dict[str, Any], payload: dict[str, Any]) 
                           f"{peer['group']} 그룹을 판정하는 말 없이 쓰는 날인데 summary.relative 에 이 종목 등락률 "
                           f"{abs(rate):.2f}% 가 없다"))
     return out
+
+
+def _check_kospi_rate_in_relative(report: dict[str, Any]) -> list[str]:
+    """summary.relative 에 코스피에 붙은 % 수치가 있나. 경고 하나."""
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    relative = summary.get("relative")
+    if isinstance(relative, str) and (m := _KOSPI_RATE.search(relative)):
+        return [_p(COMPARE_KOSPI_RATE_IN_RELATIVE, f"코스피 수치는 summary.move 에만 쓰는데 summary.relative 에 {m.group(0)!r}")]
+    return []
 
 
 def _check_kospi_contrast(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:

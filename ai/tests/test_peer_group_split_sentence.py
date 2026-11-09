@@ -15,6 +15,7 @@ from app.services.stock_analysis import generate as gen
 from app.services.stock_analysis import market_compare as mc
 from app.services.stock_analysis.verify import (
     COMPARE_KOSPI_CONTRAST,
+    COMPARE_KOSPI_RATE_IN_RELATIVE,
     COMPARE_MEMBER_RATE,
     COMPARE_META_PHRASE,
     COMPARE_MIXED_GROUP_RATE,
@@ -31,7 +32,8 @@ TARGET = "012330"
 MEMBERS = [("005380", "현대차"), ("000270", "기아"), ("011210", "현대위아")]
 KOSPI_RATE = 0.62
 COMPARE_WARNINGS = {COMPARE_META_PHRASE, COMPARE_OPPOSITE_WORDING, COMPARE_MIXED_GROUP_RATE, COMPARE_MEMBER_RATE,
-                    COMPARE_TARGET_RATE_MISSING, COMPARE_KOSPI_CONTRAST, COMPARE_MIXED_NOT_STATED}
+                    COMPARE_TARGET_RATE_MISSING, COMPARE_KOSPI_CONTRAST, COMPARE_MIXED_NOT_STATED,
+                    COMPARE_KOSPI_RATE_IN_RELATIVE}
 
 
 def _ctx(target: float, peers: list[float]):
@@ -409,3 +411,42 @@ def test_llm_mixed_group_wrong_member_rate_is_warned(relative) -> None:
     report = gen.canned_report(payload)
     report["summary"]["relative"] = relative
     assert COMPARE_MEMBER_RATE in _compare_warnings(report, payload)
+
+
+# --- relative 의 코스피 수치 (COMPARE_KOSPI_RATE_IN_RELATIVE) ------------------------------------------------------
+# 2026-11-09 실제 LLM 실행([0.00, +1.00] → +1.80)에서 relative 에 "코스피는 0.62% 올랐고" 를 썼다. 코스피 수치는 move 에만 쓴다.
+
+LLM_RELATIVE_KOSPI_RATE = ("코스피는 0.62% 올랐고 현대모비스는 1.8% 올라 코스피와는 다르게 움직였습니다. 같은 자동차 그룹의 기아는 "
+                           "1.0% 올랐고 현대모비스는 1.8% 올랐습니다. 같은 그룹의 현대차는 보합이었습니다.")
+
+
+@pytest.mark.parametrize("relative", [
+    LLM_RELATIVE_KOSPI_RATE,  # 실제 LLM 출력
+    ("현대모비스는 코스피(+0.62%)와는 다르게 움직였습니다. 같은 자동차 그룹의 기아는 1.00% 올랐고, 현대모비스는 1.80% "
+     "올랐습니다. 같은 그룹의 현대차는 보합이었습니다."),
+])
+def test_llm_kospi_rate_in_relative_is_warned(relative) -> None:
+    payload = _payload(1.80, [0.00, 1.00])
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert _compare_warnings(report, payload) == {COMPARE_KOSPI_RATE_IN_RELATIVE}
+
+
+def test_kospi_rate_in_member_sentence_is_warned_by_both() -> None:
+    """비교 종목 문장에 코스피 수치가 섞이면 비교 종목 문장의 입력에 없는 수치(COMPARE_MEMBER_RATE)로도 걸린다."""
+    payload = _payload(1.80, [0.00, 1.00])
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = ("코스피 지수가 0.62% 오른 날 같은 자동차 그룹의 기아는 1.00% 올랐고, 현대모비스는 1.80% "
+                                     "올랐습니다. 같은 그룹의 현대차는 보합이었습니다.")
+    assert _compare_warnings(report, payload) == {COMPARE_KOSPI_RATE_IN_RELATIVE, COMPARE_MEMBER_RATE}
+
+
+def test_group_rate_after_kospi_words_is_not_kospi_rate() -> None:
+    """"코스피와는 다르게 0.35~0.80% 오른 …" 의 수치는 그룹 쪽이다. move 의 코스피 수치도 보지 않는다."""
+    payload = _kb_payload()
+    report = gen.canned_report(payload)
+    assert "3.09%" in report["summary"]["move"]  # 코스피 수치는 move 에 있다
+    report["summary"]["relative"] = (
+        "KB금융은 코스피와는 다르게 0.35~0.80% 오른 같은 은행지주 그룹의 신한지주·하나금융지주와 함께 움직였습니다. "
+        "같은 그룹의 우리금융지주는 1.37% 내렸습니다.")
+    assert _compare_warnings(report, payload) == set()
