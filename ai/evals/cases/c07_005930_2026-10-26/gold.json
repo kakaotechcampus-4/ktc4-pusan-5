@@ -41,15 +41,41 @@
   "events": [
     {
       "id": "e1",
-      "summary": "",
-      "importance": null,
+      "summary": "삼성·SK 엔비디아향 HBM4 8단 양산 출하 시점 내년 2분기(일정 다소 지연)",
+      "importance": "optional",
       "layer": [],
-      "expected_mention": null,
-      "stance": null,
-      "max_causal_strength": null,
-      "supporting_sources": [],
-      "key_facts": [],
-      "rationale": ""
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4783",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "HBM4"
+      ],
+      "rationale": "16:28 장 마감 후 공개라 그날 하락의 원인이 될 수 없음"
+    },
+    {
+      "id": "e2",
+      "summary": "삼성전자 휴머노이드 로봇 기술 점검(이재용 회장 RX사업추진실 방문), CES 2027 독자 모델 공개 예정",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18861",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "휴머노이드"
+      ],
+      "rationale": "로보틱스 업종 리포트 속 언급인 간접 재료"
     }
   ],
   "acceptable_alternatives": [],

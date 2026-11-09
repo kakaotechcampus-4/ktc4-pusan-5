@@ -41,20 +41,58 @@
   "events": [
     {
       "id": "e1",
-      "summary": "",
-      "importance": null,
+      "summary": "키옥시아 지분 매각 차익 약 16조원 특별배당 추진 보도(동아일보, 25일 IB·재계 전언, 28일 실적발표에서 발표 예정)",
+      "importance": "should",
+      "layer": [
+        "relative"
+      ],
+      "expected_mention": "either",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4778",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/KISGregKim/18858",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/skitteam/4781",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "특별배당"
+      ],
+      "rationale": "풍문·미확인 보도. 해명(미확정) 공시가 있어 확정 전 단계. unconfirmed_items 에도 적을 것"
+    },
+    {
+      "id": "e2",
+      "summary": "삼성·SK 엔비디아향 HBM4 8단 양산 출하 시점 내년 2분기(일정 다소 지연)",
+      "importance": "optional",
       "layer": [],
-      "expected_mention": null,
-      "stance": null,
-      "max_causal_strength": null,
-      "supporting_sources": [],
-      "key_facts": [],
-      "rationale": ""
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4783",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "HBM4"
+      ],
+      "rationale": "16:28 장 마감 후 공개라 그날 움직임의 원인이 될 수 없음"
     }
   ],
   "acceptable_alternatives": [],
   "forbidden_claims": [],
-  "unconfirmed_items": [],
+  "unconfirmed_items": [
+    "SK하이닉스 키옥시아 지분 차익 약 16조원 특별배당 추진(동아일보 보도, IB·재계 전언, 해명(미확정) 공시 단계)"
+  ],
   "unknowns": [],
   "beginner_terms": [],
   "verification": {

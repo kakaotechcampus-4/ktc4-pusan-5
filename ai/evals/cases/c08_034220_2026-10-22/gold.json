@@ -36,15 +36,53 @@
   "events": [
     {
       "id": "e1",
-      "summary": "",
-      "importance": null,
+      "summary": "3Q26 실적: 매출 6.28조원(컨센 6.64조원 하회), 영업이익 2,506억원(컨센 2,591억원 소폭 하회), 지배주주순이익 7,467억원(컨센 2,603억원 상회)",
+      "importance": "must",
+      "layer": [
+        "move",
+        "relative"
+      ],
+      "expected_mention": "factors",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4759",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/merITz_tech/19162",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/merITz_tech/19168",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "3Q26 실적",
+        "영업이익 2,506억원"
+      ],
+      "rationale": "영업이익은 하회, 순이익은 상회로 방향이 혼재해 어느 쪽이 주가를 움직였는지 알 수 없음"
+    },
+    {
+      "id": "e2",
+      "summary": "실적 리뷰·설명회 Q&A: OLED 성수기 진입, 기술 경쟁력",
+      "importance": "optional",
       "layer": [],
-      "expected_mention": null,
-      "stance": null,
-      "max_causal_strength": null,
-      "supporting_sources": [],
-      "key_facts": [],
-      "rationale": ""
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19168",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "OLED"
+      ],
+      "rationale": "17:22 장 마감 후 증권사 해석"
     }
   ],
   "acceptable_alternatives": [],

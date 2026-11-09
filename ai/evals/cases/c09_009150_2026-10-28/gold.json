@@ -40,15 +40,51 @@
   "events": [
     {
       "id": "e1",
-      "summary": "",
-      "importance": null,
-      "layer": [],
-      "expected_mention": null,
-      "stance": null,
-      "max_causal_strength": null,
-      "supporting_sources": [],
-      "key_facts": [],
-      "rationale": ""
+      "summary": "3Q26 잠정실적: 매출 3.76조원(컨센 3.81조원 소폭 하회), 영업이익 6,910억원(컨센 6,420억원 상회), 지배주주순이익 4,687억원(컨센 5,242억원 하회)",
+      "importance": "must",
+      "layer": [
+        "move",
+        "relative"
+      ],
+      "expected_mention": "factors",
+      "stance": "bullish",
+      "max_causal_strength": "likely_cause",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19221",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/skitteam/4814",
+          "tier": "primary"
+        }
+      ],
+      "key_facts": [
+        "3Q26 실적",
+        "영업이익 6,910억원"
+      ],
+      "rationale": "직접 공시이고 영업이익 상회로 방향 일치, 장중(11:58) 공개. 순이익은 하회라 혼재"
+    },
+    {
+      "id": "e2",
+      "summary": "컨퍼런스콜 Q&A: AI 데이터센터 부품 수요 고성장, ADAS 수요",
+      "importance": "should",
+      "layer": [
+        "move"
+      ],
+      "expected_mention": "either",
+      "stance": "bullish",
+      "max_causal_strength": "possible_contributor",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19227",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "컨퍼런스콜"
+      ],
+      "rationale": "실적 보조 재료"
     }
   ],
   "acceptable_alternatives": [],

@@ -40,15 +40,53 @@
   "events": [
     {
       "id": "e1",
-      "summary": "",
-      "importance": null,
+      "summary": "MLCC 공급계약 8,793억원(매출 대비 7.8%, 2026.12~2027.12, 계약상대 글로벌 대형기업)",
+      "importance": "should",
+      "layer": [
+        "move",
+        "relative"
+      ],
+      "expected_mention": "either",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19267",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/skitteam/4875",
+          "tier": "primary"
+        }
+      ],
+      "key_facts": [
+        "MLCC 공급계약",
+        "8,793억원"
+      ],
+      "rationale": "직접 호재 공시인데 -7.50% 급락해 방향 반대. 하락 원인으로 쓰면 방향 뒤집기"
+    },
+    {
+      "id": "e2",
+      "summary": "MLCC 업황 호조: TrendForce 고용량 MLCC 부족 1H27까지 지속, Yageo 3Q 컨센 상회",
+      "importance": "optional",
       "layer": [],
-      "expected_mention": null,
-      "stance": null,
-      "max_causal_strength": null,
-      "supporting_sources": [],
-      "key_facts": [],
-      "rationale": ""
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19247",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/merITz_tech/19257",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "MLCC"
+      ],
+      "rationale": "간접 재료이고 방향 반대"
     }
   ],
   "acceptable_alternatives": [],

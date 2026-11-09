@@ -39,15 +39,65 @@
   "events": [
     {
       "id": "e1",
-      "summary": "",
-      "importance": null,
+      "summary": "HD현대일렉트릭(영업이익 컨센 6.7% 하회)·HD현대중공업(영업이익 컨센 9.4% 하회)의 3Q 실적(HD현대 본체가 아닌 계열·유사 종목)",
+      "importance": "optional",
       "layer": [],
-      "expected_mention": null,
-      "stance": null,
-      "max_causal_strength": null,
-      "supporting_sources": [],
-      "key_facts": [],
-      "rationale": ""
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18882",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/KISGregKim/18885",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "하회"
+      ],
+      "rationale": "유사 종목 혼동 함정. 방향도 반대(하회인데 상승)"
+    },
+    {
+      "id": "e2",
+      "summary": "조선 업종 밸류에이션 콜(디레이팅 분석)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18881",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "조선주"
+      ],
+      "rationale": "간접 업종 재료"
+    },
+    {
+      "id": "e3",
+      "summary": "HD현대(지주) 교환사채 발행 결정: 5,887억원 규모, HD현대마린솔루션 주식 240만주",
+      "importance": "should",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18879",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "HD HYUNDAI",
+        "EB"
+      ],
+      "rationale": "HD현대 본체의 직접 재료지만 시황 속 한 줄이고 영향 방향이 불분명. 공시 접수 시각은 비어 있음"
     }
   ],
   "acceptable_alternatives": [],

@@ -38,15 +38,46 @@
   "events": [
     {
       "id": "e1",
-      "summary": "",
-      "importance": null,
+      "summary": "3Q26 잠정실적: 매출 6.37조원(컨센 +4.4%), 영업이익 948억원(컨센 1,973억원 대비 -51%), 순이익 952억원(컨센 1,304억원 하회)",
+      "importance": "should",
       "layer": [],
-      "expected_mention": null,
-      "stance": null,
-      "max_causal_strength": null,
-      "supporting_sources": [],
-      "key_facts": [],
-      "rationale": ""
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19202",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/skitteam/4793",
+          "tier": "primary"
+        }
+      ],
+      "key_facts": [
+        "3Q26 실적",
+        "영업이익 948억원"
+      ],
+      "rationale": "영업이익 대폭 하회인데 상승, 15:34 장 마감 후 공개라 그날 움직임의 원인이 될 수 없음"
+    },
+    {
+      "id": "e2",
+      "summary": "미 반도체 강세(SOX +2.8%)와 코스피 상승 출발",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18875",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "SOX"
+      ],
+      "rationale": "시장 배경"
     }
   ],
   "acceptable_alternatives": [],

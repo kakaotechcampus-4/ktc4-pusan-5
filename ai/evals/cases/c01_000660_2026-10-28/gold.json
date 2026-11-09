@@ -40,15 +40,150 @@
   "events": [
     {
       "id": "e1",
-      "summary": "",
-      "importance": null,
+      "summary": "3Q26 실적: 매출 104.6조원(컨센 98.2조원 상회), 영업이익 83.3조원(컨센 77.0조원 상회), 지배주주순이익 39.5조원(컨센 57.9조원 하회, 영업외손익 -32.6조원)",
+      "importance": "must",
+      "layer": [
+        "move",
+        "relative"
+      ],
+      "expected_mention": "factors",
+      "stance": "bullish",
+      "max_causal_strength": "likely_cause",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19212",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/skitteam/4807",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/KISGregKim/18880",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/merITz_tech/19215",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "3Q26 실적",
+        "영업이익 83조원"
+      ],
+      "rationale": "직접 공시이고 영업이익 상회로 주가 방향과 일치. 순이익은 컨센 하회라 혼재이므로 단정은 불가"
+    },
+    {
+      "id": "e2",
+      "summary": "추가 주주환원: 20조원 규모 자기주식 취득 결정, 3분기 현금배당 주당 2만원, FY26 주주환원 약 100조원 예상, 분기별 자사주 매입 지속",
+      "importance": "should",
+      "layer": [
+        "move"
+      ],
+      "expected_mention": "factors",
+      "stance": "bullish",
+      "max_causal_strength": "possible_contributor",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4806",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/skitteam/4808",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/merITz_tech/19214",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/skitteam/4811",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/merITz_tech/19217",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "주주환원"
+      ],
+      "rationale": "전날부터 기대가 반영돼 있어(e5) 실적보다 보조 재료로 봄"
+    },
+    {
+      "id": "e3",
+      "summary": "컨퍼런스콜·가이던스: DRAM·HBM 2029년까지 솔드아웃, 고객 요청 물량이 공급 가능 물량의 2배 초과, 4Q DRAM B/G +20% 중반",
+      "importance": "should",
+      "layer": [
+        "move"
+      ],
+      "expected_mention": "either",
+      "stance": "bullish",
+      "max_causal_strength": "possible_contributor",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19218",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/merITz_tech/19219",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/skitteam/4813",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/KISGregKim/18887",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "HBM"
+      ],
+      "rationale": "실적 발표 직후 컨콜 내용. m22 는 장 마감 후 증권사 사후 해석"
+    },
+    {
+      "id": "e4",
+      "summary": "중화권 빅테크(알리바바·텐센트·바이트댄스)의 DRAM 장기공급계약 요청",
+      "importance": "optional",
       "layer": [],
-      "expected_mention": null,
-      "stance": null,
-      "max_causal_strength": null,
-      "supporting_sources": [],
-      "key_facts": [],
-      "rationale": ""
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4796",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "장기공급계약"
+      ],
+      "rationale": "전날 장 마감 직후 나온 간접 재료"
+    },
+    {
+      "id": "e5",
+      "summary": "실적 발표 전 기대: 컨센서스(매출 98.2조원, 영업이익 77조원)와 추가 주주환원 50~60조원 기대",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4797",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/skitteam/4803",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "추가 주주환원"
+      ],
+      "rationale": "이미 시장에 반영됐을 수 있는 사전 기대. 컨센 대비 해석의 기준"
     }
   ],
   "acceptable_alternatives": [],

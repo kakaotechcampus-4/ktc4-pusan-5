@@ -41,15 +41,78 @@
   "events": [
     {
       "id": "e1",
-      "summary": "",
-      "importance": null,
+      "summary": "3Q26 잠정실적: 매출 195조원(컨센 -2.7%), 영업이익 107조원(컨센 +0.5%)",
+      "importance": "should",
+      "layer": [
+        "move",
+        "relative"
+      ],
+      "expected_mention": "factors",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19240",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/skitteam/4851",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/skitteam/4860",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "3Q26 실적",
+        "영업이익"
+      ],
+      "rationale": "컨센 부합인데 -4.13% 하락이라 입력으로 원인을 알 수 없는 날(판정 none 후보)이라 must 를 두지 않음. 방향이 불분명해 상한은 coincident"
+    },
+    {
+      "id": "e2",
+      "summary": "주주환원: 3분기 현금배당 총 30조원, 2026년 잔여재원 55~75조원(자사주 매입·소각 포함)",
+      "importance": "should",
+      "layer": [
+        "move"
+      ],
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19241",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/skitteam/4852",
+          "tier": "primary"
+        }
+      ],
+      "key_facts": [
+        "주주환원"
+      ],
+      "rationale": "호재성 재료인데 주가는 하락해 방향 반대. 대조 서술만 허용"
+    },
+    {
+      "id": "e3",
+      "summary": "2026년 시설투자 약 84.4조원 계획(DS 76.8조원, SDC 3.9조원)",
+      "importance": "optional",
       "layer": [],
-      "expected_mention": null,
-      "stance": null,
-      "max_causal_strength": null,
-      "supporting_sources": [],
-      "key_facts": [],
-      "rationale": ""
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4853",
+          "tier": "primary"
+        }
+      ],
+      "key_facts": [
+        "시설투자"
+      ],
+      "rationale": "맥락 정보"
     }
   ],
   "acceptable_alternatives": [],
