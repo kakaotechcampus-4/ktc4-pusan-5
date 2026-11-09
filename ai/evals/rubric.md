@@ -81,7 +81,6 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 | `layer` | `move`, `relative` (복수 가능) | 사건이 답하는 층. ±1 이하 층에는 달지 않음 |
 | `stance` | `bullish` / `bearish` / `neutral` | **주가에 대한** 방향 (소식이 좋은지가 아님) |
 | `expected_mention` | `factors` / `background` / `either` | 원인 칸에 있어야 하는지, 배경 칸이어도 되는지 |
-| `published_at` | ISO 8601 | 공시는 DART 접수 시각, 메시지는 `posted_at`. `cutoff` 이전이어야 함 |
 | `supporting_sources` | `{url, tier}` 목록 | 그 사건을 뒷받침하는 **입력 안의 source 전부**. `case.json` 에 있는 URL 만. `tier` 는 `primary`(공시·원문에 가까움) / `secondary`(증권사 요약·재인용), 기록용이고 감점 기준 아님 |
 | `key_facts` | 사실 목록(수치·주체·방향) | source 가 이 사건을 증명하려면 **그 본문에** 들어 있어야 하는 사실. 원문에 실제로 있어야 함 |
 
@@ -170,6 +169,7 @@ gold 를 쓰는 사람과 재라벨링하는 사람이 같은 기준으로 쓰�
 - `cutoff` 보다 늦은 자료는 입력에 넣지 않음. 9번처럼 일부러 섞은 자료는 `provenance.json` 의 `injected_after_cutoff` 에 있고, 보고서가 쓰면 `HF_LEAKAGE`.
 - 판정선은 자료 기준 `cutoff` 임(화면 기준 `asOf` 아님).
 - 접수 시각을 확인하지 못한 공시는 gold 사건으로 쓰지 않음.
+- **사건의 공개 시각은 gold 에 쓰지 않음.** `supporting_sources` 의 시각(메시지는 `case.json` 의 `datetime_kst`, 공시는 `provenance.json` 의 `rcept_time_kst`)에서 계산함. 가장 이른 직접 근거가 기준이고, 장 마감(15:30) 이후 공개된 재료는 상한이 `coincident` 이하임.
 
 ## 7. 실패 유형
 
