@@ -169,8 +169,12 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
   다시 판정해(그 종목들의 중앙값, `group_relation`, 비교 종목 수는 원래 수) 원래 판정과 같으면 `true`. 다르면 독자가 보는
   숫자와 판정이 어긋나 등락만 쓴다(예: 현대차 0.00·기아 +1.00 에 대상 +1.80 은 중앙값 0.50 기준 `diverges` 지만 기아와는
   0.80%p 차이). `opposite`·`inconclusive`·`null` 은 `false`.
+  `follows`·`diverges` 인데 `false` 면 relative 그룹 문장에 이 종목 등락률을 반드시 쓰고(독자가 두 숫자를 나란히 보게),
+  `summary.unexplained` 에도 그 그룹과의 차이를 판정하는 말("같은 자동차 그룹과 다르게 오른 이유")을 쓰지 않는다. 재료를 찾는
+  규칙은 판정대로라 그대로다.
 - 검증: 경고 `COMPARE_MEMBER_RATE`(relative 의 비교 종목 등락률·방향이 입력과 다름, 빠지는 종목이 있는 그룹에 그룹 등락률),
-  `COMPARE_OPPOSITE_WORDING`(`judge_in_sentence: false` 그룹에 판정하는 말).
+  `COMPARE_OPPOSITE_WORDING`(`judge_in_sentence: false` 그룹에 판정하는 말. relative 와 unexplained),
+  `COMPARE_TARGET_RATE_MISSING`(`judge_in_sentence: false` 인 `follows`·`diverges` 그룹을 relative 에 쓰면서 이 종목 등락률이 없음).
 
 ```jsonc
 // KB금융 2026-10-29 (실제 KRX 응답으로 계산)

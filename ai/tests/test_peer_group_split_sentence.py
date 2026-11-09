@@ -18,6 +18,7 @@ from app.services.stock_analysis.verify import (
     COMPARE_META_PHRASE,
     COMPARE_MIXED_GROUP_RATE,
     COMPARE_OPPOSITE_WORDING,
+    COMPARE_TARGET_RATE_MISSING,
     check_warnings,
     code_of,
     verify,
@@ -27,7 +28,8 @@ from tests.test_market_data_context import DAY, KOSPI, STOCKS, kospi, stock
 TARGET = "012330"
 MEMBERS = [("005380", "현대차"), ("000270", "기아"), ("011210", "현대위아")]
 KOSPI_RATE = 0.62
-COMPARE_WARNINGS = {COMPARE_META_PHRASE, COMPARE_OPPOSITE_WORDING, COMPARE_MIXED_GROUP_RATE, COMPARE_MEMBER_RATE}
+COMPARE_WARNINGS = {COMPARE_META_PHRASE, COMPARE_OPPOSITE_WORDING, COMPARE_MIXED_GROUP_RATE, COMPARE_MEMBER_RATE,
+                    COMPARE_TARGET_RATE_MISSING}
 
 
 def _ctx(target: float, peers: list[float]):
@@ -210,3 +212,72 @@ def test_llm_judge_words_when_shown_members_disagree_are_warned(target, peers, r
     warned = _compare_warnings(report, payload)
     assert COMPARE_OPPOSITE_WORDING in warned
     assert COMPARE_MEMBER_RATE not in warned  # 숫자는 맞다
+
+
+# --- 판정하는 말을 쓰지 않는 그룹: unexplained 의 판정하는 말, relative 의 이 종목 등락률 ------------------------
+# 2026-11-09 실제 LLM 실행([0.00, +1.00] → +1.80)에서 relative 는 등락만 썼지만 unexplained 에 "같은 자동차 그룹과 다르게 오른
+# 이유" 를 썼고, relative 에서 이 종목 등락률(1.80%)을 빠뜨렸다.
+
+LLM_UNEXPLAINED = ("대형주 전반과 비슷하게 움직였지만, 현대모비스가 같은 자동차 그룹과 다르게 오른 이유는 메시지에서 확인되지 "
+                   "않습니다.")
+LLM_RELATIVE_NO_TARGET = "코스피와 다르게 움직였습니다. 같은 자동차 그룹의 기아는 1.00% 올랐고, 현대차는 보합이었습니다."
+
+
+@pytest.mark.parametrize(("target", "peers", "unexplained"), [
+    (1.80, [0.00, 1.00], LLM_UNEXPLAINED),  # 실제 LLM 출력
+    (1.80, [0.00, 1.00], "현대모비스가 같은 자동차 그룹 종목들과 달리 오른 이유는 메시지에서 확인되지 않습니다."),
+    (1.80, [0.00, 1.00], "현대모비스가 기아와 다르게 움직인 이유는 메시지에서 확인되지 않습니다."),
+    (1.80, [0.00, 1.00], "같은 그룹과 크게 달랐던 이유는 메시지에서 확인되지 않습니다."),
+    (0.60, [0.00, 3.00], "현대모비스는 같은 자동차 그룹 흐름을 따라갔지만 그 이유는 메시지에서 확인되지 않습니다."),
+    # 엇갈린 그룹(inconclusive)도 judge_in_sentence 가 false 다 — 리뷰 예시
+    (2.50, [2.16, -0.83], "현대모비스가 같은 자동차 그룹과 다르게 오른 이유는 메시지에서 확인되지 않습니다."),
+])
+def test_llm_unexplained_group_judgment_is_warned(target, peers, unexplained) -> None:
+    payload = _payload(target, peers)
+    assert payload["market_compare"]["peers"][0]["judge_in_sentence"] is False
+    report = gen.canned_report(payload)
+    report["summary"]["unexplained"] = unexplained
+    warnings = [w for w in check_warnings(report, payload) if code_of(w) == COMPARE_OPPOSITE_WORDING]
+    assert len(warnings) == 1
+    assert "summary.unexplained" in warnings[0]
+
+
+@pytest.mark.parametrize(("target", "peers", "unexplained"), [
+    # 그룹 말이 없다. "대형주 전반과 비슷하게" 는 대형주 비교라 그대로 둔다
+    (1.80, [0.00, 1.00], "대형주 전반과 비슷하게 움직였지만, 이를 설명할 사건은 메시지에서 확인되지 않습니다."),
+    # judge_in_sentence 가 true 인 diverges 그룹은 지금처럼 unexplained 에 쓴다
+    (3.00, [0.00, 1.00], "현대모비스가 같은 자동차 그룹과 다르게 오른 이유는 메시지에서 확인되지 않습니다."),
+])
+def test_unexplained_without_forbidden_group_judgment_is_not_warned(target, peers, unexplained) -> None:
+    payload = _payload(target, peers)
+    report = gen.canned_report(payload)
+    report["summary"]["unexplained"] = unexplained
+    assert _compare_warnings(report, payload) == set()
+
+
+@pytest.mark.parametrize(("target", "peers", "relative"), [
+    (1.80, [0.00, 1.00], LLM_RELATIVE_NO_TARGET),  # 실제 LLM 출력
+    (0.60, [0.00, 3.00],
+     ("현대모비스는 코스피와 비슷하게 움직여 시장 전체 흐름을 따라갔습니다. 같은 자동차 그룹의 기아는 3.00% 올랐습니다. "
+      "같은 그룹의 현대차는 보합이었습니다.")),
+])
+def test_llm_missing_target_rate_is_warned(target, peers, relative) -> None:
+    payload = _payload(target, peers)
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    warned = _compare_warnings(report, payload)
+    assert warned == {COMPARE_TARGET_RATE_MISSING}  # 비교 종목 숫자·판정하는 말은 맞다
+
+
+@pytest.mark.parametrize(("target", "peers", "relative"), [
+    # 꼴이 달라도 이 종목 등락률이 있으면 된다("1.8%" 도 1.80)
+    (1.80, [0.00, 1.00], "같은 자동차 그룹의 기아는 1.00% 올랐고 현대모비스는 1.8% 올랐습니다. 같은 그룹의 현대차는 보합이었습니다."),
+    # judge_in_sentence 가 true 면 판정하는 말로 쓰니 이 종목 등락률이 없어도 된다
+    (3.00, [0.00, 1.00],
+     "현대모비스는 1.00% 오른 같은 자동차 그룹의 기아와 크게 달랐습니다. 같은 그룹의 현대차는 보합이었습니다."),
+])
+def test_target_rate_present_or_not_required_is_not_warned(target, peers, relative) -> None:
+    payload = _payload(target, peers)
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert _compare_warnings(report, payload) == set()

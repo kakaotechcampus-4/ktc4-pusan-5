@@ -333,7 +333,8 @@ _RELATIVE_COMPARE_RULES = """
   않습니다. `in_sentence: true` 인 종목만 각자의 등락률(`change_rate_pct`, 둘 이상이면 "0.35~0.80%")로 쓰고, `in_sentence: false`
   인 종목은 바로 뒤에 따로 한 문장으로 씁니다("같은 그룹의 현대차는 보합이었습니다.").
 - `judge_in_sentence` 가 `false` 인 그룹은 판정하는 말("비슷하게"·"함께"·"다르게"·"크게 달랐다"·"따라갔다") 없이 등락만
-  씁니다("같은 자동차 그룹의 기아는 1.00% 올랐고, 현대모비스는 1.80% 올랐습니다.").
+  씁니다("같은 자동차 그룹의 기아는 1.00% 올랐고, 현대모비스는 1.80% 올랐습니다."). 그룹 판정이 `follows`·`diverges` 면 이
+  종목의 등락률(입력 `change_pct`)을 그 문장에 반드시 씁니다. 그룹과 다르게 움직인 이유를 찾지 못했다는 말도 쓰지 않습니다.
 - market_compare 가 `null` 이거나 `status` 가 `ok` 가 아니거나, `peers` 가 비었거나 `peers[].relation` 이 모두 `null` 이면
   비교 문장을 쓰지 않습니다.
 """ + "- " + "·".join(f'"{phrase}"' for phrase in COMPARE_META_PHRASES) + " 같은 안쪽 말은 쓰지 않습니다.\n"

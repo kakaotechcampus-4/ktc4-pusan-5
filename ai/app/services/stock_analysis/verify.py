@@ -218,9 +218,21 @@ COMPARE_META_PHRASES = ("판정하기 어렵", "기준 시장", "비교 종목�
 # 섞이면 잘못 잡을 수 있어 경고다.
 # 그룹 판정이 follows·diverges 여도 입력 judge_in_sentence 가 false 면(문장에 쓸 비교 종목만으로 다시 판정하면 판정이 달라지는
 # 그룹, market_compare.sentence_members) 같은 경고다. 그날은 "크게 달랐" 도 판정하는 말로 본다.
+# judge_in_sentence 가 false 인 그룹(입력에 그 칸이 없으면 opposite·inconclusive 그룹)은 summary.unexplained 에도 그룹과의
+# 차이를 판정하는 말을 쓰지 않는다(프롬프트 「동종 그룹」·4부 unexplained). unexplained 는 그룹 비교 문장이 아니라 다른 말과 섞여
+# 있어("대형주 전반과 비슷하게 움직였지만, 같은 자동차 그룹과 다르게 오른 이유는 …") 문장 단위로 보지 않고, 그룹을 가리키는
+# 말·비교 종목 이름에 바로 붙은 판정하는 말(_unexplained_group_judged)만 찾는다.
 COMPARE_OPPOSITE_WORDING = "COMPARE_OPPOSITE_WORDING"
 COMPARE_JUDGE_WORDS = ("비슷하게", "함께", "다르게", "따라갔")
 _KOSPI_JUDGED = re.compile(r"코스피(?:와|과)는?\s*(?:비슷하게|함께|다르게)|코스피\s*흐름을\s*따라")
+# 그룹을 가리키는 말 뒤에 붙는 판정하는 말. "자동차 그룹과 다르게", "기아와 비슷하게", "자동차 그룹 종목들과 달리",
+# "자동차 그룹 흐름을 따라".
+_GROUP_JUDGED_TAIL = r"(?:\s*종목들?)?(?:과|와)는?\s*(?:비슷하게|함께|다르게|달리|크게\s*달|같이)"
+_GROUP_FLOW_TAIL = r"\s*흐름을?\s*따라"
+# 입력 그룹 판정이 follows·diverges 인데 judge_in_sentence 가 false 면 relative 는 판정하는 말 없이 등락만 쓰고, 독자가 견줄 수
+# 있게 이 종목 등락률(market_compare.kospi.stock_change_rate_pct, 없으면 입력 change_pct)을 반드시 쓴다(프롬프트 「동종 그룹」).
+# relative 에 그 그룹을 가리키는 말이 있는데 이 종목 등락률(보합이면 이 종목 이름과 "보합")이 없으면 경고다.
+COMPARE_TARGET_RATE_MISSING = "COMPARE_TARGET_RATE_MISSING"
 # 입력 그룹 판정이 inconclusive 이고 비교 종목(members_used)이 둘 이상이면 비교 종목끼리 오르내린 방향이 엇갈린 그룹이다
 # (context.group_relation). 그 그룹을 가리키는 relative 문장에 그룹 등락률("안팎", median_change_rate_pct 수치)이나 판정하는
 # 말(COMPARE_JUDGE_WORDS)을 쓰면 오른 종목과 내린 종목이 같은 방향으로 움직인 것처럼 읽힌다. 그날은 방향이 엇갈렸다는 사실만
@@ -1303,6 +1315,8 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     COMPARE_META_PHRASE         독자가 읽는 칸에 비교 판정의 안쪽 말(COMPARE_META_PHRASES)이 있다. payload 없이 본다.
     COMPARE_OPPOSITE_WORDING    market_compare 판정이 opposite 인 비교에 "비슷하게"·"함께"·"다르게"·"따라갔" 를 썼다. 그룹
                                 판정이 follows·diverges 여도 judge_in_sentence 가 false 면 같고, "크게 달랐" 도 본다.
+                                judge_in_sentence 가 false 인 그룹은 summary.unexplained 에서도 그룹에 붙은 판정하는 말을 본다.
+    COMPARE_TARGET_RATE_MISSING judge_in_sentence 가 false 인 follows·diverges 그룹을 relative 에 쓰면서 이 종목 등락률을 빠뜨렸다.
     COMPARE_MIXED_GROUP_RATE    비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상)에 그룹 등락률이나 판정하는 말을 썼다.
     COMPARE_MEMBER_RATE         relative 에 쓴 비교 종목 등락률·방향이 입력 members_used[].change_rate_pct 와 다르거나, 문장에서
                                 빠지는 비교 종목이 있는 그룹을 그룹 등락률("대체로 X% 안팎")로 썼다.
@@ -1343,6 +1357,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     out += _check_compare_opposite(report, payload)
     out += _check_compare_mixed(report, payload)
     out += _check_compare_member_rate(report, payload)
+    out += _check_compare_target_rate(report, payload)
     market = payload.get("market")
     summary = report.get("summary")
     move_text = summary.get("move") if isinstance(summary, dict) else None
@@ -1516,13 +1531,18 @@ def _check_compare_opposite(report: dict[str, Any], payload: dict[str, Any]) -> 
             text = summary.get(key)
             if isinstance(text, str) and (m := _KOSPI_JUDGED.search(text)):
                 out.append(_p(COMPARE_OPPOSITE_WORDING, f"코스피와 방향이 반대인 날인데 summary.{key} 에 {m.group(0)!r}"))
+    peers = [p for p in compare.get("peers") or [] if isinstance(p, dict) and isinstance(p.get("group"), str)]
+    unexplained = summary.get("unexplained")
+    if isinstance(unexplained, str):
+        for peer in peers:
+            if (m := _unexplained_group_judged(unexplained, peer, single=len(peers) == 1)):
+                out.append(_p(COMPARE_OPPOSITE_WORDING,
+                              f"{peer['group']} 그룹에 판정하는 말을 쓰지 않는 날인데 summary.unexplained 에 {m!r}"))
     relative = summary.get("relative")
     if not isinstance(relative, str):
         return out
     sentences = [_KOSPI_JUDGED.sub("", s) for s in _SENTENCE_END.split(relative.strip())]
-    for peer in compare.get("peers") or []:
-        if not isinstance(peer, dict) or not isinstance(peer.get("group"), str):
-            continue
+    for peer in peers:
         # 문장에 쓸 비교 종목만으로는 판정이 달라지는 그룹(follows·diverges 인데 judge_in_sentence false)
         unjudged = peer.get("relation") in ("follows", "diverges") and peer.get("judge_in_sentence") is False
         if peer.get("relation") != "opposite" and not unjudged:
@@ -1533,6 +1553,56 @@ def _check_compare_opposite(report: dict[str, Any], payload: dict[str, Any]) -> 
         if words:
             why = "문장에 쓴 비교 종목만으로는 판정이 달라지는" if unjudged else "그룹과 방향이 반대인"
             out.append(_p(COMPARE_OPPOSITE_WORDING, f"{peer['group']} {why} 날인데 summary.relative 에 {words[0]!r}"))
+    return out
+
+
+def _unexplained_group_judged(text: str, peer: dict[str, Any], *, single: bool) -> str | None:
+    """judge_in_sentence 가 false 인 그룹(그 칸이 없으면 opposite·inconclusive)을 가리키는 말에 판정하는 말이 붙은 첫 꼴.
+
+    그룹을 가리키는 말은 group_mention("자동차 그룹", "SK하이닉스 지분으로 이어진")과 비교 종목 이름이다. 비교 그룹이 하나뿐인
+    보고서면 "같은 그룹" 도 그 그룹이다.
+    """
+    judged = peer.get("judge_in_sentence")
+    if judged is None:
+        judged = peer.get("relation") not in ("opposite", "inconclusive")
+    if judged:
+        return None
+    names = [m["name"] for m in peer.get("members_used") or [] if isinstance(m, dict) and isinstance(m.get("name"), str)]
+    targets = [re.escape(group_mention(peer["group"]))] + [re.escape(n) for n in sorted(names, key=len, reverse=True)]
+    if single:
+        targets.append(r"같은\s+그룹")
+    subject = "|".join(targets)
+    m = re.search(rf"(?:{subject})(?:{_GROUP_JUDGED_TAIL}|{_GROUP_FLOW_TAIL})", text)
+    return m.group(0) if m else None
+
+
+def _check_compare_target_rate(report: dict[str, Any], payload: dict[str, Any]) -> list[str]:
+    """판정하는 말을 뺀 follows·diverges 그룹 문장에 이 종목 등락률이 있나. 그룹마다 경고 하나."""
+    compare = payload.get("market_compare")
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    relative = summary.get("relative")
+    if not isinstance(compare, dict) or compare.get("status") != "ok" or not isinstance(relative, str):
+        return []
+    kospi = compare.get("kospi") if isinstance(compare.get("kospi"), dict) else {}
+    rate = _decimal(kospi.get("stock_change_rate_pct"))
+    if rate is None:
+        rate = _decimal(payload.get("change_pct"))
+    if rate is None:
+        return []
+    stock = payload.get("stock") if isinstance(payload.get("stock"), str) else ""
+    if rate == 0:
+        shown = bool(stock) and any(stock in s and "보합" in s for s in _SENTENCE_END.split(relative.strip()))
+    else:
+        shown = abs(rate) in {Decimal(x) for x in _PERCENT.findall(relative)}
+    out: list[str] = []
+    for peer in compare.get("peers") or []:
+        if (not isinstance(peer, dict) or not isinstance(peer.get("group"), str)
+                or peer.get("relation") not in ("follows", "diverges") or peer.get("judge_in_sentence") is not False):
+            continue
+        if group_mention(peer["group"]) in relative and not shown:
+            out.append(_p(COMPARE_TARGET_RATE_MISSING,
+                          f"{peer['group']} 그룹을 판정하는 말 없이 쓰는 날인데 summary.relative 에 이 종목 등락률 "
+                          f"{abs(rate):.2f}% 가 없다"))
     return out
 
 
