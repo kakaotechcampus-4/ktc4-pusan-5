@@ -261,6 +261,7 @@ _MIXED_STATED = re.compile(r"엇갈|방향이\s*(?:서로\s*)?(?:달라|달랐|�
 # 입력과 다르다(프롬프트 「동종 그룹」). 이름 목록 앞뒤에 붙은 등락을 본다.
 #   "1.00% 오른 같은 자동차 그룹의 기아", "0.35~0.80% 오른 같은 자동차 그룹의 현대차·기아"   수치 → 이름 목록
 #   "같은 자동차 그룹의 기아는 1.00% 올랐", "같은 그룹의 현대차는 보합이었"                       이름 목록 → 수치
+#   "현대차는 0.40%, 기아는 1.20% 올랐"                                                       종목마다 수치, 등락 말은 끝에
 # 한 값이면 목록의 종목 모두가 그 등락률, 범위면 끝값이 목록 종목들의 가장 작은·큰 등락률(절댓값)이어야 하고, 오르내린 말이
 # 등락률 부호와 맞아야 한다. "대체로 X% 안팎"·"대체로 보합인" 은 그룹 등락률이라 그 값과 맞아야 하고, 문장에서 빠지는
 # 종목(in_sentence: false)이 있는 그룹과 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상)에는 쓰지 않는다. 그 밖에 비교 종목
@@ -1803,7 +1804,21 @@ def _member_rate_problem(sentences: list[str], peer: dict[str, Any], rates: dict
         re.compile(rf"(?P<rough>대체로\s*)?보합인\s+{mention}{listed}"),
         re.compile(rf"(?<![가-힣A-Za-z0-9]){listed}(?:은|는|이|가)\s+(?P<rough>대체로\s*)?보합"),
     ]
+    # "현대차는 0.40%, 기아는 1.20% 올랐" — 쉼표로 이은 종목마다 수치가 있고 등락 말은 끝에 한 번. 종목마다 따로 본다
+    josa = r"(?:은|는|이|가)\s+"
+    pair = rf"(?<![가-힣A-Za-z0-9])(?P<name>{names}){josa}(?P<value>{_RATE_NUM})%"
+    pair_list = re.compile(
+        rf"(?<![가-힣A-Za-z0-9])(?:{names}){josa}{_RATE_NUM}%\s*,\s*"
+        rf"(?:(?:{names}){josa}{_RATE_NUM}%\s*,\s*)*(?:{names}){josa}{_RATE_NUM}%\s*(?P<verb>올랐|내렸|올라|내려|상승|하락)")
     for s in sentences:
+        for m in pair_list.finditer(s):
+            sign = 1 if m.group("verb")[0] in "오올상" else -1
+            for p in re.finditer(pair, m.group(0)):
+                rate, value = rates[p.group("name")], Decimal(p.group("value"))
+                if abs(rate) != value:
+                    return f"입력 등락률({p.group('name')} {rate:.2f}%)과 다르다 {m.group(0)!r}"
+                if (rate > 0) - (rate < 0) != sign:
+                    return f"오르내린 방향이 입력 등락률과 다르다({p.group('name')}) {m.group(0)!r}"
         for pattern in patterns:
             for m in pattern.finditer(s):
                 found = m.groupdict()

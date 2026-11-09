@@ -466,13 +466,27 @@ def test_odd_mixed_group_median_is_a_member_rate_and_not_warned() -> None:
     assert peer["median_change_rate_pct"] == 0.40
     report = gen.canned_report(payload)
     assert report["summary"]["relative"] == (
-        f"같은 자동차 그룹의 현대차는 0.40% 올랐고 기아는 1.20% 올랐고 현대위아는 0.50% 내려, {MIXED_TAIL}")
+        f"같은 자동차 그룹의 현대차는 0.40%, 기아는 1.20% 올랐고 현대위아는 0.50% 내려, {MIXED_TAIL}")  # 같은 방향은 묶는다
     assert verify(report, payload) == ("passed", [])
     assert _compare_warnings(report, payload) == set()
     # LLM 이 다른 꼴로 맞게 써도 걸리지 않는다
     report["summary"]["relative"] = (f"같은 자동차 그룹의 현대차는 0.40%, 기아는 1.20% 올랐고 현대위아는 0.50% 내렸습니다. "
                                      f"세 종목의 {MIXED_TAIL}")
     assert _compare_warnings(report, payload) == set()
+
+
+@pytest.mark.parametrize("relative", [
+    # 틀린 것이 묶음 앞쪽 종목뿐이다. 수치(0.50)는 다른 비교 종목 등락률이라 "입력에 없는 수치" 로는 걸리지 않고,
+    # 끝 종목(기아는 1.20% 올랐)은 맞아 이름 → 수치 꼴로도 걸리지 않는다
+    f"같은 자동차 그룹의 현대차는 0.50%, 기아는 1.20% 올랐고 현대위아는 0.50% 내려, {MIXED_TAIL}",  # 현대차 값이 틀림
+    f"같은 자동차 그룹의 현대위아는 0.50%, 기아는 1.20% 올랐고 현대차는 0.40% 올라, {MIXED_TAIL}",  # 내린 현대위아를 오른 묶음에
+])
+def test_llm_grouped_member_rates_are_checked_per_member(relative) -> None:
+    """같은 방향 종목을 쉼표로 묶은 꼴("현대차는 0.40%, 기아는 1.20% 올랐고")도 종목마다 수치·방향을 대조한다."""
+    payload = _payload(-0.60, [0.40, 1.20, -0.50])
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert COMPARE_MEMBER_RATE in _compare_warnings(report, payload)
 
 
 def test_target_rate_equal_to_member_rate_is_not_mistaken() -> None:
@@ -527,5 +541,69 @@ def test_canned_report_never_trips_its_own_compare_warnings() -> None:
                         failures.append((target, peers, kospi_rate, report["summary"]["relative"], status, warned))
     # 조합이 판정·문장 경우를 모두 덮는지
     for key in ("follows", "diverges", "opposite", "inconclusive", "mixed", "split", "unjudged", "majority_follows"):
+        assert seen[key] > 0, key
+    assert failures == [], f"{len(failures)}건: {failures[:5]}"
+
+
+# --- 그룹 두 개에 속한 종목 (삼성생명: 보험 + 삼성전자 연동) -----------------------------------------------------------
+# 그룹 A 는 보험(비교 종목 1~3개), 그룹 B 는 삼성전자 연동(지분으로 이어진 묶음) 또는 일반 그룹(1~2개). 두 그룹의 판정이
+# 같거나 다르거나, 하나만·둘 다 엇갈리거나, 코스피 follows 앞 문장이 어느 그룹에 붙는지 섞인다. DB손해보험은 시험용 추가
+# 종목이다(실제 보험 그룹은 삼성화재·메리츠금융지주).
+
+TWO_TARGET = ("032830", "삼성생명")
+TWO_A = ("보험", [("000810", "삼성화재"), ("138040", "메리츠금융지주"), ("005830", "DB손해보험")])
+TWO_B_LINKED = ("삼성전자 연동", [("005930", "삼성전자"), ("028260", "삼성물산")])
+TWO_B_PLAIN = ("금융지주", [("105560", "KB금융"), ("055550", "신한지주")])
+TWO_PEER_RATES = (-1.50, 0.00, 0.40, 1.20, 2.40)
+TWO_TARGETS = (-2.00, -0.60, 0.00, 0.40, 1.80, 3.20)
+TWO_KOSPI = (-1.00, 0.62)
+
+
+def _two_group_payload(target: float, peers_a: tuple, peers_b: tuple, kospi_rate: float, group_b: tuple) -> dict:
+    code, name = TWO_TARGET
+    (name_a, members_a), (name_b, members_b) = TWO_A, group_b
+    members_a, members_b = members_a[:len(peers_a)], members_b[:len(peers_b)]
+    groups = {name_a: {code: name, **dict(members_a)}, name_b: {code: name, **dict(members_b)}}
+    stocks = [stock(code, 100, target)] + [stock(c, 100, r) for (c, _), r in zip(members_a + members_b, peers_a + peers_b)]
+    ctx = build_market_context(code, DAY, kospi(kospi_rate), stocks, groups=groups,
+                               stock_groups={code: (name_a, name_b)})
+    compare = mc.to_input(ctx, groups=groups)
+    excess = round(target - kospi_rate, 2)
+    compare["kospi"] = {
+        "stock_change_rate_pct": target, "kospi_change_rate_pct": kospi_rate, "excess_vs_kospi_pp": excess,
+        "kospi_weight_pct": 0.7, "kospi_contribution_pp": 0.0, "kospi_ex_self_change_rate_pct": kospi_rate,
+        "excess_vs_kospi_ex_self_pp": excess, "kospi_basis": "kospi",
+        "kospi_relation": kospi_relation(excess, target, kospi_rate)}
+    return _report_input(name, code, target, kospi_rate, compare)
+
+
+def test_canned_report_with_two_groups_never_trips_its_own_compare_warnings() -> None:
+    seen: Counter = Counter()
+    failures = []
+    for group_b in (TWO_B_LINKED, TWO_B_PLAIN):
+        for n_a in (1, 2, 3):
+            for peers_a in itertools.combinations_with_replacement(TWO_PEER_RATES, n_a):
+                for n_b in (1, 2):
+                    for peers_b in itertools.combinations_with_replacement(TWO_PEER_RATES, n_b):
+                        for target in TWO_TARGETS:
+                            for kospi_rate in TWO_KOSPI:
+                                payload = _two_group_payload(target, peers_a, peers_b, kospi_rate, group_b)
+                                a, b = payload["market_compare"]["peers"]
+                                pair = (a["relation"], b["relation"])
+                                seen["same" if pair[0] == pair[1] else "different"] += 1
+                                seen[f"mixed{a['mixed'] + b['mixed']}"] += 1
+                                seen["both_follows_kospi_follows"] += (
+                                    pair == ("follows", "follows")
+                                    and payload["market_compare"]["kospi"]["kospi_relation"] == "follows")
+                                seen["one_unjudged"] += (a["judge_in_sentence"] is False) != (b["judge_in_sentence"] is False)
+                                seen["mixed_and_follows"] += {a["mixed"], b["mixed"]} == {True, False} and "follows" in pair
+                                report = gen.canned_report(payload)
+                                status = verify(report, payload)
+                                warned = sorted(w for w in check_warnings(report, payload) if code_of(w) in COMPARE_WARNINGS)
+                                if status != ("passed", []) or warned:
+                                    failures.append((group_b[0], target, peers_a, peers_b, kospi_rate,
+                                                     report["summary"]["relative"], status, warned))
+    for key in ("same", "different", "mixed0", "mixed1", "mixed2", "both_follows_kospi_follows", "one_unjudged",
+                "mixed_and_follows"):
         assert seen[key] > 0, key
     assert failures == [], f"{len(failures)}건: {failures[:5]}"

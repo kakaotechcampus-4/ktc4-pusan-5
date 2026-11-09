@@ -411,6 +411,8 @@ def _mixed_sentence(peer: dict[str, Any], who: str) -> str:
     """비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상)의 문장. 비교 종목 각자의 등락률을 쓰고 엇갈렸다고 덧붙인다.
 
     "같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내려, 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."
+    같은 방향 종목은 묶는다(방향이 처음 나온 순서, 묶음 안은 입력 순서):
+    "… 현대차는 0.40%, 기아는 1.20% 올랐고 현대위아는 0.50% 내려, …", 보합은 "현대차·기아는 보합이었고".
     종목별 등락률이 없는 입력(예전 형식)이면 수치 없이 "같은 자동차 그룹의 현대차·기아는 방향이 엇갈려 …".
     """
     members = [m for m in peer.get("members_used") or [] if isinstance(m, dict)]
@@ -419,15 +421,19 @@ def _mixed_sentence(peer: dict[str, Any], who: str) -> str:
         return f"{who}{_topic_josa(who)} {MIXED_TAIL}"
     group = str(peer.get("group"))
     head = f"{group_mention(group)} " if group.endswith(LINKED_GROUP_SUFFIX) else f"같은 {group_mention(group)}의 "
+    by_direction: dict[int, list[tuple[str, Decimal]]] = {}
+    for m, rate in zip(members, rates, strict=True):
+        by_direction.setdefault((rate > 0) - (rate < 0), []).append((str(m.get("name")), rate))
     clauses = []
-    for i, (m, rate) in enumerate(zip(members, rates, strict=True)):
-        name = str(m.get("name"))
-        last = i == len(members) - 1
-        if not rate:
-            moved = "보합이라" if last else "보합이었고"
-        else:
-            moved = f"{_pct(rate)} {_went(rate) if last else _verb(rate) + '고'}"
-        clauses.append(f"{name}{_topic_josa(name)} {moved}")
+    for i, (direction, items) in enumerate(by_direction.items()):
+        last = i == len(by_direction) - 1
+        if direction == 0:
+            names = "·".join(name for name, _ in items)
+            clauses.append(f"{names}{_topic_josa(names)} {'보합이라' if last else '보합이었고'}")
+            continue
+        amounts = ", ".join(f"{name}{_topic_josa(name)} {_pct(rate)}" for name, rate in items)
+        rate = items[0][1]
+        clauses.append(f"{amounts} {_went(rate) if last else _verb(rate) + '고'}")
     return f"{head}{' '.join(clauses)}, {MIXED_TAIL}"
 
 
