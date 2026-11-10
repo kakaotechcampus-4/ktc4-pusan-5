@@ -42,16 +42,28 @@ ROLE_NAME = {"supplier": "공급사", "customer": "고객사", "competitor": "�
 TEMPLATES = {
     "supplier": ("{name}은(는) {via}의 {me}다(관계 범위: {scope}). {ev}이(가) {via}의 이 범위 제품에 대한 "
                  "수요·발주·생산·가동·단가·재고·설비투자 변화에 관한 것인가?"),
-    "competitor": ("{name}와(과) {via}는 경쟁사다(관계 범위: {scope}). {ev}이(가) 이 제품 시장에서 {via}의 "
-                   "점유율·가격·생산 차질·사고·규제·수주·증설·입찰 참여·불참·시장 진입·철수·제품 출시에 관한 것인가? "
-                   "자사주·배당처럼 경쟁과 무관한 일은 아니다."),
+    # 경쟁사는 관계 범위 제품을 따로 앞에 두고, 경쟁과 무관한 일을 이름으로 뺀다. 처음 문안("관계 범위"를 괄호에
+    # 넣고 자사주·배당만 뺌)은 범위 밖 제품(LG전자 차량 모듈 → 삼성전자 가전 경쟁)과 경쟁사 주가·임원 주식 매입·
+    # 사내 AI 를 0.15~0.35 로 넘겼다. 처음 보는 11-09 오후 정답 52쌍에서 맞은 수 25 → 43(홍보성 변경 포함, 가중 약
+    # 88% → 96%). 남은 약점: 완제품·시스템 경쟁(배터리 셀 범위인데 ESS 수주), 경쟁사의 인수로 시장 확장(model-test 25절)
+    "competitor": ("{name}와(과) {via}는 경쟁사다. 경쟁하는 제품은 '{scope}' 이다. {ev}이(가) 바로 이 제품 시장에서 "
+                   "{via}의 판매·점유율·가격·생산·생산 차질·사고·규제·수주·증설·입찰 참여·불참·시장 진입·철수·"
+                   "제품 출시가 바뀌는 일인가? 다른 제품·다른 사업의 일, {via}의 주가 등락, 임원이나 회사의 주식 "
+                   "매매·자사주·배당, 인사, 사내 업무 시스템, 사회공헌, 지난 일 소개는 아니다."),
     "owner": ("{name}은(는) {via}의 주주다. {ev}이(가) {via}의 실적·배당·자사주·가치·주가 변화, 또는 "
               "{via}의 실적·사업 전망에 이어지는 대형 수주·투자·증설·생산 차질에 관한 것인가? "
               "인사·수상처럼 실적과 거리가 먼 소식은 아니다."),
 }
 TEMPLATES["customer"] = TEMPLATES["supplier"]
+# 예/아니오 답 설명. Jev 는 이 설명을 보고 고르므로 경쟁사는 뜻을 적어 경계를 분명히 한다. 나머지는 그렇다/아니다
+DEFAULT_CRITERIA = {"true": "그렇다", "false": "아니다"}
+CRITERIA = {
+    "competitor": {"true": "'{scope}' 제품 시장에서 {via}의 경쟁 조건이 바뀌는 일이다",
+                   "false": "다른 제품의 일이거나, 주가·주식 매매·인사·사내 활동처럼 제품 경쟁과 무관한 일이다"},
+}
 QUESTIONS_SHA256 = hashlib.sha256(
-    "\n".join([f"YES={YES}", GUARD, *(f"{k}={v}" for k, v in sorted(TEMPLATES.items()))]).encode("utf-8")
+    "\n".join([f"YES={YES}", GUARD, *(f"{k}={v}" for k, v in sorted(TEMPLATES.items())),
+               f"default={DEFAULT_CRITERIA}", *(f"{k}={v}" for k, v in sorted(CRITERIA.items()))]).encode("utf-8")
 ).hexdigest()
 
 
@@ -109,11 +121,11 @@ def relation_questions(event: Event, candidate: Candidate, basis: Basis) -> tupl
             owned += 1
             continue
         via = basis.display_name(ref["via"])
-        text = TEMPLATES[role].format(name=name, via=via, ev=ev, scope=scope_text(basis, ref),
-                                      me=ROLE_NAME.get(role, ""))
+        scope = scope_text(basis, ref)
+        text = TEMPLATES[role].format(name=name, via=via, ev=ev, scope=scope, me=ROLE_NAME.get(role, ""))
+        criteria = {k: v.format(scope=scope, via=via) for k, v in CRITERIA.get(role, DEFAULT_CRITERIA).items()}
         key = f"e{event.order_index}_{candidate.stock_code}_rel{n}"
-        questions[key] = {"type": "noul", "instructions": f"{text} {GUARD}",
-                          "criteria": {"true": "그렇다", "false": "아니다"}}
+        questions[key] = {"type": "noul", "instructions": f"{text} {GUARD}", "criteria": criteria}
         plan.append((key, role, via))
     return questions, Plan(tuple(plan), owned)
 

@@ -53,6 +53,22 @@ def test_one_question_per_relation_with_scope() -> None:
     assert all(q["type"] == "noul" for q in questions.values())
 
 
+def test_competitor_question_puts_scope_first_and_lists_unrelated_news() -> None:
+    """경쟁사 질문은 관계 범위 제품을 따로 적고, 경쟁과 무관한 일(주가·주식 매매·인사·사내 시스템)을 뺀다."""
+    questions, _ = relation_questions(EVENT, COMPETITOR, BASIS)
+    (question,) = questions.values()
+    text = question["instructions"]
+    assert "경쟁하는 제품은 '범위 D램' 이다" in text and "바로 이 제품 시장에서 삼성전자의" in text
+    assert all(word in text for word in ("주가 등락", "주식 매매", "인사", "사내 업무 시스템", "지난 일 소개"))
+    assert question["criteria"]["true"] == "'범위 D램' 제품 시장에서 삼성전자의 경쟁 조건이 바뀌는 일이다"
+    assert "제품 경쟁과 무관한 일" in question["criteria"]["false"]
+
+
+def test_other_relations_keep_plain_criteria() -> None:
+    questions, _ = relation_questions(EVENT, OWNER, BASIS)
+    assert all(q["criteria"] == {"true": "그렇다", "false": "아니다"} for q in questions.values())
+
+
 @pytest.mark.parametrize(("value", "label"), [(YES, "INDIRECT_CONTEXT"), (0.9, "INDIRECT_CONTEXT"),
                                               (YES - 0.01, "NOT_APPLICABLE")])
 def test_threshold(value: float, label: str) -> None:
