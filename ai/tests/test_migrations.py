@@ -24,11 +24,7 @@ from tests.backend_schema import BACKEND_HEAD, backend_statements
 
 AI_DIR = Path(__file__).resolve().parents[1]
 # 체인 끝이 바뀌면 여기도 바꾼다. stamp·버전 확인이 전부 이 값을 쓴다.
-<<<<<<< HEAD
 HEAD = "0030_news_body_extract_failures"
-=======
-HEAD = "0029_classification_same_event"
->>>>>>> origin/develop
 # AI 가 backend 에게서 넘겨받기 직전 리비전
 BEFORE_TAKEOVER = "0019_stock_move_analysis"
 
