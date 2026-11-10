@@ -93,6 +93,13 @@ def test_title_words_drop_stock_names_brackets_and_one_particle():
     assert words == frozenset({"목동13단지", "재건축", "수주"})
 
 
+def test_price_words_keep_their_last_letter():
+    # 신고가의 '가' 를 조사로 떼면 '신고' 가 되어 공정위 신고 기사와 같은 소식이 된다(#113 리뷰)
+    assert "신고가" in title_words("SK하이닉스 신고가 경신", ("SK하이닉스",))
+    candidates = [news(1, "SK하이닉스 신고가 경신", hour=9), news(2, "SK하이닉스 공정위 신고 접수", hour=8)]
+    assert rank_news(candidates, [MOCK_HYNIX], cap=2) == {1: 0, 2: 1}
+
+
 def test_stock_name_alone_does_not_make_titles_the_same_story():
     # 종목 이름을 빼고 비교하므로 '삼성전자' 만 같은 제목은 다른 소식이다
     candidates = [news(1, "삼성전자 노조 파업", hour=9), news(2, "삼성전자 HBM 공급 계약", hour=8)]

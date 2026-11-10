@@ -41,6 +41,9 @@ def normalize_title(title: str) -> str:
 SAME_STORY_OVERLAP = 0.4
 # 낱말 끝에서 떼는 조사 한 글자(삼성물산이 → 삼성물산). 세 글자 이상 낱말에만 뗀다
 _PARTICLES = "은는이가을를에의와과도로"
+# '가' 로 끝나지만 조사가 아닌 주가 용어. 떼면 다른 낱말이 된다(신고가 → 신고, 최고가 → 최고).
+# 목표가는 넣지 않는다: 네이버 제목이 "…목표..." 처럼 잘려 들어와서, 떼야 같은 소식끼리 묶인다(5-6).
+_PRICE_WORDS = frozenset({"신고가", "최고가", "최저가", "상한가", "하한가"})
 
 
 def title_words(title: str, drop: Iterable[str] = ()) -> frozenset[str]:
@@ -53,7 +56,7 @@ def title_words(title: str, drop: Iterable[str] = ()) -> frozenset[str]:
         title = title.replace(name, " ")
     words = set()
     for word in re.findall(r"[0-9A-Za-z가-힣]+", title):
-        if len(word) >= 3 and word[-1] in _PARTICLES:
+        if len(word) >= 3 and word[-1] in _PARTICLES and word not in _PRICE_WORDS:
             word = word[:-1]
         if len(word) >= 2:
             words.add(word)
