@@ -188,6 +188,37 @@ def test_disclosure_messages_carry_is_correction_and_model_gets_it():
     assert check_input(payload) == []
 
 
+def test_untimed_disclosure_on_since_day_is_left_out_with_reason():
+    """접수 시각을 모르는 공시는 접수일이 조회 시작일(SINCE 11-02)보다 뒤일 때만 넣는다(맨 위 설명)."""
+    on_since_day = disclosure_record(11)
+    on_since_day.write_date = SINCE.date()
+    timed = disclosure_record(12)  # 같은 날 접수지만 수집기가 장 마감 뒤에 처음 봐 공개 시각이 있다
+    timed.write_date = SINCE.date()
+    timed.available_at = SINCE + timedelta(hours=1)
+    after = disclosure_record(13, title="현금ㆍ현물배당결정")  # 접수일 11-03, 시각 모름. 제목이 같으면 중복으로 묶인다
+    sources = [source(10, event("company")), ci.disclosure_source(11), ci.disclosure_source(12),
+               ci.disclosure_source(13)]
+    payload, meta = build(sources, [record(10), on_since_day, timed, after])
+
+    assert [m["url"] for m in payload["messages"]] == [
+        "https://t.me/mock_ch/10", "https://dart.mock/12", "https://dart.mock/13"]
+    assert meta["counts"]["disclosure_boundary"] == 1
+    assert meta["counts"]["disclosure"] == 2
+    assert meta["counts"]["no_body"] == 0   # 본문 없음과 따로 센다
+    [dropped] = meta["dropped"]
+    assert dropped["source_card_id"] == 11
+    assert dropped["reason"].startswith("boundary_disclosure: 접수일 2026-11-02 이 조회 시작일")
+
+
+def test_boundary_rule_is_only_for_disclosures():
+    """시각 없이 작성일만 있는 리포트는 그대로 둔다(이번 규칙은 공시만)."""
+    report = pdf_record(11)
+    report.write_date = SINCE.date()
+    payload, meta = build([source(11, event("company"), card_type="pdf")], [report])
+    assert [m["url"] for m in payload["messages"]] == ["https://mock.research/11.pdf"]
+    assert meta["counts"]["disclosure_boundary"] == 0
+
+
 def test_news_cards_become_news_messages():
     sources = [source(13, event("company"), card_type="news"), source(12, event("industry"), card_type="news"),
                source(11, event("macro", None), card_type="news"), source(10, event("company"), card_type="news"),

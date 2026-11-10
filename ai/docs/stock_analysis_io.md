@@ -126,6 +126,7 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
 - 뉴스 기사도 메시지 하나로 넣는다(`kind: "news"`). `channel` 은 언론사, `url` 은 기사 주소, `text` 는 제목 + 빈 줄 + 본문이다.
 - 공시는 `kind: "disclosure"`, `text` 는 공시 제목이다. 정정 공시는 `is_correction: true` 이고 모델은 그 자체로 원인으로 쓰지 않는다(프롬프트 1부,
   경고 `DISCLOSURE_CORRECTION_AS_CAUSE`). 입력 생성 단계(`classified_input`)가 붙인다.
+- 시각 없는 공시(수집기가 접수일 당일에 보지 못해 공개 시각이 없는 공시)는 경계일(조회 시작일 = 직전 거래일)에 빠짐. 장 마감 뒤 공시를 잡으려면 수집을 당일 저녁에도 돌려야 함.
 
 ### 러너가 모델에 보내는 입력 — `generate.model_input()`
 
