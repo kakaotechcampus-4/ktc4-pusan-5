@@ -30,6 +30,7 @@ articles.json 옆에 classify_<시각>.json 으로 남는다(eval_data 는 git �
 
 단계별 모델은 --extract-model / --link-model / --judge-model, 안 주면 .env 의
 CLASSIFICATION_<단계>_MODEL, 그것도 없으면 SUMMARY_MODEL 이다(llm.py). LLM 은 .env 의 프로바이더로 부른다.
+CLASSIFICATION_PROMO_JEV=true 면 ③ 홍보성 거르기에 Jev 도 부른다(promo.py). 비용은 회차 usage 의 promo 칸이다.
 """
 
 import argparse
@@ -59,7 +60,7 @@ from app.repositories.classification import (
 )
 from app.repositories.scope import collection_locks
 from app.repositories.source_card import get_sources
-from app.services.classification import splitter
+from app.services.classification import promo, splitter
 from app.services.classification.basis import Basis, BasisError, load_basis
 from app.services.classification.evaluate import (
     load_labels,
@@ -77,7 +78,9 @@ from app.services.classification.selection import DailyBudget, order_for_classif
 def describe(result: ClassificationResult, body: str, basis: Basis) -> list[str]:
     """결과를 사람이 읽는 줄로. try 와 eval 이 쓴다."""
     lines = [f"상태 {result.status}  문장 {result.sentence_count}  비용 {format_cost(result.cost)}"]
-    lines += [f"  {step}: {call.model}" for step, call in result.calls.items()]
+    lines += [f"  {step}: {call.model}" + (f"  실패 — 정규식만 봄: {call.error}"
+                                           if step == promo.STEP and call.error else "")
+              for step, call in result.calls.items()]
     if result.error:
         lines.append(f"오류 {result.error}")
     if result.status != "ok":
@@ -95,6 +98,9 @@ def describe(result: ClassificationResult, body: str, basis: Basis) -> list[str]
                   + (f"(자회사 {link.via_subsidiary})" if link.via_subsidiary else "")
                   + ("*" if link.linked_by == "llm_code" else "") for link in item.links]
         lines.append(f"    연결 {linked}  미연결 {item.unresolved}")
+        if item.promo_jev is not None:
+            lines.append(f"    Jev 홍보성 {item.promo_jev:.2f}"
+                         + ("  → 관계 후보 없음" if promo.is_promo(item.promo_jev) else ""))
         judgments = {j.stock_code: j for j in item.judgments}
         for c in item.candidates:
             j = judgments.get(c.stock_code)
@@ -123,7 +129,7 @@ def result_dict(result: ClassificationResult) -> dict:
             "links": [asdict(link) for link in item.links], "unresolved": item.unresolved,
             "candidates": [{k: v for k, v in asdict(c).items() if k != "link"}
                            for c in item.candidates],
-            "judgments": [asdict(j) for j in item.judgments],
+            "judgments": [asdict(j) for j in item.judgments], "promo_jev": item.promo_jev,
         } for item in result.events],
     }
 
@@ -155,6 +161,7 @@ async def run_classify(args: argparse.Namespace) -> int:
     """
     basis = load_basis(args.basis)
     endpoint()  # 키가 없으면 자료를 읽기 전에 멈춘다
+    promo.require()
     # --ids 는 직접 고른 자료라 막지 않는다. 막으면 전체 분류 중에는 모델 비교도 몇 시간씩 멈춘다
     if args.ids is not None:
         return await classify_cards(args, basis)
@@ -248,6 +255,8 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> int:
               f"{format_cost(result.cost)}", flush=True)
         if result.error:
             print(f"        오류 {result.error[:200]}", flush=True)
+        if (asked := result.calls.get(promo.STEP)) and asked.error:
+            print(f"        Jev 홍보성 실패 — 정규식만 봄: {asked.error[:200]}", flush=True)
 
     try:
         await asyncio.gather(*(work(card_id) for card_id in card_ids))
@@ -327,6 +336,7 @@ async def run_show(args: argparse.Namespace) -> None:
 
 async def run_try(args: argparse.Namespace) -> None:
     basis = load_basis(args.basis)
+    promo.require()
     body = args.file.read_text(encoding="utf-8")
     result = await classify(args.title, body, basis, models=models_of(args))
     print("\n".join(describe(result, body, basis)))
@@ -361,6 +371,7 @@ async def run_eval(args: argparse.Namespace) -> None:
         raise SystemExit(f"없는 기사 ID: {', '.join(missing)}")
     ids = ids[: args.limit] if args.limit else ids
     endpoint()
+    promo.require()
 
     results, statuses, total = [], Counter(), 0.0
     recall, linked, out_of_basis = Counter(), Counter(), 0
