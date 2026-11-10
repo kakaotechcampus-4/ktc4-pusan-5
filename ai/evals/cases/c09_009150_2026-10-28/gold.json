@@ -1,0 +1,138 @@
+{
+  "case_id": "c09_009150_2026-10-28",
+  "status": "labeled",
+  "label_source": "human",
+  "trap_ids": [
+    1
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": 8.74,
+    "kospi_change_pct": 6.63,
+    "kospi_basis": "kospi",
+    "excess_vs_basis_pp": 2.11,
+    "kospi_relation": "diverges",
+    "peer_relations": {
+      "전자부품": "inconclusive"
+    },
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "더",
+    "peer_median_pct": 2.67,
+    "excess_vs_peers_pp": 6.07,
+    "judge_layers": {
+      "move": true,
+      "relative": true
+    },
+    "move_strength_cap": null,
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-10-28T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-10-28T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "explained",
+    "relative": "explained"
+  },
+  "confidence_level": "partial",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "3Q26 잠정실적: 매출 3.76조원(컨센 3.81조원 소폭 하회), 영업이익 6,910억원(컨센 6,420억원 상회), 지배주주순이익 4,687억원(컨센 5,242억원 하회)",
+      "importance": "must",
+      "layer": [
+        "move",
+        "relative"
+      ],
+      "expected_mention": "factors",
+      "stance": "bullish",
+      "max_causal_strength": "likely_cause",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19221",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/skitteam/4814",
+          "tier": "primary"
+        }
+      ],
+      "key_facts": [
+        "3Q26 실적",
+        "영업이익 6,910억원"
+      ],
+      "rationale": "직접 공시이고 영업이익 상회로 방향 일치, 장중(11:58) 공개. 순이익은 하회라 혼재"
+    },
+    {
+      "id": "e2",
+      "summary": "컨퍼런스콜 Q&A: AI 데이터센터 부품 수요 고성장, ADAS 수요",
+      "importance": "should",
+      "layer": [
+        "move"
+      ],
+      "expected_mention": "either",
+      "stance": "bullish",
+      "max_causal_strength": "possible_contributor",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19227",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "컨퍼런스콜"
+      ],
+      "rationale": "실적 보조 재료"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "direction_flip",
+      "subject": "매출·지배주주순이익 컨센서스 하회",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "down",
+      "example": "실적이 컨센서스를 하회해 주가에 부담이 됐다"
+    },
+    {
+      "id": "f2",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "up",
+      "example": "외국인·기관 순매수가 상승 원인이다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "실적과 컨퍼런스콜(AI 데이터센터 수요) 중 어느 재료가 상승폭을 얼마나 설명하는지(재료별 기여 비율)"
+  ],
+  "beginner_terms": [
+    "컨센서스",
+    "지배주주순이익",
+    "컨퍼런스콜",
+    "ADAS"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

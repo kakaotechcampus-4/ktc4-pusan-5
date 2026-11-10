@@ -1,0 +1,215 @@
+{
+  "stock": "SK하이닉스",
+  "code": "000660",
+  "target_date": "2026-10-28",
+  "cutoff": "2026-10-28T18:45:00+09:00",
+  "change_pct": 10.89,
+  "market": {
+    "index": "코스피",
+    "change_pct": 6.63,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": 2.67,
+    "peer_up": 17,
+    "peer_down": 2,
+    "peer_total": 19,
+    "excess_pct": 8.22
+  },
+  "messages": [
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4795",
+      "datetime_kst": "2026-10-27T15:44:51+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n1. 메모리 4사 12MF P/E 업데이트 (10/27)\n삼성전자 3.6X\nSK하이닉스 3.1X\n* SK증권 추정치 기준\n\n마이크론 5.3X \nCXMT 11.2X\n* Bloomberg consensus 기준\n\n2. SK하이닉스 본주 & ADR 간 괴리율: 44.0%\n\nSK증권 리서치 IT팀 채널 : \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4796",
+      "datetime_kst": "2026-10-27T16:07:25+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n中 빅테크 알리바바·텐센트·바이트댄스, 삼성전자·SK하이닉스에 D램 장기계약 요청\n\n▶️ 장기공급계약(LTA) 요청 개요\n\n- 알리바바·텐센트·바이트댄스 등 중화권 대형 CSP, 삼성전자·SK하이닉스에 서버용 메모리 LTA 타진\n- 통상 3~5년인 계약기간을 넘어, 일부 고객은 2035년까지 10년간 공급하는 초장기 계약 요구\n- 미국 빅테크가 이미 LTA로 물량을 확보한 가운데 중국 CSP도 서버용 메모리 확보전에 가세\n\n▶️ 요청 품목 및 배경\n\n- 요청 품목: 서버용 DDR, 저전력 DDR(LPDDR)\n- LPDDR은 AI 서버 전력효율 제고 목적에 메모리 공급난이 겹쳐 확보 대상에 포함\n- 가격 부담을 감수하더라도 물량을 먼저 확보하는 것이 AI 시장 주도권 확보에 중요하다는 판단\n\n▶️ URL: https://buly.kr/5UKq0Z2\n\n* SK증권 리서치 IT팀 채널 :\nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4797",
+      "datetime_kst": "2026-10-27T17:45:33+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n삼전닉스, 역대급 주주환원… 210조 이상 푼다\n\n▶️ 주주환원 개요\n\n삼성전자·SK하이닉스, 210조원 이상 규모 역대급 주주환원책 추진\n올해 양사 합산 영업이익 650조원 전망(사상 최대), 성과를 주주에게 환원해 기업가치 제고·주가 부양 방침\n\n▶️ SK하이닉스 추가 주주환원\n\n28일 3분기 실적발표에서 추가 주주환원책 발표 예정\n추가 환원 규모 연간 약 60조원 추산: 자사주 매입 30조원 + 현금배당 30조원\n현금배당 주요 재원은 키옥시아 지분 매각 차익 활용\n2018년 베인캐피털 컨소시엄 통해 키옥시아 투자, 지분 단계적 처분으로 세전 20조원 안팎 차익 확보\n\n▶️ URL: https://buly.kr/1n6vQxT\n\n* SK증권 리서치 IT팀 채널 :\nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19207",
+      "datetime_kst": "2026-10-28T07:39:03+09:00",
+      "text": "Meritz Overnight Tech 2026. 10. 28 (수)\n\n[메리츠증권 반도체/디스플레이 김선우]\n\n★ 메모리 스팟가격\n DRAM(DDR4 8Gb: 1D +0.07%, 1W +0.73%, 1M +1.20%)\n         (DDR5 16Gb: 1D 0.00%, 1W +1.04%, 1M +6.36%)\n NAND(MLC 64Gb: 1D 0.00%, 1W +0.92%, 1M +7.05%)\n\n★ 반도체/디스플레이 주요 뉴스 플로우\nSeagate FY1Q27 실적발표. 매출액 42억달러(+61% YoY), 조정 EPS 7.68달러(+194% YoY)를 기록하며, 시장 예상치를 상회. 데이터 생성과 보존, 재사용이 지속되면서 스토리지 수요가 누적적으로 증가하고 있으며, 장기 고객 수요에 대한 가시성이 높아지고 있어 스토리지 산업은 향후 수년에 걸쳐 성장 국면에 진입했음을 언급. 아울러, 역대 최대 수준인 15억달러의 FCF을 기록함을 강조. 차분기 가이던스 역시 시장 예상치를 뛰어넘는 견조한 수준으로 제시한 가운데, 매출의 4~6% 수준의 Capex가 예정되었음에도 절대적인 규모 자체가 시장 예상치를 소폭 상회하자 시간외 주가 5.4% 하락 중 (Seagate)\nhttps://buly.kr/58VKF8O\n\n오라클, 엔비디아 칩 공급 계약 확대… 구글·세레브라스 제품도 추가 (NIKKEI Asia)\nhttps://buly.kr/GvpF3op\n\n브로드컴, 앤스로픽에 83.4조 규모 대여용 XPU 등 공급 (TheElec)\nhttps://buly.kr/5JQ5Fct\n\n엔비디아 메타의 유상증자에 30억 달러 참여 예정, \"뮤즈 AI 파트너십 강화\" (Business Post)\nhttps://buly.kr/CsmfQpH\n\nTSMC, AI 수요 급증에 CoWoS 패키징 가격 20% 인상 검토 (TrendForce)\nhttps://buly.kr/31WEV0m\n\n엔비디아, 베라 루빈 HBM4 대역폭 13% 하향…삼성·SK하이닉스 공급 확대 기대 (전자신문)\nhttps://buly.kr/jcNkSk\n\n취임 4주년 날, 로봇 개발 현장 간 이재용 (중앙일보)\nhttps://buly.kr/6ik96A5\n\n애플 폴더블 아이폰 ‘듀오’, 힌지 결함 논란에도 강한 수요에 출하 목표 44% 상향 전망 (TrendForce)\nhttps://buly.kr/ET1UGCO\n\n★ 전일 해외 관련업체 주요 주가등락 (2%p 이상)\n삼성전자(+4.2%), SK하이닉스(+5.2%), Micron(+2.8%), Western Digital(+6.9%), Nanya(+6.5%), Lenovo(+2.9%), Asus(+2.2%), Intel(+3.6%), Qualcomm(+2.5%), TI(+3.6%), STMicro(+7.1%), Marvell(+4.2%), AMD(+5.5%), Magnachip(+6.3%), UMC(-2.4%), BOE(-2.9%), AUO(-5.5%), Sharp(-2.6%), 원익 IPS(+4.9%), 에스에프에이(+2%), AP시스템(+3.5%), 테스(+5.6%), ASML(+2.8%), AMAT(+2.2%), KLA(+3%), Tokyo Electron(+3.1%), 원익머트리얼즈(+7.4%), 솔브레인(+6.4%), Kanto Denka(+2.7%), 이녹스첨단소재(+2.5%), UDC(+2.1%), 삼성전기(+7.4%), Murata(+2.7%), Yageo(+2.8%), 삼성SDI(+5.1%), LG에너지솔루션(+2%), CATL(-2.1%), Panasonic(+3%)\n\n(자료: Bloomberg, DRAMeXchange, 언론자료) \n\n\n*동 자료는 Compliance 규정을 준수하여 사전 공표된 자료이며, 고객의 증권투자결과에 대한 법적 책임소재의 증빙자료로 사용될 수 없습니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4803",
+      "datetime_kst": "2026-10-28T07:46:14+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n2026.10.28 주요 뉴스\n\nSK하이닉스, 오늘 3분기 실적 발표…추가 주주환원 50조~60조원 기대\n컨센서스는 매출 98.2조원·영업익 77조원으로 6개 분기 연속 최대치 전망이며, 40조원 자사주 매입을 조기 완료한 만큼 특별배당·추가 소각과 솔리다임 자금조달 방안 제시 여부가 관건\nhttps://buly.kr/450mOdQ\n\n엔비디아·메타, Muse 모델 협력 확대…엔비디아는 메타 증자에 30억 달러 투자\n메타가 베라 루빈·베라 CPU 배치를 늘리고 Spectrum-X 이더넷·블루필드-4를 도입하며, 에이전트 보안용 오픈셸·센트리 협력도 검토\nhttps://buly.kr/HHfbxon\n\nAMD, 메타가 6세대 EPYC '베니스' 선도 고객…헬리오스 랙 초도 배치\n메타는 수백만 개 EPYC을 배치했고 인스팅트는 학습·추천에 양산 투입, MI450 초기 정의 고객으로 커스텀 GPU와 MI500까지 협력을 확장\nhttps://buly.kr/1RHPgQ2\n\n앤트로픽 컴퓨트 믹스, 엔비디아 4.7GW로 최대…TPU 4.5GW·트레이니엄 1.2GW·AMD 0.8GW\nTPU가 더 싸지만 630억 달러 금융이 난항을 겪자 브로드컴 CEO가 금리 인상과 손실 보전을 제시해 성사, 대주단이 엔비디아 GPU의 잔존가치를 더 높게 본다는 점이 부각\nhttps://buly.kr/FWW29hB\n\n오라클, 엔비디아 베라 루빈 '멀티 기가와트' 확대…구글 TPU·세레브라스도 도입\n엔비디아 시스템에서도 자체 '액셀러론' 네트워킹 칩을 일부 적용하고 삼바노바·세레브라스 추론 칩을 추가, FY27 캐펙스 목표는 900억~950억 달러 유지\nhttps://buly.kr/GkvL1OI\n\nTSMC, CoWoS 최대 20% 인상 검토…2027년 웨이퍼 가격도 3~6% 인상\nAI 칩 테스트 시간 증가(루빈은 호퍼 대비 7배 추정)와 장비 리드타임 6~8개월로 병목이 심화됐고, CoWoS 캐파는 2026년 월 13만장에서 2027년 20만장 이상으로 확대 계획\nhttps://buly.kr/31WEV0m\n\n中 선전, AI 기업 대출 심사에 토큰 사용량 활용…담보 대신 컴퓨팅 데이터\n쏸리다이·츠위안다이 등 신상품으로 9월 말 기준 정보·SW 업종 중장기 대출 잔액이 연초 대비 1000억 위안 이상 증가(전년비 68.8%)\nhttps://buly.kr/3YGVSEF\n\nASM, 2027년 매출 전망 24% 상향한 57억 유로…2030년 목표 3년 조기 달성\n메모리·선단 로직 수요가 성장을 견인하며 3분기 매출은 11.6억 유로(+44%), 3억 유로 자사주 매입도 발표했으나 공급망은 \"빠듯하다\"고 경고\nhttps://buly.kr/CWx9ToA\n\n하이퍼엑셀 등 7개 기관, 458억 국책과제로 ‘K-컴포저블 클러스터' 구축\nNPU·메모리·CPU 풀을 분리해 동적 할당하는 구조로 31%에 그친 자원 활용률을 개선하는 것이 목표, LPU '베르사'는 HBM 대신 LPDDR5X 192GB를 써 TDP를 250W로 낮춤\nhttps://buly.kr/9tDmlb0\n\n* SK증권 리서치 IT팀 채널 : \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4806",
+      "datetime_kst": "2026-10-28T08:29:41+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\nSK하이닉스, 2026 회계연도 주주환원 약 100조원 예상… 3분기 배당 주당 2만원\n\n▶️ 주주환원 규모\n\n- 2026 회계연도 주주환원 예상 규모 약 100조원\n- 현금배당 30조원 이상, 자사주 취득·소각 60조원 이상\n- 8월 결의한 자사주 취득·소각 40조원 포함, 임직원 보상용 취득분은 제외\n- 2026 회계연도 결산배당 지급 시점까지 순차적 이행 예정\n\n▶️ 현금배당 확대\n\n- 2026년 3분기 배당: 주당 20,000원 (실적 반영 10,000원 + 키옥시아 특별배당 10,000원)\n- 키옥시아 투자 수익의 대부분을 특별배당으로 환원할 계획\n- 3분기 배당과 2026 회계연도 결산배당으로 나누어 지급 예정 (결산배당은 결산 확정 후 관련 절차를 거쳐 결정)\n\n▶️ 자기주식 취득·소각 지속\n\n- 금일 20조원 규모 자기주식 취득 결의\n- 주주환원 목적 약 10조원, 임직원 보상 목적 약 10조원 활용 예상\n- 향후 시장 상황, 현금흐름 등을 고려해 분기별 이사회 결의를 통해 취득 규모 결정, 주주환원 목적 취득분은 소각 예정\n\n▶️ 기타 참고사항\n\n- 본 공시는 10/26 동아일보 \"SK하이닉스, 日 키옥시아 지분 차익 16조원 특별배당 추진\" 보도에 대한 해명공시의 확정공시\n- 2026년 총 주주환원 규모 등은 예측정보이며 향후 경영환경 및 실적에 따라 달라질 수 있음\n- 임직원 보상 목적 활용 규모는 향후 보상 규모 확정 등에 따라 변동 가능\n\n▶️ URL: https://buly.kr/6157CKo\n\n* SK증권 리서치 IT팀 채널 :\nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19212",
+      "datetime_kst": "2026-10-28T08:30:12+09:00",
+      "text": "[메리츠증권 반도체/디스플레이 김선우]\n\nSK하이닉스 3Q26 실적발표 안내드립니다.\n\n매출액: 104조 6,155억원 (vs 컨센서스 98조 2,257억원)\n영업이익: 83조 3,338억원 (vs 컨센서스 76조 9,640억원)\n지배주주순이익: 39조 5,344억원  (vs 컨센서스 57조 8,580억원)\n\nhttps://buly.kr/884Cy8X (Dart)\n\n*본 내용은 당사의 코멘트 없이 국내외 언론사 뉴스 및 전자공시자료 등을 인용한 것으로 별도의 승인 절차 없이 제공합니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4807",
+      "datetime_kst": "2026-10-28T08:32:51+09:00",
+      "text": "# SK하이닉스 (시총: 979조 5,903억원)\n- 3Q26 실적공시\n\n[SK증권 반도체 한동희, 손 건]\n\n▶️ 실적 공시:\n- 매출액 105 조원 (+328% YoY)\n(컨센 매출 98 조원, 컨센 대비 +6.5%)\n \n- 영업이익 83 조원 (+632% YoY)\n(컨센 OP 77 조원, 컨센 대비 +8.3%)\n\n- OPM: 79.7%\n(컨센 OPM: 78.4%, 컨센 대비 +1.3%p)\n\n▶️ URL: https://buly.kr/884Cy8X\n\n* SK증권 리서치 IT팀 채널 :    \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4808",
+      "datetime_kst": "2026-10-28T08:34:24+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\nSK하이닉스, 3분기 현금배당 결정… 보통주 1주당 20,000원\n\n▶️ 배당 개요\n\n배당구분: 분기배당(현금배당), 보통주 1주당 20,000원\n시가배당률: 1.56%\n차등배당 여부: 미해당\n배당금총액: 14조1,035억원(14,103,466,480,000원)\n\n▶️ 배당 일정\n\n배당기준일: 2026-11-30\n배당금지급: 배당기준일로부터 1개월 내 지급 예정\n주주총회: 미개최\n\n▶️ 기타 투자판단 관련 참고사항\n\n시가배당률은 이사회결의일 직전 매매거래일로부터 과거 1주일간 거래소시장 종가의 산술평균가격 대비 1주당 배당금의 백분율\n배당금총액은 결의일 배당대상 주식수 기준 산정, 실제 지급액은 배당기준일 유통주식수 기준으로 변경 가능\n\n▶️ URL: https://buly.kr/NmroJR\n\nSK증권 리서치 IT팀 채널 :\nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4810",
+      "datetime_kst": "2026-10-28T08:35:51+09:00",
+      "text": "SK하이닉스 3Q26 IR 자료입니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19214",
+      "datetime_kst": "2026-10-28T08:40:44+09:00",
+      "text": "[메리츠증권 반도체/디스플레이 김선우]\n\n▶ SK하이닉스, 2026년 회계연도 주주환원 예상 규모 및 시행 방안\n\n[2026년 회계연도 주주환원 예상 규모]\n\n- 약 100조원 (현금 배당 30조원 이상, 자기주식 취득·소각 60조원 이상)\n\n- 2026년 8월 결의한 자기주식 취득·소각 40조원 포함, 임직원 보상용 자기주식 취득분은 제외\n\n1) 현금 배당 확대\n\n- 2026년 3분기 배당: 주당 20,000원 (실적 반영 10,000원, Kioxia 특별 배당 10,000원)\n\n- Kioxia 투자 수익의 대부분을 특별 배당으로 환원할 계획이며, 3분기 배당과 2026년 회계연도 결산 배당으로 나누어 지급 예정\n\n2) 자기주식 취득·소각 지속\n\n- 금일 20조원 자기주식 취득 결의 (주주환원 목적 약 10조원, 임직원 보상 목적 약 10조원 활용 예상)\n\n- 향후 시장 상황, 현금흐름 등을 고려하여 분기별 이사회 결의를 통해 자기주식 취득 규모를 결정하며, 주주환원 목적 취득분은 소각 예정\n\nhttps://buly.kr/6157CKo (Dart)\n\n* 본 내용은 당사의 코멘트 없이 국내외 언론사 뉴스 및 전자공시자료 등을 인용한 것으로 별도의 승인 절차 없이 제공합니다",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "KISGregKim",
+      "url": "https://t.me/KISGregKim/18879",
+      "datetime_kst": "2026-10-28T08:47:30+09:00",
+      "text": "KOSPI to open higher tracking US markets gain for the 2nd day on AI optimism driven by Anthropic IPO. Eyes on SK HYNIX 3Q earnings and return policy detail, and if local insto and foreign extend net buy streak for 4 and 2-days respectively.\n\n* 3Q TODAY: SK HYNIX (9:00), SEMCO (13:00), HD HHI, HD KSOE (14:00), SAMSUNG C&T, SAMSUNG EPIS, DOOSAN FUEL CELL, HOTEL SHILLA, YUHAN CORP (16:00)\n* SK HYNIX (000660): 1) 3Q earnings release this morning: Cons OP W77tn. Street also expect special dvd, 2) Solidigm in discussion with the US to invest $45bn for US plant.\n* CHIP: China's Alibaba, Tencent and ByteDance have asked SEC (005930) and SK HYNIX (000660) for long-term server DRAM supply agreements, press.\n* DOOSAN CORP (000150) to invest W399bn in CCL production expansion at Gimje, Korea plant as part of its W970bn investment plan announced back in Sep.\n* HD HYUNDAI (267250) to issue W588.7bn worth EB with 2.4mn shrs of HD HMS (443060) as underlying. Proceeds for debt repayment.\n* HD HHI (329180)'s labor union and management reached an agreement on wage deal.\n* NUCLEAR: S.Korea's Kori Nuclear Power Plant Units 3 and 4 to resume power generation as early as 1H27 amid AI-driven demand surge.\n* NAVER (035420) signed an $9bn agreement with Brookfield to secure AI computing infra.\n* SK INNOV (096770) SK ON's battery plant in Hungary has been blacklisted for environmental violations, incurring W400mn fine and two-year ban on gov't subsidies.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "KISGregKim",
+      "url": "https://t.me/KISGregKim/18880",
+      "datetime_kst": "2026-10-28T08:48:02+09:00",
+      "text": "[한국투자증권 반도체/소부장 고영민, 김연준]\n\n🔔 SK하이닉스 3Q26 실적 공시\n\n- 실적 공시:\n매출액 104.6조원\n영업이익 83.3조원\n\n- 컨센서스: \n매출액 98.2조원\n영업이익 77.0조원\n\n▶️ 공시: https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261028800036\n\n📨 한투 반도체 채널: https://t.me/Semi_Ko",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4811",
+      "datetime_kst": "2026-10-28T08:48:43+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\nSK하이닉스, 20조원 규모 자기주식 취득 결정… 주주가치 제고 및 임직원 주식 보상\n\n▶️ 취득 개요\n\n취득예정주식: 보통주식 14,920,000주\n취득예정금액: 20조770억원(20,007,720,000,000원)\n취득목적: 주주가치 제고 및 임직원 주식 보상\n취득방법: 장내매수\n위탁투자중개업자: SK증권, NH투자증권\n\n▶️ 취득 기간 및 한도\n\n취득예상기간: 2026-10-29 ~ 2027-01-28\n1일 매수 주문수량 한도: 보통주식 1,492,000주\n\n▶️ 취득 전 자기주식 보유현황\n\n배당가능이익 범위 내 취득: 보통주식 25,318,968주(3.47%)\n기타취득: 보통주식 73주(0.0%)\n\n▶️ 결의 현황\n\n취득결정일: 2026-10-28\n사외이사 참석 6명, 불참 0명\n\n▶️ 기타 투자판단 관련 참고사항\n\n금번 자기주식 취득결정은 신규 자기주식 취득 건\n취득예정주식수는 이사회 결의일 전일 종가(2026-10-27 기준 1,341,000원) 기준으로 산정, 향후 주가 변동에 따라 취득 주식수 변동 가능\n\n▶️ URL: https://buly.kr/BTSbbvr\n\nSK증권 리서치 IT팀 채널 :\nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19215",
+      "datetime_kst": "2026-10-28T08:53:30+09:00",
+      "text": "*SK하이닉스 3Q26 실적발표자료 Quick Takeaways\n\n- 매출액 104.6조원 (+32% QoQ), 영업이익 83.3조원 (+38% QoQ). 영업이익은 컨센서스 77조원 대비 상회\n\n- DRAM BG +10%, ASP +20%후반, NAND BG 소폭 감소, ASP +20%중반\n\n- 영업외손익 -32.6조원 (외환관련손실 11.6조원, 투자자산평가손 22.9조원)\n\n- 순현금 98.7조원. 역대 최대 규모 달성\n\n- 27년 가이던스: DRAM 수요 증가율 +20% 중반, NAND +10% 후반\n\n- 4Q26 BG 가이던스: DRAM BG +25%, NAND +5%\n\n* 주요 코멘트\n\n- 글로벌 AIDC 인프라 시장은 2030년까지 CAGR +40% 성장 예상\n\n- 1cnm DRAM 서버 및 LPDDR5 판매 확대 통해 고부가가치 수익 창출\n\n- 4Q26 내 HBM4 매출 크로스오버 발생\n\n- 2027년 HBM 거래조건 협의 마무리. HBM 수익성은 커머디티 DRAM과의 격차 축소\n\n- 글로벌 대형 CSP 포함 14개 업체와 LTA 체결 완료 (계약기간은 통상 5년이나 그 이상 연장 논의 중)\n\n- 현 확보 LTA 물량은 2027/28년 Capa의 50% 이상 차지\n\n- 주주환원: 3Q26 배당 14조원, 자사주 매입 (소각+RSU) 20조원. 연간으로 100조원 가량 주주환원\n \n 역산 시 4Q26 주주환원은 '20조원 이상' 추가 발표 예정",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19216",
+      "datetime_kst": "2026-10-28T09:04:36+09:00",
+      "text": "* 현재 SK하이닉스 IR 사이트를 통한 컨퍼런스콜 접속에 문제가 있습니다.\n\n아래 주소로 접속 가능하니 참고하십시오!\n\n국문\nhttps://irsvc.teletogether.com/hynix/hynix2026Q3_kor.php",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19217",
+      "datetime_kst": "2026-10-28T09:24:50+09:00",
+      "text": "\"앞으로 분기별 자사주 매입을 지속해서 진행하겠습니다\" - SK하이닉스 3Q26 컨퍼런스콜 중",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19218",
+      "datetime_kst": "2026-10-28T10:00:14+09:00",
+      "text": "\"2029년까지 DRAM과 HBM 모두 솔드아웃\" - SK하이닉스 3Q26 컨퍼런스콜 중",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19219",
+      "datetime_kst": "2026-10-28T10:02:38+09:00",
+      "text": "\"HBM 저단화 불구, 현재 고객의 요청 물량은 당사가 공급 가능한 물량의 두 배를 상회할 정도로 강한 수요가 지속\" - SK하이닉스 3Q26 컨퍼런스콜 중",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4813",
+      "datetime_kst": "2026-10-28T11:21:43+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\nSK하이닉스 3Q26 실적발표: Key Takeaways\n\n3Q26 Datapoints (추정)\n(B/G) DRAM +10%, NAND -1%\n(ASP) DRAM +28%, NAND +24%\n(OPM) DRAM 83%, NAND 72%\n \n4Q26 B/G Guidance (QoQ)\nDRAM +20% 중반: 1c 확대, M15X 램프업\nNAND +한자리수 중반%: 321단 eSSD 확대\n \n27년 실현 가능 수요\nDRAM +20% 중반, NAND 10% 후반\n\n2029년까지 DRAM, HBM 사실상 Sold-out\n2030년까지 수요 우위 전망\n \nLTA\n27, 28년 캐파의 50% 이상 확보\n통상 5년 기본이나 연장 논의 진행\n가격은 범위 내 시장 상황 반영구조\nLTA는 메모리 비즈니스의 실적 가시성과 안정성을 제고\n \nHBM\n4Q26 HBM4 Crossover (출하량, 매출)\nHBM4 수율 계획 상회\n27년 협상 마무리. DRAM과 수익성 유의미한 축소 \n디스펙은 수요 강세, 공급 부족 때문\n현재 고객 요청 물량은 공급 가능 물량의 2배 상회\n \n주주환원\nFCF 50% 이상 환원 원칙 유지. 키옥시아 투자 수익 등 특별배당으로 환원\n26년 약 100조원 환원 (현금배당 30조원 이상, 매입/소각 60조원 이상)\n분기별 자사주 매입, 소각 지속 추진 계획\n현 주가는 이익 창출력을 충분히 반영하지 못하고 있음\n \n\nQnA\nQ1) AI 인프라 수익화 지연 우려에 대한 의견, 향후 AI 투자와 메모리 수요 지속성에 대한 판단 근거\nA: 투자 속도 조절은 축소보다 집행 시점·수익성 점검 과정으로 판단. Hyperscaler Cloud 매출·Backlog 성장과 AI 유료 사용자 확대 확인\n\n투자 주체도 Enterprise·Sovereign AI·On-premise로 다변화되며 Memory 수요 지속 전망\n\nQ2) 현금배당과 자사주 매입·소각 비중 결정 기준\nA: 배당은 직접 환원, 자사주 소각은 주당 가치 제고 수단. 배당 규모는 과거 배당수익률, 글로벌 주요 성장기업 배당수익률, 적정 보유현금 및 지속 가능성 등을 종합 고려해 결정. 자사주 매입은 매 분기 지속할 계획. 주가 수준, 밸류에이션, 현금흐름 등을 고려해 매입 규모 결정\n\nQ3) LTA에 따른 중장기 실적 가시성과 추가 성장 여력\nA: 확정 LTA는 FY27~28 CAPA의 50% 이상, 협의 중 수요까지 포함하면 FY29까지 DRAM·HBM 사실상 Sold-out. LTA로 실적 안정성을 확보하고 Non-LTA CAPA로 가격 상승·추가 성장 기회 대응\n\nQ4) CAPA 확대에 따른 공급 과잉 리스크와 대응 전략\nA: HBM·Advanced Node 확대에 따른 자원 소모 증가로 Fab 증설과 실제 공급 증가는 1:1 관계가 아님. Shell은 선제 확보하되 클린룸·장비 반입·양산은 고객 수요와 수익성에 맞춰 단계적으로 집행\n\nQ5) HBM4 양산·수율 현황과 차세대 HBM 개발 방향\nA: 4Q26 HBM4 출하량과 매출 비중 모두 HBM3E 추월 전망. 양산 정상 진행 및 높은 수율 확보. 전공정, 후공정 수율 모두 업계 최상위 수준. 차세대 HBM은 고객 일정에 맞춰 개발·평가 중이며, 주요 고객과 Custom HBM 공동개발 확대할 것\n\nQ6) HBM 디스펙 배경과 출하량 및 수익성 영향\nA: 적층 단수 하향은 HBM 수요가 공급을 크게 초과하는 상황의 대응책. 고객 요청 물량은 공급 가능 물량의 약 2배 수준. 생산계획에 이미 반영돼 기존 출하 일정 영향은 제한적이며, FY27 HBM4 Mix·가격·Yield 개선으로 수익성 확대 전망. 과거 메모리 사이클의 피크를 크게 상회하는 높은 수익성을 지속 가능할 것. \n\nQ7) 4F² DRAM 개발 현황 및 차세대 셀 구조 전략\nA: 기존 6F² 플랫폼 최대한 활용하면서 4F²·3D DRAM 병행 개발 중. 상용화는 수율, 신뢰성, 원가 경쟁력, 제품 설계 및 고객 평가 검증 뒤 단계적 전환\n\nQ8) KV Cache 오프로드 확대에 따른 NAND 수요 변화 및 기술 개발 방향\nA: Agentic AI·긴 Context 확산으로 KV Cache 용량 급증. 이에 따른 HBM·DRAM·SSD 간 계층형 구조 중요성 확대. SSD의 KV Cache Offload 활용이 늘어날 전망이며, Salt-KV·CMM-Hybrid·HBF를 통해 AI NAND 신규 수요 공략할 것\n\n* SK증권 리서치 IT팀 채널 : https://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4819",
+      "datetime_kst": "2026-10-28T16:07:47+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n1. 메모리 4사 12MF P/E 업데이트 (10/28)\n삼성전자 3.9X\nSK하이닉스 3.4X\n* SK증권 추정치 기준\n\n마이크론 5.4X \nCXMT 11.5X\n* Bloomberg consensus 기준\n\n2. SK하이닉스 본주 & ADR 간 괴리율: 40.7%\n\nSK증권 리서치 IT팀 채널 : \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "KISGregKim",
+      "url": "https://t.me/KISGregKim/18887",
+      "datetime_kst": "2026-10-28T16:38:12+09:00",
+      "text": "* SK Hynix  - Starting to see early 3Q26 review reports from local brokers with rising 4Q26/FY27 earnings estimates;\n\n- 4Q26 OPe W102tn (+23% QoQ) on BTE 4Q DRAM B/G guidance (mid 20% level on accelerated M15X ramp up and better 1cnm yield).  Current 4Q26 OP consensus c. W90tn\n\n- FY27 OPe W444tn (+56% YoY) on BTE B/G guidance despite lowered f/x assumptions. Consensus W424tn.",
+      "mention": "mentioned"
+    }
+  ],
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": 10.89,
+      "kospi_change_rate_pct": 6.63,
+      "excess_vs_kospi_pp": 4.26,
+      "kospi_weight_pct": 21.8,
+      "kospi_contribution_pp": 2.374,
+      "kospi_ex_self_change_rate_pct": 5.44,
+      "excess_vs_kospi_ex_self_pp": 5.45,
+      "kospi_basis": "kospi_ex_self",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "메모리반도체",
+        "median_change_rate_pct": 9.01,
+        "excess_vs_group_pp": 1.88,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "mixed": false,
+        "judge_in_sentence": null,
+        "members_used": [
+          {
+            "code": "005930",
+            "name": "삼성전자",
+            "change_rate_pct": 9.01,
+            "in_sentence": true
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "000660",
+            "name": "SK하이닉스",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  }
+}

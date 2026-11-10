@@ -1,0 +1,132 @@
+{
+  "case_id": "c10_011070_2026-10-27",
+  "status": "labeled",
+  "label_source": "human",
+  "trap_ids": [
+    5
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": 2.04,
+    "kospi_change_pct": 3.09,
+    "kospi_basis": "kospi",
+    "excess_vs_basis_pp": -1.05,
+    "kospi_relation": "diverges",
+    "peer_relations": {},
+    "common_move": true,
+    "market_led": false,
+    "relative_direction": "비슷하게",
+    "peer_median_pct": 1.67,
+    "excess_vs_peers_pp": 0.37,
+    "judge_layers": {
+      "move": true,
+      "relative": false
+    },
+    "move_strength_cap": "partial",
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-10-27T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-10-27T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "no_clear_cause",
+    "relative": "no_clear_cause"
+  },
+  "confidence_level": "none",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "3Q26 잠정실적: 매출 6.37조원(컨센 +4.4%), 영업이익 948억원(컨센 1,973억원 대비 -51%), 순이익 952억원(컨센 1,304억원 하회)",
+      "importance": "should",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19202",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/skitteam/4793",
+          "tier": "primary"
+        }
+      ],
+      "key_facts": [
+        "3Q26 실적",
+        "영업이익 948억원"
+      ],
+      "rationale": "영업이익 대폭 하회인데 상승, 15:34 장 마감 후 공개라 그날 움직임의 원인이 될 수 없음"
+    },
+    {
+      "id": "e2",
+      "summary": "미 반도체 강세(SOX +2.8%)와 코스피 상승 출발",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18875",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "SOX"
+      ],
+      "rationale": "시장 배경"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "direction_flip",
+      "subject": "영업이익·순이익 컨센서스 하회",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "up",
+      "example": "실적 호조가 주가 상승을 이끌었다"
+    },
+    {
+      "id": "f2",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "up",
+      "example": "대형주보다 더 올랐다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "영업이익이 컨센서스의 절반 수준인데도 주가가 올랐던 이유",
+    "대형주 전반 상승 중 종목 고유 요인이 차지한 몫"
+  ],
+  "beginner_terms": [
+    "컨센서스",
+    "잠정실적",
+    "영업이익",
+    "SOX(필라델피아 반도체지수)"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

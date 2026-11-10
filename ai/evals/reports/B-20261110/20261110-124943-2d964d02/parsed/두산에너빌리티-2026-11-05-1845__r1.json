@@ -1,0 +1,402 @@
+{
+  "run_id": "두산에너빌리티-2026-11-05-1845__r1",
+  "final_text": "{\"ticker\": \"034020\", \"name\": \"두산에너빌리티\", \"date\": \"2026-11-05\", \"as_of\": \"2026-11-05T18:45:00+09:00\", \"change_pct\": -6.45, \"verdict\": \"partially_explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 두산에너빌리티는 6.45% 내렸고 코스피는 5.28% 하락했습니다. 같은 시각 대형주 19개 중 12개가 내렸고 중간값은 4.41% 하락해, 두산에너빌리티는 대형주 전반보다 더 내렸습니다. 코스피와는 다르게 움직였습니다.\", \"main_cause\": \"데이터센터 규제가 강해져 착공이 늦어지고 전력기기 수요가 줄 수 있다는 우려가 부담이 됐을 수 있습니다.\", \"relative\": \"두산에너빌리티는 대체로 12.59% 안팎 내린 같은 전력설비 그룹의 LS ELECTRIC·HD현대일렉트릭·효성중공업과 크게 달랐습니다. 데이터센터 전력 수요와 연결된 사업 노출이 대형주 전반보다 부담이 됐을 수 있습니다.\", \"counter\": \"엑스에너지의 소형모듈원전 증기발생기에 들어갈 코일을 제작한다는 소식도 있었습니다.\", \"unexplained\": \"대형주 전반보다 더 내린 폭 가운데 어느 정도가 데이터센터 규제 우려에 따른 것인지는 기사에 수주·실적 영향 수치가 없어 가늠하기 어렵습니다.\"}, \"factors\": [{\"event\": \"미 민주당의 의회 장악 뒤 데이터센터 착공 지연과 전력기기 수요 감소 가능성이 제기됐습니다.\", \"detail\": \"로이터는 규제 강화로 데이터센터 착공이 늦어지거나 건설 지역이 바뀔 수 있다고 봤습니다.\", \"stance\": \"bearish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"biz.chosun.com\", \"url\": \"https://biz.chosun.com/industry/company/2026/11/05/BMUCVKYEWFENBJYAY2OPLVEDXY/?utm_source=naver&utm_medium=original&utm_campaign=biz\", \"datetime_kst\": \"2026-11-05T14:22:00+09:00\", \"quote\": \"데이터센터 착공이 줄면 전력기기 수요가 줄어들 가능성이 크다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"데이터센터 전력 수요와 연결된 사업에 대한 우려가 하락에 부담이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"partial\"}, {\"layer\": \"relative\", \"note\": \"데이터센터 전력 수요에 노출된 사업이 있어, 이 우려가 대형주 전반보다 두산에너빌리티에 더 부담이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [], \"background\": {\"bullish\": [{\"text\": \"두산에너빌리티가 엑스에너지의 Xe-100 증기발생기용 나선형 코일을 제작합니다.\", \"sources\": [{\"channel\": \"vegannews.co.kr\", \"url\": \"https://www.vegannews.co.kr/news/article.html?no=400907\", \"datetime_kst\": \"2026-11-05T13:16:00+09:00\", \"quote\": \"두산에너빌리티는 이를 자체 공정으로 나선형 코일로 성형한다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"bearish\": [], \"neutral\": [{\"text\": \"체코 두코바니 시공계약 협상은 종료됐지만, 별도 주기기 공급계약은 영향을 받지 않는다고 회사 측이 설명했습니다.\", \"sources\": [{\"channel\": \"cbci.co.kr\", \"url\": \"https://www.cbci.co.kr/news/articleView.html?idxno=623607\", \"datetime_kst\": \"2026-11-05T13:58:00+09:00\", \"quote\": \"공급계약은 이번 시공계약 협상 종료의 영향을 받지 않는다는\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"텍사스 기관들이 12월 10일까지 데이터센터 인허가 감사 결과와 최종 보고서를 발표할 예정입니다.\", \"sources\": [{\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18940\", \"datetime_kst\": \"2026-11-05T08:33:38+09:00\", \"quote\": \"최종 보고서를 발표할 예정\", \"mention\": \"not_mentioned\", \"is_market_recap\": false}], \"watch\": true}]}, \"not_found\": [\"데이터센터 규제 우려가 두산에너빌리티의 실제 수주나 매출에 미칠 영향은 메시지에 수치로 제시되지 않았습니다.\"], \"events\": [{\"event\": \"미 민주당의 의회 장악 뒤 데이터센터 착공 지연과 전력기기 수요 감소 가능성이 제기됐습니다.\", \"issue_ids\": [\"i22\"], \"factor\": 0, \"dup_channels\": 1, \"placed\": \"factors\"}, {\"event\": \"엑스에너지 Xe-100 증기발생기 코일 제작 참여\", \"issue_ids\": [\"i12\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"체코 시공계약 협상 종료와 별도 주기기 공급계약의 영향 여부\", \"issue_ids\": [\"i17\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"텍사스 기관의 데이터센터 인허가 감사 결과 및 최종 보고서 발표 예정\", \"issue_ids\": [\"i2\"], \"background\": {\"slot\": \"neutral\", \"index\": 1}, \"dup_channels\": 1, \"placed\": \"background\"}], \"display_as_of\": \"2026-11-05T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 38267,
+    "completion_tokens": 10966,
+    "total_tokens": 49233,
+    "prompt_tokens_details": {
+      "cached_tokens": 19784,
+      "cache_write_tokens": 14784,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 8001,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 38267,
+    "output_tokens": 10966,
+    "cached_prompt_tokens": 19784,
+    "cache_write_tokens": 14784,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 38267,
+    "total": 34571,
+    "cache_read": 19784,
+    "cache_write": 14784,
+    "uncached": 3
+  },
+  "cost": 10.647007,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 87501,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:53:06+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": "partial",
+  "market_led": false,
+  "move_comparison": "더",
+  "main_cause_sentences": 3,
+  "sector": [
+    "원자력발전",
+    "가스터빈"
+  ],
+  "universe_weight": 0.0122,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "텍사스 주지사 선거와 데이터센터 규제 논의",
+          "relation": "sector"
+        },
+        {
+          "id": "i2",
+          "issue": "텍사스 기관의 데이터센터 인허가 보고서 예정",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 3
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i3",
+          "issue": "체코 원전 시공계약 협상 결렬",
+          "relation": "direct"
+        },
+        {
+          "id": "i4",
+          "issue": "웨스팅하우스 합의 조건과 체코 사업의 비용 부담 우려",
+          "relation": "sector"
+        },
+        {
+          "id": "i5",
+          "issue": "UAE·이집트 원전 사업의 손실 사례",
+          "relation": "sector"
+        },
+        {
+          "id": "i6",
+          "issue": "노후 원전 심사와 정책 검증 논란",
+          "relation": "sector"
+        },
+        {
+          "id": "i7",
+          "issue": "다수 원전 동시 사고의 피폭량 미평가 지적",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i8",
+          "issue": "두산에너빌리티의 10MW 해상풍력 발전기 모형 공개",
+          "relation": "direct"
+        },
+        {
+          "id": "i9",
+          "issue": "두산에너빌리티의 원전 주기기·소형모듈원전 기술 소개",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 1
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i10",
+          "issue": "두산에너빌리티와 원전 관련주들의 장중 하락",
+          "relation": "direct"
+        },
+        {
+          "id": "i11",
+          "issue": "미 민주당 의회 장악 뒤 원전 정책 변화 가능성",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m5",
+      "issues": [
+        {
+          "id": "i12",
+          "issue": "엑스에너지 Xe-100 증기발생기 코일 제작 참여",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m6",
+      "issues": [
+        {
+          "id": "i13",
+          "issue": "미 중간선거 뒤 에너지 정책 변화 가능성",
+          "relation": "sector"
+        },
+        {
+          "id": "i14",
+          "issue": "미국 주식시장 주요 지수 상승",
+          "relation": "market"
+        },
+        {
+          "id": "i15",
+          "issue": "미국 데이터센터 전력 수요와 가스터빈 사업",
+          "relation": "direct"
+        },
+        {
+          "id": "i16",
+          "issue": "미국 뉴스케일파워와 소형모듈원전 제작 계약",
+          "relation": "direct"
+        },
+        {
+          "id": "i17",
+          "issue": "체코 시공 협상 종료와 주기기 계약 영향 여부",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m7",
+      "issues": [
+        {
+          "id": "i18",
+          "issue": "체코 원전 시공 협상에서 공사비 이견 발생",
+          "relation": "direct"
+        },
+        {
+          "id": "i19",
+          "issue": "웨스팅하우스 합의 비용의 시공사 부담 가능성",
+          "relation": "sector"
+        },
+        {
+          "id": "i20",
+          "issue": "미국의 신형 원자로 인허가·지원 제도",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 1
+    },
+    {
+      "id": "m8",
+      "issues": [
+        {
+          "id": "i21",
+          "issue": "미 의회의 청정에너지 지원 정책 변화 가능성",
+          "relation": "none"
+        },
+        {
+          "id": "i22",
+          "issue": "데이터센터 규제 강화와 전력기기 수요 감소 우려",
+          "relation": "sector"
+        },
+        {
+          "id": "i23",
+          "issue": "기존 전력망 교체 수요와 전력기기 발주 전망",
+          "relation": "none"
+        },
+        {
+          "id": "i24",
+          "issue": "양당의 원전 지원 기조와 두산에너빌리티의 사업 기회",
+          "relation": "direct"
+        },
+        {
+          "id": "i25",
+          "issue": "미 의회 의석만으로 정책을 바꾸기 어려운 상황",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 2
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -6.45,
+      "kospi_change_rate_pct": -5.28,
+      "excess_vs_kospi_pp": -1.17,
+      "kospi_weight_pct": 0.75,
+      "kospi_contribution_pp": -0.048,
+      "kospi_ex_self_change_rate_pct": -5.27,
+      "excess_vs_kospi_ex_self_pp": -1.18,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "전력설비",
+        "median_change_rate_pct": -12.59,
+        "excess_vs_group_pp": 6.14,
+        "peer_count": 3,
+        "relation": "diverges",
+        "members_used": [
+          {
+            "code": "010120",
+            "name": "LS ELECTRIC"
+          },
+          {
+            "code": "267260",
+            "name": "HD현대일렉트릭"
+          },
+          {
+            "code": "298040",
+            "name": "효성중공업"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "034020",
+            "name": "두산에너빌리티",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": -6.45,
+    "krx": -6.45,
+    "source": "KRX /sto/stk_bydd_trd 2026-11-05 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -5.28,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-11-05 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -4.41,
+        "peer_up": 7,
+        "peer_down": 12,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": -2.04
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 1,
+    "background": 3,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "partial",
+      "final": "partial",
+      "basis": "issues"
+    },
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "partial",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "partially_explained",
+      "final": "partially_explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "partially_explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/두산에너빌리티-2026-11-05-1845__r1.json",
+  "input_used_path": "inputs_used/두산에너빌리티-2026-11-05-1845__r1.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inB/b03__r1.json",
+  "input_sha256": "77594fb2e2f06f9a13e958215c6acd5d791ce3fdf800466399f49276e47a0022",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [
+    "STRENGTH_MISMATCH: factors[0].links[1] layer=relative 이슈가 나온 메시지에 mentioned 가 있는데 partial"
+  ],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 8,
+    "messages_total": 8,
+    "relations": {
+      "sector": 12,
+      "direct": 10,
+      "market": 1,
+      "none": 9
+    },
+    "issues_used": 4
+  }
+}

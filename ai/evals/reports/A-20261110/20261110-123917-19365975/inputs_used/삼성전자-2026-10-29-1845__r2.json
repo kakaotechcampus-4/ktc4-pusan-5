@@ -1,0 +1,120 @@
+{
+  "stock": "삼성전자",
+  "code": "005930",
+  "target_date": "2026-10-29",
+  "cutoff": "2026-10-29T18:45:00+09:00",
+  "change_pct": -4.13,
+  "market": {
+    "index": "코스피",
+    "change_pct": -1.24,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": -0.31,
+    "peer_up": 8,
+    "peer_down": 11,
+    "peer_total": 19,
+    "excess_pct": -3.82
+  },
+  "messages": [
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4819",
+      "datetime_kst": "2026-10-28T16:07:47+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n1. 메모리 4사 12MF P/E 업데이트 (10/28)\n삼성전자 3.9X\nSK하이닉스 3.4X\n* SK증권 추정치 기준\n\n마이크론 5.4X \nCXMT 11.5X\n* Bloomberg consensus 기준\n\n2. SK하이닉스 본주 & ADR 간 괴리율: 40.7%\n\nSK증권 리서치 IT팀 채널 : \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19237",
+      "datetime_kst": "2026-10-29T07:51:39+09:00",
+      "text": "Meritz Overnight Tech 2026. 10. 29. (목)\n\n[메리츠증권 반도체/디스플레이 김선우]\n\n★ 메모리 스팟가격\n DRAM(DDR4 8Gb: 1D -0.13%, 1W +0.60%, 1M +1.40%)\n         (DDR5 16Gb: 1D 0.00%, 1W +0.77%, 1M +6.05%)\n NAND(MLC 64Gb: 1D 0.00%, 1W +0.92%, 1M +4.85%)\n\n★ 반도체/디스플레이 주요 뉴스 플로우\nFY1Q27 Microsoft 실적발표. 매출액 923억달러(+19% YoY), 조정 EPS 4.89달러로 시장 예상치를 상회. AI 인프라 투자 확대가 클라우드 사업의 성장으로 이어지며 Azure 매출은 332억달러(+48% YoY)로 시장 예상치를 상회했고, Microsoft Cloud 매출도 639억달러(+30% YoY)를 기록. 현금 기준 Capex는 394억달러로 예상치 466억달러를 하회한 가운데, 대규모 AI 투자에 따른 수익 창출 성과가 확인되면서 투자 부담 우려가 일부 완화. Azure의 예상보다 높은 성장세와 AI 투자 성과가 부각되며 시간외 주가는 3.3% 상승 중 (Microsoft)\nhttps://buly.kr/5JQ5cAu\n\nFY3Q26 Alphabet 실적발표. 매출액 1,276억달러(+25% YoY), EPS 2.12달러로 시장 예상치를 하회. AI 인프라 및 TPU 수요 확대에 힘입어 Google Cloud 매출은 307억달러(+103% YoY)를 기록했으나, 핵심 수익원인 검색 및 유튜브 광고 매출은 시장 기대치를 하회. FY26 Capex 가이던스 1,950–2,050억달러를 유지하고 FY27에도 큰 폭의 증가를 전망. 지분증권 평가손실 87억달러가 실적에 반영된 가운데, 광고 사업 성장 둔화와 AI 투자 부담에 따른 FCF 악화가 부각되며 시간외 주가는 10.3% 하락 중 (Google)\nhttps://buly.kr/CB7dsJx\n\n'SK하이닉스 손자회사' 솔리다임, 美 낸드 공장에 60조원 투자 추진 (조선비즈)\nhttps://buly.kr/5qAMYBZ\n\n중국 CXMT, 낮은 수율에도 첨단 AI 메모리 생산 착수 예정 (Reuters)\nhttps://buly.kr/6157XPU\n\n엔비디아·AMD, 메타에 40억달러 투자…AI 동맹 강화 (매일경제)\nhttps://buly.kr/9XOH9Mt\n\nOpenAI, 구글 AI칩 구매 계획…TPU 도입 확대 검토 (Reuters)\nhttps://buly.kr/CM2Oqn6\n\n★ 전일 관련업체 주요 주가등락 (2%p 이상)\n삼성전자(9%), SK하이닉스(+10.9%), Micron(+5.9%), Western Digital(+4.1%), Nanya(+8.2%), LG전자(+2.7%), HPQ(-3.4%), Sony(-2.8%), Lenovo(+6.3%), Asus(+2.2%), Marvell(+3.3%), AMD(+3.2%), Mediatek(+6.9%), DB하이텍(+5.7%), Magnachip(+4.4%), UMC(+4.5%), SMIC(+5.4%), BOE(+2.1%), LG디스플레이(+2.7%), AUO(+6.3%), 원익 IPS(+6.1%), 에스에프에이(+4.2%), AP시스템(+7.9%), 테스(+7%), AMAT(+5.1%), KLA(+3.3%), LAM Research(+5.4%), Tokyo Electron(+4.4%), 원익머트리얼즈(+5.4%), 솔브레인(+3.6%), Kanto Denka(+2.9%), 덕산네오룩스(-3.2%), 이녹스첨단소재(+2.3%), Idemitsu Kosan(-3.2%), 삼성전기(+8.7%), Murata(+5.2%), Yageo(+5%), 삼성SDI(+5.1%), Panasonic(+2.7%)\n\n(자료: Bloomberg, DRAMeXchange, 언론자료)\n\n*동 자료는 Compliance 규정을 준수하여 사전 공표된 자료이며, 고객의 증권투자결과에 대한 법적 책임소재의 증빙자료로 사용될 수 없습니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19240",
+      "datetime_kst": "2026-10-29T09:55:15+09:00",
+      "text": "* 삼성전자 3Q26 실적발표자료 Quick Takeaways\n\n- 매출액 195.3조원 (+14% QoQ), 영업이익 107.4조원 (+20% QoQ)\n\n- Capex 26.9조원 (vs 전분기 14.1조원), R&D 투자 14.4조원\n\n- 순현금 197.6조원 (사상최대)\n\n- 부문별 영업이익: DS 106.5조원, SDC 1.1조원, MX/NW -0.6조원, VD/DA -0.2조원, 하만 0.6조원\n\n[부문별 주요 내용]\n\n- AI 수요 강세 속 HBM4, 서버향 DRAM 등 제품 경쟁력 기반 판매 확대 추진\n\n- 2027년 AI 서버 인프라 투자 가속화 전망. 메모리 공급 부족 현상 심화\n\n- 파운드리 선단 공정 중심 매출 성장. 테일러팹 1기 가동 시작\n\n- SDC 2027년 수요 약세 지속. 중소형은 프리미엄 제품 판매 비중 확대로 대응\n\n- MX 내년 3가지 핵심 전략 제시. 1) 차별화 경험 기반 제품 믹스 개선, 2) 성능/폼팩터 혁신, 3) 기민한 시장 대응과 운영 효율화\n\n- 배당: 9월 30일 기준, 30조원 배당. 주당 4,601원",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4851",
+      "datetime_kst": "2026-10-29T10:03:12+09:00",
+      "text": "# 삼성전자 (시총: 1,442조 5,692억원)\n- 3Q26 실적공시\n\n[SK증권 반도체 한동희, 손 건]\n\n▶️ 실적 공시:\n- 매출액 195 조원 (+127% YoY)\n(컨센 매출 201 조원, 컨센 대비 -2.7%)\n \n- 영업이익 107 조원 (+783% YoY)\n(컨센 OP 107 조원, 컨센 대비 +0.5%)\n\n- OPM: 55.0%\n(컨센 OPM: 53.3%, 컨센 대비 +1.8%p)\n\n▶️ URL: https://buly.kr/8TtjJhN\n\n* SK증권 리서치 IT팀 채널 :    \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19241",
+      "datetime_kst": "2026-10-29T10:03:42+09:00",
+      "text": "* 삼성전자 주주환원 계획 - 실적발표 자료 포함 내용\n\n- 2026년 잔여재원은 55~75조원 수준 \n\n- 잔여재원 환원은 현금배당과 함께 상당 규모의 자기주식 매입∙소각 포함\n\n- 보통주와 우선주 간 가격 차이에 대한 시장 관심을 인지하고있으며, 자사주 매입∙소각時 시장 상황을 반영하여 우선주 매입 비중을 적극적으로 고민해서 조정",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4852",
+      "datetime_kst": "2026-10-29T10:04:50+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n삼성전자, 3분기 현금배당 결정… 보통주·우선주 1주당 4,601원, 총 30조원\n\n▶️ 배당 개요\n\n배당구분: 분기배당(현금배당)\n1주당 배당금: 보통주 4,601원, 우선주 4,601원\n차등배당 여부: 미해당\n시가배당률: 보통주 1.7%, 우선주 2.2%\n배당금총액: 30조 30억원(30,003,024,457,217원)\n\n▶️ 배당 일정\n\n배당기준일: 2026-09-30\n배당금지급 예정일: 2026-11-27\n주주총회: 미개최\n\n▶️ 결의 현황\n\n이사회결의일(결정일): 2026-10-29\n사외이사 참석 5명, 불참 0명\n감사위원은 전원 독립이사로 구성\n\n▶️ 기타 투자판단 관련 참고사항\n\n시가배당률은 배당기준일 전거래일(배당부 종가일)부터 과거 1주일간 거래소시장 최종가격의 산술평균가격 대비 1주당 배당금의 비율\n지급예정일은 자본시장법 제165조의12에 따라 이사회 결의일로부터 1개월 이내 지급\n\n▶️ URL: https://buly.kr/3CQztFp\n\nSK증권 리서치 IT팀 채널 :\nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4853",
+      "datetime_kst": "2026-10-29T10:05:27+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n삼성전자, 2026년 시설투자 약 84.4조원 계획… DS 76.8조원, SDC 3.9조원\n\n▶️ 계획 개요\n\n장래계획 사항: 2026년 시설투자 계획\n목적: 주력 사업 경쟁력 강화\n추진일정: 2026-01-01 ~ 2026-12-31\n기대효과: 부품 사업 중심 기술 리더십 강화를 통한 사업 역량 제고\n\n▶️ 투자 규모 및 내용\n\n2026년 시설투자 예상 금액: 약 84.4조원\nDS: 76.8조원, AI 및 중장기 수요 대응 위한 인프라 투자와 고객 수요 연계 투자 등\nSDC: 3.9조원, 기존 생산라인 보완 투자 등\n\n▶️ 정보제공 내역\n\n정보제공자: IR팀\n정보제공(예정)일시: 2026-10-29 오전 10시\n행사명: 2026년 3분기 삼성전자 실적발표 컨퍼런스콜(한국어/영어 동시 진행)\n\n▶️ 기타 투자판단 관련 참고사항\n\n장래계획 사항으로 향후 변경될 수 있음\n투자자 이해 제고를 위한 가이드라인으로, 시장 상황 등에 따라 변동 가능\n\n▶️ URL: https://buly.kr/ChrurJp\n\nSK증권 리서치 IT팀 채널 :\nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4860",
+      "datetime_kst": "2026-10-29T11:47:21+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n삼성전자 3Q26 실적발표: Key Takeaways\n\n# 3Q26 메모리 Datapoints (추정)\n(OP) 109조원 (DRAM 81조원, NAND 28조원)\n(B/G) DRAM +3%, NAND +5%\n(ASP) DRAM +20%, NAND +8%\n(OPM) DRAM 79%, NAND 72%\n\n# 4Q26 메모리 B/G Guidance\nDRAM +10% 중후반, NAND +10% 중반\n\n# 주주환원\n3Q26 현금배당 총 30조원. 11월 지급 예정\n잔여 환원재원 55-75조원 수준\n현금배당 및 상당규모 자사주 매입, 소각 예정\n시장상황 반영해 우선주 매입 비중 적극적 고민할 것\n차기 환원정책 27년 1월 말 이사회 결정 발표 예정\n\n# HBM\n3Q26 HBM4 매출 3배 이상 성장. 매출 비중 60%\n27년 목표 가격 수준 협상 완료. 완판. 증량 요청 지속\n27년 상반기 HBM4e 양산 개시, 하반기 볼륨 램프업 \n\n# 2027년 사업부별 전망\n메모리: AI 인프라 투자 가속화\nHBM4 확판, 4e 상반기 양산, 하반기 램프업 계획. TLC, QLC SSD 등 AI 연계 확대\n\nS.LSI: 모바일 둔화 지속. 응용 다변화, 신규고객 확보\n\n파운드리: 미국 주요 거래선 AI HPC향 확판, 견조한 메모리 수요로 4나노 매출 증가. 하반기 2나노 대형 거래선 신제품 양산 시작으로 선단 가동률 크게 개선. 8나노 이하 공정 전반 큰 폭 초과수요. 가동률 100% 상회\n8,4,2나노 지속 증설\n성숙공정 실리콘포토닉스, 고용량 실리콘캐패시터 등 고부가 스페셜티 역량 제고\n\nSDC: 수요 약세. 다만 고부가 중심 매출 성장 추진\nMX: 중저가 감소, 프리미엄 증가로 ASP 상승. 믹스 제고 및 원가 절감 \nVD: 정체/ 소폭 감소. 믹스 제고, 서비스/플랫폼 강화\nDA: AI 혁신 가전 확판 및 구독, B2B 등 고수익 사업 확대\n\n# QnA\nQ) 28년 메모리 수급 및 CapEx 증가의 공급 기여\nA: 27년에 CapEx가 크게 늘더라도 신규 공간 건설비 증가·설비 가격 상승·선수금 및 긴 Fab/장비 리드타임으로 28년 비트 공급 확대 효과 제한적. HBM4E·HBM5의 다이 크기 및 Metal Layer 증가도 공급 제약 요인. 28년까지 타이트한 수급 지속 전망, 클린룸 선제 확보 후 장비 투자는 수요에 맞춰 탄력 집행\n\nQ) LTA 체결 현황과 Rolling 계약 확대\nA: 대형 고객 10개사 체결, 추가 10개 주요 고객과 협상 중. 2030년 CAPA의 60~70% LTA 확보 목표 가시화. 기존 계약 고객 중 일부는 연장 협의 완료 단계이며, 추가 연장 수요가 예상 상회\n고객군은 Mobile·Automotive·Network까지 확대\n\nQ) Foundry 선단 수주 및 Foldable Display 전략\nA: 2nm CSP·AI/HPC 고객 수주 확대, 26년 2nm 수주 과제 수 +2배 이상 YoY, 27년 HPC 매출 비중 50% 상회 전망. 대형 고객과 중장기 협력 강화. 디스플레이는 Foldable의 두께·내구성 개선 및 고객 기반·안정적 공급 역량으로 성장 대응하되 메모리 가격 상승에 따른 세트 수요 둔화 경계\n\nQ) HBM4 판매 성과와 2027년 HBM 협상 현황\nA: 3Q26 HBM4 매출 +3배 이상 QoQ, HBM 매출 비중 60%. 전체 DRAM M/S 수준의 HBM M/S 목표를 3분기에 달성했다는 설명. 27년 공급 물량은 목표 가격 수준에서 계약 협상 완료, Sold-out 상태. 추가 증량 요청 지속. 차세대 HBM4E 샘플 평가 긍정적\n\nQ) Agentic AI  NAND 수요 및 MX 원가 상승 대응\nA: Agentic AI 확산으로 KV Cache 급증, 고성능·고용량 TLC SSD 수요 확대. Personal AI Agent의 사용자별 가상머신 할당 확대는 QLC SSD 수요 증가 요인. TLC PCIe Gen6 및 고용량 QLC SSD 확대, 32단 Stack 기반 256TB QLC SSD 27년 초 상용화 계획. MX는 메모리 원가 상승 속 Flagship·고용량 제품 Mix 및 원가 효율화로 수익성 방어\n\nQ) 국내·미국 Foundry CAPA 확대 계획\nA: 선단공정 증설 속도가 수요 증가를 따라가지 못하는 상황. 2nm AI/HPC 대응을 위해 국내·미국 투자 확대, Advanced Packaging CAPA도 병행 구축. Taylor Fab F1 클린룸 가동·설비 반입 및 라인 셋업 진행 중, 추가 건설 등 CAPA 확대 검토\n\nQ) 원/달러 하락 대응과 System LSI 중장기 전략\nA: 고비용 파생상품을 통한 전면 Hedge보다는 매출·지출 통화 Matching 및 자산·부채 통화 일치 중심 Natural Hedge 운영. 잔여 환노출은 달러 조기 매각 등으로 최소화. System LSI는 Exynos 2700 성능 개선·양산 추진, 신규 Custom SoC 수주 확대. 설계·Foundry·Memory·Packaging 통합 솔루션으로 고객 확보 추진\n\nQ) Foundry 로드맵·차별화와 MX Foldable 전략\nA: 2nm를 Mobile에서 HPC로 확대, 후속 Node는 DTCO로 PPA 개선, 1.4nm는 고객별 협의 및 일부 Test Chip 개발 확정. 성숙공정은 Specialty 중심 재편. 4nm HBM4 Base Die·Silicon Capacitor 및 Advanced Packaging을 Memory–Foundry 시너지로 차별화. MX는 얇고 가벼운 Foldable·라인업 다변화·프리미엄 고객 확대에 집중\n\nQ) Harman 실적 개선 배경과 지속 가능성\nA: 텔레매틱스·차량용 Display·중앙제어기 등 전장 확대, Volkswagen향 텔레매틱스 공급 증가가 실적 안정화에 기여. JBL Portable Speaker 호조와 프리미엄 Audio 브랜드 포트폴리오 강화, 비용 효율화로 수익성 확보 추진\n\n* SK증권 리서치 IT팀 채널 : https://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4861",
+      "datetime_kst": "2026-10-29T15:46:22+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n1. 메모리 4사 12MF P/E 업데이트 (10/29)\n삼성전자 3.8X\nSK하이닉스 3.5X\n* SK증권 추정치 기준\n\n마이크론 5.8X \nCXMT 11.1X\n* Bloomberg consensus 기준\n\n2. SK하이닉스 본주 & ADR 간 괴리율: 41.9%\n\nSK증권 리서치 IT팀 채널 : \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    }
+  ],
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -4.13,
+      "kospi_change_rate_pct": -1.24,
+      "excess_vs_kospi_pp": -2.89,
+      "kospi_weight_pct": 29.52,
+      "kospi_contribution_pp": -1.219,
+      "kospi_ex_self_change_rate_pct": -0.03,
+      "excess_vs_kospi_ex_self_pp": -4.1,
+      "kospi_basis": "kospi_ex_self",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "메모리반도체",
+        "median_change_rate_pct": 2.62,
+        "excess_vs_group_pp": -6.75,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "members_used": [
+          {
+            "code": "000660",
+            "name": "SK하이닉스"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "005930",
+            "name": "삼성전자",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  }
+}

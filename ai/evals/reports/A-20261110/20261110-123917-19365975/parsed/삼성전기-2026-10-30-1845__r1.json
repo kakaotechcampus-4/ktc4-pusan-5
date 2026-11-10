@@ -1,0 +1,346 @@
+{
+  "run_id": "삼성전기-2026-10-30-1845__r1",
+  "final_text": "{\"ticker\": \"009150\", \"name\": \"삼성전기\", \"date\": \"2026-10-30\", \"as_of\": \"2026-10-30T18:45:00+09:00\", \"change_pct\": -7.5, \"verdict\": \"explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 삼성전기는 7.5% 내렸고, 코스피는 3.48% 하락했습니다. 대형주 19개 중 12개가 내렸고 중간값은 2.9% 하락해 삼성전기는 대형주 전반보다 더 내렸습니다. 코스피와 다르게 움직였습니다.\", \"main_cause\": \"주요 노트북 주문량이 4분기 평균 10~15% 줄 전망이라, 세라믹 적층 콘덴서 수요와 가격 기대에 부담이 됐을 수 있습니다.\", \"relative\": \"같은 전자부품 그룹의 LG이노텍은 6.19% 내렸고, 삼성전기는 7.5% 하락했습니다. 노트북 주문량이 10~15% 줄 전망은 세라믹 적층 콘덴서 사업을 하는 삼성전기에 대형주 전반보다 더 부담이 됐을 수 있습니다.\", \"counter\": \"세라믹 적층 콘덴서 가격 협상이 11월부터 시작되고 일본 업체들도 인상에 동참할 가능성이 제기됐습니다. 메리츠증권은 삼성전기가 AI용 제품과 가격 인상의 수혜를 볼 것으로 전망했습니다. 삼성전기는 글로벌 대형기업과 8,793억원 규모의 공급계약을 맺었습니다.\", \"unexplained\": \"소비자용 제품 수요 전망이 삼성전기 매출에 미치는 규모는 제시되지 않아, 대형주 전반보다 더 내린 부분을 충분히 가늠하기 어렵습니다.\"}, \"factors\": [{\"event\": \"주요 노트북 업체의 4분기 주문량이 평균 10~15% 감소할 것으로 전망됐습니다.\", \"detail\": \"메리츠증권은 소비자용 제품 수요 부진으로 범용 세라믹 적층 콘덴서의 가격 인상 기대가 약해졌다고 봤습니다.\", \"stance\": \"bearish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19247\", \"datetime_kst\": \"2026-10-29T15:58:50+09:00\", \"quote\": \"4Q26 주문량이 평균 -10~15% YoY 감소\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19257\", \"datetime_kst\": \"2026-10-30T07:50:56+09:00\", \"quote\": \"범용 MLCC의 가격 인상 기대감은 다소 약화\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"주문량이 10~15% 줄 전망은 세라믹 적층 콘덴서 수요에도 부담이 됐을 수 있습니다. 업종 전망을 주가에 연결한 추정입니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"세라믹 적층 콘덴서 사업을 하는 점에서 이 소비 수요 전망이 다른 대형주보다 더 부담이 됐을 수 있습니다. 업종 노출에 근거한 추정입니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"세라믹 적층 콘덴서\", \"term\": \"MLCC\"}], \"background\": {\"bullish\": [{\"text\": \"삼성전기는 글로벌 대형기업과 8,793억원 규모의 세라믹 적층 콘덴서 공급계약을 맺었으며, 계약은 2026년 12월 21일부터 시작됩니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19267\", \"datetime_kst\": \"2026-10-30T14:17:47+09:00\", \"quote\": \"계약금액: 8,793억원 (매출대비: 7.8%)\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4875\", \"datetime_kst\": \"2026-10-30T14:31:58+09:00\", \"quote\": \"계약 금액: 8,793억 원\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"세라믹 적층 콘덴서 가격 협상이 11월부터 시작되고, 삼성전기에 이어 일본 업체들도 인상에 나설 가능성이 제기됐습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19247\", \"datetime_kst\": \"2026-10-29T15:58:50+09:00\", \"quote\": \"2027년 1분기 판가 협상이 11월부터 시작될 예정\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"watch\": true}, {\"text\": \"메리츠증권은 삼성전기가 AI용 세라믹 적층 콘덴서와 범용 제품 가격 인상의 수혜를 볼 것으로 전망했습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19257\", \"datetime_kst\": \"2026-10-30T07:50:56+09:00\", \"quote\": \"지속적인 이익 추정치 상향이 가능할 것으로 판단\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"bearish\": [{\"text\": \"일본 9월 수입물가지수가 전년 대비 24.5% 올라 원재료와 물류비 부담이 커졌습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19247\", \"datetime_kst\": \"2026-10-29T15:58:50+09:00\", \"quote\": \"일본 9월 수입물가지수는 +24.5% YoY 상승\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"neutral\": []}, \"not_found\": [\"소비자용 제품 수요 전망이 삼성전기 매출에 미치는 규모가 자료에 없어 해당 요인의 영향 크기는 가늠하기 어렵습니다.\"], \"events\": [{\"event\": \"소비자용 제품 주문 둔화 전망으로 세라믹 적층 콘덴서 수요와 가격 기대가 약해질 가능성\", \"issue_ids\": [\"i7\", \"i16\"], \"factor\": 0, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"삼성전기와 글로벌 대형기업 간 세라믹 적층 콘덴서 공급계약\", \"issue_ids\": [\"i19\", \"i20\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"세라믹 적층 콘덴서 가격 협상과 일본 업체의 가격 인상 동참 가능성\", \"issue_ids\": [\"i6\"], \"background\": {\"slot\": \"bullish\", \"index\": 1}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"삼성전기의 AI용 제품과 가격 인상 수혜 전망\", \"issue_ids\": [\"i17\"], \"background\": {\"slot\": \"bullish\", \"index\": 2}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"일본 수입물가 상승에 따른 원재료·물류비 부담\", \"issue_ids\": [\"i5\"], \"background\": {\"slot\": \"bearish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}], \"display_as_of\": \"2026-10-30T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 24025,
+    "completion_tokens": 11664,
+    "total_tokens": 35689,
+    "prompt_tokens_details": {
+      "cached_tokens": 19784,
+      "cache_write_tokens": 3390,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 8643,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 24025,
+    "output_tokens": 11664,
+    "cached_prompt_tokens": 19784,
+    "cache_write_tokens": 3390,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 24025,
+    "total": 23177,
+    "cache_read": 19784,
+    "cache_write": 3390,
+    "uncached": 3
+  },
+  "cost": 9.1329985,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 87829,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:46:42+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "더",
+  "main_cause_sentences": 3,
+  "sector": [
+    "전자부품",
+    "MLCC",
+    "카메라모듈",
+    "반도체 기판"
+  ],
+  "universe_weight": 0.0269,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "AI 추론 확산으로 고용량 MLCC 수요 증가",
+          "relation": "sector"
+        },
+        {
+          "id": "i2",
+          "issue": "AI 플랫폼 출하와 MLCC 공급 부족 심화 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i3",
+          "issue": "광통신 모듈용 MLCC까지 공급 부족 확산",
+          "relation": "sector"
+        },
+        {
+          "id": "i4",
+          "issue": "무라타 증설 계획과 2028년 이후 가동 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i5",
+          "issue": "원재료·물류비 상승으로 공급사 원가 부담 증가",
+          "relation": "sector"
+        },
+        {
+          "id": "i6",
+          "issue": "삼성전기 가격 인상 뒤 일본 업체 동참 가능성",
+          "relation": "direct"
+        },
+        {
+          "id": "i7",
+          "issue": "소비자 제품 주문·출하 감소 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i8",
+          "issue": "소비자용 저·중용량 제품 가격 하락",
+          "relation": "sector"
+        },
+        {
+          "id": "i9",
+          "issue": "대만·중국 업체의 소비자용 주문 반사 수혜",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i10",
+          "issue": "야게오 실적 증가와 AI 관련 매출 비중 확대",
+          "relation": "sector"
+        },
+        {
+          "id": "i11",
+          "issue": "야게오 생산능력 10~15% 확대 계획",
+          "relation": "sector"
+        },
+        {
+          "id": "i12",
+          "issue": "유통 재고 감소와 재고 확보 움직임",
+          "relation": "sector"
+        },
+        {
+          "id": "i13",
+          "issue": "공급업체 전환을 위한 고객사 가격 경쟁",
+          "relation": "sector"
+        },
+        {
+          "id": "i14",
+          "issue": "BB 비율 하락에도 높은 수주 흐름이라는 평가",
+          "relation": "sector"
+        },
+        {
+          "id": "i15",
+          "issue": "4분기 가동률·매출·이익률 개선 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i16",
+          "issue": "소비자용 제품 수요 부진과 가격 인상 기대 약화",
+          "relation": "sector"
+        },
+        {
+          "id": "i17",
+          "issue": "삼성전기 AI 제품과 가격 인상 수혜 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i18",
+          "issue": "삼성전기의 ABF 기판 성장성과 투자 매력 평가",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i19",
+          "issue": "삼성전기 8,793억원 규모 MLCC 공급계약",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i20",
+          "issue": "삼성전기 8,793억원 규모 MLCC 공급계약",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -7.5,
+      "kospi_change_rate_pct": -3.48,
+      "excess_vs_kospi_pp": -4.02,
+      "kospi_weight_pct": 2.04,
+      "kospi_contribution_pp": -0.153,
+      "kospi_ex_self_change_rate_pct": -3.4,
+      "excess_vs_kospi_ex_self_pp": -4.1,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "전자부품",
+        "median_change_rate_pct": -6.19,
+        "excess_vs_group_pp": -1.31,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "members_used": [
+          {
+            "code": "011070",
+            "name": "LG이노텍"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "009150",
+            "name": "삼성전기",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": -7.5,
+    "krx": -7.5,
+    "source": "KRX /sto/stk_bydd_trd 2026-10-30 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -3.48,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-10-30 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -2.9,
+        "peer_up": 7,
+        "peer_down": 12,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": -4.6
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 1,
+    "background": 4,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "partial",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "partial",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "partially_explained",
+      "final": "explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "partially_explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/삼성전기-2026-10-30-1845__r1.json",
+  "input_used_path": "inputs_used/삼성전기-2026-10-30-1845__r1.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inA/c05__r1.json",
+  "input_sha256": "a942e6b6804a4e1f38357a765c81d6415ca19186c50ade5e4c3a5229d4f7f8f7",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [
+    "STRENGTH_MISMATCH: factors[0].links[0] layer=move 이슈가 나온 메시지에 mentioned 가 있는데 partial",
+    "STRENGTH_MISMATCH: factors[0].links[1] layer=relative 이슈가 나온 메시지에 mentioned 가 있는데 partial"
+  ],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 4,
+    "messages_total": 4,
+    "relations": {
+      "sector": 15,
+      "direct": 5
+    },
+    "issues_used": 7
+  }
+}

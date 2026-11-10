@@ -1,0 +1,146 @@
+{
+  "case_id": "b06_035420_2026-11-05",
+  "status": "labeled",
+  "label_source": "claude-code",
+  "labeled_by": "claude-code",
+  "label_note": "보고서 에이전트 실행 전에 case.json 만 보고 작성. 사람 검증 전(draft_unverified)",
+  "trap_ids": [],
+  "traps": [
+    "직접 언급은 장전 코멘트의 합병 심사 일정 한 줄뿐(약한 직접 재료 → partially_explained 기대)",
+    "같은 메시지에 다른 종목(카카오) 실적 발표 일정",
+    "급락장 반대 방향 급등(relative 반대로)"
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": 8.26,
+    "kospi_change_pct": -5.28,
+    "kospi_basis": "kospi",
+    "excess_vs_basis_pp": 13.54,
+    "kospi_relation": "diverges",
+    "peer_relations": {
+      "인터넷": "inconclusive"
+    },
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "반대로",
+    "peer_median_pct": -5.19,
+    "excess_vs_peers_pp": 13.45,
+    "judge_layers": {
+      "move": true,
+      "relative": true
+    },
+    "move_strength_cap": null,
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-11-05T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-11-05T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "partially_explained",
+    "relative": "partially_explained"
+  },
+  "confidence_level": "partial",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "KIS 장전 코멘트: 공정위, 11월 18일 두나무-네이버파이낸셜 합병 심사 예정(내년 3월 완료 목표)",
+      "importance": "must",
+      "layer": [
+        "move",
+        "relative"
+      ],
+      "expected_mention": "either",
+      "stance": "bullish",
+      "max_causal_strength": "possible_contributor",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18939",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "Dunamu",
+        "Nov 18"
+      ],
+      "rationale": "NAVER 직접 재료이고 합병 절차 진전이라 방향은 맞지만, 심사 일정 소식이라 +8.26% 를 설명하기엔 약함. 약한 재료뿐이라 판정 partially_explained, 상한 possible_contributor"
+    },
+    {
+      "id": "e2",
+      "summary": "같은 날 카카오 등 3분기 실적 발표 예정(카카오 9:00)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18939",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "KAKAO"
+      ],
+      "rationale": "다른 종목의 일정이고 실적 내용은 입력에 없음. 맥락 정보"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "false_cause",
+      "subject": "카카오 3분기 실적",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "up",
+      "example": "카카오 호실적에 NAVER 도 함께 올랐다"
+    },
+    {
+      "id": "f2",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "down",
+      "example": "NAVER 도 대형주와 함께 약세였다"
+    },
+    {
+      "id": "f3",
+      "type": "fabricated_cause",
+      "subject": "NAVER 종목의 외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "up",
+      "example": "외국인 순매수로 NAVER 가 올랐다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "카카오 3분기 실적 내용",
+    "NAVER 가 급락장에서 8% 넘게 오른 직접 이유",
+    "NAVER 종목의 외국인·기관 수급"
+  ],
+  "beginner_terms": [
+    "합병 심사",
+    "공정거래위원회",
+    "대형주 중간값"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

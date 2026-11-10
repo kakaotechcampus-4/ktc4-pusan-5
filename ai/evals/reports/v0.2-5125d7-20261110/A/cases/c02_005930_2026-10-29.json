@@ -1,0 +1,433 @@
+{
+  "case_id": "c02_005930_2026-10-29",
+  "summary": {
+    "n_runs": 3,
+    "expected_verdict": {
+      "move": "no_clear_cause",
+      "relative": "no_clear_cause"
+    },
+    "verdicts": [
+      {
+        "move": "explained",
+        "relative": "explained"
+      },
+      {
+        "move": "explained",
+        "relative": "explained"
+      },
+      {
+        "move": "explained",
+        "relative": "explained"
+      }
+    ],
+    "verdict_match_runs": {
+      "move": 0,
+      "relative": 0
+    },
+    "rule_a_violations": [
+      2,
+      1,
+      2
+    ],
+    "overclaim_candidates": [
+      2,
+      1,
+      2
+    ],
+    "omission_candidates": [
+      0,
+      0,
+      0
+    ],
+    "spurious_candidates": [
+      0,
+      0,
+      0
+    ],
+    "recap_msg_links": [
+      0,
+      0,
+      0
+    ],
+    "contrast_links": [
+      0,
+      0,
+      0
+    ],
+    "possible_contributor": [
+      {},
+      {},
+      {}
+    ],
+    "recap_cited": [
+      0,
+      0,
+      0
+    ],
+    "injected_cited": [
+      0,
+      0,
+      0
+    ],
+    "skipped_llm": [
+      null,
+      null,
+      null
+    ],
+    "verify_status": [
+      "passed",
+      "passed",
+      "passed"
+    ],
+    "same_conclusion_runs": 2,
+    "same_verdict_runs": 3,
+    "cost": 32.97
+  },
+  "reports": [
+    {
+      "run_id": "삼성전자-2026-10-29-1845__r1",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 12.9253505,
+      "is_error": false,
+      "verdict": {
+        "move": "explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": false,
+        "relative": false
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e2",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e4",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        }
+      ],
+      "rule_a_violations": [
+        {
+          "id": "e1",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        },
+        {
+          "id": "e4",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        }
+      ],
+      "rule_a_violation_count": 2,
+      "overclaim_candidates": 2,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_msg_links": [],
+      "recap_msg_link_count": 0,
+      "contrast_links": [],
+      "contrast_link_count": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "칸 없음(구형 입력)": 2
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e1",
+          "e4"
+        ],
+        "extra": 0,
+        "recap_msg": 0
+      }
+    },
+    {
+      "run_id": "삼성전자-2026-10-29-1845__r2",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 9.235851,
+      "is_error": false,
+      "verdict": {
+        "move": "explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": false,
+        "relative": false
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e2",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e4",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        }
+      ],
+      "rule_a_violations": [
+        {
+          "id": "e4",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        }
+      ],
+      "rule_a_violation_count": 1,
+      "overclaim_candidates": 1,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_msg_links": [],
+      "recap_msg_link_count": 0,
+      "contrast_links": [],
+      "contrast_link_count": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "칸 없음(구형 입력)": 1
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e4"
+        ],
+        "extra": 0,
+        "recap_msg": 0
+      }
+    },
+    {
+      "run_id": "삼성전자-2026-10-29-1845__r3",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 10.804071,
+      "is_error": false,
+      "verdict": {
+        "move": "explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": false,
+        "relative": false
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e2",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e4",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        }
+      ],
+      "rule_a_violations": [
+        {
+          "id": "e1",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        },
+        {
+          "id": "e4",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        }
+      ],
+      "rule_a_violation_count": 2,
+      "overclaim_candidates": 2,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_msg_links": [],
+      "recap_msg_link_count": 0,
+      "contrast_links": [],
+      "contrast_link_count": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "칸 없음(구형 입력)": 3
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e1",
+          "e4"
+        ],
+        "extra": 0,
+        "recap_msg": 0
+      }
+    }
+  ]
+}

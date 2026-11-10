@@ -1,0 +1,500 @@
+{
+  "run_id": "SK하이닉스-2026-10-23-1845__r2",
+  "final_text": "{\"ticker\": \"000660\", \"name\": \"SK하이닉스\", \"date\": \"2026-10-23\", \"as_of\": \"2026-10-23T18:45:00+09:00\", \"change_pct\": 4.42, \"verdict\": \"explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 SK하이닉스는 4.42% 올랐습니다. 코스피는 0.30% 올랐고, 대형주 19개 중 6개가 오르고 13개가 내렸으며 중간값은 1.79% 하락해 대형주 전반과 반대로 움직였습니다. SK하이닉스는 코스피 비중 20.25%로 지수 상승에 0.895%포인트를 보탰고, SK하이닉스를 뺀 코스피는 0.75% 하락해 이 종목은 그 흐름과 다르게 움직였습니다.\", \"main_cause\": \"솔리다임의 미국 상장 검토 중단이 기존 주주의 지분 가치 훼손 우려를 덜어 상승에 보탬이 됐을 수 있습니다.\", \"relative\": \"SK하이닉스는 자신을 뺀 코스피와 다르게 움직였고, 같은 메모리반도체 그룹의 삼성전자는 0.47% 올랐습니다. 솔리다임 상장 검토 중단이라는 종목 고유 재료가 대형주 전반과 다른 강세에 보탬이 됐을 수 있습니다.\", \"counter\": \"미국 반도체 업종 지수가 6.7% 내려 반도체주에 부담이 될 만한 반대 재료였습니다.\", \"unexplained\": \"대형주 전반과 반대로 움직였으며, 제공된 메시지에는 솔리다임 상장 중단이 상승에 기여한 규모가 없어 남은 폭을 가늠하기 어렵습니다.\"}, \"factors\": [{\"event\": \"SK하이닉스가 솔리다임의 기업공개 검토를 중단하기로 결정했습니다.\", \"detail\": \"SK증권은 중복상장으로 기업가치가 훼손되고 기존 주주 몫이 줄어들 우려에 반발이 컸다고 전했습니다. 메리츠증권은 주주환원 강화 방안이 제시될 가능성이 높다고 봤습니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19170\", \"datetime_kst\": \"2026-10-23T07:40:33+09:00\", \"quote\": \"프리IPO 및 기업공개(IPO)에 대한 검토를 중단하기로 결정함\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4766\", \"datetime_kst\": \"2026-10-23T06:44:33+09:00\", \"quote\": \"중복상장에 따른 기업가치 훼손·이익 희석 우려\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19178\", \"datetime_kst\": \"2026-10-23T11:01:43+09:00\", \"quote\": \"강화된 주주환원 방안이 제시될 가능성이 높을 것으로 예상\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"상장에 따른 기존 주주 몫 훼손 우려를 덜어 주가 상승에 보탬이 됐을 수 있습니다. 종목을 직접 다룬 자료가 있어 이 연결을 뒷받침합니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"솔리다임 상장 계획은 SK하이닉스에 직접 적용된 사안이라, 대형주 전반에는 없는 주주가치 이슈가 상대적 강세에 보탬이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"미국 반도체 업종 지수\", \"term\": \"SOX\"}], \"background\": {\"bullish\": [{\"text\": \"메모리 시장에서 바로 거래되는 시세가 하루 새 0.38% 올랐습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19173\", \"datetime_kst\": \"2026-10-23T07:58:11+09:00\", \"quote\": \"DDR5 16Gb: 1D +0.38%\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"젠슨 황은 2029년까지 메모리 공급 과잉 조짐이 없다고 말했습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19173\", \"datetime_kst\": \"2026-10-23T07:58:11+09:00\", \"quote\": \"2029년 메모리 공급 과잉 조짐 없어…\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"업계 보도는 저전력 메모리 공급이 엔비디아 필요량의 약 60%에 그쳤다고 전했습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19176\", \"datetime_kst\": \"2026-10-23T10:03:36+09:00\", \"quote\": \"Nvidia 필요량의 약 60% 수준에 그쳤으며\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"bearish\": [{\"text\": \"미국 반도체 업종 지수가 6.7% 하락했습니다.\", \"sources\": [{\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18851\", \"datetime_kst\": \"2026-10-23T08:21:25+09:00\", \"quote\": \"Nasdaq -2.6% and SOX -6.7% plunge.\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"neutral\": [{\"text\": \"오는 28일 3분기 실적설명회가 예정돼 있습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19178\", \"datetime_kst\": \"2026-10-23T11:01:43+09:00\", \"quote\": \"오는 28(수) 예정된 3분기 실적설명회\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"watch\": true}]}, \"not_found\": [\"m1의 밸류에이션·괴리율 자료는 10월 22일 게시됐고, 당일 새 사건으로 보기 어려워 원인으로 쓰지 않았습니다.\"], \"events\": [{\"event\": \"솔리다임 기업공개 검토 중단과 기존 주주 가치 훼손 우려 완화\", \"issue_ids\": [\"i3\", \"i4\", \"i5\", \"i6\", \"i8\", \"i14\", \"i24\", \"i38\", \"i40\"], \"factor\": 0, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"메모리 현물 시세 상승\", \"issue_ids\": [\"i9\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"2029년까지 메모리 공급 과잉 조짐이 없다는 발언\", \"issue_ids\": [\"i13\"], \"background\": {\"slot\": \"bullish\", \"index\": 1}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"엔비디아용 저전력 메모리 공급이 필요량의 약 60%에 그친다는 보도\", \"issue_ids\": [\"i33\"], \"background\": {\"slot\": \"bullish\", \"index\": 2}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"미국 반도체 업종 지수 하락\", \"issue_ids\": [\"i22\"], \"background\": {\"slot\": \"bearish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"10월 28일 3분기 실적설명회 예정\", \"issue_ids\": [\"i39\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}], \"display_as_of\": \"2026-10-23T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 27575,
+    "completion_tokens": 19784,
+    "total_tokens": 47359,
+    "prompt_tokens_details": {
+      "cached_tokens": 27572,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 15301,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 27575,
+    "output_tokens": 19784,
+    "cached_prompt_tokens": 27572,
+    "cache_write_tokens": 0,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 27575,
+    "total": 27575,
+    "cache_read": 27572,
+    "cache_write": 0,
+    "uncached": 3
+  },
+  "cost": 14.393503,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 152633,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:43:12+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "반대로",
+  "main_cause_sentences": 3,
+  "sector": [
+    "반도체"
+  ],
+  "universe_weight": 0.2988,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "메모리 업체별 예상 주가수익비율",
+          "relation": "direct"
+        },
+        {
+          "id": "i2",
+          "issue": "SK하이닉스 본주와 미국주식예탁증서 간 괴리율",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i3",
+          "issue": "솔리다임 미국 상장 철회 결정",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i4",
+          "issue": "솔리다임 미국 상장 철회 결정 재전달",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i5",
+          "issue": "솔리다임 기업공개와 사전 지분투자 검토 중단",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m5",
+      "issues": [
+        {
+          "id": "i6",
+          "issue": "솔리다임 기업공개 검토 중단",
+          "relation": "direct"
+        },
+        {
+          "id": "i7",
+          "issue": "인공지능 메모리 수요 증가와 생산시설 필요",
+          "relation": "sector"
+        },
+        {
+          "id": "i8",
+          "issue": "솔리다임 성장 투자에 외부 자금 조달 검토",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m6",
+      "issues": [
+        {
+          "id": "i9",
+          "issue": "메모리 현물 시세 변동",
+          "relation": "sector"
+        },
+        {
+          "id": "i10",
+          "issue": "웨스턴디지털 실적과 저장장치 수요 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i11",
+          "issue": "웨스턴디지털의 투자·원가 부담",
+          "relation": "sector"
+        },
+        {
+          "id": "i12",
+          "issue": "메타의 인공지능 투자로 잉여현금흐름 적자 전환",
+          "relation": "sector"
+        },
+        {
+          "id": "i13",
+          "issue": "젠슨 황의 2029년 메모리 공급 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i14",
+          "issue": "솔리다임 미국 상장 철회",
+          "relation": "direct"
+        },
+        {
+          "id": "i15",
+          "issue": "SK하이닉스의 3조원 자산 운용 위탁 보도",
+          "relation": "direct"
+        },
+        {
+          "id": "i16",
+          "issue": "마이크론의 핵심 광물 가공 사업 투자",
+          "relation": "sector"
+        },
+        {
+          "id": "i17",
+          "issue": "마이크론 대만 노조 파업과 협상",
+          "relation": "sector"
+        },
+        {
+          "id": "i18",
+          "issue": "인피니언·엔비디아의 데이터센터 전력 기술 확대",
+          "relation": "sector"
+        },
+        {
+          "id": "i19",
+          "issue": "인텔의 애리조나 공장 장비 반입",
+          "relation": "sector"
+        },
+        {
+          "id": "i21",
+          "issue": "전날 해외 반도체·전자 관련 종목 주가 하락",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 1
+    },
+    {
+      "id": "m7",
+      "issues": [
+        {
+          "id": "i22",
+          "issue": "나스닥·반도체지수 급락에 따른 시장 약세 전망",
+          "relation": "market"
+        },
+        {
+          "id": "i23",
+          "issue": "방어주와 금융주가 상대적으로 강할 것이란 전망",
+          "relation": "market"
+        },
+        {
+          "id": "i24",
+          "issue": "솔리다임 미국 상장 계획 철회",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 7
+    },
+    {
+      "id": "m8",
+      "issues": [
+        {
+          "id": "i32",
+          "issue": "차세대 인공지능 서버 메모리 기판 개발",
+          "relation": "sector"
+        },
+        {
+          "id": "i33",
+          "issue": "엔비디아용 저전력 메모리 공급 부족",
+          "relation": "sector"
+        },
+        {
+          "id": "i35",
+          "issue": "차세대 메모리 모듈 규격과 적용 전망",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 3
+    },
+    {
+      "id": "m9",
+      "issues": [
+        {
+          "id": "i38",
+          "issue": "솔리다임 기업공개 검토 중단",
+          "relation": "direct"
+        },
+        {
+          "id": "i39",
+          "issue": "10월 28일 3분기 실적설명회 예정",
+          "relation": "direct"
+        },
+        {
+          "id": "i40",
+          "issue": "증권사의 주주환원 강화 기대",
+          "relation": "direct"
+        },
+        {
+          "id": "i41",
+          "issue": "인공지능용 낸드 수요와 미국 생산기반 필요",
+          "relation": "sector"
+        },
+        {
+          "id": "i42",
+          "issue": "40조원 규모 자사주 매입 완료",
+          "relation": "direct"
+        },
+        {
+          "id": "i43",
+          "issue": "주가순자산비율과 본주·미국주식예탁증서 괴리",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m10",
+      "issues": [
+        {
+          "id": "i44",
+          "issue": "인공지능 메모리 수요와 공급 부족 장기화 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i45",
+          "issue": "장기공급계약의 실적 가시성과 가격 효과",
+          "relation": "sector"
+        },
+        {
+          "id": "i46",
+          "issue": "메모리 가격 상승과 실적 전망 상향",
+          "relation": "sector"
+        },
+        {
+          "id": "i47",
+          "issue": "인공지능 투자 우려와 실적설명회 전망",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m11",
+      "issues": [
+        {
+          "id": "i48",
+          "issue": "상장 철회 발표 뒤 주가가 장중 저점에서 회복",
+          "relation": "direct"
+        },
+        {
+          "id": "i49",
+          "issue": "중복상장에 따른 기존 주주 가치 훼손 우려",
+          "relation": "direct"
+        },
+        {
+          "id": "i50",
+          "issue": "솔리다임 성장 자금 조달 방안 논의",
+          "relation": "direct"
+        },
+        {
+          "id": "i51",
+          "issue": "기존 주주 이익 보호가 주가에 미칠 영향에 대한 전망",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m12",
+      "issues": [
+        {
+          "id": "i52",
+          "issue": "메모리 업체별 예상 주가수익비율 업데이트",
+          "relation": "direct"
+        },
+        {
+          "id": "i53",
+          "issue": "본주와 미국주식예탁증서 간 괴리율 업데이트",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": 4.42,
+      "kospi_change_rate_pct": 0.3,
+      "excess_vs_kospi_pp": 4.12,
+      "kospi_weight_pct": 20.25,
+      "kospi_contribution_pp": 0.895,
+      "kospi_ex_self_change_rate_pct": -0.75,
+      "excess_vs_kospi_ex_self_pp": 5.17,
+      "kospi_basis": "kospi_ex_self",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "메모리반도체",
+        "median_change_rate_pct": 0.47,
+        "excess_vs_group_pp": 3.95,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "members_used": [
+          {
+            "code": "005930",
+            "name": "삼성전자"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "000660",
+            "name": "SK하이닉스",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": 4.42,
+    "krx": 4.42,
+    "source": "KRX /sto/stk_bydd_trd 2026-10-23 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": 0.3,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-10-23 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -1.79,
+        "peer_up": 6,
+        "peer_down": 13,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 6.21
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 1,
+    "background": 5,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "explained",
+      "final": "explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/SK하이닉스-2026-10-23-1845__r2.json",
+  "input_used_path": "inputs_used/SK하이닉스-2026-10-23-1845__r2.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inA/c03__r2.json",
+  "input_sha256": "f0b850f15c9dd19cff01e19bebebb404442d9c13bd6183e4bebe07e3182c5ff4",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 12,
+    "messages_total": 12,
+    "relations": {
+      "direct": 21,
+      "sector": 19,
+      "market": 2,
+      "none": 11
+    },
+    "issues_used": 14
+  }
+}
