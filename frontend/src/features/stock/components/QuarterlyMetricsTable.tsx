@@ -4,6 +4,7 @@ import {
   formatCompactKRW,
   formatFiscalPeriod,
   formatMarketDate,
+  formatMultiple,
   formatPrice,
   formatRatio,
 } from '@/lib/format';
@@ -22,6 +23,13 @@ function unavailable(label: string, description: string) {
       {label}
       <InfoTip description={description} />
     </span>
+  );
+}
+
+/** PER·PBR 같은 배수. 서버가 필드를 아직 주지 않거나 null 이면 미제공 */
+function multipleCell(value: number | null | undefined) {
+  return (
+    <span className="num">{typeof value === 'number' ? formatMultiple(value) : NO_VALUE}</span>
   );
 }
 
@@ -104,12 +112,26 @@ const GROUPS: Group[] = [
     title: '위치 및 밸류에이션',
     rows: [
       {
-        label: unavailable('PER', '과거 분기말 데이터가 연결되지 않아 표시하지 않습니다.'),
-        render: () => <span className="num">{NO_VALUE}</span>,
+        label: (point) =>
+          unavailable(
+            'PER',
+            datedDescription(
+              '분기말 시가총액을 최근 4분기 순이익 합으로 나눈 값입니다. 적자이거나 분기 자료가 부족하면 표시하지 않습니다.',
+              point.marketCapAsOf,
+            ),
+          ),
+        render: (point) => multipleCell(point.per),
       },
       {
-        label: unavailable('PBR', '과거 분기말 데이터가 연결되지 않아 표시하지 않습니다.'),
-        render: () => <span className="num">{NO_VALUE}</span>,
+        label: (point) =>
+          unavailable(
+            'PBR',
+            datedDescription(
+              '분기말 종가를 BPS로 나눈 값입니다. BPS가 0 이하이거나 분기말 종가가 없으면 표시하지 않습니다.',
+              point.marketCapAsOf,
+            ),
+          ),
+        render: (point) => multipleCell(point.pbr),
       },
       {
         label: (
