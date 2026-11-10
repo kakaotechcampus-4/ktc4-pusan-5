@@ -2,7 +2,7 @@
 
 import asyncio
 import copy
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 import pytest
 from sqlalchemy.exc import ProgrammingError
@@ -501,7 +501,7 @@ def posted_within(rec: SourceRecord, until: datetime, since: datetime) -> bool:
     """조회 SQL(query.available_within)을 파이썬으로 옮긴 것. 같은 규칙을 실제 SQL 로는 DB 테스트
     (test_dart_disclosure_db·test_source_card_db)가 본다.
     시각 없는 공시는 since 날짜 < 접수일 < until 날짜(since 가 DART 접수 전이면 since 날짜도), 그 밖의 날짜만 있는
-    자료(리포트)는 until 날짜와 같을 때만."""
+    자료(리포트)는 since 날짜 < 작성일 <= until 날짜(since 가 자정이면 since 날짜도)."""
     if rec.available_at is not None:
         return since <= rec.available_at <= until
     day, until_day, since_day = rec.write_date, until.astimezone(KST).date(), since.astimezone(KST).date()
@@ -509,7 +509,8 @@ def posted_within(rec: SourceRecord, until: datetime, since: datetime) -> bool:
         return False
     if rec.kind == "disclosure":
         return (since_day <= day if since_day_counts(since) else since_day < day) and day < until_day
-    return day == until_day
+    after_since = since_day <= day if since.astimezone(KST).time() == time(0, 0) else since_day < day
+    return after_since and day <= until_day
 
 
 def left_out_of(records: list[SourceRecord], disclosures: tuple[int, ...], until: datetime,
@@ -794,7 +795,7 @@ async def must_not_open_db(args):
 
 @pytest.mark.parametrize("extra", [
     ["--cutoff", "2026-11-10T16:00:00+09:00", "--target-date", "2026-11-11"],    # 리뷰 5번
-    ["--cutoff", "2026-11-10T08:30:00+09:00", "--target-date", "2026-11-02"],    # 리뷰 4번
+    ["--cutoff", "2026-11-10T08:30:00+09:00", "--target-date", "2026-10-30"],    # 10일 넘게 앞
     ["--cutoff", "2026-11-06T08:30:00+09:00", "--target-date", "2026-11-05", "--since", "2026-11-05T17:00:00+09:00"],
     ["--cutoff", "2026-11-06T08:30:00+09:00", "--target-date", "2026-11-5x"],
     ["--cutoff", "어제 저녁"],
@@ -805,6 +806,87 @@ def test_cli_rejects_bad_range_before_db_with_exit_2(monkeypatch, capsys, extra)
         ci.cli(["--code", CODE, "--change-pct", "0", *extra])
     assert info.value.code == 2
     assert "Traceback" not in capsys.readouterr().err
+
+
+def test_holiday_next_morning_with_previous_trading_day_passes_cli_and_load_input(monkeypatch):
+    """월요일(11-09)이 평일 휴일이면 화요일 08:30 에 금요일(11-06)을 대상일로 준다. CLI 는 달력 없이 10일 이내만 보고
+    통과시키고, load_input 은 market_calendar 로 금요일이 직전 거래일인지 확인한다."""
+    seen = []
+
+    async def fake_main(args):
+        seen.append((args.cutoff, args.target_date))
+
+    monkeypatch.setattr(ci, "main", fake_main)
+    ci.cli(["--code", CODE, "--change-pct", "0", "--cutoff", "2026-11-10T08:30:00+09:00", "--target-date", "2026-11-06"])
+    assert seen == [("2026-11-10T08:30:00+09:00", "2026-11-06")]
+
+    fake_db(monkeypatch, [])
+    payload, meta = asyncio.run(ci.load_input(FakeSession([(date(2026, 11, 9), False)]), CODE, cutoff=TUESDAY_MORNING,
+                                              change_pct=0.0, target_date=date(2026, 11, 6)))
+    assert payload["target_date"] == "2026-11-06" and meta["since_basis"] == "market_calendar"
+    # 리뷰 4번의 오타(8일 전)는 CLI 를 지나도 load_input 이 거절한다
+    ci.check_range(TUESDAY_MORNING, target_date=date(2026, 11, 2), exact=False)
+    with pytest.raises(ci.InputRangeError, match="직전 거래일"):
+        asyncio.run(ci.load_input(FakeSession([(date(2026, 11, 9), False)]), CODE, cutoff=TUESDAY_MORNING,
+                                  change_pct=0.0, target_date=date(2026, 11, 2)))
+
+
+def dated_report(card_id: int, day: date) -> SourceRecord:
+    rec = pdf_record(card_id)
+    rec.write_date = day
+    return rec
+
+
+def report_urls(monkeypatch, records: list[SourceRecord], target: date, rows=None) -> list[str]:
+    """대상일 target 의 16:00 보고서에 들어간 리포트 url."""
+    fake_db(monkeypatch, records)
+    payload, _ = asyncio.run(ci.load_input(FakeSession(rows), CODE, cutoff=datetime.combine(target, time(16, 0), KST),
+                                           change_pct=0.0, target_date=target))
+    return [m["url"] for m in payload["messages"]]
+
+
+def test_weekend_report_goes_to_monday_report(monkeypatch):
+    """토요일(11-07) 작성 리포트는 월요일(11-09) 보고서에 들어간다. 금요일 작성분은 금요일 보고서에만."""
+    friday, saturday = dated_report(70, date(2026, 11, 6)), dated_report(71, date(2026, 11, 7))
+    assert report_urls(monkeypatch, [friday, saturday], date(2026, 11, 9)) == ["https://mock.research/71.pdf"]
+    assert report_urls(monkeypatch, [friday, saturday], date(2026, 11, 6)) == ["https://mock.research/70.pdf"]
+
+
+def test_weekday_holiday_report_goes_to_next_trading_day_report(monkeypatch):
+    """월요일(11-09)이 휴일이면(market_calendar) 그날 작성 리포트는 화요일(11-10) 보고서에 들어간다. 토요일 작성분도."""
+    holiday = [(date(2026, 11, 9), False)]
+    reports = [dated_report(72, date(2026, 11, 7)), dated_report(73, date(2026, 11, 9)), dated_report(74, date(2026, 11, 10))]
+    assert report_urls(monkeypatch, reports, date(2026, 11, 10), holiday) == [
+        "https://mock.research/72.pdf", "https://mock.research/73.pdf", "https://mock.research/74.pdf"]
+    # 달력이 비어 있으면 평일 규칙이라 월요일이 직전 거래일이다 — 화요일 보고서에는 화요일 작성분만
+    assert report_urls(monkeypatch, reports, date(2026, 11, 10)) == ["https://mock.research/74.pdf"]
+
+
+def test_weekday_report_stays_in_its_own_day_report(monkeypatch):
+    """평일(목 11-05) 작성 리포트는 지금처럼 그날 보고서(16:00·다음 날 08:30)에만 들어가고 다음 거래일 보고서에는 없다."""
+    thursday = dated_report(75, TARGET)
+    assert report_urls(monkeypatch, [thursday], TARGET) == ["https://mock.research/75.pdf"]
+    fake_db(monkeypatch, [thursday])
+    morning, _ = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=NEXT_MORNING, change_pct=0.0,
+                                           target_date=TARGET))
+    assert [m["url"] for m in morning["messages"]] == ["https://mock.research/75.pdf"]
+    assert report_urls(monkeypatch, [thursday], date(2026, 11, 6)) == []
+
+
+def test_current_behavior_disclosure_first_seen_after_close_moves_to_next_day_report(monkeypatch):
+    """현재 동작: 공시 공개 시각은 수집기가 처음 본 시각(first_seen_at)이다. D 10:00 에 접수됐어도 D 15:45 에 처음
+    수집했으면 공개 시각이 D 15:45 라 D 16:00 보고서(게시 끝 D 15:30)에서 빠지고, D+1 보고서(조회 시작 D 15:30)에
+    들어간다. 시각이 있으니 경계 공시 사유(meta)도 남지 않는다."""
+    first_seen_after_close = timed_disclosure(60, datetime(2026, 11, 5, 15, 45, tzinfo=KST), "단일판매ㆍ공급계약체결")
+    fake_db(monkeypatch, [first_seen_after_close], disclosures=(60,))
+    today, today_meta = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=AFTERNOON, change_pct=0.0,
+                                                  target_date=TARGET))
+    assert today["messages"] == [] and today_meta["dropped"] == []
+
+    fake_db(monkeypatch, [first_seen_after_close], disclosures=(60,))
+    tomorrow, _ = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=datetime(2026, 11, 6, 16, 0, tzinfo=KST),
+                                            change_pct=0.0, target_date=date(2026, 11, 6)))
+    assert [m["url"] for m in tomorrow["messages"]] == ["https://dart.mock/60"]
 
 
 def test_cli_turns_calendar_range_error_into_exit_2(monkeypatch, capsys):

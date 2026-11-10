@@ -71,8 +71,11 @@ def available_within(until: datetime, since: datetime | None = None):
                  뺀다 — since 날짜면 전날 장 마감 전 공시일 수 있고, until 날짜면 게시 끝 뒤 공시일 수 있다.
                  since 가 그날 DART 가 열리기 전(since_day_counts)이면 since 날짜도 넣는다. 뺀 공시는
                  untimed_disclosures_left_out 으로 따로 읽어 사유를 남긴다
-        그 밖    원래 날짜만 있는 자료(네이버 리포트 작성일). until 날짜(= 보고서 대상일)와 같은 날짜만 넣는다 —
-                 그날 보고서 하나에만 들어간다. 장 마감 뒤에 쓴 것도 섞일 수 있다
+        그 밖    원래 날짜만 있는 자료(네이버 리포트 작성일). since 날짜 < 작성일 <= until 날짜일 때 넣는다.
+                 보고서 입력의 since 는 대상일 직전 거래일 장 마감(market_calendar, 비어 있으면 평일 규칙)이고
+                 until 날짜는 대상일이라 "직전 거래일 < 작성일 <= 대상일" 이다 — 주말·휴일에 쓴 리포트는 다음
+                 거래일 보고서에, 평일 리포트는 그날 보고서 하나에 들어간다. 장 마감 뒤에 쓴 것도 섞일 수 있다.
+                 since 가 자정이면 since 날짜도 넣는다(그날 쓴 것은 모두 since 뒤). since 가 없으면 until 날짜까지 모두
 
     공개 시각도 날짜도 모르는 자료는 넣지 않는다. 분류할 자료를 고르는 available_since 는 이 경계 규칙을 쓰지 않는다
     (경계 날짜 자료도 분류는 해 둔다).
@@ -82,14 +85,18 @@ def available_within(until: datetime, since: datetime | None = None):
     if since is not None:
         timed = and_(timed, SourceCard.available_at >= since)
     disclosure = SourceCard.event_date < until_day
+    dated = SourceCard.event_date <= until_day
     if since is not None:
-        since_day = since.astimezone(KST).date()
+        since_local = since.astimezone(KST)
+        since_day = since_local.date()
         disclosure = and_(disclosure, SourceCard.event_date >= since_day if since_day_counts(since)
                           else SourceCard.event_date > since_day)
+        dated = and_(dated, SourceCard.event_date >= since_day if since_local.time() == time(0, 0)
+                     else SourceCard.event_date > since_day)
     return or_(timed, and_(
         SourceCard.available_at.is_(None),
         or_(and_(SourceCard.card_type == DISCLOSURE_CARD_TYPE, disclosure),
-            and_(SourceCard.card_type != DISCLOSURE_CARD_TYPE, SourceCard.event_date == until_day)),
+            and_(SourceCard.card_type != DISCLOSURE_CARD_TYPE, dated)),
     ))
 
 

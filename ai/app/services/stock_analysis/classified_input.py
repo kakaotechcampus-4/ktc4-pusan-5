@@ -27,7 +27,10 @@ classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카�
 counts.disclosure_boundary / close_day_disclosure: 게시 끝 날짜, counts.disclosure_close_day). 그래서 대상일 장중에
 접수된 시각 없는 공시는 대상일 보고서(게시 끝 날짜)와 다음 거래일 보고서(조회 시작일) 모두에서 빠지고 두 meta 에 남는다.
 수집기를 장중에 주기적으로 돌리면 시각이 남으므로 이 경우는 백필한 날에만 생긴다.
-원래 날짜만 있는 자료(네이버 리포트 작성일)는 그 날짜가 대상일(게시 끝 날짜)인 보고서에만 들어간다.
+원래 날짜만 있는 자료(네이버 리포트 작성일)는 "직전 거래일 < 작성일 <= 대상일" 인 보고서에 들어간다(조회 시작일 <
+작성일 <= 게시 끝 날짜). 주말·휴일에 쓴 리포트는 다음 거래일 보고서로 간다.
+**공시 공개 시각은 수집기가 처음 본 시각이다.** 장중 공시를 장 마감 뒤에 처음 수집하면 그 시각이 게시 끝 뒤라 대상일
+보고서에서 빠지고 다음 거래일 보고서에 들어간다 — 수집을 장중에 주기적으로 돌리고 마지막 수집을 장 마감 전에 끝내야 한다.
 뉴스·리포트는 기준 시각 전에 본문을 받아 둔 것만 들어간다(body_fetched_at 기준) — 보고서보다 먼저 수집해야 한다.
 
 ## 메시지 칸
@@ -64,8 +67,9 @@ KRX 비교가 꺼진다.
 **target_date 를 주면 두 번 모두 같은 근거 범위를 읽는다.** 공개 시각(available_at, 날짜만 있으면 날짜)의 끝은
 min(cutoff, D 장 마감 — market_compare.market_close)이고, 분류 자료 조회와 공시 조회가 같은 끝을 쓴다. 그래서 D 장
 마감 뒤 게시된 메시지·공시, D+1 장 전 메시지, 날짜만 있는 D 공시(같은 날이면 장 마감 전인지 알 수 없다 —
-available_within, meta close_day_disclosure)는 들어오지 않는다. 작성일이 D 인 네이버 리포트는 두 번 모두 들어간다. 본문을 받은 시각(body_fetched_at)의 끝은 실제 cutoff 다 — 장 마감 전에 게시됐고
-장 마감 뒤 cutoff 전에 받은 메시지를 살린다. 그래서 08:30 입력에는 밤사이 늦게 받은 장중 메시지가 더 들어올 수 있다.
+available_within, meta close_day_disclosure)는 들어오지 않는다. 작성일이 D 직전 거래일 뒤 ~ D 인 네이버 리포트는
+두 번 모두 들어간다. 본문을 받은 시각(body_fetched_at)의 끝은 실제 cutoff 다 — 장 마감 전에 게시됐고 장 마감 뒤
+cutoff 전에 받은 메시지를 살린다. 그래서 08:30 입력에는 밤사이 늦게 받은 장중 메시지가 더 들어올 수 있다.
 장 마감 뒤 해설 메시지는 두 보고서 모두에서 빠진다. 공개 끝은 meta posted_until 에 남는다.
 
 ## 조회 시작(since)
@@ -219,6 +223,11 @@ class InputRangeError(ValueError):
     """target_date·since·cutoff 가 서로 맞지 않는다. CLI 는 사용법 오류(exit 2)로 끝낸다."""
 
 
+# DB 를 열기 전 CLI 가 받아 주는 target_date 의 범위(cutoff 날짜에서 거슬러 올라간 일수). 긴 연휴도 넣는 느슨한 값이고,
+# 정확한 직전 거래일 검사는 load_input 이 market_calendar 로 한다
+TARGET_DATE_MAX_DAYS = 10
+
+
 def posted_until(cutoff: datetime, target_date: date | None) -> datetime:
     """공개 시각의 끝. target_date 가 없으면 cutoff, 있으면 min(cutoff, target_date 장 마감)(맨 위 「대상일」)."""
     if target_date is None:
@@ -227,14 +236,20 @@ def posted_until(cutoff: datetime, target_date: date | None) -> datetime:
 
 
 def check_range(cutoff: datetime, *, target_date: date | None = None, since: datetime | None = None,
-                open_days: Mapping[date, bool] | None = None) -> None:
+                open_days: Mapping[date, bool] | None = None, exact: bool = True) -> None:
     """target_date 는 cutoff 날짜이거나 그 직전 거래일, since 는 공개 끝보다 늦지 않아야 한다.
 
-    open_days 가 없으면 평일을 개장일로 본다(previous_close) — DB 를 열기 전 CLI 검사가 그렇다. 그래서 평일 휴장일
-    다음 날 CLI 는 그 전 거래일 대상일을 거절할 수 있다. load_input 은 market_calendar 로 다시 본다.
+    exact=False 는 DB 를 열기 전 CLI 검사다. 달력이 없으므로 target_date 가 cutoff 날짜보다 뒤가 아니고
+    TARGET_DATE_MAX_DAYS 일 이내인지만 본다 — 평일 규칙으로 직전 거래일을 따지면 평일 휴장일 다음 날 그 전 거래일
+    대상일을 잘못 거절한다. 정확한 직전 거래일 검사는 load_input 이 market_calendar(open_days, 비어 있으면 평일 규칙)로 한다.
     """
     cutoff_day = cutoff.astimezone(KST).date()
-    if target_date is not None and target_date != cutoff_day:
+    if target_date is not None and target_date > cutoff_day:
+        raise InputRangeError(f"target_date {target_date} 가 cutoff 날짜({cutoff_day})보다 뒤다")
+    if target_date is not None and not exact and (cutoff_day - target_date).days > TARGET_DATE_MAX_DAYS:
+        raise InputRangeError(f"target_date {target_date} 가 cutoff 날짜({cutoff_day})보다 "
+                              f"{TARGET_DATE_MAX_DAYS}일 넘게 앞이다")
+    if target_date is not None and exact and target_date != cutoff_day:
         previous = previous_close(cutoff_day, open_days).date()
         if target_date != previous:
             raise InputRangeError(f"target_date {target_date} 는 cutoff 날짜({cutoff_day})이거나 그 직전 거래일"
@@ -552,9 +567,9 @@ def cli(argv: list[str] | None = None) -> None:
         require_known_stock(args.code)
     except UnknownStockError as exc:
         parser.exit(1, f"{exc}\n")
-    # DB 를 열기 전에 범위를 본다. 달력 없이 평일 규칙이다 — load_input 이 market_calendar 로 다시 본다
+    # DB 를 열기 전에 달력 없이 알 수 있는 범위만 본다. 직전 거래일인지는 load_input 이 market_calendar 로 본다
     try:
-        check_range(cutoff, target_date=target_date, since=since)
+        check_range(cutoff, target_date=target_date, since=since, exact=False)
     except InputRangeError as exc:
         parser.error(str(exc))
     try:
