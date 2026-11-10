@@ -44,5 +44,6 @@ class InvestmentPoint(CamelModel):
     rs_base_date: date | None = None
     market_cap: FiniteFloat | None = None
     market_cap_as_of: date | None = None
-    per: None = None
-    pbr: None = None
+    net_income_ttm: FiniteFloat | None = None
+    per: FiniteFloat | None = None
+    pbr: FiniteFloat | None = None

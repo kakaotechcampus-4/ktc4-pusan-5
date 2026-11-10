@@ -23,11 +23,18 @@ async def list_my_scraps(
     for scrap in scraps:
         row = by_id.get(scrap.report_id)
         report = to_report(row) if row else None
-        if row is None or report is None:
-            # 보고서가 지워졌거나 본문을 읽을 수 없으면 카드를 만들 수 없어 목록에서 뺀다.
-            continue
-        if report.code not in MVP_CODES:
-            # 서비스 종목에서 빠졌으면 카드를 눌러도 종목 상세가 열리지 않아 목록에서 뺀다.
+        if row is None or report is None or report.code not in MVP_CODES:
+            # 보고서가 지워졌거나, 본문을 읽을 수 없거나, 서비스 종목에서 빠졌다.
+            # 목록에서 빼지 않고 "찾을 수 없음" 카드로 내려 사용자가 알 수 있게 한다.
+            # 스크랩 행에는 종목 정보가 없어 카드를 채울 수 없다.
+            items.append(
+                MyScrap(
+                    scrap_id=str(scrap.id),
+                    report_id=scrap.report_id,
+                    available=False,
+                    scrapped_at=scrap.created_at,
+                )
+            )
             continue
         items.append(
             MyScrap(

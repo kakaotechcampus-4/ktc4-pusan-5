@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core import monitoring
 from app.core.config import settings
 from app.core.database import engine
 from app.core.errors import (
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
 
 
+monitoring.init()
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 app.add_middleware(

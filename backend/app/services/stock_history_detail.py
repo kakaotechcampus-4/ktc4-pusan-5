@@ -3,9 +3,23 @@ from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 
-from app.models.stock import Stock, StockCollectionJob
+from app.models.stock import Stock, StockCollectionJob, StockDailyPrice
 from app.repositories.stock import enqueue
 from app.repositories.stock_history import HISTORY_TTL, history_for
+
+
+def per(market_cap: float | None, net_income_ttm: float | None) -> float | None:
+    """분기말 시가총액 ÷ 최근 4분기 순이익. 적자·0이면 의미가 없어 None."""
+    if market_cap is None or net_income_ttm is None or net_income_ttm <= 0:
+        return None
+    return market_cap / net_income_ttm
+
+
+def pbr(close: float | None, bps: float | None) -> float | None:
+    """분기말 종가 ÷ BPS. BPS가 0 이하(자본잠식)면 None."""
+    if close is None or bps is None or bps <= 0:
+        return None
+    return close / bps
 
 
 async def enrich_history(session, code, investment):
@@ -26,6 +40,21 @@ async def enrich_history(session, code, investment):
             )
         ).all()
     }
+    cap_dates = {row.cap_as_of for row in saved.values() if row.cap_as_of is not None}
+    closes = {}
+    if cap_dates:
+        closes = {
+            price.trade_date: price.close
+            for price in (
+                await session.scalars(
+                    select(StockDailyPrice).where(
+                        StockDailyPrice.stock_code == code,
+                        StockDailyPrice.adjustment_type == "raw",
+                        StockDailyPrice.trade_date.in_(cap_dates),
+                    )
+                )
+            ).all()
+        }
     pending = False
     failure = False
     retries = []
@@ -39,6 +68,9 @@ async def enrich_history(session, code, investment):
             point.rs = float(row.rs) if row.rs is not None else None
             point.rs_as_of = row.rs_as_of
             point.rs_base_date = row.rs_base_date
+            point.per = per(point.market_cap, point.net_income_ttm)
+            close = closes.get(row.cap_as_of)
+            point.pbr = pbr(float(close) if close is not None else None, point.bps)
         for kind, attr in (("history_cap", "cap_collected_at"), ("history_rs", "rs_collected_at")):
             collected = getattr(row, attr) if row else None
             expired = not collected or now - collected >= HISTORY_TTL

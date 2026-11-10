@@ -5,6 +5,7 @@ import { Tabs } from '@/components/ui';
 import type {
   Resource,
   StockFinancials,
+  StockInvestorFlowData,
   StockMetricsData,
   StockQuoteData,
   StockReport,
@@ -25,6 +26,7 @@ export const REPORT_HASH = '#report';
 export function StockInsightSection({
   quote,
   metrics,
+  investorFlow,
   financials,
   financialsError,
   onRetryFinancials,
@@ -35,6 +37,7 @@ export function StockInsightSection({
 }: {
   quote: Resource<StockQuoteData> | null;
   metrics: Resource<StockMetricsData> | null;
+  investorFlow?: Resource<StockInvestorFlowData> | null;
   financials: StockFinancials | null;
   financialsError: Error | null;
   onRetryFinancials: () => void;
@@ -65,6 +68,7 @@ export function StockInsightSection({
         <DetailInfoTab
           quote={quote}
           metrics={metrics}
+          investorFlow={investorFlow}
           financials={financials}
           error={financialsError}
           onRetry={onRetryFinancials}

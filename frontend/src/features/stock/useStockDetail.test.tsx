@@ -1,5 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
-import type { PricePeriod, Resource, StockOverview, StockPriceResource } from '@/lib/types';
+import type {
+  PricePeriod,
+  Resource,
+  StockInvestorFlowData,
+  StockOverview,
+  StockPriceResource,
+  StockQuoteData,
+} from '@/lib/types';
 import { getStockOverview, getStockPrices } from '@/lib/api';
 import { useStockDetail } from './useStockDetail';
 
@@ -222,5 +229,65 @@ describe('useStockDetail', () => {
     await settle();
     expect(result.current.priceError).toBeNull();
     expect(result.current.prices?.status).toBe('ready');
+  });
+
+  it('keeps polling the overview while the institution net buy is still pending', async () => {
+    const flow = {
+      tradeDate: '2026-11-02',
+      institutionNetQty: 10,
+      institutionNetValue: null,
+    };
+    overviewRequest
+      .mockResolvedValueOnce({
+        ...overview('A'),
+        investorFlow: resource<StockInvestorFlowData>('pending', null, { retryAfterSeconds: 3 }),
+      })
+      .mockResolvedValue({ ...overview('A'), investorFlow: resource('ready', flow) });
+    pricesRequest.mockResolvedValue(prices('A', '1Y'));
+    const { result } = renderHook(() => useStockDetail('A', '1Y'));
+    await settle();
+    expect(overviewRequest).toHaveBeenCalledTimes(1);
+    expect(result.current.overview.investorFlow?.status).toBe('pending');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(overviewRequest).toHaveBeenCalledTimes(2);
+    expect(result.current.overview.investorFlow?.data?.institutionNetQty).toBe(10);
+  });
+
+  it('does not slow the overview refresh down when only the institution net buy failed', async () => {
+    overviewRequest.mockResolvedValue({
+      ...overview('A'),
+      investorFlow: resource<StockInvestorFlowData>('unavailable', null, {
+        retryAfterSeconds: 900,
+      }),
+    });
+    pricesRequest.mockResolvedValue(prices('A', '1Y'));
+    renderHook(() => useStockDetail('A', '1Y'));
+    await settle();
+    expect(overviewRequest).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(overviewRequest).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the quote retry interval when the institution net buy asks for a longer wait', async () => {
+    overviewRequest.mockResolvedValue({
+      ...overview('A'),
+      quote: resource<StockQuoteData>('pending', null, { retryAfterSeconds: 3 }),
+      investorFlow: resource<StockInvestorFlowData>('stale', null, { retryAfterSeconds: 900 }),
+    });
+    pricesRequest.mockResolvedValue(prices('A', '1Y'));
+    renderHook(() => useStockDetail('A', '1Y'));
+    await settle();
+    expect(overviewRequest).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(overviewRequest).toHaveBeenCalledTimes(2);
   });
 });
