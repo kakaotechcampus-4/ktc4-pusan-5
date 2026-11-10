@@ -363,18 +363,6 @@ function buildQuarterlyMetrics(
   }));
 }
 
-/* ── AI 생성 보고서 ─────────────────────────────────────────────────────────
- * 가드레일: 매수·매도 같은 투자의견 문구를 넣지 않는다. (DESIGN.md 7절, 루트 CLAUDE.md)
- * 목표주가를 넣는 경우 반드시 출처를 함께 둔다. */
-
-export type AiReport = {
-  summaryPoints: string[];
-  conclusion: string;
-  targetPrice?: { value: number; source: string };
-  generatedAt: string;
-  sources: string[];
-};
-
 export type StockDetail = {
   tradingValue: number;
   /** 외국인 보유 지분율(%) */
@@ -387,10 +375,7 @@ export type StockDetail = {
   financialTrend: FinancialTrendPoint[];
   financialHealth: FinancialHealth;
   quarterlyMetrics: QuarterlyMetric[];
-  aiReport: AiReport;
 };
-
-const GENERATED_AT = '2026-08-21T15:40:00+09:00';
 
 type StockDetailInput = Omit<StockDetail, 'atAGlance' | 'financialTrend' | 'quarterlyMetrics'>;
 
@@ -423,19 +408,6 @@ export const mockStockDetails: Record<string, StockDetail> = {
       netIncome: 71_620_000_000_000,
     },
     financialHealth: { debtRatio: 27.4, roe: 9.8, currentRatio: 218.5 },
-    aiReport: {
-      summaryPoints: [
-        '외국인 매도세와 반도체 업황 우려가 겹치며 최근 하락 마감했습니다.',
-        'PER 11.4배·PBR 1.32배로 최근 5년 평균 대비 밸류에이션 부담은 크지 않은 수준입니다.',
-        '기관 수급은 순매수를 유지하고 있어 개인·외국인 매도 물량을 일부 받아내는 모습입니다.',
-        '영업이익률은 전년 대비 개선되는 추세지만, 메모리 가격 변동성은 계속 지켜봐야 할 변수입니다.',
-      ],
-      conclusion:
-        '재무·수급·기술적 지표를 종합했을 때 단기 변동성이 확대된 구간으로 보입니다. 이 보고서는 정보 제공 목적이며, 투자 판단과 그 책임은 본인에게 있습니다.',
-      targetPrice: { value: 78000, source: '한국투자증권 리서치(가상)' },
-      generatedAt: GENERATED_AT,
-      sources: ['한국거래소', '연합인포맥스'],
-    },
   }),
   '000660': buildStockDetail('000660', {
     tradingValue: 5_397_600_000_000,
@@ -454,17 +426,6 @@ export const mockStockDetails: Record<string, StockDetail> = {
       netIncome: 17_050_000_000_000,
     },
     financialHealth: { debtRatio: 41.2, roe: 15.6, currentRatio: 187.3 },
-    aiReport: {
-      summaryPoints: [
-        'HBM 수출 호조에 이틀 연속 오르며 반도체 업종 내 상대 강세를 보였습니다.',
-        'PER 18.7배·PBR 2.95배로 고성장 기대가 밸류에이션에 일부 반영돼 있습니다.',
-        '외국인 순매수가 이어지고 있어 수급 측면은 우호적인 편입니다.',
-      ],
-      conclusion:
-        'HBM 중심 수급 개선이 확인되지만 고밸류에이션 부담도 함께 존재합니다. 이 보고서는 정보 제공 목적이며, 투자 판단과 그 책임은 본인에게 있습니다.',
-      generatedAt: GENERATED_AT,
-      sources: ['한국거래소', '연합인포맥스'],
-    },
   }),
   '032830': buildStockDetail('032830', {
     tradingValue: 292_600_000_000,
@@ -483,17 +444,6 @@ export const mockStockDetails: Record<string, StockDetail> = {
       netIncome: 1_940_000_000_000,
     },
     financialHealth: { debtRatio: 892.1, roe: 8.4, currentRatio: 105.2 },
-    aiReport: {
-      summaryPoints: [
-        '삼성전자 주주환원 계획 발표에 배당 기대가 몰리며 급등했습니다.',
-        'PER 9.8배·PBR 0.62배로 금융주 평균 대비 낮은 밸류에이션 구간입니다.',
-        '급등 이후 단기 변동성이 커질 수 있어 수급 흐름을 함께 살펴볼 필요가 있습니다.',
-      ],
-      conclusion:
-        '배당 기대감이 주가를 밀어올린 구간으로, 이 보고서는 정보 제공 목적이며 투자 판단과 그 책임은 본인에게 있습니다.',
-      generatedAt: GENERATED_AT,
-      sources: ['한국거래소', '연합인포맥스'],
-    },
   }),
   '373220': buildStockDetail('373220', {
     tradingValue: 632_760_000_000,
@@ -512,17 +462,6 @@ export const mockStockDetails: Record<string, StockDetail> = {
       netIncome: -410_000_000_000,
     },
     financialHealth: { debtRatio: 118.6, roe: -3.2, currentRatio: 132.4 },
-    aiReport: {
-      summaryPoints: [
-        '미국 장기 국채금리 상승에 2차전지 업종 전반이 약세를 보였습니다.',
-        'PER 42.3배로 이익 대비 밸류에이션 부담이 상대적으로 높은 편입니다.',
-        '외국인·기관 동반 순매도가 이어지고 있어 수급 부담이 큽니다.',
-      ],
-      conclusion:
-        '금리 민감도가 높은 업종 특성상 변동성이 큰 구간입니다. 이 보고서는 정보 제공 목적이며, 투자 판단과 그 책임은 본인에게 있습니다.',
-      generatedAt: GENERATED_AT,
-      sources: ['한국거래소', '연합인포맥스'],
-    },
   }),
   '009150': buildStockDetail('009150', {
     tradingValue: 276_360_000_000,
@@ -541,16 +480,6 @@ export const mockStockDetails: Record<string, StockDetail> = {
       netIncome: 398_000_000_000,
     },
     financialHealth: { debtRatio: 68.9, roe: 7.1, currentRatio: 145.8 },
-    aiReport: {
-      summaryPoints: [
-        '대형주 쏠림에 소외되며 낙폭이 커졌습니다.',
-        'PER 15.2배·PBR 1.48배 수준으로 업종 평균과 큰 차이는 없습니다.',
-      ],
-      conclusion:
-        '단기적으로는 수급 소외 구간으로 보입니다. 이 보고서는 정보 제공 목적이며, 투자 판단과 그 책임은 본인에게 있습니다.',
-      generatedAt: GENERATED_AT,
-      sources: ['한국거래소', '연합인포맥스'],
-    },
   }),
   '196170': buildStockDetail('196170', {
     tradingValue: 313_600_000_000,
@@ -569,16 +498,5 @@ export const mockStockDetails: Record<string, StockDetail> = {
       netIncome: 74_000_000_000,
     },
     financialHealth: { debtRatio: 32.5, roe: 4.2, currentRatio: 612.3 },
-    aiReport: {
-      summaryPoints: [
-        '위탁개발생산(CDMO) 계약 관련 불확실성이 부각되며 매도세가 유입됐습니다.',
-        'PER 185배로 이익 대비 밸류에이션 부담이 매우 큰 편입니다.',
-        '공매도 비중이 4.86%로 다른 종목 대비 높아 변동성이 커질 수 있습니다.',
-      ],
-      conclusion:
-        '이벤트 민감도가 매우 높은 구간입니다. 이 보고서는 정보 제공 목적이며, 투자 판단과 그 책임은 본인에게 있습니다.',
-      generatedAt: GENERATED_AT,
-      sources: ['한국거래소', '연합인포맥스'],
-    },
   }),
 };

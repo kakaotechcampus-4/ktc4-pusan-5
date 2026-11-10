@@ -18,7 +18,9 @@ counter 는 등락 반대 방향 재료(하락일은 background.bullish, 상승�
 
 factor 를 빼도 repair_quotes 는 summary 문장을 고치지 않는다. 뺀 factor 에 등락 층(move) link 가 있었으면
 rewrite_summary("main_cause"), 상대 층(relative) link 가 있었으면 rewrite_summary("relative") 가 남은 근거만으로
-그 칸을 한 번 다시 쓰게 한다. relative 는 남은 상대 층 근거가 없으면 LLM 을 부르지 않고 null 로 둔다(비워도 되는 칸).
+그 칸을 한 번 다시 쓰게 한다. relative 의 첫 문장은 코스피·그룹 비교(입력 market_compare)라 근거를 빼도 지우지 않는다 —
+다시 쓸 때 market_compare 를 함께 주고, 남은 상대 층 근거가 없어도 쓸 그룹 비교가 있으면 그 문장만 남게 다시 쓴다.
+남은 근거도 쓸 그룹 비교도 없으면 LLM 을 부르지 않고 null 로 둔다(비워도 되는 칸).
 다시 쓰지 못하면 러너가 MAIN_CAUSE_STALE·RELATIVE_STALE 경고를 남긴다.
 
 비용 상한: factor 가 CAPS["factors"] 를, background 전체가 CAPS["background"] 를 넘은 보고서는 repair 하지 않는다
@@ -35,6 +37,7 @@ from app.llm.client import LLMError, StreamInterrupted, complete, cost_detail
 from app.services.stock_analysis.verify import (
     BACKGROUND_SLOTS,
     CAPS,
+    COMPARE_META_PHRASES,
     QUOTE_NOT_IN_SOURCE,
     QUOTE_VERIFY_FAIL,
     _background_is_empty,
@@ -45,6 +48,7 @@ from app.services.stock_analysis.verify import (
     _messages,
     _sources,
     layer_pct,
+    mention_of,
     normalize_report,
 )
 
@@ -68,7 +72,7 @@ _QUOTE_RULES = """\
 sources 의 url 은 아래 원문 메시지 url 중에서만 고릅니다.
 """
 _SOURCE_SHAPE = ('{"channel": "", "url": "", "datetime_kst": "", "quote": "", '
-                 '"match": "direct|indirect", "is_market_recap": false}')
+                 '"mention": "mentioned|not_mentioned", "is_market_recap": false}')
 
 REPAIR_SYSTEM = """\
 주가 변동 보고서의 근거(factor) 하나를 고칩니다.
@@ -101,7 +105,7 @@ def _repair_user(kind: str, item: dict[str, Any], failures: list[str],
                  messages: list[dict[str, Any]]) -> str:
     urls = {s.get("url") for s in _sources(item)}
     scope = [{"channel": m.get("channel"), "url": m.get("url"), "datetime_kst": m.get("datetime_kst"),
-              "match": m.get("match"), "text": m.get("text")}
+              "mention": mention_of(m), "text": m.get("text")}
              for m in messages if m.get("url") in urls]
     return json.dumps({kind: item, "failed_quotes": failures, "messages": scope},
                       ensure_ascii=False, indent=2)
@@ -231,7 +235,8 @@ async def repair_quotes(
         rewritten = None
         try:
             text, usage = await complete(system, _repair_user(kind, item, failures, messages),
-                                         max_tokens=REPAIR_MAX_TOKENS, stream=stream)
+                                         max_tokens=REPAIR_MAX_TOKENS, stream=stream,
+                                         retry_rate_limited=True)
             record["usage"] = usage
             record["cost"], _ = cost_detail(usage)
             rewritten = _parse_rewrite(text)
@@ -284,40 +289,101 @@ _SUMMARY_SYSTEM = """\
 주가 변동 보고서의 summary.{field} 한 칸을 다시 씁니다. 이 칸은 {what}입니다.
 
 보고서를 쓴 뒤 근거(factor) 일부가 출처 확인에 실패해 빠졌습니다(dropped). 지금 {field} 는 빠진
-근거를 아직 말하고 있을 수 있습니다. **남은 근거(remaining_factors)만으로** {field} 를 다시 쓰세요.
+근거를 아직 말하고 있을 수 있습니다. **{basis}만으로** {field} 를 다시 쓰세요.
 
-- 남은 근거에 없는 내용은 쓰지 않습니다. 빠진 근거의 내용은 한 마디도 남기지 않습니다.
+- {scope}에 없는 내용은 쓰지 않습니다. 빠진 근거의 내용은 한 마디도 남기지 않습니다.
 - 최대 max_sentences 문장, 줄글입니다. {layer_name} link({layer}_link)의 strength 가 높은 것부터 씁니다.
   strength 가 insufficient 인 근거는 넣지 않습니다.
-- partial 이상인 근거가 하나도 없으면 그 사실을 적습니다.{empty}
-- 간접 근거(sources 의 match 가 모두 indirect)나 미확인(unconfirmed: true)에서 온 원인은
+- {empty}
+- 간접 근거(sources 의 mention 이 모두 not_mentioned)나 미확인(unconfirmed: true)에서 온 원인은
   추정·미확인임이 드러나게 씁니다("…가 부담이 됐을 수 있습니다").
 - 지금 {field} 의 문장 중 남은 근거를 말하는 부분은 표현을 되도록 그대로 둡니다.
 - 방향이 반대인 재료를 섞지 않습니다.
-
+{extra}
 출력은 JSON 객체 하나입니다. 첫 글자는 `{{`, 마지막 글자는 `}}` 입니다. 코드펜스·설명 금지.
-{{"{field}": "..."}}
+{{"{field}": {shape}}}
 """
 
-MAIN_CAUSE_SYSTEM = _SUMMARY_SYSTEM.format(
-    field="main_cause", what="오늘 등락의 원인 요약", layer_name="등락 층", layer="move",
-    empty=' 남은 근거가 하나도 없으면\n  "제공된 메시지에서 확인된 원인은 없습니다." 로 적습니다.')
-RELATIVE_SYSTEM = _SUMMARY_SYSTEM.format(
-    field="relative", what="다른 대형주와 달랐던 이유", layer_name="상대 층", layer="relative", empty="")
+# relative 의 비교 문장 규칙. 프롬프트 3부 「비교 수치」와 4부 summary.relative 를 줄인 것이다.
+_RELATIVE_COMPARE_RULES = """
+**비교 문장 — market_compare.** 코스피·그룹과 비교한 수치입니다. 빠진 근거와 상관없는 문장이라 지우지 않습니다.
 
-# 칸마다 (그 칸이 요약하는 층, 판정 칸, 시스템 프롬프트). relative 는 비워도 되는 칸이다(남은 근거가 없으면 null).
+- 첫 문장은 코스피 판정(`kospi.kospi_relation`)과 그룹 판정(`peers[].relation`)을 함께 읽은 해석입니다. 지금 relative 에
+  이 문장이 있으면 표현을 그대로 둡니다. 남은 근거가 하나도 없어도 이 문장은 남깁니다.
+
+  | 코스피 · 그룹 | 첫 문장 |
+  | --- | --- |
+  | `follows` · `follows` | 코스피와 같은 그룹 모두와 비슷하게 움직여 시장 전체 흐름을 따라갔다 |
+  | `diverges` · `follows` | 코스피와는 다르게 같은 그룹과 함께 움직였다. 방향이 다르면 "코스피는 올랐지만 …는 같은 … 그룹과 함께 내렸습니다". 방향이 같으면 "코스피는 올랐지만" 처럼 반대를 잇는 말을 쓰지 않는다 |
+  | `opposite` · `follows` | 코스피 쪽은 판정하는 말 없이 방향만. "코스피는 내렸고 …는 같은 … 그룹과 함께 올랐습니다" |
+  | 어느 쪽이든 · `diverges` | 같은 그룹과 크게 달랐다. 이어서 이 종목만의 재료(남은 근거에 있을 때만) |
+  | 어느 쪽이든 · `opposite` | 판정하는 말 없이 그룹과 이 종목의 등락률만 |
+  | 어느 쪽이든 · `inconclusive` | 판정하는 말 없이. 비교 종목이 하나면 그 종목의 등락률만. 둘 이상이면 비교 종목 방향이 엇갈린 그룹이라 그룹 등락률 없이 종목별 등락률과 엇갈렸다는 말로 "같은 … 그룹의 A는 2.16% 올랐고 B는 0.83% 내려, 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다". 같은 방향 종목은 묶어 "A는 0.40%, B는 1.20% 올랐고 C는 0.50% 내려, …" |
+
+- `opposite` 는 차이는 작지만 오르내린 방향이 반대라는 뜻입니다. 그 비교에는 "비슷하게"·"함께"·"다르게"·"따라갔다" 를 쓰지 않습니다.
+
+- 그룹 이름, 비교한 종목, 그룹 등락률(median_change_rate_pct)을 쓰고, 코스피는 수치 없이 말로만 씁니다("코스피는 0.62% 올랐고"
+  처럼 코스피에 수치를 붙이지 않습니다). 초과분 숫자는 쓰지 않습니다.
+  그룹 등락률은 "대체로 X% 안팎 내린 같은 … 그룹의 A·B" 처럼 쓰고 "평균"·"중앙값"·"중간값" 같은 통계 용어는 쓰지 않습니다.
+  `mixed` 가 `true` 인 그룹(`inconclusive` 이고 비교 종목이 둘 이상)은 그룹 등락률을 쓰지 않고 종목별 등락률(`change_rate_pct`)로
+  쓴 뒤 방향이 엇갈렸다고 덧붙입니다(방향이 엇갈린 그룹). 이 종목 등락률을 함께 써도 엇갈렸다는 말은 빼지 않습니다.
+  수치는 market_compare 에 있는 값만 씁니다. 직접 계산하지 않습니다.
+- `kospi_basis` 가 `kospi_ex_self` 면 코스피 대신 "<종목명>을 뺀 코스피" 와 비교합니다. 종목명은 입력 `stock` 입니다.
+  코스피 판정이 `null` 이면 그룹 쪽만 씁니다.
+- `members_used` 가 한 종목이면 "대체로 … 안팎" 이라 하지 않고 그 종목의 등락률로 씁니다. 이름에 "연동" 이 들어간 그룹은 지분으로 이어진
+  종목 묶음입니다 — 같은 업종이라고 쓰지 않습니다.
+- `members_used` 에 `in_sentence: false` 인 종목이 있으면(보합이거나 그룹 등락률과 방향이 다른 종목이 섞인 그룹) 그룹 등락률을 쓰지
+  않습니다. `in_sentence: true` 인 종목만 각자의 등락률(`change_rate_pct`, 둘 이상이면 "0.35~0.80%")로 쓰고, `in_sentence: false`
+  인 종목은 바로 뒤에 따로 한 문장으로 씁니다("같은 그룹의 현대차는 보합이었습니다.").
+- `judge_in_sentence` 는 `follows`·`diverges` 그룹에만 값이 있습니다(그 밖은 `null`). `false` 인 그룹은 판정하는 말("비슷하게"·"함께"·"다르게"·"크게 달랐다"·"따라갔다") 없이 등락만
+  씁니다("같은 자동차 그룹의 기아는 1.00% 올랐고, 현대모비스는 1.80% 올랐습니다."). 그룹 판정이 `follows`·`diverges` 면 이
+  종목의 등락률(입력 `change_pct`)을 그 문장에 반드시 씁니다. 그룹과 다르게 움직인 이유를 찾지 못했다는 말도 쓰지 않습니다.
+- market_compare 가 `null` 이거나 `status` 가 `ok` 가 아니거나, `peers` 가 비었거나 `peers[].relation` 이 모두 `null` 이면
+  비교 문장을 쓰지 않습니다.
+""" + "- " + "·".join(f'"{phrase}"' for phrase in COMPARE_META_PHRASES) + " 같은 안쪽 말은 쓰지 않습니다.\n"
+# 금지 문구는 검증기(verify.COMPARE_META_PHRASES)와 같은 목록이다. 검증기에 말을 더하면 여기에도 든다.
+
+MAIN_CAUSE_SYSTEM = _SUMMARY_SYSTEM.format(
+    field="main_cause", what="오늘 등락의 원인 요약", basis="남은 근거(remaining_factors)", scope="남은 근거",
+    layer_name="등락 층", layer="move",
+    empty='partial 이상인 근거가 하나도 없으면 그 사실을 적습니다. 남은 근거가 하나도 없으면\n'
+          '  "제공된 메시지에서 확인된 원인은 없습니다." 로 적습니다.',
+    extra="", shape='"..."')
+RELATIVE_SYSTEM = _SUMMARY_SYSTEM.format(
+    field="relative", what="상대 층 — 코스피·그룹 판정을 함께 읽은 해석과 다른 대형주와 달랐던 이유",
+    basis="남은 근거(remaining_factors)와 비교 수치(market_compare)", scope="남은 근거와 비교 수치(market_compare)",
+    layer_name="상대 층", layer="relative",
+    empty="partial 이상인 근거가 없으면 비교 문장만 씁니다. 쓸 근거도 비교 문장도 없으면 null 입니다.",
+    extra=_RELATIVE_COMPARE_RULES, shape='"..." 또는 null')
+
+# 칸마다 (그 칸이 요약하는 층, 판정 칸, 시스템 프롬프트). relative 는 비워도 되는 칸이다(남은 근거도 쓸 그룹 비교도 없으면 null).
 _SUMMARY_FIELDS = {"main_cause": ("move", "verdict", MAIN_CAUSE_SYSTEM),
                    "relative": ("relative", "relative_verdict", RELATIVE_SYSTEM)}
 # relative 칸의 문장 수 상한(프롬프트 4부 summary 표).
 RELATIVE_MAX_SENTENCES = 3
+# 이 status 일 때만 비교 문장을 쓴다(프롬프트 3부 「비교 수치」).
+COMPARE_OK = "ok"
+
+
+def has_group_compare(market_compare: Any) -> bool:
+    """relative 의 비교 문장을 쓸 수 있는가. status 가 ok 이고 판정(relation)이 있는 그룹이 하나라도 있어야 한다.
+    코스피 판정만 있는 날은 relative 에 비교 문장을 쓰지 않는다(코스피 판정 문장은 move 에 있다)."""
+    if not isinstance(market_compare, dict) or market_compare.get("status") != COMPARE_OK:
+        return False
+    return any(isinstance(p, dict) and p.get("relation") is not None for p in market_compare.get("peers") or [])
 
 
 def _summary_user(report: dict[str, Any], field: str, dropped: list[dict[str, Any]], sentences: int,
-                  remaining: list[dict[str, Any]]) -> str:
+                  remaining: list[dict[str, Any]], market_compare: dict[str, Any] | None, stock: str | None) -> str:
     _, verdict_key, _ = _SUMMARY_FIELDS[field]
-    return json.dumps({verdict_key: report.get(verdict_key), "max_sentences": sentences,
-                       field: report["summary"][field], "dropped": [r.get("event") for r in dropped],
-                       "remaining_factors": remaining}, ensure_ascii=False, indent=2)
+    body = {verdict_key: report.get(verdict_key), "max_sentences": sentences,
+            field: report["summary"][field], "dropped": [r.get("event") for r in dropped],
+            "remaining_factors": remaining}
+    if field == "relative":
+        # kospi_ex_self 날 "<종목명>을 뺀 코스피" 에 쓴다
+        body["stock"] = stock
+        body["market_compare"] = market_compare
+    return json.dumps(body, ensure_ascii=False, indent=2)
 
 
 def _remaining(report: dict[str, Any], layer: str) -> list[dict[str, Any]]:
@@ -327,21 +393,23 @@ def _remaining(report: dict[str, Any], layer: str) -> list[dict[str, Any]]:
         if link is not None:
             out.append({"event": f.get("event"), "detail": f.get("detail"),
                         "stance": f.get("stance"), "unconfirmed": f.get("unconfirmed"),
-                        "source_matches": [s.get("match") for s in _sources(f)],
+                        "source_mentions": [mention_of(s) for s in _sources(f)],
                         f"{layer}_link": {"note": link.get("note"), "strength": link.get("strength")}})
     return out
 
 
 async def rewrite_summary(
     report: dict[str, Any], records: list[dict[str, Any]], field: str, *, stream: bool, run_id: str = "",
-    sentences: int = 3,
+    sentences: int = 3, market_compare: dict[str, Any] | None = None, stock: str | None = None,
 ) -> dict[str, Any] | None:
     """repair_quotes 가 그 칸의 층(main_cause 는 move, relative 는 relative) link 를 가진 factor 를 뺐으면 그 칸을
-    한 번 다시 쓰게 한다.
+    한 번 다시 쓰게 한다. market_compare 는 모델에 보낸 입력 칸, stock 은 입력 종목명이고 relative 를 다시 쓸 때만 쓴다.
 
     report 를 제자리에서 고친다. 할 일이 없으면 None, 있으면 기록(래퍼 main_cause_rewrite·relative_rewrite 칸)을
-    돌려준다. result 는 rewritten | cleared(relative 인데 남은 상대 층 근거가 없어 LLM 없이 null) | failed.
-    failed 면 칸은 그대로이고 러너가 MAIN_CAUSE_STALE·RELATIVE_STALE 경고를 단다. relative 가 이미 null 이면 할 일이 없다.
+    돌려준다. result 는 rewritten | cleared(relative 를 null 로 둠) | failed. relative 는 남은 상대 층 근거도 쓸 그룹
+    비교도 없으면 LLM 없이 cleared, 남은 근거가 없어도 그룹 비교가 있으면 비교 문장만 남게 다시 쓴다. 다시 쓴 결과가
+    null 이어도 cleared 다. failed 면 칸은 그대로이고 러너가 MAIN_CAUSE_STALE·RELATIVE_STALE 경고를 단다. relative 가
+    이미 null 이면 할 일이 없다.
     """
     layer, _, system = _SUMMARY_FIELDS[field]
     dropped = [r for r in records if r.get("result") == "dropped" and layer in (r.get("layers") or [])]
@@ -357,13 +425,14 @@ async def rewrite_summary(
         return record
     record["before"] = summary[field]
     remaining = _remaining(report, layer)
-    if field == "relative" and not remaining:
+    if field == "relative" and not remaining and not has_group_compare(market_compare):
         summary["relative"] = None
         record.update(result="cleared")
         return record
     try:
-        text, usage = await complete(system, _summary_user(report, field, dropped, sentences, remaining),
-                                     max_tokens=REPAIR_MAX_TOKENS, stream=stream)
+        text, usage = await complete(
+            system, _summary_user(report, field, dropped, sentences, remaining, market_compare, stock),
+            max_tokens=REPAIR_MAX_TOKENS, stream=stream, retry_rate_limited=True)
     except (LLMError, StreamInterrupted) as exc:
         logger.warning("%s: %s 다시 쓰기 실패: %s", run_id, field, exc)
         record["error"] = str(exc)
@@ -374,6 +443,11 @@ async def rewrite_summary(
 
     _, parsed, _ = extract_json(text)
     after = parsed.get(field) if isinstance(parsed, dict) else None
+    # relative 는 쓸 근거도 비교 문장도 없다고 null 로 답할 수 있다(비워도 되는 칸)
+    if field == "relative" and isinstance(parsed, dict) and field in parsed and after is None:
+        summary[field] = None
+        record.update(result="cleared")
+        return record
     if not isinstance(after, str) or not after.strip():
         record["error"] = f"다시 쓴 응답에서 {field} 를 읽지 못함"
         return record
@@ -390,5 +464,5 @@ async def rewrite_main_cause(
 
 
 __all__ = ["BACKGROUND_REPAIR_SYSTEM", "MAIN_CAUSE_SYSTEM", "RELATIVE_MAX_SENTENCES", "RELATIVE_SYSTEM", "REPAIR_MAX_ITEMS",
-           "REPAIR_SYSTEM", "counter_slot", "quote_failures", "repair_limit", "repair_quotes", "rewrite_main_cause",
-           "rewrite_summary"]
+           "REPAIR_SYSTEM", "counter_slot", "has_group_compare", "quote_failures", "repair_limit", "repair_quotes",
+           "rewrite_main_cause", "rewrite_summary"]

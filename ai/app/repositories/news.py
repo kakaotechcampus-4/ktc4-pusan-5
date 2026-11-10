@@ -15,13 +15,13 @@ backend `repositories/news.py` 는 URL 이 같으면 건너뛰기만 했다. 여
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import News, TelegramMessageLink
-from app.services.news.failure import is_retryable
+from app.services.news.failure import retry_due
 from app.services.news.url import canonical_url
 
 # 본문 칼럼. 성공한 본문을 채울 때 함께 바뀐다.
@@ -177,14 +177,16 @@ async def known_articles(session: AsyncSession, urls: list[str]) -> dict[str, Kn
 
 async def failed_news(
     session: AsyncSession, *, source: str, since: datetime, limit: int,
+    now: datetime | None = None,
 ) -> list[News]:
     """본문을 못 얻은 기사 중 발행(모르면 수집)이 since 이후인 것. 재시도 대상이다.
 
-    404·410 같은 영구 실패는 공통 판별(is_retryable)로 거른다. 서버 커서로 조금씩 읽고
+    영구 실패와 429 대기 중인 행은 공통 정책으로 거른다. 서버 커서로 조금씩 읽고
     재시도 대상이 limit개 모이면 멈춰 전체 실패 행을 메모리에 올리지 않는다.
     """
     if limit <= 0:
         return []
+    now = now or datetime.now(UTC)
     rows = await session.stream_scalars(
         select(News)
         .where(
@@ -198,7 +200,7 @@ async def failed_news(
     targets = []
     try:
         async for news in rows:
-            if is_retryable(news.body_error):
+            if retry_due(news.body_error, news.body_fetched_at, now=now):
                 targets.append(news)
                 if len(targets) == limit:
                     break

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core import monitoring
 from app.core.config import settings
 from app.core.database import engine
 from app.core.errors import (
@@ -18,6 +19,7 @@ from app.core.errors import (
 from app.routers import concepts
 from app.routers.auth import router as auth_router
 from app.routers.market import router as market_router
+from app.routers.reports import router as reports_router
 from app.routers.search import router as search_router
 from app.routers.stocks import router as stock_router
 from app.routers.watchlist import router as watchlist_router
@@ -30,6 +32,7 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
 
 
+monitoring.init()
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 app.add_middleware(
@@ -47,6 +50,7 @@ app.add_exception_handler(Exception, unhandled_exception_handler)
 
 app.include_router(concepts.router)
 app.include_router(market_router)
+app.include_router(reports_router)
 app.include_router(search_router)
 app.include_router(stock_router)
 app.include_router(watchlist_router)

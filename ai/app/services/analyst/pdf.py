@@ -46,7 +46,10 @@ def extract_pdf_text(path: Path) -> tuple[str, str, int | None]:
         proc = subprocess.run(
             ["pdftotext", "-raw", "-enc", "UTF-8", str(path), "-"],
             capture_output=True,
+            # 위 -enc 와 같게 읽는다. 안 적으면 OS 기본값으로 읽어 한국어 Windows(cp949)에서 죽는다
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=180,
             check=False,  # 실패는 아래에서 글자수로 판정한다. 예외로 올리지 않는다
         )

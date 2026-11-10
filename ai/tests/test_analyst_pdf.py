@@ -45,6 +45,29 @@ def test_page_count_comes_from_form_feeds(tmp_path: Path) -> None:
     assert "page 1" in text
 
 
+def test_pdftotext_output_is_read_as_utf8(tmp_path: Path, monkeypatch) -> None:
+    """OS 기본 인코딩으로 읽으면 안 된다. 한국어 Windows(cp949)에서 한글 PDF 가 전부 실패했다.
+
+    CI(Linux)는 기본값도 UTF-8 이라 실제로 돌려서는 못 잡는다. 넘기는 값을 본다.
+    """
+    import subprocess
+
+    from app.services.analyst import pdf as pdf_mod
+
+    seen: dict = {}
+
+    def fake_run(*args, **kwargs):
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(args, 0, stdout="기업분석\f", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(pdf_mod.shutil, "which", lambda _: "/usr/bin/pdftotext")
+
+    text, how, _ = extract_pdf_text(tmp_path / "t.pdf")
+    assert seen["encoding"] == "utf-8"
+    assert (text, how) == ("기업분석", "pdftotext")
+
+
 def test_falls_back_to_pypdf_when_pdftotext_returns_nothing(tmp_path: Path, monkeypatch) -> None:
     """poppler 26.07 은 Catalog 를 못 읽고도 **종료코드 0** 을 준다.
 

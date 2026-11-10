@@ -180,17 +180,20 @@ def test_collected_time_is_not_used_as_publish_time(database):
     assert query(database, "SELECT published_at FROM news")[0][0] is None
 
 
-def test_retry_selection_continues_past_a_batch(database):
+def test_retry_selection_continues_past_a_batch_and_skips_cooldown(database):
     alembic(database, "upgrade", "head")
+    mock_now = T0 + timedelta(hours=1)
     save(database, [
         *(failed(f"https://a.example.com/gone/{i}", body_error="http_error: 404")
           for i in range(101)),
+        failed("https://a.example.com/wait", body_error="http_error: 429",
+               body_fetched_at=mock_now),
         failed("https://a.example.com/due", body_error="http_error: 429"),
         failed("https://a.example.com/next"),
     ])
 
     targets = in_session(database, lambda session: failed_news(
-        session, source="naver", since=T0, limit=1,
+        session, source="naver", since=T0, limit=1, now=mock_now,
     ))
     assert [n.url for n in targets] == ["https://a.example.com/due"]
 
@@ -211,15 +214,16 @@ async def test_retry_scan_stops_at_limit_and_closes_cursor():
 
     async def mock_rows():
         yield News(id=1, body_error="http_error: 404", body_fetched_at=T0)
-        yield News(id=2, body_error="http_error: 503", body_fetched_at=T0)
+        yield News(id=2, body_error="http_error: 429", body_fetched_at=T0)
+        yield News(id=3, body_error="http_error: 503", body_fetched_at=T0)
         pytest.fail("Read past the requested number of retry targets")
 
     mock_stream = AsyncMock()
     mock_stream.__aiter__.side_effect = mock_rows
     mock_session = AsyncMock()
     mock_session.stream_scalars.return_value = mock_stream
-    targets = await failed_news(mock_session, source="naver", since=T0, limit=1)
-    assert [n.id for n in targets] == [2]
+    targets = await failed_news(mock_session, source="naver", since=T0, limit=1, now=T0)
+    assert [n.id for n in targets] == [3]
     mock_stream.close.assert_awaited_once()
 
 
