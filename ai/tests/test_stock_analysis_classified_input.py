@@ -1,13 +1,16 @@
 """분류 결과 → 러너 입력 어댑터. DB·LLM 을 쓰지 않는다(classified_sources·get_sources·세션을 바꿔 끼운다)."""
 
+import argparse
 import asyncio
 import copy
+import json
 from datetime import date, datetime, time, timedelta
 
 import pytest
 from sqlalchemy.exc import ProgrammingError
 
 from app.collectors.stock_analysis import collect_inputs
+from app.core import database
 from app.core.scope import KST
 from app.repositories.source_card.query import since_day_counts
 from app.repositories.source_card.read_model import (
@@ -211,6 +214,36 @@ def test_disclosures_left_out_by_the_query_are_recorded_with_their_edge():
     assert reasons[11].startswith("boundary_disclosure: 접수일 2026-11-02 이 조회 시작일")
     assert reasons[14].startswith("close_day_disclosure: 접수일 2026-11-03 이 게시 끝 날짜")
     assert "게시 끝(2026-11-03T15:30+09:00)" in reasons[14]
+
+
+def test_run_summary_line_shows_close_day_count_next_to_boundary_count(monkeypatch, tmp_path, capsys):
+    """실행 끝 요약 줄은 경계일(조회 시작일)로 뺀 공시와 게시 끝 날짜(대상일 당일)로 뺀 공시를 따로 센다."""
+    left_out = [(11, SINCE.date(), "since_day"), (14, CUTOFF.date(), "until_day"), (15, CUTOFF.date(), "until_day")]
+    built = ci.build_input(found(source(10, event("company"))), {10: record(10)}, code=CODE, cutoff=CUTOFF,
+                           change_pct=-1.2, since=SINCE, left_out=left_out)
+
+    class NoDb:
+        async def __aenter__(self):
+            return None
+
+        async def __aexit__(self, *exc):
+            return False
+
+    async def fake_load_input(session, code, **kwargs):
+        payload, meta = copy.deepcopy(built)
+        meta["since_basis"] = "argument"
+        return payload, meta
+
+    monkeypatch.setattr(database, "SessionLocal", NoDb)
+    monkeypatch.setattr(ci, "load_input", fake_load_input)
+    args = argparse.Namespace(code=CODE, cutoff=CUTOFF.isoformat(), change_pct=-1.2, since=SINCE.isoformat(),
+                              target_date=None, out=tmp_path)
+    asyncio.run(ci.main(args))
+
+    out = capsys.readouterr().out
+    assert "공시 0 (경계일 뺌 1 · 게시 끝 날짜 뺌 2)" in out
+    saved = json.loads(next((tmp_path / "meta").glob("*.json")).read_text(encoding="utf-8"))
+    assert (saved["counts"]["disclosure_boundary"], saved["counts"]["disclosure_close_day"]) == (1, 2)
 
 
 def test_news_cards_become_news_messages():
