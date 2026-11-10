@@ -152,10 +152,11 @@ def test_downgrade_stops_when_results_exist(database, monkeypatch, table):
                         " (source_card_id, status, model, prompt_sha256)"
                         " VALUES ($1, 'failed', 'm', 'x')", card_id)
 
+    # 멈추면 버전이 downgrade 전 그대로다. 0029 뒤에 리비전이 붙어도 깨지지 않게 이름을 적지 않는다
+    before = query(database, "SELECT version_num FROM alembic_version_ai")[0][0]
     result = alembic(database, "downgrade", "0028_stock_move_analysis_display", success=False)
     assert "downgrade 를 멈춘다" in result and table in result
-    assert query(database, "SELECT version_num FROM alembic_version_ai")[0][0] \
-        == "0029_classification_same_event"
+    assert query(database, "SELECT version_num FROM alembic_version_ai")[0][0] == before
 
 
 # ── 실행 ─────────────────────────────────────────────────────────────────
