@@ -3,6 +3,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
+from app.core.mvp_stocks import MVP_CODES
 from app.repositories import report_scrap as scrap_repo
 from app.repositories.stock_report import ReportStoreUnavailable, StockReportRepository
 from app.schemas.report_scrap import MyScrap, MyScrapList
@@ -24,6 +25,9 @@ async def list_my_scraps(
         report = to_report(row) if row else None
         if row is None or report is None:
             # 보고서가 지워졌거나 본문을 읽을 수 없으면 카드를 만들 수 없어 목록에서 뺀다.
+            continue
+        if report.code not in MVP_CODES:
+            # 서비스 종목에서 빠졌으면 카드를 눌러도 종목 상세가 열리지 않아 목록에서 뺀다.
             continue
         items.append(
             MyScrap(

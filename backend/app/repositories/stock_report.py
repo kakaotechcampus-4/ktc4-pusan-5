@@ -74,11 +74,15 @@ def is_missing_table(exc: DBAPIError) -> bool:
     return TABLE_NAME in orig and "does not exist" in orig
 
 
-def latest_per_stock_statement(limit: int):
-    """종목마다 가장 최근 통과 보고서 하나씩, 최근 기준일 순으로 limit 개."""
+def latest_per_stock_statement(limit: int, codes: frozenset[str]):
+    """codes 안의 종목마다 가장 최근 통과 보고서 하나씩, 최근 기준일 순으로 limit 개."""
     latest = (
         select(*analyses.c)
-        .where(analyses.c.verify_status == "passed", analyses.c.parse_status == "ok")
+        .where(
+            analyses.c.ticker.in_(sorted(codes)),
+            analyses.c.verify_status == "passed",
+            analyses.c.parse_status == "ok",
+        )
         .order_by(
             analyses.c.ticker,
             analyses.c.target_date.desc().nulls_last(),
@@ -134,8 +138,8 @@ class StockReportRepository:
             raise
         return [_to_row(row) for row in rows]
 
-    async def latest_per_stock(self, limit: int) -> list[ReportRow]:
-        return await self._rows(latest_per_stock_statement(limit))
+    async def latest_per_stock(self, limit: int, codes: frozenset[str]) -> list[ReportRow]:
+        return await self._rows(latest_per_stock_statement(limit, codes))
 
     async def get_many(self, ids: list[int]) -> list[ReportRow]:
         if not ids:
