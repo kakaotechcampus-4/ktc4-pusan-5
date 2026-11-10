@@ -42,7 +42,65 @@
     "relative": "no_clear_cause"
   },
   "confidence_level": "none",
-  "events": [],
+  "events": [
+    {
+      "id": "e1",
+      "summary": "미국 중간선거 민주당 압승 이후 두산에너빌리티(원전·가스터빈) 주가 흐름 관심, 에너지 업종 수혜는 정책 내용에 따라 달라질 수 있다는 기사(시황)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.cbci.co.kr/news/articleView.html?idxno=623607",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "두산에너빌리티"
+      ],
+      "rationale": "시장 전체·타 업종 기사(market_recap)이고 삼성화재 를 다루지 않음. 결과·타 업종 자료라 원인 자리에 쓰지 않음(rubric §4-2). 상한 coincident"
+    },
+    {
+      "id": "e2",
+      "summary": "민주당 양원 탈환으로 의약품 관세 정책 견제 강화 전망, K-바이오 대미 투자 속도조절론 부상(시황)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.viva100.com/article/20261105500609",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "속도조절론"
+      ],
+      "rationale": "시장 전체·타 업종 기사(market_recap)이고 삼성화재 를 다루지 않음. 결과·타 업종 자료라 원인 자리에 쓰지 않음(rubric §4-2). 상한 coincident"
+    },
+    {
+      "id": "e3",
+      "summary": "민주당 의회 장악으로 배터리·태양광 업계 수혜 기대, 태양광·풍력 세액공제 연장 추진(시황)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://biz.chosun.com/industry/company/2026/11/05/BMUCVKYEWFENBJYAY2OPLVEDXY/?utm_source=naver&utm_medium=original&utm_campaign=biz",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "세액공제"
+      ],
+      "rationale": "시장 전체·타 업종 기사(market_recap)이고 삼성화재 를 다루지 않음. 결과·타 업종 자료라 원인 자리에 쓰지 않음(rubric §4-2). 상한 coincident"
+    }
+  ],
   "acceptable_alternatives": [],
   "forbidden_claims": [
     {

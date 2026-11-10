@@ -89,7 +89,7 @@
       "importance": "optional",
       "layer": [],
       "expected_mention": "background",
-      "stance": "neutral",
+      "stance": "bullish",
       "max_causal_strength": "coincident",
       "supporting_sources": [
         {
