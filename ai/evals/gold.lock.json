@@ -1,8 +1,8 @@
 {
-  "set_version": "v0.1",
+  "set_version": "v0.2",
   "lock_status": "provisional",
-  "locked_at": "2026-11-10T17:20:24+09:00",
-  "set_hash": "737a44dc68dae1444f7fca18a539ea3061af5e2b05d6c2c6f813fe7ab0fc6c13",
+  "locked_at": "2026-11-10T18:43:28+09:00",
+  "set_hash": "82b5ed6a32c595028966676227e748eb04a3130f72d70b7a7f8a5f08b654f9c9",
   "n_cases": 13,
   "note": "잠정 잠금. 체크리스트·블라인드 재라벨링·verification 이 끝나지 않음. 정식 잠금 전에 gold 를 고치면 --write 로 기록을 다시 만들고 세트 버전을 올림",
   "hash_scope": "case.json, provenance.json, gold.json(verification·status 제외), JSON 정규화(키 정렬) 후 sha256",
@@ -67,7 +67,7 @@
       "gold_json": "ee983ece3e687c459f7867e14b98c73a8ae5742ab3b30f47f0c98a19799fff53"
     },
     "cases_live/b04_086790_2026-11-05": {
-      "case_json": "47fa43a26217449329dbfc957d2ef74fc7b9e2d9f25bcf4a022a779dcabfcc8c",
+      "case_json": "dd10be34615af2690abc95dcba50c9ec6962ddb0e9c934f5d38542f398fd0fbb",
       "provenance_json": "616ae25463a7e7d940f44947ce7fa6f062893c20374e0d37160db0ddd9e49b74",
       "gold_json": "d7b0527b9bac8cb3d4595f26ab23c89cc91873a15544fa94ef79cd2f3fb36e34"
     },

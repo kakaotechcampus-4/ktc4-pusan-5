@@ -48,7 +48,8 @@
       "kind": "disclosure",
       "after_prev_close": false,
       "first_seen_kst": null,
-      "dup_channels": 1
+      "dup_channels": 1,
+      "is_correction": true
     }
   ]
 }
