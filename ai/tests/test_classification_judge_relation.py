@@ -49,7 +49,7 @@ def test_one_question_per_relation_with_scope() -> None:
     assert len(questions) == 2 and [role for _, role, _ in plan.questions] == ["owner", "supplier"]
     texts = [q["instructions"] for q in questions.values()]
     assert "삼성전자의 주주다" in texts[0] and "사건 1" in texts[0]
-    assert "삼성전자의 공급사다(관계 범위: 범위 부품)" in texts[1]
+    assert "삼성전자의 공급사다(관계 범위: 부품)" in texts[1]
     assert all(q["type"] == "noul" for q in questions.values())
 
 
@@ -58,10 +58,36 @@ def test_competitor_question_puts_scope_first_and_lists_unrelated_news() -> None
     questions, _ = relation_questions(EVENT, COMPETITOR, BASIS)
     (question,) = questions.values()
     text = question["instructions"]
-    assert "경쟁하는 제품은 '범위 D램' 이다" in text and "바로 이 제품 시장에서 삼성전자의" in text
+    assert "경쟁하는 제품은 'D램' 이다. 사건 1이(가) 바로 이 제품 시장에서 삼성전자의" in text
     assert all(word in text for word in ("주가 등락", "주식 매매", "인사", "사내 업무 시스템", "지난 일 소개"))
-    assert question["criteria"]["true"] == "'범위 D램' 제품 시장에서 삼성전자의 경쟁 조건이 바뀌는 일이다"
+    assert question["criteria"]["true"] == "'D램' 제품 시장에서 삼성전자의 경쟁 조건이 바뀌는 일이다"
     assert "제품 경쟁과 무관한 일" in question["criteria"]["false"]
+
+
+def test_scope_takes_only_product_range_from_note() -> None:
+    """메모의 근거 수준·단계·검토 메모는 질문에 넣지 않고 '범위' 제품만 넣는다(#115 리뷰)."""
+    note = ("범위 배터리 셀(전기차·ESS·로봇 등 용도, 셀을 담은 모듈·팩·ESS 제품 포함). "
+            "실제 당사자 SK온. 근거 reported. MVP 채택 판단 전")
+    ref = {"via": "005930", "candidate_is": "competitor", "industry": "memory", "note": note}
+    candidate = Candidate("000660", "relation", False, via_stock_code="005930", relation_type="competitor",
+                          relation_refs=[ref])
+    (question,) = relation_questions(EVENT, candidate, BASIS)[0].values()
+    text = question["instructions"]
+    assert ("경쟁하는 제품은 '배터리 셀(전기차·ESS·로봇 등 용도, 셀을 담은 모듈·팩·ESS 제품 포함)' 이다. "
+            "실제 사업 회사는 SK온이다. 사건 1이(가)") in text
+    assert all(word not in text + str(question["criteria"]) for word in ("근거", "reported", "MVP", "범위 배터리"))
+
+
+@pytest.mark.parametrize(("ref", "scope"), [
+    ({"industry": "memory", "note": "23a 범위 HBM, 단계 공급 확인, 근거 official(HBM3 공급. 이후 세대는 따로 확인). "
+                                    "23b 범위 차세대 메모리 기술협력, 단계 협의·개발, 근거 official"},
+     "HBM, 차세대 메모리 기술협력"),
+    ({"industry": "memory", "note": "근거 reported"}, "메모리반도체"),
+    ({"industry": None, "note": None}, "범위 메모 없음"),
+])
+def test_scope_text_cases(ref: dict, scope: str) -> None:
+    assert judge_relation.scope_text(BASIS, ref) == scope
+    assert judge_relation.party_text(ref) == ""
 
 
 def test_other_relations_keep_plain_criteria() -> None:
