@@ -283,7 +283,7 @@ async def save_run(session: AsyncSession, card_id: int, result: ClassificationRe
 
 async def classified_sources(
     session: AsyncSession, stock_code: str, *, until: datetime, since: datetime | None = None,
-    labels: tuple[str, ...] = DEFAULT_LABELS,
+    labels: tuple[str, ...] = DEFAULT_LABELS, observed_by: datetime | None = None,
 ) -> dict:
     """종목 하나에 붙는 분류 자료. 반환 형태는 CLASSIFICATION_DB_DRAFT 5-2 와 같다(키는 snake_case).
 
@@ -295,6 +295,8 @@ async def classified_sources(
 
     사건은 본문에서 나왔다. 공개는 until 전이어도 본문을 그 뒤에 받았거나 받은 시각을 모르면 그 시점에는
     알 수 없던 내용이라 sources 에서 빼고 not_observed 로 센다(get_sources 의 cutoff 와 같은 규칙).
+    공개 시각의 끝(until)과 본문을 받은 시각의 끝(observed_by)은 다를 수 있다 — 보고서 입력은 공개를 대상일 장
+    마감까지만 보고, 본문은 실제 기준 시각까지 받은 것을 쓴다. observed_by 를 안 주면 until 이다.
 
     사건마다 같은 사건 묶음(cluster_id)과 그 묶음의 수(source_count·publisher_count·counts_by_type)를
     더한다. 수도 같은 기간·기준 시각으로 센다. 묶이지 않은 사건은 네 값이 None 이다.
@@ -333,7 +335,8 @@ async def classified_sources(
     )).all()) if picked else {}
     card_ids = list(channels)
     records = {r.id: r for r in await get_sources(session, card_ids)}
-    clusters = await event_clusters(session, set(events), until=until, since=since)
+    clusters = await event_clusters(session, set(events), until=until, since=since,
+                                    observed_by=observed_by)
 
     sources = []
     not_observed = 0
@@ -341,7 +344,7 @@ async def classified_sources(
         record = records.get(card_id)
         if record is None:
             continue
-        if not body_observed_by(record, until):
+        if not body_observed_by(record, observed_by or until):
             not_observed += 1
             continue
         items = sorted(((events[event_id], label, path) for (card, event_id), (label, path)

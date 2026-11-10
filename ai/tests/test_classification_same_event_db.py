@@ -608,6 +608,36 @@ def test_classified_sources_adds_cluster_and_counts_to_each_event(database, monk
     assert company["cluster_id"] == cluster and company["source_count"] == 1
 
 
+def test_classified_sources_counts_with_the_same_observed_by_as_sources(database, monkeypatch):
+    """공개 끝(until)과 본문 끝(observed_by)을 나눠도 묶음 수는 sources 와 같은 기준으로 센다.
+
+    보고서 입력(--target-date)은 공개를 장 마감까지, 본문은 다음 날 아침 cutoff 까지 본다. 장 마감 뒤에 본문을
+    받은 자료가 sources 에는 나오는데 source_count 에서 빠지면 보이는 자료보다 수가 작아진다.
+    """
+    prepare(database)
+    on_time = add_card(database, 1)
+    late_body = add_card(database, 2)
+    for card in (on_time, late_body):
+        save(database, card, classify_with(monkeypatch, judgments(e2_000660="DIRECT")))
+    company_cluster(database, on_time, late_body)
+    close = PUBLISHED + timedelta(hours=1)
+    query(database, "UPDATE news SET body_fetched_at = $1 WHERE id ="
+                    " (SELECT news_id FROM source_card WHERE id = $2)",
+          PUBLISHED + timedelta(hours=5), late_body)
+
+    def company_counts(**kwargs) -> dict[int, int]:
+        found = in_session(database, lambda s: classified_sources(s, "000660", **kwargs))
+        return {source["source_card_id"]: next(
+            e for e in source["events"] if e["path"] == "company")["source_count"]
+            for source in found["sources"]}
+
+    # 본문 끝을 따로 안 주면 장 마감 뒤에 받은 본문은 목록에서도 수에서도 빠진다
+    assert company_counts(until=close) == {on_time: 1}
+    # 본문 끝을 늦추면 목록에 나온 두 자료가 수에도 들어간다
+    assert company_counts(until=close, observed_by=PUBLISHED + timedelta(hours=6)) == {
+        on_time: 2, late_body: 2}
+
+
 def test_command_summary_has_counts_and_dry_run_counts_unsaved_clusters(database, monkeypatch):
     prepare(database)
     classified_card(database, monkeypatch, 1)

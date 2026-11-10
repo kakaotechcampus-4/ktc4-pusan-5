@@ -160,12 +160,16 @@ async def save_clustering(session: AsyncSession, events: list[ClusterEvent],
 
 
 async def cluster_counts(session: AsyncSession, cluster_ids: set[int], *, until: datetime,
-                         since: datetime | None = None) -> dict[int, dict]:
+                         since: datetime | None = None,
+                         observed_by: datetime | None = None) -> dict[int, dict]:
     """묶음 번호 → source_count·publisher_count·counts_by_type.
 
     한 자료의 사건 둘이 같은 묶음이어도 자료는 하나다. 한 매체가 고쳐 올린 기사는 source_count 만 늘린다.
     발행처를 모르는 자료는 publisher_count 에 넣지 않는다. 같은 묶음에서 세는 자료를 링크로 공유한 메시지는
     셀 때 뺀다 — 기사 하나가 두 건으로 보이면 안 된다.
+
+    공개는 until 까지, 본문은 observed_by 까지 받은 자료를 센다(classified_sources 와 같은 기준).
+    observed_by 를 안 주면 until 이다.
     """
     if not cluster_ids:
         return {}
@@ -183,7 +187,7 @@ async def cluster_counts(session: AsyncSession, cluster_ids: set[int], *, until:
     seen = defaultdict(list)
     for row in rows:
         record = records.get(row.id)
-        if record is not None and body_observed_by(record, until):
+        if record is not None and body_observed_by(record, observed_by or until):
             seen[row.cluster_id].append(record)
     counted = {cluster_id: _without_link_shares(seen[cluster_id]) for cluster_id in cluster_ids}
     return {cluster_id: {
@@ -202,7 +206,8 @@ def _without_link_shares(records: list[SourceRecord]) -> list[SourceRecord]:
 
 
 async def event_clusters(session: AsyncSession, event_ids: set[int], *, until: datetime,
-                         since: datetime | None = None) -> dict[int, dict]:
+                         since: datetime | None = None,
+                         observed_by: datetime | None = None) -> dict[int, dict]:
     """사건 id → 묶음 번호와 수. 묶이지 않은 사건은 결과에 없다."""
     if not event_ids:
         return {}
@@ -211,6 +216,7 @@ async def event_clusters(session: AsyncSession, event_ids: set[int], *, until: d
                ClassificationEventClusterMember.cluster_id)
         .where(ClassificationEventClusterMember.event_id.in_(event_ids))
     )).all())
-    counts = await cluster_counts(session, set(clusters.values()), until=until, since=since)
+    counts = await cluster_counts(session, set(clusters.values()), until=until, since=since,
+                                  observed_by=observed_by)
     return {event_id: {"cluster_id": cluster_id, **counts[cluster_id]}
             for event_id, cluster_id in clusters.items()}

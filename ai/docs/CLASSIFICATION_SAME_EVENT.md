@@ -81,7 +81,7 @@
 개수는 저장하지 않고 조회할 때 센다. 기준 시각 뒤에 나온 자료가 수에 들어가면 안 되기 때문이다.
 
 - 현재 회차 사건만 센다.
-- `available_within(until, since)` 와 `body_observed_by(record, until)` 를 통과한 자료만 센다. `classified_sources` 와 같은 규칙이다.
+- `available_within(until, since)` 와 `body_observed_by(record, observed_by or until)` 를 통과한 자료만 센다. `classified_sources` 와 같은 규칙이다. 보고서 입력(`--target-date`)은 공개 끝(`until`)을 대상일 장 마감으로, 본문 끝(`observed_by`)을 실제 기준 시각으로 나눠 주므로, 장 마감 뒤에 본문을 받은 자료도 목록과 수에 똑같이 들어간다. `observed_by` 를 안 주면 `until` 이다.
 - `source_count` 는 서로 다른 자료 수다. 한 자료의 사건 둘이 같은 묶음이어도 1이다.
 - `publisher_count` 는 서로 다른 출처 수다. 한 매체가 고쳐 올린 기사는 `source_count` 만 늘린다.
 - `counts_by_type` 은 자료 종류별 수다. 예: `{"news": 3, "pdf": 1, "message": 1}`
