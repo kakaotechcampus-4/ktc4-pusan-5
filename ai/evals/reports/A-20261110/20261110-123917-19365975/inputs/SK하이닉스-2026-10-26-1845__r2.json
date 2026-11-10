@@ -1,0 +1,73 @@
+{
+  "stock": "SK하이닉스",
+  "code": "000660",
+  "target_date": "2026-10-26",
+  "cutoff": "2026-10-26T18:45:00+09:00",
+  "change_pct": -0.16,
+  "market": null,
+  "messages": [
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4777",
+      "datetime_kst": "2026-10-23T16:49:18+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n1. 메모리 4사 12MF P/E 업데이트 (10/23)\n삼성전자 3.5X\nSK하이닉스 2.9X\n* SK증권 추정치 기준\n\n마이크론 5.0X \nCXMT 10.9X\n* Bloomberg consensus 기준\n\n2. SK하이닉스 본주 & ADR 간 괴리율: 46.2%\n\nSK증권 리서치 IT팀 채널 : \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4778",
+      "datetime_kst": "2026-10-26T06:44:59+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\nSK하이닉스, 日 키옥시아 지분 차익 16조원 특별배당 추진 (동아일보 보도)\n\n▶️ 특별배당 추진\n\n• SK하이닉스, 키옥시아 지분 매각 차익(약 20조원 추정)의 80%를 특별배당으로 환원 추진\n• 투자 8년 만에 매각 이익 약 20조원\n• 28일 3분기 실적발표에서 계획 발표 예정(25일 IB·재계 전언)\n• 분할 지급 여부 검토 중\n\n▶️ 배당 규모\n\n• 특별배당 총액 16조원 안팎 전망\n• 지난해 배당총액(2.1조원)의 7배 이상\n• 현재 발행주식수 기준 주당 2만3,000원 안팎\n• 기존 연 정규배당(1,500원)의 15배, 분기배당(375원) 대비 61배\n\n▶️ 자사주 매입\n\n• 40조원 자사주 매입, 이달 조기 완료\n\n▶️ URL: https://buly.kr/HHfbDxd\n\n• SK증권 리서치 IT팀 채널 : https://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4779",
+      "datetime_kst": "2026-10-26T07:53:19+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n2026.10.26 주요 뉴스\n\n머스크 \"스페이스X, GPU 구매용 400억 달러 부채 조달 완료\"…네오클라우드 구조조정 예고\n투자등급과 스타링크·발사 사업 매출을 근거로 조달했으며 1~2분기 인도분 GPU에 사용, “AI 데이터센터 외 매출이 없는 기업은 자금 조달길이 거의 막혔다”며 네오클라우드 통폐합·도산을 전망(인수 의사는 없다고 밝힘)\nhttps://buly.kr/HHfbF1q\n\n아마존 “2027년 클라우드 용량 대부분 매진, 2028년도 상당 부분 예약”\n재시 CEO는 \"훨씬 더 투자해도 나쁜 자본 사용이 아니다\"라며 올해 2200억 달러 캐펙스에 추가 여력을 시사, BofA는 글로벌 데이터센터 투자가 올해 1조 달러에서 2028년 2.1조 달러로 두 배 이상 늘 것으로 전망\nhttps://buly.kr/9iJ13fi\n\n번스타인 \"발표된 美 데이터센터의 35%만 실제 건설\"…’브라가와트' 경계\n약 500GW 중 170GW만 현실화될 것으로 추산했고 좌초 용량은 1년 새 14.2GW에서 49.6GW로 급증, 월 30~40GW가 발표되지만 착공은 7GW·가동은 2~3GW에 그치는 구조\nhttps://buly.kr/2fghoIE\n\nSK하이닉스, 솔리다임 IPO 중단으로 증설 자금조달이 과제\n미국 신규 생산시설이 필요하다는 입장이나 제3자 배정 증자는 희석 논란, 차입은 이자 부담이 뒤따르는 상황에서 M17(19.1조원) 등 국내 투자와의 재원 배분도 변수. YMTC가 추격하며 양사 웨이퍼 생산 격차는 내년 78만장→36.9만장으로 축소 전망\nhttps://buly.kr/C0CroXU\n\nRTX 5090, 중국 현지가 초기 대비 3배 급등…단종설이 가격 자극\n1만5000~1만6000위안이던 제품이 5만5000~6만 위안으로 올랐고 5080도 8000→1만7000위안, AI GPU에 생산능력이 우선 배정되며 소비자용 공급이 축소된 영향. 엔비디아는 단종설을 부인하되 공급 제약은 인정\nhttps://buly.kr/EdwEWm2\n\n오픈AI, 공격적 할인으로 앤트로픽 추격…AI 가격 경쟁 본격화\n연 1억 달러 이상 기업 계약에 20~30% 이상 할인을 제공하며 2026년 컴퓨팅 비용이 매출을 크게 상회, 앤트로픽은 2분기 매출 115억 달러 중 컴퓨팅 비용 56억 달러로 고마진을 유지하며 9월 기준 모델 호출량은 오픈AI의 2배\nhttps://buly.kr/Ga0ZJjr\n\n캠브리콘 3분기 매출 35.3억 위안(+105%)…순이익은 148% 증가\n중국의 엔비디아 대체 기조에 힘입어 2분기(+76%)보다 성장세가 가팔라졌고 올해 매출 목표는 135억 위안으로 전년의 2배 이상, 다만 메모리 부족과 생산 제약으로 컨센서스(62.6억 위안)에는 미달\nhttps://buly.kr/28wQssA\n\n인피니언·엔비디아, GaN 기반 800V DC 전력 협력 확대\n800V→50V·12V 변환용 고전압 IBC를 CoolGaN으로 공동 개발해 MGX 아키텍처에 적용하며 2027년부터 순차 배치, 랙당 최대 1MW 환경과 핫스왑 유지보수를 지원\nhttps://buly.kr/6XpNPGE\n\n* SK증권 리서치 IT팀 채널 : \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "KISGregKim",
+      "url": "https://t.me/KISGregKim/18858",
+      "datetime_kst": "2026-10-26T07:54:00+09:00",
+      "text": "*SK HYNIX PLANS 16T WON SPECIAL DIVIDEND ON KIOXIA GAINS: DONGA",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19185",
+      "datetime_kst": "2026-10-26T07:58:37+09:00",
+      "text": "Meritz Overnight Tech 2026. 10. 26 (월)\n\n[메리츠증권 반도체/디스플레이 김선우]\n\n★ 메모리 스팟가격\n DRAM(DDR4 8Gb: 1D +0.13%, 1W +0.26%, 1M +1.13%)\n         (DDR5 16Gb: 1D +0.27%, 1W +1.10%, 1M +6.24%)\n NAND(MLC 64Gb: 1D 0.00%, 1W +0.59%, 1M +6.07%)\n\n★ 반도체/디스플레이 주요 뉴스 플로우\n아마존 CEO “AWS 클라우드 용량, 2027년까지 예약 완료” (Reuters)\nhttps://buly.kr/9iJ13fi\n\n틱톡 미국 지부, 수 기가와트 규모 컴퓨팅 용량 확보 추진 (CNBC)\nhttps://buly.kr/AwiJvUL\n\n소프트뱅크, 말레이시아에 500억달러 규모 AI 투자 추진 (NIKKEI Asia)\nhttps://buly.kr/6XpNP7o\n\nSK하이닉스, 日 키옥시아 지분 차익 16조원 특별배당 추진 (동아일보)\nhttps://buly.kr/9BYk7GC\n\n中 양쯔메모리(YMTC), 9600MT/s LPDDR5X 개발 중...우한 Fab3서 양산 전망 (공상시보)\nhttps://buly.kr/4mfnar1\n\n'중국판 엔비디아' 캠브리콘, 매출 급등…\"국산화 노력 수혜\" (지디넷코리아)\nhttps://buly.kr/CsmeiPp\n\n삼성전자, 테일러 1공장 장비 발주 마무리 단계… 텍사스 2nm 생산능력 한계 임박 (Digitimes)\nhttps://buly.kr/FsLXOPG\n\n엔비디아, 2028년 이후 AI 수요 대응 위한 CPO 시제품 공개 (Digitimes)\nhttps://buly.kr/DEcAfbm\n\n“갤럭시A 20% 감산”…삼성, 칩플레이션 대응 (전자신문)\nhttps://buly.kr/4FvWeQE\n\n메모리값 치솟자 PC 출하량 21% 급감…ASUS/애플은 덜 줄었다 (이데일리)\nhttps://buly.kr/AF3I0Ae\n\n★ 전일 해외 관련업체 주요 주가등락 (2%p 이상)\nSK하이닉스(+4.4%), Micron(+2.5%), Western Digital(-3%), Nanya(-5.2%), Lenovo(-2.2%), Asus(-3.7%), ZTE(+3.2%), Marvell(+2.3%), Mediatek(-3.1%), UMC(-2%), AUO(-5%), 에스에프에이(-3.2%), 원익머트리얼즈(-2.3%), 이녹스첨단소재(-2.1%), 삼성전기(-2%), Murata(-2.4%), Yageo(-6.5%), 삼성SDI(-4.2%), CATL(+7.8%)\n\n(자료: Bloomberg, DRAMeXchange, 언론자료) \n\n\n*동 자료는 Compliance 규정을 준수하여 사전 공표된 자료이며, 고객의 증권투자결과에 대한 법적 책임소재의 증빙자료로 사용될 수 없습니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "KISGregKim",
+      "url": "https://t.me/KISGregKim/18859",
+      "datetime_kst": "2026-10-26T08:33:35+09:00",
+      "text": "KOSPI to open higher on US futs gain despite renewed geopolitical risk over Iran. Eyes on if foreign continue unloading TECH ahead of SK HYNIX 3Q result this Wed, Oct 28.\n\n* 3Q TODAY: HD HMS (13:30), HD C&E (15:00), BNK FIN, IBK (16:00)\n* SK HYNIX (000660, pre +1.6%) reportedly seeks to payout 80% of investment return worth W20tn from selling its stake in Kioxia to shareholder as special dividend.\n* LIG D&A (079550) The Defense Acquisition Program Administration (DAPA) reportedly asked to review the revocation of co's defense contractor designation for the counter- small drone system program.\n* KAI (047810) Philippines reportedly mulls to acquire 40 units of KF-21 Boramae fighter.\n* POSCO HLDG (005490)'s workers to begin indefinite strike on Nov 2 after failing to reach an agreement on wage negotiation.\n* LG INNO (011070) in talks with NVIDIA to expand recent robot sensing solution development collaboration into an official partnership.\n* CRYPTO: Korean gov't to waive tax on digital asset for another two years to 2029.\n* KRAFTON (259960) plans to establish Brazil unit as early as Jan, 2027.\n* VORONOI (310210) seeks to issue W80bn CB to accelerate global trials of its lung cancer drug candidate \"VRN11.\"",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4781",
+      "datetime_kst": "2026-10-26T09:59:55+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]  SK하이닉스, 日 키옥시아 지분 차익 16조원 특별배당 추진 (동아일보 보도)  ▶️ 특별배당 추진  • SK하이닉스, 키옥시아 지분 매각 차익(약 20조원 추정)의 80%를 특별배당으로 환원 추진 • 투자 8년 만에 매각 이익 약 20조원 • 28일 3분기 실적발표에서 계획 발표 예정(25일 IB·재계 전언) • 분할 지급 여부 검토 중  ▶️ 배당 규모  • 특별배당 총액 16조원 안팎 전망 • 지난해 배당총액(2.1조원)의…",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4782",
+      "datetime_kst": "2026-10-26T15:49:34+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n1. 메모리 4사 12MF P/E 업데이트 (10/26)\n삼성전자 3.5X\nSK하이닉스 2.9X\n* SK증권 추정치 기준\n\n마이크론 5.1X \nCXMT 10.8X\n* Bloomberg consensus 기준\n\n2. SK하이닉스 본주 & ADR 간 괴리율: 45.2%\n\nSK증권 리서치 IT팀 채널 : \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4783",
+      "datetime_kst": "2026-10-26T16:28:46+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n삼성·SK, 내년 2분기 HBM4 8단 양산 출하… 엔비디아향 공급\n\n▶️ 출하 계획\n\n- 삼성전자·SK하이닉스, 엔비디아향 HBM4 8단 양산 출하 시점을 내년 2분기께로 설정\n- 현재는 두 회사 모두 HBM4 12단 주력 양산 중\n- 올 하반기부터 8단 공급 가능하다는 관측도 있었으나 일정 다소 지연\n\n▶️ 배경: 엔비디아 루빈 울트라 HBM 탑재 전략 변경\n\n- 당초 엔비디아향 HBM4 8단은 공급 계획에 없었으나 올 3분기부터 논의 본격화\n- 루빈 울트라는 HBM4E 12단 탑재 예정이었으나, HBM4 8단·HBM4E 8단 병행 탑재 방안을 유력 검토 중\n- HBM4·HBM4E 12단 적층 구조의 발열 심화, 수율 저하 등 수급 문제가 원인으로 풀이\n- NVL 랙스케일 규모에 따라 8단 병행 탑재, 내년 중반부터 8단 비중 크게 확대 전망\n\n▶️ 양사 대응 현황\n\n- 8단 제조용 부품·소재 수급 및 퀄 테스트 준비 중\n- 양사 모두 HBM4 12단은 엔비디아 인증 완료, 8단은 별도 인증 필요\n- 8단 인증이 12단 대비 수월해 추가 변수 가능성 낮다는 관계자 설명\n\n▶️ URL: https://buly.kr/5qALc2f\n\n* SK증권 리서치 IT팀 채널 :\nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    }
+  ]
+}

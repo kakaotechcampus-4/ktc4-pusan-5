@@ -1,0 +1,367 @@
+{
+  "run_id": "삼성전기-2026-10-28-1845__r2",
+  "final_text": "{\"ticker\": \"009150\", \"name\": \"삼성전기\", \"date\": \"2026-10-28\", \"as_of\": \"2026-10-28T18:45:00+09:00\", \"change_pct\": 8.74, \"verdict\": \"explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 삼성전기는 8.74% 올랐고 코스피는 6.63% 상승했습니다. 같은 시각 대형주 19개 중 17개가 올랐고, 중간값은 2.67% 상승해 삼성전기는 대형주 전반보다 더 올랐습니다. 코스피와 다르게 움직였습니다.\", \"main_cause\": \"3분기 영업이익이 6,910억원으로 예상치를 웃돌았고, 회사는 4분기 부품 수급이 더 빠듯해질 것으로 전망했습니다. AI 낙관론에 따른 미국 증시 상승도 코스피 강세 배경이 됐습니다. 폴더블 아이폰 출하 목표 상향이 카메라 모듈 수요에 보탬이 됐을 가능성도 있습니다.\", \"relative\": \"삼성전기는 코스피와 다르게 움직였고, 같은 전자부품 그룹의 LG이노텍은 1.74% 내린 반면 삼성전기는 8.74% 올랐습니다. 3분기 영업이익이 예상치를 웃돈 점이 대형주 전반과의 차이를 설명했을 수 있습니다. 폴더블 아이폰 출하 전망이 카메라 모듈 수요에 보탬이 됐을 가능성도 있습니다.\", \"counter\": null, \"unexplained\": \"대형주 전반보다 더 오른 부분은 실적과 시장 배경으로 일부 설명되지만, 각 재료가 상승분에 기여한 정도는 제공된 메시지에서 분리해 알 수 없습니다.\"}, \"factors\": [{\"event\": \"3분기 영업이익은 6,910억원으로 예상치를 웃돌았지만, 매출액은 예상치를 밑돌았습니다.\", \"detail\": \"회사는 4분기에도 인공지능 데이터센터용 세라믹 적층 부품과 반도체 패키지 기판의 공급 부족이 심해질 것으로 전망했습니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19221\", \"datetime_kst\": \"2026-10-28T12:01:38+09:00\", \"quote\": \"영업이익: 6,910억원\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4814\", \"datetime_kst\": \"2026-10-28T12:05:08+09:00\", \"quote\": \"영업이익: 6,910억원 (YoY +166%)\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19227\", \"datetime_kst\": \"2026-10-28T14:29:47+09:00\", \"quote\": \"타이트한 수급 상황이 3분기 대비 더욱 심화될 전망\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"예상치를 웃돈 영업이익과 다음 분기 전망이 상승을 뒷받침했을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"회사 고유의 실적이 대형주 전반보다 강한 상승에 기여했을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}, {\"event\": \"미국 증시는 인공지능 낙관론에 힘입어 이틀 연속 상승했습니다.\", \"detail\": \"\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18879\", \"datetime_kst\": \"2026-10-28T08:47:30+09:00\", \"quote\": \"US markets gain for the 2nd day\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"인공지능 낙관론에 따른 미국 증시 상승이 코스피와 함께 이 종목의 상승에도 힘을 보탰을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}, {\"event\": \"애플 폴더블 아이폰의 강한 수요로 출하 목표가 44% 상향될 전망입니다.\", \"detail\": \"\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19207\", \"datetime_kst\": \"2026-10-28T07:39:03+09:00\", \"quote\": \"강한 수요에 출하 목표 44% 상향 전망\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"폴더블폰 출하 전망이 카메라 모듈 수요를 키워 상승에 보탬이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"카메라 모듈 사업 노출이 대형주 전반보다 이 전망에 민감하게 반응했을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"세라믹 적층 부품\", \"term\": \"MLCC\"}, {\"plain\": \"반도체 패키지 기판\", \"term\": \"FC-BGA\"}, {\"plain\": \"장기 공급 계약\", \"term\": \"LTA\"}], \"background\": {\"bullish\": [{\"text\": \"회사는 2027년 세라믹 적층 부품 매출의 절반 이상이 장기 공급 계약에서 나올 것으로 예상했습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19227\", \"datetime_kst\": \"2026-10-28T14:29:47+09:00\", \"quote\": \"2027년 MLCC 매출의 과반 이상이 장기공급계약에서 발생\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"필리핀 신공장은 2027년부터 고부가 세라믹 적층 부품 생산을 시작할 예정입니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19227\", \"datetime_kst\": \"2026-10-28T14:29:47+09:00\", \"quote\": \"필리핀에 건설 중인 신공장은 2027년부터\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"9월 공시한 6.8조원 규모의 반도체 패키지 기판 증설은 2027년부터 단계적으로 생산을 시작할 예정입니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19227\", \"datetime_kst\": \"2026-10-28T14:29:47+09:00\", \"quote\": \"약 6.8조원 규모의 패키지기판 증설 투자\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"watch\": true}], \"bearish\": [], \"neutral\": []}, \"not_found\": [\"m6와 m7은 게시 시각이 기준일 다음 날이어서 2026-10-28 움직임의 근거로 사용하지 않았습니다.\", \"같은 전자부품 그룹 비교 대상은 LG이노텍 한 종목뿐이므로, 그룹 비교는 제공된 inconclusive 판정을 따랐습니다.\"], \"events\": [{\"event\": \"3분기 영업이익은 예상치를 웃돌았고 매출액은 예상치를 밑돌았으며, 회사는 4분기 부품 수급이 더 빠듯해질 것으로 전망했습니다.\", \"issue_ids\": [\"i5\", \"i6\", \"i7\"], \"factor\": 0, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"미국 증시는 인공지능 낙관론에 힘입어 이틀 연속 상승했습니다.\", \"issue_ids\": [\"i3\"], \"factor\": 1, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"애플 폴더블 아이폰의 강한 수요로 출하 목표가 44% 상향될 전망입니다.\", \"issue_ids\": [\"i1\"], \"factor\": 2, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"회사는 2027년 세라믹 적층 부품 매출의 절반 이상이 장기 공급 계약에서 나올 것으로 예상했습니다.\", \"issue_ids\": [\"i8\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"필리핀 신공장은 2027년부터 고부가 세라믹 적층 부품 생산을 시작할 예정입니다.\", \"issue_ids\": [\"i9\"], \"background\": {\"slot\": \"bullish\", \"index\": 1}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"9월 공시한 6.8조원 규모의 반도체 패키지 기판 증설은 2027년부터 단계적으로 생산을 시작할 예정입니다.\", \"issue_ids\": [\"i10\"], \"background\": {\"slot\": \"bullish\", \"index\": 2}, \"dup_channels\": null, \"placed\": \"background\"}], \"display_as_of\": \"2026-10-28T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 26846,
+    "completion_tokens": 18268,
+    "total_tokens": 45114,
+    "prompt_tokens_details": {
+      "cached_tokens": 26843,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 14643,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 26846,
+    "output_tokens": 18268,
+    "cached_prompt_tokens": 26843,
+    "cache_write_tokens": 0,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 26846,
+    "total": 26846,
+    "cache_read": 26843,
+    "cache_write": 0,
+    "uncached": 3
+  },
+  "cost": 13.309969,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 132794,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:52:05+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "더",
+  "main_cause_sentences": 3,
+  "sector": [
+    "전자부품",
+    "MLCC",
+    "카메라모듈",
+    "반도체 기판"
+  ],
+  "universe_weight": 0.0269,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "애플 폴더블 아이폰 출하 목표 상향 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i2",
+          "issue": "삼성전기 전일 주가 상승 결과",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 11
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i3",
+          "issue": "AI 낙관론에 따른 미국 증시 상승과 코스피 강세 전망",
+          "relation": "market"
+        },
+        {
+          "id": "i4",
+          "issue": "삼성전기 3분기 실적 발표 일정",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 8
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i5",
+          "issue": "삼성전기 3분기 매출·영업이익·순이익 발표",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i6",
+          "issue": "삼성전기 3분기 매출·영업이익 발표",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m5",
+      "issues": [
+        {
+          "id": "i7",
+          "issue": "4분기와 2027년 AI 부품 수요·공급 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i8",
+          "issue": "MLCC 장기 공급 계약 진행 현황과 매출 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i9",
+          "issue": "필리핀 신공장 2027년 양산 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i10",
+          "issue": "패키지기판 증설과 2027년 양산 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i11",
+          "issue": "Embedded 기판 수요와 공급 확대 계획",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m6",
+      "issues": [
+        {
+          "id": "i12",
+          "issue": "삼성전기 전일 주가 상승 결과",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 6
+    },
+    {
+      "id": "m7",
+      "issues": [
+        {
+          "id": "i13",
+          "issue": "삼성전기 3분기 실적과 제품 구성 개선 분석",
+          "relation": "direct"
+        },
+        {
+          "id": "i14",
+          "issue": "삼성전기 4분기 실적 전망 상향",
+          "relation": "direct"
+        },
+        {
+          "id": "i15",
+          "issue": "장기 공급 계약과 향후 생산능력 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i16",
+          "issue": "삼성전기 적정주가 상향 제시",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": 8.74,
+      "kospi_change_rate_pct": 6.63,
+      "excess_vs_kospi_pp": 2.11,
+      "kospi_weight_pct": 2.0,
+      "kospi_contribution_pp": 0.174,
+      "kospi_ex_self_change_rate_pct": 6.59,
+      "excess_vs_kospi_ex_self_pp": 2.15,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "전자부품",
+        "median_change_rate_pct": -1.74,
+        "excess_vs_group_pp": 10.48,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "members_used": [
+          {
+            "code": "011070",
+            "name": "LG이노텍"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "009150",
+            "name": "삼성전기",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": 8.74,
+    "krx": 8.74,
+    "source": "KRX /sto/stk_bydd_trd 2026-10-28 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": 6.63,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-10-28 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": 2.67,
+        "peer_up": 17,
+        "peer_down": 2,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 6.07
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 3,
+    "background": 3,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 1,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 2,
+      "layer": "move",
+      "model": "partial",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 2,
+      "layer": "relative",
+      "model": "partial",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "explained",
+      "final": "explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/삼성전기-2026-10-28-1845__r2.json",
+  "input_used_path": "inputs_used/삼성전기-2026-10-28-1845__r2.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inA/c09__r2.json",
+  "input_sha256": "c9089441f9f785104ec41897fdf7534091d85c4438b54d10d82ea5f7e13eef1e",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [
+    "STRENGTH_MISMATCH: factors[2].links[0] layer=move 이슈가 나온 메시지에 mentioned 가 있는데 partial",
+    "STRENGTH_MISMATCH: factors[2].links[1] layer=relative 이슈가 나온 메시지에 mentioned 가 있는데 partial"
+  ],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 7,
+    "messages_total": 7,
+    "relations": {
+      "sector": 1,
+      "direct": 14,
+      "market": 1,
+      "none": 25
+    },
+    "issues_used": 8
+  }
+}

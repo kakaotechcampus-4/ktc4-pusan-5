@@ -1,0 +1,552 @@
+{
+  "run_id": "삼성전기-2026-10-28-1845__r1",
+  "final_text": "{\"ticker\": \"009150\", \"name\": \"삼성전기\", \"date\": \"2026-10-28\", \"as_of\": \"2026-10-28T18:45:00+09:00\", \"change_pct\": 8.74, \"verdict\": \"explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 삼성전기는 8.74% 상승했고 코스피는 6.63% 올랐습니다. 같은 시각 대형주 19개 중 17개가 올랐고 중간값은 2.67% 상승해, 삼성전기는 대형주 전반보다 더 올랐습니다. 코스피와 다르게 움직였습니다.\", \"main_cause\": \"앤스로픽 IPO 관련 AI 낙관론에 미국 증시가 이틀째 오른 흐름이 상승에 보탬이 됐을 수 있습니다. 3분기 영업이익은 예상치를 8% 웃돌았지만 매출은 예상에 못 미쳤습니다. 회사가 장기공급계약과 AI 부품 수요를 바탕으로 추가 성장을 전망한 점도 호재였을 수 있습니다.\", \"relative\": \"삼성전기는 코스피와 다르게 움직였고, 같은 전자부품 그룹의 LG이노텍은 1.74% 내렸습니다. 3분기 영업이익이 예상치를 웃돈 점은 회사 고유의 재료였습니다. 장기공급계약과 AI 부품 수요 전망도 대형주 전반과 달리 삼성전기에 직접 닿는 호재였을 수 있습니다.\", \"counter\": null, \"unexplained\": \"대형주 전반보다 더 오른 부분은 남습니다. 제공된 자료에는 실적, 계약, 성장 전망 가운데 각 재료가 당일 상승에 기여한 몫을 구분할 수치가 없습니다.\"}, \"factors\": [{\"event\": \"3분기 영업이익이 시장 예상치를 8% 웃돌았습니다.\", \"detail\": \"영업이익은 예상치를 웃돌았지만 매출은 예상치를 밑돌았습니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4814\", \"datetime_kst\": \"2026-10-28T12:05:08+09:00\", \"quote\": \"컨센 OP: 6,453억원, 컨센 대비 +8%\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19221\", \"datetime_kst\": \"2026-10-28T12:01:38+09:00\", \"quote\": \"매출액: 3조 7,633억원 (vs 컨센서스 3조 8,072억원)\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"예상치를 웃돈 이익 실적이 이날 주가 상승에 보탬이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"회사별 실적이 예상치를 웃돈 점은 대형주 전반에 공통된 재료와 구별되는 호재였을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}, {\"event\": \"삼성전기는 50여 고객사와 고부가 MLCC 장기공급계약을 체결했거나 추가 협의 중이라고 밝혔습니다.\", \"detail\": \"회사는 2027년 적층 세라믹 부품 매출의 과반 이상이 장기공급계약에서 나올 것으로 예상했습니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19227\", \"datetime_kst\": \"2026-10-28T14:29:47+09:00\", \"quote\": \"장기공급계약을 체결 완료했거나 추가 계약을 진행 중\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19227\", \"datetime_kst\": \"2026-10-28T14:29:47+09:00\", \"quote\": \"2027년 MLCC 매출의 과반 이상이 장기공급계약에서 발생할 것으로 예상\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"미래 매출을 뒷받침할 계약 진행이 상승 재료로 작용했을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"이 계약은 삼성전기의 사업에 직접 연결된 재료라 대형주 전반과의 차이를 설명할 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}, {\"event\": \"회사는 4분기에도 적층 세라믹 부품과 패키지 기판의 공급 부족이 더 심해질 것으로 전망했습니다.\", \"detail\": \"회사는 AI 데이터센터 부품 수요와 제품 구성 개선으로 4분기 실적이 큰 폭으로 성장할 것으로 예상했습니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19227\", \"datetime_kst\": \"2026-10-28T14:29:47+09:00\", \"quote\": \"MLCC와 FC-BGA의 타이트한 수급 상황이 3분기 대비 더욱 심화될 전망\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19227\", \"datetime_kst\": \"2026-10-28T14:29:47+09:00\", \"quote\": \"통상적인 계절성을 넘어서는 전분기 대비 큰 폭의 실적 성장 예상\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"부품 수요와 공급 여건에 대한 회사의 성장 전망이 주가에 보탬이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"AI 부품 사업의 공급 전망은 삼성전기에 직접 닿는 재료여서 대형주 전반과의 차이를 설명할 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}, {\"event\": \"앤스로픽 IPO 관련 AI 낙관론에 미국 증시가 이틀째 상승했습니다.\", \"detail\": \"\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18879\", \"datetime_kst\": \"2026-10-28T08:47:30+09:00\", \"quote\": \"US markets gain for the 2nd day on AI\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"AI 낙관론에 따른 해외 증시 강세가 시장 전반의 상승 흐름과 함께 종목 상승에도 보탬이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"적층 세라믹 부품\", \"term\": \"MLCC\"}, {\"plain\": \"패키지 기판\", \"term\": \"FC-BGA\"}], \"background\": {\"bullish\": [{\"text\": \"애플 폴더블폰의 강한 수요를 바탕으로 출하 목표를 44% 높일 것이라는 전망이 나왔습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19207\", \"datetime_kst\": \"2026-10-28T07:39:03+09:00\", \"quote\": \"출하 목표 44% 상향 전망\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"패키지 기판 증설은 2027년부터 단계적으로 양산하고 2028년부터 매출에 본격 기여할 계획입니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19227\", \"datetime_kst\": \"2026-10-28T14:29:47+09:00\", \"quote\": \"2027년부터 단계적으로 양산을 시작\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"watch\": true}], \"bearish\": [], \"neutral\": []}, \"not_found\": [\"10월 29일 게시된 m6·m7은 기준일 및 입력 cutoff 이후 자료여서 분석 근거로 사용하지 않았습니다.\", \"실적, 장기계약, 성장 전망 가운데 당일 주가에 각각 얼마나 반영됐는지는 제공된 자료로 구분할 수 없습니다.\"], \"events\": [{\"event\": \"삼성전기 3분기 영업이익이 시장 예상치를 웃돌았습니다.\", \"issue_ids\": [\"i21\", \"i22\"], \"factor\": 0, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"삼성전기의 고부가 적층 세라믹 부품 장기공급계약 진행 상황과 향후 매출 비중 전망입니다.\", \"issue_ids\": [\"i32\"], \"factor\": 1, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"회사가 4분기와 이후 부품 수급 및 실적 성장을 전망했습니다.\", \"issue_ids\": [\"i24\", \"i27\", \"i28\", \"i31\"], \"factor\": 2, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"앤스로픽 IPO 관련 AI 낙관론에 미국 증시가 이틀째 상승했습니다.\", \"issue_ids\": [\"i11\"], \"factor\": 3, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"애플 폴더블폰 출하 목표 상향 전망입니다.\", \"issue_ids\": [\"i9\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"패키지 기판 증설의 양산과 매출 기여 일정입니다.\", \"issue_ids\": [\"i35\"], \"background\": {\"slot\": \"bullish\", \"index\": 1}, \"dup_channels\": null, \"placed\": \"background\"}], \"display_as_of\": \"2026-10-28T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 28611,
+    "completion_tokens": 15638,
+    "total_tokens": 44249,
+    "prompt_tokens_details": {
+      "cached_tokens": 19784,
+      "cache_write_tokens": 7059,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 10832,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 28611,
+    "output_tokens": 15638,
+    "cached_prompt_tokens": 19784,
+    "cache_write_tokens": 7059,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 28611,
+    "total": 26846,
+    "cache_read": 19784,
+    "cache_write": 7059,
+    "uncached": 3
+  },
+  "cost": 12.59325175,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 114588,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:51:57+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "더",
+  "main_cause_sentences": 3,
+  "sector": [
+    "전자부품",
+    "MLCC",
+    "카메라모듈",
+    "반도체 기판"
+  ],
+  "universe_weight": 0.0269,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "메모리 현물 시세 변화",
+          "relation": "none"
+        },
+        {
+          "id": "i2",
+          "issue": "씨게이트 실적과 저장장치 수요 전망",
+          "relation": "none"
+        },
+        {
+          "id": "i3",
+          "issue": "오라클의 칩 공급 계약 확대",
+          "relation": "none"
+        },
+        {
+          "id": "i4",
+          "issue": "브로드컴의 대여용 XPU 공급",
+          "relation": "none"
+        },
+        {
+          "id": "i5",
+          "issue": "엔비디아의 메타 투자 계획",
+          "relation": "none"
+        },
+        {
+          "id": "i6",
+          "issue": "TSMC의 패키징 가격 인상 검토",
+          "relation": "sector"
+        },
+        {
+          "id": "i7",
+          "issue": "엔비디아 HBM4 대역폭 조정과 공급 기대",
+          "relation": "none"
+        },
+        {
+          "id": "i8",
+          "issue": "이재용 회장의 로봇 개발 현장 방문",
+          "relation": "none"
+        },
+        {
+          "id": "i9",
+          "issue": "애플 폴더블폰 출하 목표 상향 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i10",
+          "issue": "해외 관련주 등락 목록에 삼성전기 상승 표기",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 7
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i11",
+          "issue": "앤스로픽 IPO 관련 AI 낙관론에 미국 증시 상승",
+          "relation": "market"
+        },
+        {
+          "id": "i12",
+          "issue": "SK하이닉스 실적과 주주환원 정책 관심",
+          "relation": "none"
+        },
+        {
+          "id": "i13",
+          "issue": "솔리다임의 미국 공장 투자 협의",
+          "relation": "none"
+        },
+        {
+          "id": "i14",
+          "issue": "중국 인터넷 기업들의 서버용 메모리 공급 요청",
+          "relation": "none"
+        },
+        {
+          "id": "i15",
+          "issue": "두산의 CCL 생산능력 투자",
+          "relation": "none"
+        },
+        {
+          "id": "i16",
+          "issue": "HD현대의 교환사채 발행",
+          "relation": "none"
+        },
+        {
+          "id": "i17",
+          "issue": "HD현대중공업 노사 임금 합의",
+          "relation": "none"
+        },
+        {
+          "id": "i18",
+          "issue": "고리 원전 3·4호기 발전 재개 전망",
+          "relation": "none"
+        },
+        {
+          "id": "i19",
+          "issue": "네이버의 AI 컴퓨팅 인프라 계약",
+          "relation": "none"
+        },
+        {
+          "id": "i20",
+          "issue": "SK온 헝가리 공장 제재와 보조금 제한",
+          "relation": "none"
+        }
+      ],
+      "none_count": 9
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i21",
+          "issue": "삼성전기 3분기 실적 발표",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i22",
+          "issue": "삼성전기 3분기 실적 발표와 예상치 비교",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m5",
+      "issues": [
+        {
+          "id": "i23",
+          "issue": "AI·ADAS 부품 수요와 3분기 실적 개선",
+          "relation": "direct"
+        },
+        {
+          "id": "i24",
+          "issue": "4분기 이후 AI 부품 수급이 더 빠듯해질 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i25",
+          "issue": "고부가 MLCC 장기계약과 생산·가격 운영",
+          "relation": "direct"
+        },
+        {
+          "id": "i26",
+          "issue": "서버·AI 가속기용 기판 공급 확대 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i27",
+          "issue": "제품 구성·평균 가격·AI 매출 비중에 따른 4분기 성장 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i28",
+          "issue": "2027년에도 부품 수급과 평균 가격 상승 지속 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i29",
+          "issue": "AI·ADAS용 MLCC와 신규 응용처 확대 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i30",
+          "issue": "고부가 패키지 기판 고객 확대와 증설 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i31",
+          "issue": "2027년 1분기부터 분기별 실적 성장 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i32",
+          "issue": "50여 고객사와 장기계약 진행, 2027년 매출 비중 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i33",
+          "issue": "필리핀 신공장의 2027년 양산 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i34",
+          "issue": "AI 서버용 MLCC 생산능력 확대와 공급 부족 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i35",
+          "issue": "패키지 기판 증설의 2027년 양산·2028년 매출 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i36",
+          "issue": "고객사의 투자비 지원과 장기계약 완료",
+          "relation": "direct"
+        },
+        {
+          "id": "i37",
+          "issue": "추가 물량 요청과 후속 증설 검토",
+          "relation": "direct"
+        },
+        {
+          "id": "i38",
+          "issue": "AI용 Embedded 기판 수요 확대",
+          "relation": "direct"
+        },
+        {
+          "id": "i39",
+          "issue": "수동부품과 기판 동시 공급 경쟁력",
+          "relation": "direct"
+        },
+        {
+          "id": "i40",
+          "issue": "Embedded 기판의 2027년 이후 공급 확대 계획",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m6",
+      "issues": [
+        {
+          "id": "i41",
+          "issue": "마이크로소프트 실적과 클라우드 성장",
+          "relation": "none"
+        },
+        {
+          "id": "i42",
+          "issue": "알파벳 실적과 광고·AI 투자 부담",
+          "relation": "none"
+        },
+        {
+          "id": "i43",
+          "issue": "솔리다임의 미국 낸드 공장 투자 추진",
+          "relation": "none"
+        },
+        {
+          "id": "i44",
+          "issue": "중국 CXMT의 AI 메모리 생산 계획",
+          "relation": "none"
+        },
+        {
+          "id": "i45",
+          "issue": "엔비디아·AMD의 메타 투자",
+          "relation": "none"
+        },
+        {
+          "id": "i46",
+          "issue": "오픈AI의 구글 AI칩 도입 검토",
+          "relation": "none"
+        },
+        {
+          "id": "i47",
+          "issue": "해외 관련주 등락 목록에 삼성전기 상승 표기",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 6
+    },
+    {
+      "id": "m7",
+      "issues": [
+        {
+          "id": "i48",
+          "issue": "삼성전기 3분기 실적과 사업 구성 분석",
+          "relation": "direct"
+        },
+        {
+          "id": "i49",
+          "issue": "삼성전기 4분기 실적과 제품 가격 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i50",
+          "issue": "삼성전기 장기계약과 중장기 성장 전망",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": 8.74,
+      "kospi_change_rate_pct": 6.63,
+      "excess_vs_kospi_pp": 2.11,
+      "kospi_weight_pct": 2.0,
+      "kospi_contribution_pp": 0.174,
+      "kospi_ex_self_change_rate_pct": 6.59,
+      "excess_vs_kospi_ex_self_pp": 2.15,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "전자부품",
+        "median_change_rate_pct": -1.74,
+        "excess_vs_group_pp": 10.48,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "members_used": [
+          {
+            "code": "011070",
+            "name": "LG이노텍"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "009150",
+            "name": "삼성전기",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": 8.74,
+    "krx": 8.74,
+    "source": "KRX /sto/stk_bydd_trd 2026-10-28 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": 6.63,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-10-28 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": 2.67,
+        "peer_up": 17,
+        "peer_down": 2,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 6.07
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 4,
+    "background": 2,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 1,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 1,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 2,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 2,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 3,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "explained",
+      "final": "explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/삼성전기-2026-10-28-1845__r1.json",
+  "input_used_path": "inputs_used/삼성전기-2026-10-28-1845__r1.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inA/c09__r1.json",
+  "input_sha256": "c9089441f9f785104ec41897fdf7534091d85c4438b54d10d82ea5f7e13eef1e",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [
+    "DUPLICATE_SOURCES: factors[1] 와 factors[2] 의 출처가 같다. 한 사건이면 factor 하나에 links 로 단다",
+    "QUOTE_MISSING_SUBJECT: factors[1] 첫 출처 quote 에 MLCC 가 없다",
+    "QUOTE_MISSING_SUBJECT: factors[3] 첫 출처 quote 에 IPO 가 없다"
+  ],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 7,
+    "messages_total": 7,
+    "relations": {
+      "none": 44,
+      "sector": 2,
+      "direct": 25,
+      "market": 1
+    },
+    "issues_used": 10
+  }
+}

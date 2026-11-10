@@ -1,0 +1,447 @@
+{
+  "run_id": "셀트리온-2026-11-05-1845__r3",
+  "final_text": "{\"ticker\": \"068270\", \"name\": \"셀트리온\", \"date\": \"2026-11-05\", \"as_of\": \"2026-11-05T18:45:00+09:00\", \"change_pct\": 7.5, \"verdict\": \"explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 셀트리온은 7.5% 올랐고 코스피는 5.28% 내렸습니다. 대형주 19개 중 6개가 올랐고 13개가 내렸으며, 중간값은 5.96% 하락해 셀트리온은 대형주 전반과 반대로 움직였습니다. 코스피와도 다르게 움직였습니다.\", \"main_cause\": \"브라질에서 바이오의약품 복제약 3종을 출시한 소식이 현지 판매 확대 기대를 높여 상승 요인으로 작용했을 수 있습니다.\", \"relative\": \"셀트리온은 코스피와 다르게 움직였고, 같은 바이오 그룹의 삼성바이오로직스는 1.67% 올랐습니다. 브라질에서 바이오의약품 복제약 3종을 출시한 점은 셀트리온에 특화된 판매 기회여서 대형주 전반과 달랐던 배경이 됐을 수 있습니다.\", \"counter\": \"미국 민주당의 의회 장악 뒤 AI 데이터센터 규제 우려가 커진 점은 증시 하락 배경으로, 셀트리온 상승과 반대 방향이었습니다. 제약산업전략연구원장은 미국의 비용과 인프라 부담을 들어 국내 기업의 현지 투자를 신중히 하라고 제언했습니다.\", \"unexplained\": \"대형주 전반과 반대로 움직인 폭 가운데 브라질 신제품 출시가 차지한 크기는 예상 매출이나 처방 규모가 제시되지 않아 가늠하기 어렵습니다.\"}, \"factors\": [{\"event\": \"셀트리온은 브라질에서 바이오의약품 복제약 3종을 새로 출시했습니다.\", \"detail\": \"브라질 판매 품목은 이번 출시로 총 10종이 됐습니다. 안과·자가면역 치료제 2종도 연말 현지 출시를 목표로 준비 중입니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"medicaltimes.com\", \"url\": \"https://www.medicaltimes.com/Main/News/NewsView.html?ID=1171646&ref=naverpc\", \"datetime_kst\": \"2026-11-05T13:40:00+09:00\", \"quote\": \"브라질에서 후속 바이오시밀러 3종을 출시하며\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"pharmnews.com\", \"url\": \"https://www.pharmnews.com/news/articleView.html?idxno=307661\", \"datetime_kst\": \"2026-11-05T14:06:00+09:00\", \"quote\": \"바이오시밀러 품목군은 총 10종으로 확대됐다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"etoday.co.kr\", \"url\": \"https://www.etoday.co.kr/news/view/2644624\", \"datetime_kst\": \"2026-11-05T14:10:00+09:00\", \"quote\": \"후속 제품 출시도 지속될 예정이다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"현지 제품군을 넓힌 점이 추가 처방 기대로 이어져 이날 상승에 보탬이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"이 재료는 셀트리온의 브라질 판매 기회에 직접 닿아, 다른 대형주와 차별화된 관심을 이끌었을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"바이오의약품 복제약\", \"term\": \"바이오시밀러\"}, {\"plain\": \"임상시험 신청\", \"term\": \"IND\"}], \"background\": {\"bullish\": [{\"text\": \"셀트리온은 미국 생산 능력을 14만1000L까지 늘릴 계획입니다.\", \"sources\": [{\"channel\": \"viva100.com\", \"url\": \"https://www.viva100.com/article/20261105500609\", \"datetime_kst\": \"2026-11-05T14:14:00+09:00\", \"quote\": \"14만1000L까지 확대한다는 방침이다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"셀트리온은 네 가지 호르몬 경로를 겨냥한 비만 치료 후보물질의 미국 임상시험 신청을 2027년 2월까지 제출할 계획입니다. 동물 평가에서는 비교 후보물질보다 체중 감량 효과가 컸다고 전해졌습니다.\", \"sources\": [{\"channel\": \"asiatime.co.kr\", \"url\": \"https://www.asiatime.co.kr/article/20261105500084\", \"datetime_kst\": \"2026-11-05T14:18:00+09:00\", \"quote\": \"2027년 2월까지 미국 FDA에 임상시험계획\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"watch\": true}], \"bearish\": [{\"text\": \"미국 민주당의 의회 장악 뒤 AI 데이터센터 규제 우려가 국내 증시를 압박했습니다.\", \"sources\": [{\"channel\": \"sedaily.com\", \"url\": \"https://www.sedaily.com/article/20110635?ref=naver\", \"datetime_kst\": \"2026-11-05T13:38:00+09:00\", \"quote\": \"인공지능(AI) 데이터센터 규제 강화 우려에\", \"mention\": \"not_mentioned\", \"is_market_recap\": false}]}, {\"text\": \"미국에서 바이오의약품 복제약에 추가 규제가 검토될 수 있어 현지 생산 투자에 불확실성이 거론됐습니다.\", \"sources\": [{\"channel\": \"viva100.com\", \"url\": \"https://www.viva100.com/article/20261105500609\", \"datetime_kst\": \"2026-11-05T14:14:00+09:00\", \"quote\": \"추가 관세 등 수입 규제 조치의 필요성 검토\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"neutral\": [{\"text\": \"셀트리온은 직원들의 인공지능 활용을 위해 연간 80억 원 이상을 플랫폼 구독료로 지출한다고 밝혔습니다.\", \"sources\": [{\"channel\": \"bizhankook.com\", \"url\": \"https://bizhankook.com/articles/celltrion-chairman-ai-organ-research.html\", \"datetime_kst\": \"2026-11-05T13:28:00+09:00\", \"quote\": \"연간 80억 원 이상을 플랫폼 구독료로 지출하고 있다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}]}, \"not_found\": [\"브라질 신제품의 예상 매출이나 처방 규모가 없어 실제 실적 기여도를 수치로 가늠하기 어렵습니다.\", \"바이오 그룹 비교 종목은 삼성바이오로직스 한 곳뿐입니다.\"], \"events\": [{\"event\": \"셀트리온의 브라질 후속 바이오의약품 복제약 출시와 현지 제품군 확대\", \"issue_ids\": [\"i11\", \"i13\", \"i14\", \"i16\", \"i17\", \"i19\", \"i20\", \"i22\"], \"factor\": 0, \"dup_channels\": 1, \"placed\": \"factors\"}, {\"event\": \"셀트리온의 미국 생산 능력 확대 계획\", \"issue_ids\": [\"i24\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"셀트리온의 비만 치료 후보물질 개발과 미국 임상시험 신청 목표\", \"issue_ids\": [\"i26\", \"i27\"], \"background\": {\"slot\": \"bullish\", \"index\": 1}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"미국 AI 규제 우려가 국내 증시에 부담을 준 상황\", \"issue_ids\": [\"i9\"], \"background\": {\"slot\": \"bearish\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"미국 규제 가능성과 현지 투자에 신중해야 한다는 전문가 의견\", \"issue_ids\": [\"i23\", \"i25\"], \"background\": {\"slot\": \"bearish\", \"index\": 1}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"셀트리온의 인공지능 활용과 플랫폼 구독료 지출\", \"issue_ids\": [\"i6\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}], \"display_as_of\": \"2026-11-05T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 33215,
+    "completion_tokens": 19790,
+    "total_tokens": 53005,
+    "prompt_tokens_details": {
+      "cached_tokens": 33212,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 16063,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 33215,
+    "output_tokens": 19790,
+    "cached_prompt_tokens": 33212,
+    "cache_write_tokens": 0,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 33215,
+    "total": 33215,
+    "cache_read": 33212,
+    "cache_write": 0,
+    "uncached": 3
+  },
+  "cost": 15.006640749999999,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 143397,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:53:03+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "반대로",
+  "main_cause_sentences": 3,
+  "sector": [
+    "바이오"
+  ],
+  "universe_weight": 0.0145,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "AI 투자 둔화 우려와 기술주 약세",
+          "relation": "market"
+        },
+        {
+          "id": "i2",
+          "issue": "미국 선거 뒤 제약 업종 강세 기대",
+          "relation": "sector"
+        },
+        {
+          "id": "i3",
+          "issue": "텍사스 데이터센터 불확실성",
+          "relation": "market"
+        },
+        {
+          "id": "i4",
+          "issue": "애플의 AI 예산 축소",
+          "relation": "market"
+        }
+      ],
+      "none_count": 8
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i5",
+          "issue": "인공장기 상용화에 대한 서정진 회장의 신중론",
+          "relation": "sector"
+        },
+        {
+          "id": "i6",
+          "issue": "셀트리온의 인공지능 활용과 구독료 지출",
+          "relation": "direct"
+        },
+        {
+          "id": "i7",
+          "issue": "인공지능을 활용한 글로벌 신약개발 전략",
+          "relation": "direct"
+        },
+        {
+          "id": "i8",
+          "issue": "인공지능 도입에 따른 채용·조직 운영 변화",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 2
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i9",
+          "issue": "미국 선거 뒤 AI 규제 우려로 증시 급락",
+          "relation": "market"
+        },
+        {
+          "id": "i10",
+          "issue": "금리·유가 하락 수혜 업종과 바이오주 강세",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 3
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i11",
+          "issue": "브라질에서 후속 제품 3종 출시",
+          "relation": "direct"
+        },
+        {
+          "id": "i12",
+          "issue": "기존 의료기관 네트워크를 활용한 처방 확대 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i13",
+          "issue": "브라질에서 연말 후속 제품 2종 출시 목표",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m5",
+      "issues": [
+        {
+          "id": "i14",
+          "issue": "브라질에서 후속 제품 3종 출시",
+          "relation": "direct"
+        },
+        {
+          "id": "i15",
+          "issue": "기존 유통망을 활용한 신규 처방 확대 기대",
+          "relation": "direct"
+        },
+        {
+          "id": "i16",
+          "issue": "브라질에서 연말 후속 제품 출시 계획",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m6",
+      "issues": [
+        {
+          "id": "i17",
+          "issue": "브라질에서 후속 제품 3종 출시",
+          "relation": "direct"
+        },
+        {
+          "id": "i18",
+          "issue": "기존 의료진 네트워크를 활용한 처방 확대 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i19",
+          "issue": "브라질에서 연내 후속 제품 출시 목표",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m7",
+      "issues": [
+        {
+          "id": "i20",
+          "issue": "브라질에서 후속 제품 3종 출시",
+          "relation": "direct"
+        },
+        {
+          "id": "i21",
+          "issue": "기존 영업 기반으로 신규 제품 안착 추진",
+          "relation": "direct"
+        },
+        {
+          "id": "i22",
+          "issue": "브라질에서 연말 후속 제품 출시 목표",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m8",
+      "issues": [
+        {
+          "id": "i23",
+          "issue": "바이오의약품 추가 관세 등 미국 규제 검토 가능성",
+          "relation": "direct"
+        },
+        {
+          "id": "i24",
+          "issue": "미국 생산 능력 확대 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i25",
+          "issue": "미국 현지 투자에 신중해야 한다는 전문가 의견",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m9",
+      "issues": [
+        {
+          "id": "i26",
+          "issue": "셀트리온의 차세대 비만 치료 후보물질 개발",
+          "relation": "direct"
+        },
+        {
+          "id": "i27",
+          "issue": "후보물질의 미국 임상시험 신청·투약 목표",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 4
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": 7.5,
+      "kospi_change_rate_pct": -5.28,
+      "excess_vs_kospi_pp": 12.78,
+      "kospi_weight_pct": 1.02,
+      "kospi_contribution_pp": 0.077,
+      "kospi_ex_self_change_rate_pct": -5.41,
+      "excess_vs_kospi_ex_self_pp": 12.91,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "바이오",
+        "median_change_rate_pct": 1.67,
+        "excess_vs_group_pp": 5.83,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "members_used": [
+          {
+            "code": "207940",
+            "name": "삼성바이오로직스"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "068270",
+            "name": "셀트리온",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": 7.5,
+    "krx": 7.5,
+    "source": "KRX /sto/stk_bydd_trd 2026-11-05 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -5.28,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-11-05 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -5.96,
+        "peer_up": 6,
+        "peer_down": 13,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 13.46
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 1,
+    "background": 5,
+    "max_items": 10
+  },
+  "quote_repair": [
+    {
+      "kind": "background",
+      "path": "background.bearish[0]",
+      "slot": "bearish",
+      "text": "미국 민주당의 의회 장악 뒤 AI 데이터센터 규제 우려가 국내 증시를 압박했습니다.",
+      "failed": [
+        "QUOTE_NOT_IN_SOURCE: background.bearish[0].sources[0] 'AI 데이터센터 규제 강화 우려에 국내 증시가 낙폭을 키우며'"
+      ],
+      "usage": {
+        "prompt_tokens": 2197,
+        "completion_tokens": 311,
+        "total_tokens": 2508,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 1755,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 192,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        },
+        "input_tokens": 2197,
+        "output_tokens": 311,
+        "cached_prompt_tokens": 0,
+        "cache_write_tokens": 1755,
+        "finish_reason": "stop",
+        "cost_currency": "KRW"
+      },
+      "cost": 0.52992975,
+      "error": null,
+      "retry_failed": [],
+      "result": "fixed",
+      "quotes": [
+        "인공지능(AI) 데이터센터 규제 강화 우려에"
+      ]
+    }
+  ],
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "explained",
+      "final": "explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/셀트리온-2026-11-05-1845__r3.json",
+  "input_used_path": "inputs_used/셀트리온-2026-11-05-1845__r3.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inB/b02__r3.json",
+  "input_sha256": "b11bac49b336768d29fe76aef33f732602ffdea5a854be07315e63183bdaaeba",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 9,
+    "messages_total": 9,
+    "relations": {
+      "market": 4,
+      "sector": 3,
+      "direct": 20,
+      "none": 17
+    },
+    "issues_used": 15
+  }
+}

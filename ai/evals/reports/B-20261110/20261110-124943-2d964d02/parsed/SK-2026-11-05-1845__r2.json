@@ -1,0 +1,243 @@
+{
+  "run_id": "SK-2026-11-05-1845__r2",
+  "final_text": "{\"ticker\": \"034730\", \"name\": \"SK\", \"date\": \"2026-11-05\", \"as_of\": \"2026-11-05T18:45:00+09:00\", \"change_pct\": -6.85, \"verdict\": \"no_clear_cause\", \"relative_verdict\": \"no_clear_cause\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 SK는 6.85% 하락했고, 코스피는 5.28% 하락했습니다. 같은 시각 대형주 19개 중 7개가 올랐고 12개가 내렸으며, 중간값은 4.41% 하락이어서 SK는 대형주 전반보다 더 내렸습니다. 코스피와 다르게 움직였습니다. 미국 중간선거에서 민주당이 승리하며 AI 산업 규제가 강화될 수 있다는 우려가 증시 전반에 번졌습니다.\", \"main_cause\": \"제공된 메시지에서 확인된 원인은 없습니다.\", \"relative\": \"SK는 코스피와 다르게 움직였고, 지분으로 이어진 SK하이닉스·SK스퀘어는 대체로 9.73% 안팎 내렸지만 SK는 이들과 크게 달랐습니다.\", \"counter\": null, \"unexplained\": \"대형주 전반보다 더 내렸고, 지분으로 이어진 SK하이닉스·SK스퀘어와 다르게 움직인 이유도 메시지에서 확인되지 않았습니다. 하이코 출자액과 두 공시의 세부 내용이 없어 해당 재료가 주가에 미친 크기를 가늠하기 어렵습니다.\"}, \"factors\": [], \"terms\": [{\"plain\": \"돈을 내기로\", \"term\": \"출자\"}, {\"plain\": \"관계가 있는 사람이나 회사\", \"term\": \"특수관계인\"}, {\"plain\": \"회사가 경영 관련 사항을 자율적으로 알린 것\", \"term\": \"자율공시\"}], \"background\": {\"bullish\": [], \"bearish\": [], \"neutral\": [{\"text\": \"SK㈜ 등 계열사도 미국 인공지능 투자법인 하이코에 돈을 내기로 했지만, SK의 부담액은 제시되지 않았습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19373\", \"datetime_kst\": \"2026-11-05T13:12:32+09:00\", \"quote\": \"향후 SK㈜와 SK이노베이션, SK텔레콤 등 그룹 주요 계열사도 출자에 참여\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"SK가 관계가 있는 사람이나 회사로부터 주식을 취득했다는 공시가 나왔지만, 제공된 제목에는 취득 규모가 없습니다.\", \"sources\": [{\"channel\": \"SK\", \"url\": \"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261104000339\", \"datetime_kst\": \"2026-11-04\", \"quote\": \"특수관계인으로부터주식의취득\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"SK가 경영 관련 사항을 자율적으로 알렸지만, 제공된 메시지에는 구체 내용이 없습니다.\", \"sources\": [{\"channel\": \"SK\", \"url\": \"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261104800602\", \"datetime_kst\": \"2026-11-04\", \"quote\": \"기타경영사항(자율공시)\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}]}, \"not_found\": [\"SK의 하이코 출자 규모와 조건은 메시지에 제시되지 않았습니다.\", \"두 공시의 구체적인 내용은 제목만으로 확인할 수 없습니다.\"], \"events\": [{\"event\": \"SK 계열사의 하이코 출자 참여 예정\", \"issue_ids\": [\"i1\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"특수관계인으로부터 주식 취득 공시\", \"issue_ids\": [\"i2\"], \"background\": {\"slot\": \"neutral\", \"index\": 1}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"기타 경영사항 자율공시\", \"issue_ids\": [\"i3\"], \"background\": {\"slot\": \"neutral\", \"index\": 2}, \"dup_channels\": 1, \"placed\": \"background\"}], \"display_as_of\": \"2026-11-05T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 25392,
+    "completion_tokens": 8130,
+    "total_tokens": 33522,
+    "prompt_tokens_details": {
+      "cached_tokens": 25389,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 6624,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 25392,
+    "output_tokens": 8130,
+    "cached_prompt_tokens": 25389,
+    "cache_write_tokens": 0,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 25392,
+    "total": 25392,
+    "cache_read": 25389,
+    "cache_write": 0,
+    "uncached": 3
+  },
+  "cost": 6.111909,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 63090,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:49:45+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": "partial",
+  "market_led": false,
+  "move_comparison": "더",
+  "main_cause_sentences": 3,
+  "sector": [
+    "지주"
+  ],
+  "universe_weight": 0.0108,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "SK 계열사의 하이코 출자 참여 예정",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 5
+    },
+    {
+      "id": "m2",
+      "issues": [],
+      "none_count": 7
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i2",
+          "issue": "특수관계인으로부터 주식 취득 공시",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i3",
+          "issue": "기타 경영사항 자율공시",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -6.85,
+      "kospi_change_rate_pct": -5.28,
+      "excess_vs_kospi_pp": -1.57,
+      "kospi_weight_pct": 0.83,
+      "kospi_contribution_pp": -0.057,
+      "kospi_ex_self_change_rate_pct": -5.27,
+      "excess_vs_kospi_ex_self_pp": -1.58,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "SK하이닉스 연동",
+        "median_change_rate_pct": -9.73,
+        "excess_vs_group_pp": 2.88,
+        "peer_count": 2,
+        "relation": "diverges",
+        "members_used": [
+          {
+            "code": "000660",
+            "name": "SK하이닉스"
+          },
+          {
+            "code": "402340",
+            "name": "SK스퀘어"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "034730",
+            "name": "SK",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": -6.85,
+    "krx": -6.85,
+    "source": "KRX /sto/stk_bydd_trd 2026-11-05 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -5.28,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-11-05 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -4.41,
+        "peer_up": 7,
+        "peer_down": 12,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": -2.44
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 0,
+    "background": 3,
+    "max_items": 10
+  },
+  "strength_recomputed": [],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "no_clear_cause",
+      "final": "no_clear_cause"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "no_clear_cause",
+      "final": "no_clear_cause"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/SK-2026-11-05-1845__r2.json",
+  "input_used_path": "inputs_used/SK-2026-11-05-1845__r2.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inB/b01__r2.json",
+  "input_sha256": "60fef7aab2c71e705733580d4c8b7836ea196a3ecf498f6f22f082fa01eab5c6",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 4,
+    "messages_total": 4,
+    "relations": {
+      "direct": 3,
+      "none": 12
+    },
+    "issues_used": 3
+  }
+}
