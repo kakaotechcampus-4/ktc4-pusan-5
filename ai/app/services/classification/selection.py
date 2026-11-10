@@ -64,10 +64,15 @@ def title_words(title: str, drop: Iterable[str] = ()) -> frozenset[str]:
 
 
 def same_story(a: frozenset[str], b: frozenset[str]) -> bool:
-    """두 제목 낱말이 SAME_STORY_OVERLAP 이상 겹치나. 낱말이 없는 제목은 같다고 보지 않는다."""
+    """두 제목 낱말이 SAME_STORY_OVERLAP 이상, 그리고 두 개 이상 겹치나. 낱말이 없는 제목은 같다고 보지 않는다.
+
+    짧은 제목은 '검토' 같은 흔한 낱말 하나만 겹쳐도 비율이 0.5 가 된다("리콜 검토" / "노조 파업 검토").
+    그래서 두 개 이상 겹쳐야 같은 소식으로 본다. 짧은 쪽 낱말이 하나뿐이면("[인사] LS그룹") 하나로 충분하다.
+    """
     if not a or not b:
         return False
-    return len(a & b) / min(len(a), len(b)) >= SAME_STORY_OVERLAP
+    shared, shorter = len(a & b), min(len(a), len(b))
+    return shared >= min(2, shorter) and shared / shorter >= SAME_STORY_OVERLAP
 
 
 def stock_names(stock: Stock) -> tuple[str, ...]:

@@ -106,6 +106,17 @@ def test_stock_name_alone_does_not_make_titles_the_same_story():
     assert rank_news(candidates, [MOCK_SAMSUNG], cap=2) == {1: 0, 2: 1}
 
 
+def test_one_common_word_does_not_make_titles_the_same_story():
+    # '검토' 하나만 겹치면 1/2 = 0.5 라도 다른 소식이다(#113 리뷰)
+    candidates = [news(1, "현대차 리콜 검토", hour=9), news(2, "현대차 노조 파업 검토", hour=8)]
+    assert rank_news(candidates, [Stock(code="005380", name="현대차", aliases=(), subsidiaries=())], cap=2) \
+        == {1: 0, 2: 1}
+
+
+def test_one_word_title_still_matches_on_that_word():
+    assert same_story(frozenset({"LS그룹"}), frozenset({"LS그룹", "임원인사", "단행"}))
+
+
 def test_titles_without_words_are_not_the_same_story():
     assert not same_story(frozenset(), frozenset({"실적"}))
     assert not same_story(frozenset(), frozenset())
