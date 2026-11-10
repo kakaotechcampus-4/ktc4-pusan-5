@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     # 로컬 개발용 테스트 로그인(/api/auth/test-login). local 환경에서만 켤 수 있다
     enable_test_login: bool = False
 
+    # Sentry 에러 수집. DSN 이 비면 Sentry 는 꺼진다(로컬·CI·테스트 기본값).
+    # 운영 서버 .env 에서 SENTRY_ENVIRONMENT=production. release 는 배포 때 주입할 예정이고 비어도 동작한다.
+    sentry_dsn: str = ""
+    sentry_environment: str = "local"
+    sentry_release: str = ""
+
     @model_validator(mode="after")
     def _forbid_test_login_outside_local(self) -> "Settings":
         if self.enable_test_login and self.app_env != "local":
