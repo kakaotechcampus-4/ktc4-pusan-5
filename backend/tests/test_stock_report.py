@@ -394,7 +394,7 @@ def scraps(monkeypatch):
     return install
 
 
-async def test_my_scraps_hides_deleted_unreadable_and_out_of_service_reports(scraps):
+async def test_my_scraps_marks_deleted_unreadable_and_out_of_service_reports_unavailable(scraps):
     from app.services import report_scrap
 
     in_service = {**NEW_FORMAT, "ticker": "005930"}
@@ -410,16 +410,23 @@ async def test_my_scraps_hides_deleted_unreadable_and_out_of_service_reports(scr
 
     scraps([FakeScrap(10, 1), FakeScrap(11, 2), FakeScrap(12, 3), FakeScrap(13, 4)])
     result = await report_scrap.list_my_scraps(None, Repo(), user_id=1)
-    assert [item.report_id for item in result.items] == [1]
+    assert [item.report_id for item in result.items] == [1, 2, 3, 4]
+    assert [item.available for item in result.items] == [True, False, False, False]
     assert result.items[0].sources == ["sample_channel_a"]
+    unavailable = result.items[3]
+    assert unavailable.scrap_id == "13"
+    assert unavailable.stock_code is None
+    assert unavailable.as_of is None
+    assert unavailable.sources == []
 
 
-async def test_my_scraps_is_empty_when_report_table_is_missing(scraps):
+async def test_my_scraps_are_unavailable_when_report_table_is_missing(scraps):
     from app.services import report_scrap
 
     scraps([FakeScrap(10, 1)])
     repo = FakeReportRepository(error=ReportStoreUnavailable("t"))
-    assert (await report_scrap.list_my_scraps(None, repo, user_id=1)).items == []
+    items = (await report_scrap.list_my_scraps(None, repo, user_id=1)).items
+    assert [(item.report_id, item.available) for item in items] == [(1, False)]
 
 
 async def test_scrapping_a_missing_report_is_404():
