@@ -74,9 +74,73 @@ def is_missing_table(exc: DBAPIError) -> bool:
     return TABLE_NAME in orig and "does not exist" in orig
 
 
+def latest_per_stock_statement(limit: int):
+    """종목마다 가장 최근 통과 보고서 하나씩, 최근 기준일 순으로 limit 개."""
+    latest = (
+        select(*analyses.c)
+        .where(analyses.c.verify_status == "passed", analyses.c.parse_status == "ok")
+        .order_by(
+            analyses.c.ticker,
+            analyses.c.target_date.desc().nulls_last(),
+            analyses.c.as_of.desc().nulls_last(),
+            analyses.c.id.desc(),
+        )
+        .distinct(analyses.c.ticker)
+        .subquery()
+    )
+    return (
+        select(latest)
+        .order_by(
+            latest.c.target_date.desc().nulls_last(),
+            latest.c.as_of.desc().nulls_last(),
+            latest.c.id.desc(),
+        )
+        .limit(limit)
+    )
+
+
+def by_ids_statement(ids: list[int]):
+    return select(*analyses.c).where(
+        analyses.c.id.in_(ids),
+        analyses.c.verify_status == "passed",
+        analyses.c.parse_status == "ok",
+    )
+
+
+def _to_row(row: Any) -> ReportRow:
+    return ReportRow(
+        id=row.id,
+        ticker=row.ticker,
+        name=row.name,
+        target_date=row.target_date,
+        as_of=row.as_of,
+        change_pct=row.change_pct,
+        generated_at=row.generated_at,
+        loaded_at=row.loaded_at,
+        raw_json=row.raw_json,
+    )
+
+
 class StockReportRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
+    async def _rows(self, statement) -> list[ReportRow]:
+        try:
+            rows = (await self.session.execute(statement)).all()
+        except DBAPIError as exc:
+            if is_missing_table(exc):
+                raise ReportStoreUnavailable(TABLE_NAME) from exc
+            raise
+        return [_to_row(row) for row in rows]
+
+    async def latest_per_stock(self, limit: int) -> list[ReportRow]:
+        return await self._rows(latest_per_stock_statement(limit))
+
+    async def get_many(self, ids: list[int]) -> list[ReportRow]:
+        if not ids:
+            return []
+        return await self._rows(by_ids_statement(ids))
 
     async def latest_passed(self, code: str) -> ReportRow | None:
         try:

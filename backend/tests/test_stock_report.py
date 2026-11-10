@@ -17,7 +17,7 @@ from app.repositories.stock_report import (
     is_missing_table,
     latest_passed_statement,
 )
-from app.routers.stocks import get_report_repository
+from app.routers.stocks import get_report_repository, get_term_index
 from app.services import stock_detail
 
 KST = timezone(timedelta(hours=9))
@@ -113,6 +113,16 @@ class FakeReportRepository:
             raise self.error
         return self.row
 
+    async def latest_per_stock(self, limit: int) -> list[ReportRow]:
+        if self.error:
+            raise self.error
+        return [self.row] if self.row else []
+
+    async def get_many(self, ids: list[int]) -> list[ReportRow]:
+        if self.error:
+            raise self.error
+        return [self.row] if self.row and self.row.id in ids else []
+
 
 async def no_session():
     yield None
@@ -122,8 +132,9 @@ async def no_session():
 def use_repository():
     app.dependency_overrides[get_session] = no_session
 
-    def install(repository: FakeReportRepository) -> None:
+    def install(repository: FakeReportRepository, term_index: dict[str, str] | None = None) -> None:
         app.dependency_overrides[get_report_repository] = lambda: repository
+        app.dependency_overrides[get_term_index] = lambda: term_index or {}
 
     yield install
     app.dependency_overrides.clear()
@@ -179,7 +190,9 @@ async def test_ready_report_is_camel_case_and_hides_internal_fields(
     assert factor["sources"][0]["url"] == "https://t.me/sample_channel_a/101"
     assert factor["sources"][0]["datetimeKst"] == "2026-09-18T08:10:00+09:00"
     assert factor["sources"][0]["isMarketRecap"] is False
-    assert data["terms"] == [{"plain": "다른 회사 칩을 대신 만들어 주는 사업", "term": "파운드리"}]
+    assert data["terms"] == [
+        {"plain": "다른 회사 칩을 대신 만들어 주는 사업", "term": "파운드리", "conceptSlug": None}
+    ]
     assert data["background"]["neutral"][0]["watch"] is True
     # 원문 인용과 검수용 칸은 내보내지 않는다.
     assert QUOTE not in response.text
@@ -319,3 +332,31 @@ async def test_repository_does_not_hide_other_database_errors():
 
     with pytest.raises(DBAPIError):
         await StockReportRepository(FailingSession(error)).latest_passed("TST001")
+
+
+async def test_terms_are_linked_to_concepts_by_name_or_alias(use_repository, registered_stock):
+    raw = {**NEW_FORMAT, "terms": [{"term": "영업 이익", "plain": "p"}, {"term": "모르는 말", "plain": "q"}]}
+    use_repository(FakeReportRepository(make_row(raw)), {"영업이익": "operating-profit"})
+    response = await get_report()
+    terms = response.json()["data"]["terms"]
+    assert terms[0]["conceptSlug"] == "operating-profit"
+    assert terms[1]["conceptSlug"] is None
+
+
+def test_report_list_item_has_headline_and_no_body():
+    from app.services import stock_report
+
+    report = stock_report.to_report(make_row(NEW_FORMAT))
+    assert stock_report.headline(report) == "3분기 영업이익이 예상보다 낮았습니다."
+    assert stock_report.source_channels(report) == ["sample_channel_a"]
+
+
+async def test_report_list_skips_unreadable_rows_and_survives_missing_table():
+    from app.services import stock_report
+
+    ok = await stock_report.list_reports(FakeReportRepository(make_row(NEW_FORMAT)), 10)
+    assert [item.code for item in ok.items] == ["TST001"]
+    bad = await stock_report.list_reports(FakeReportRepository(make_row("not json")), 10)
+    assert bad.items == []
+    gone = await stock_report.list_reports(FakeReportRepository(error=ReportStoreUnavailable("t")), 10)
+    assert gone.items == []

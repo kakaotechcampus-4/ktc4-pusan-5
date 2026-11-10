@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.repositories.concept import ConceptRepository
 from app.repositories.stock_report import StockReportRepository
 from app.schemas.stock import Period, Resource, StockList, StockOverview, StockPrices
 from app.schemas.stock_financials import StockFinancials
@@ -19,6 +20,10 @@ async def get_report_repository(
     session: AsyncSession = Depends(get_session),
 ) -> StockReportRepository:
     return StockReportRepository(session)
+
+
+async def get_term_index(session: AsyncSession = Depends(get_session)) -> dict[str, str]:
+    return await ConceptRepository(session).term_index()
 
 
 @router.get("", response_model=StockList)
@@ -51,6 +56,7 @@ async def report(
     code: Code,
     session: AsyncSession = Depends(get_session),
     repository: StockReportRepository = Depends(get_report_repository),
+    term_index: dict[str, str] = Depends(get_term_index),
 ):
     await stock_detail.require_stock(session, code)
-    return await stock_report.get_report(repository, code)
+    return await stock_report.get_report(repository, code, term_index)
