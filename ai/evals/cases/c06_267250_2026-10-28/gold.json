@@ -1,0 +1,162 @@
+{
+  "case_id": "c06_267250_2026-10-28",
+  "status": "labeled",
+  "label_source": "human",
+  "trap_ids": [
+    9,
+    4
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": 6.53,
+    "kospi_change_pct": 6.63,
+    "kospi_basis": "kospi",
+    "excess_vs_basis_pp": -0.1,
+    "kospi_relation": "follows",
+    "peer_relations": {},
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "더",
+    "peer_median_pct": 3.46,
+    "excess_vs_peers_pp": 3.07,
+    "judge_layers": {
+      "move": true,
+      "relative": true
+    },
+    "move_strength_cap": "partial",
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-10-28T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-10-28T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "no_clear_cause",
+    "relative": "no_clear_cause"
+  },
+  "confidence_level": "none",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "HD현대일렉트릭(영업이익 컨센 6.7% 하회)·HD현대중공업(영업이익 컨센 9.4% 하회)의 3Q 실적(HD현대 본체가 아닌 계열·유사 종목)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18882",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/KISGregKim/18885",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "하회"
+      ],
+      "rationale": "유사 종목 혼동 함정. 방향도 반대(하회인데 상승)"
+    },
+    {
+      "id": "e2",
+      "summary": "조선 업종 밸류에이션 콜(디레이팅 분석)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18881",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "조선주"
+      ],
+      "rationale": "간접 업종 재료"
+    },
+    {
+      "id": "e3",
+      "summary": "HD현대(지주) 교환사채 발행 결정: 5,887억원 규모, HD현대마린솔루션 주식 240만주",
+      "importance": "should",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18879",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "HD HYUNDAI",
+        "EB"
+      ],
+      "rationale": "HD현대 본체의 직접 재료지만 시황 속 한 줄이고 영향 방향이 불분명. 공시 접수 시각은 비어 있음"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "false_cause",
+      "subject": "HD현대일렉트릭·HD현대중공업 3Q 실적(계열·유사 종목)",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "up",
+      "example": "계열사 실적의 영향으로 HD현대 주가가 올랐다"
+    },
+    {
+      "id": "f2",
+      "type": "false_cause",
+      "subject": "HD현대 교환사채(EB) 발행",
+      "relation_min": "likely_cause",
+      "object": "주가",
+      "direction": "up",
+      "example": "교환사채 발행이 주가 상승의 주된 요인이다"
+    },
+    {
+      "id": "f3",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "up",
+      "example": "외국인·기관 순매수가 상승 원인이다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "교환사채 발행이 주가에 미친 영향의 방향과 크기",
+    "대형주 중간값보다 더 오른 이유(+3.07%p)"
+  ],
+  "beginner_terms": [
+    "교환사채",
+    "EB",
+    "컨센서스",
+    "디레이팅",
+    "선행 P/E"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

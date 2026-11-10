@@ -1,0 +1,474 @@
+{
+  "case_id": "b02_068270_2026-11-05",
+  "summary": {
+    "n_runs": 3,
+    "expected_verdict": {
+      "move": "partially_explained",
+      "relative": "partially_explained"
+    },
+    "verdicts": [
+      {
+        "move": "explained",
+        "relative": "explained"
+      },
+      {
+        "move": "explained",
+        "relative": "explained"
+      },
+      {
+        "move": "explained",
+        "relative": "explained"
+      }
+    ],
+    "verdict_match_runs": {
+      "move": 0,
+      "relative": 0
+    },
+    "rule_a_violations": [
+      2,
+      2,
+      1
+    ],
+    "overclaim_candidates": [
+      2,
+      2,
+      1
+    ],
+    "omission_candidates": [
+      0,
+      0,
+      0
+    ],
+    "spurious_candidates": [
+      0,
+      0,
+      0
+    ],
+    "possible_contributor": [
+      {
+        "unlinked": 1
+      },
+      {
+        "unlinked": 1
+      },
+      {
+        "unlinked": 1
+      }
+    ],
+    "recap_cited": [
+      0,
+      0,
+      0
+    ],
+    "injected_cited": [
+      0,
+      0,
+      0
+    ],
+    "skipped_llm": [
+      null,
+      null,
+      null
+    ],
+    "verify_status": [
+      "passed",
+      "passed",
+      "passed"
+    ],
+    "same_conclusion_runs": 2,
+    "same_verdict_runs": 3,
+    "cost": 41.21
+  },
+  "reports": [
+    {
+      "run_id": "셀트리온-2026-11-05-1845__r1",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 15.836248,
+      "is_error": false,
+      "verdict": {
+        "move": "explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": false,
+        "relative": false
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "must",
+          "cap": "possible_contributor",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "둘 다 허용",
+          "ok": true
+        },
+        {
+          "id": "e2",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e4",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e5",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e6",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [
+        {
+          "id": "e3",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        },
+        {
+          "id": "e5",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        }
+      ],
+      "rule_a_violation_count": 2,
+      "overclaim_candidates": 2,
+      "omission_candidates": 0,
+      "possible_contributor": {
+        "unlinked": 1
+      },
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "news": 4
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e3",
+          "e5"
+        ],
+        "extra": 0
+      }
+    },
+    {
+      "run_id": "셀트리온-2026-11-05-1845__r2",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 10.36290325,
+      "is_error": false,
+      "verdict": {
+        "move": "explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": false,
+        "relative": false
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "must",
+          "cap": "possible_contributor",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "둘 다 허용",
+          "ok": true
+        },
+        {
+          "id": "e2",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e4",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e5",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e6",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [
+        {
+          "id": "e3",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        },
+        {
+          "id": "e5",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        }
+      ],
+      "rule_a_violation_count": 2,
+      "overclaim_candidates": 2,
+      "omission_candidates": 0,
+      "possible_contributor": {
+        "unlinked": 1
+      },
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "news": 4
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e3",
+          "e5"
+        ],
+        "extra": 0
+      }
+    },
+    {
+      "run_id": "셀트리온-2026-11-05-1845__r3",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 15.006640749999999,
+      "is_error": false,
+      "verdict": {
+        "move": "explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": false,
+        "relative": false
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "must",
+          "cap": "possible_contributor",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "둘 다 허용",
+          "ok": true
+        },
+        {
+          "id": "e2",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e4",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e5",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e6",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [
+        {
+          "id": "e3",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        }
+      ],
+      "rule_a_violation_count": 1,
+      "overclaim_candidates": 1,
+      "omission_candidates": 0,
+      "possible_contributor": {
+        "unlinked": 1
+      },
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "news": 3
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e3"
+        ],
+        "extra": 0
+      }
+    }
+  ]
+}

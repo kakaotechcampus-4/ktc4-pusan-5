@@ -1,0 +1,268 @@
+{
+  "case_id": "b03_034020_2026-11-05",
+  "status": "labeled",
+  "label_source": "claude-code",
+  "labeled_by": "claude-code",
+  "label_note": "보고서 에이전트 실행 전에 case.json 만 보고 작성. 사람 검증 전(draft_unverified)",
+  "trap_ids": [],
+  "traps": [
+    "하락을 설명하는 업종 재료(반도체·전력기기 투매)가 시황 메시지(market_recap)에만 있음",
+    "근거 칸 기사는 전력기기 악재·원전 호재로 엇갈림",
+    "호재성 회사 소식(Xe-100 코일)이 하락일에 있음(방향 반대)",
+    "며칠 전(10-29) 체코 원전 협상 결렬의 재탕 기사"
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": -6.45,
+    "kospi_change_pct": -5.28,
+    "kospi_basis": "kospi",
+    "excess_vs_basis_pp": -1.17,
+    "kospi_relation": "diverges",
+    "peer_relations": {
+      "전력설비": "diverges"
+    },
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "더",
+    "peer_median_pct": -4.41,
+    "excess_vs_peers_pp": -2.04,
+    "judge_layers": {
+      "move": true,
+      "relative": true
+    },
+    "move_strength_cap": "partial",
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-11-05T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-11-05T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "no_clear_cause",
+    "relative": "no_clear_cause"
+  },
+  "confidence_level": "none",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "민주당 의회 장악: 데이터센터 규제 강화로 전력기기 수요 감소 가능성, 원전은 양당 지원 기조로 두산에너빌리티 등 기자재 기업 기회 확대 가능",
+      "importance": "should",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://biz.chosun.com/industry/company/2026/11/05/BMUCVKYEWFENBJYAY2OPLVEDXY/?utm_source=naver&utm_medium=original&utm_campaign=biz",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "전력기기 수요",
+        "두산에너빌리티"
+      ],
+      "rationale": "같은 기사 안에서 전력기기에는 악재, 두산에너빌리티(원전)에는 호재로 엇갈림. 방향 불분명이라 coincident"
+    },
+    {
+      "id": "e2",
+      "summary": "두산에너빌리티, 민주당 압승 뒤 에너지 정책 변화로 주목: 가스터빈은 미국 데이터센터 전력 수요가 성장 요인, 체코 원전 시공계약 협상 종료는 부담",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.cbci.co.kr/news/articleView.html?idxno=623607",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "가스터빈",
+        "체코"
+      ],
+      "rationale": "정책 변화가 실적에 미칠 영향은 '구분해서 살펴볼 필요'라고만 씀. 방향 불분명"
+    },
+    {
+      "id": "e3",
+      "summary": "두산에너빌리티, 미국 엑스에너지 SMR Xe-100 증기발생기용 나선형 코일 제작 참여",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.vegannews.co.kr/news/article.html?no=400907",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "Xe-100",
+        "코일"
+      ],
+      "rationale": "호재성 회사 소식인데 주가는 하락. 방향 반대 재료라 대조 서술만 허용(rubric §4-2)"
+    },
+    {
+      "id": "e4",
+      "summary": "10월 29일 한수원-대우건설·두산에너빌리티 체코 원전 시공계약 협상 결렬(기고·논평)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "http://www.newstomato.com/ReadNews.aspx?no=1319391&inflow=N",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003281584&CMPT_CD=P0010&utm_source=naver&utm_medium=newsearch&utm_campaign=naver_news",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "체코",
+        "협상"
+      ],
+      "rationale": "1주일 전 재료의 재탕(기고·논평). 이미 반영된 재료라 당일 인과 부여 금지"
+    },
+    {
+      "id": "e5",
+      "summary": "원전주 희비 엇갈림: 한국전력·디케이락 4%대 상승, 두산에너빌리티 -4.74%(12:49 기준)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.cbci.co.kr/news/articleView.html?idxno=623563",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "4.74%"
+      ],
+      "rationale": "장중 주가 등락을 적은 결과 지표. 원인 자리에 쓰지 않음"
+    },
+    {
+      "id": "e6",
+      "summary": "시황: AI 데이터센터 규제 강화 우려에 외국인 매도, 반도체·전력기기 업종 중심 투매",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.sedaily.com/article/20110635?ref=naver",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "전력기기",
+        "투매"
+      ],
+      "rationale": "시황 메시지(market_recap)이고 두산에너빌리티를 직접 다루지 않음. 업종 재료지만 결과 서술이라 원인 자리에 쓰지 않음"
+    },
+    {
+      "id": "e7",
+      "summary": "KIS 연료전지 코멘트: 텍사스 민주당 주지사 당선, 데이터센터 신규 건설 모라토리움 필요성 강조 → 블룸에너지 밸류체인 수혜",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18940",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "데이터센터",
+        "모라토리움"
+      ],
+      "rationale": "연료전지 업종 리포트로 두산에너빌리티를 다루지 않음. 간접 재료"
+    },
+    {
+      "id": "e8",
+      "summary": "BIXPO 2026: 두산에너빌리티 10MW 해상풍력 발전기 모형, APR1400 주기기·SMR 기술 공개",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://biz.newdaily.co.kr/site/data/html/2026/11/05/2026110500148.html",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "해상풍력"
+      ],
+      "rationale": "전시 행사 기사. 맥락 정보"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "result_as_cause",
+      "subject": "반도체·전력기기 업종 투매(시황)",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "down",
+      "example": "전력기기 업종 투매가 두산에너빌리티 하락에 영향을 줬다"
+    },
+    {
+      "id": "f2",
+      "type": "direction_flip",
+      "subject": "엑스에너지 Xe-100 코일 제작 참여",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "down",
+      "example": "Xe-100 코일 제작 소식에도 차익 실현으로 하락했다"
+    },
+    {
+      "id": "f3",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "up",
+      "example": "두산에너빌리티는 대형주보다 덜 내렸다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "두산에너빌리티 종목의 외국인·기관 수급",
+    "AI 데이터센터 규제 우려가 두산에너빌리티(가스터빈·원전)에 어느 방향으로 작용했는지(근거 칸 기사는 전력기기 악재·원전 호재로 엇갈림)",
+    "대형주 중간값보다 더 내린 이유"
+  ],
+  "beginner_terms": [
+    "SMR(소형모듈원전)",
+    "가스터빈",
+    "전력기기",
+    "시황"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

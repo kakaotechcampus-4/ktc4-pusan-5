@@ -1,0 +1,155 @@
+{
+  "run_id": "삼성화재-2026-11-05-1845__r3",
+  "final_text": "{\"ticker\": \"000810\", \"name\": \"삼성화재\", \"date\": \"2026-11-05\", \"as_of\": \"2026-11-05T18:45:00+09:00\", \"display_as_of\": \"2026-11-05T15:30:00+09:00\", \"display_is_close\": true, \"change_pct\": -0.15, \"verdict\": \"no_clear_cause\", \"relative_verdict\": \"no_clear_cause\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 삼성화재는 0.15% 내렸습니다. 같은 시각 코스피는 5.28% 내렸고, 대형주 20개 중 13개가 내렸으며 중간값은 5.19% 하락이었습니다. 삼성화재는 대형주 전반보다 덜 내렸습니다. 삼성화재는 코스피와 다르게 움직였습니다.\", \"main_cause\": \"제공된 메시지에서 확인된 원인은 없습니다.\", \"relative\": \"같은 보험 그룹의 삼성생명은 5.96% 내렸고 메리츠금융지주는 2.12% 올라, 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다.\", \"counter\": null, \"unexplained\": \"이 종목을 직접 다룬 소식이 수집되지 않았습니다.\"}, \"factors\": [], \"terms\": [], \"background\": {\"bullish\": [], \"bearish\": [], \"neutral\": []}, \"not_found\": [\"직접 언급(mention: mentioned)·테마 동향(kind: theme_recap) 메시지가 0건이라 LLM 을 부르지 않고 정형 보고서를 냈다\"], \"events\": []}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {},
+  "input_tokens": null,
+  "cost": 0.0,
+  "cost_currency": "KRW",
+  "cost_basis": null,
+  "cost_rates": null,
+  "truncation": null,
+  "duration_ms": 0,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "5125d7cc8ed746e0cf2e55689de0571f51c707e73bb64fdf097479930b42a51d",
+  "generated_at": "2026-11-10T18:45:42+09:00",
+  "move_case": "opposite",
+  "judge_layers": {
+    "move": false,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "덜",
+  "main_cause_sentences": 3,
+  "sector": [
+    "손해보험"
+  ],
+  "universe_weight": null,
+  "skipped_llm": "NO_DIRECT_MESSAGES",
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -0.15,
+      "kospi_change_rate_pct": -5.28,
+      "excess_vs_kospi_pp": 5.13,
+      "kospi_weight_pct": 0.64,
+      "kospi_contribution_pp": -0.001,
+      "kospi_ex_self_change_rate_pct": -5.31,
+      "excess_vs_kospi_ex_self_pp": 5.16,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "보험",
+        "median_change_rate_pct": -1.92,
+        "excess_vs_group_pp": 1.77,
+        "peer_count": 2,
+        "relation": "inconclusive",
+        "mixed": true,
+        "judge_in_sentence": null,
+        "members_used": [
+          {
+            "code": "032830",
+            "name": "삼성생명",
+            "change_rate_pct": -5.96,
+            "in_sentence": true
+          },
+          {
+            "code": "138040",
+            "name": "메리츠금융지주",
+            "change_rate_pct": 2.12,
+            "in_sentence": true
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "000810",
+            "name": "삼성화재",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": -0.15,
+    "krx": -0.15,
+    "source": "KRX /sto/stk_bydd_trd 2026-11-05 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -5.28,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-11-05 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -5.19,
+        "peer_up": 7,
+        "peer_down": 13,
+        "peer_total": 20
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 5.04
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 0,
+    "background": 0,
+    "max_items": 10
+  },
+  "input_path": "inputs/삼성화재-2026-11-05-1845__r3.json",
+  "input_used_path": "inputs_used/삼성화재-2026-11-05-1845__r3.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/in_B/삼성화재-2026-11-05-1845__r3.json",
+  "input_sha256": "bb07d05d77d4a1dce970f6cad1a28b030b277d4a334c5baf275d35262720541f",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": null
+}

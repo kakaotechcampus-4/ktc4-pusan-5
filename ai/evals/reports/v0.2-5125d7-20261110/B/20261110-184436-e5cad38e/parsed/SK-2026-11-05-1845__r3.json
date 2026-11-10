@@ -1,0 +1,271 @@
+{
+  "run_id": "SK-2026-11-05-1845__r3",
+  "final_text": "{\"ticker\": \"034730\", \"name\": \"SK\", \"date\": \"2026-11-05\", \"as_of\": \"2026-11-05T18:45:00+09:00\", \"change_pct\": -6.85, \"verdict\": \"partially_explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 SK는 6.85% 내렸습니다. 대형주 19개 중 12개가 하락하고 7개가 상승했으며, 중간값은 4.41% 하락해 SK는 대형주 전반보다 더 내렸습니다. 코스피는 5.28% 내렸고 SK는 코스피와 다르게 움직였습니다. 미국 중간선거 이후 AI 규제가 강화될 수 있다는 우려에 증시 전반이 급락했고, 장중 매도 사이드카도 발동됐습니다.\", \"main_cause\": \"최대 100억달러 규모의 미국 AI 투자 계획에 SK 계열사도 자금을 대기로 해, 자금 부담 우려가 하락에 작용했을 수 있습니다.\", \"relative\": \"코스피와는 다르게 움직였고, 지분 관계로 연결된 SK하이닉스 연동 그룹의 SK하이닉스·SK스퀘어는 대체로 9.73% 안팎 내렸으며 SK는 이들과 크게 달랐습니다. SK 계열사의 AI 투자 참여 계획은 다른 대형주에는 없는 투자 부담 요인이 됐을 수 있습니다.\", \"counter\": null, \"unexplained\": \"대형주 전반보다 더 내린 부분은 SK가 실제로 부담할 투자 금액이 제시되지 않아 그 영향의 크기를 가늠하기 어렵습니다.\"}, \"factors\": [{\"event\": \"SK 등 그룹 계열사들이 미국 AI 투자법인 HYAICO에 자금을 대는 데 참여할 예정입니다.\", \"detail\": \"HYAICO는 최대 100억달러를 투자할 계획입니다. 자금은 필요할 때마다 납입하는 방식으로 마련할 예정입니다.\", \"stance\": \"bearish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19373\", \"datetime_kst\": \"2026-11-05T13:12:32+09:00\", \"quote\": \"SK㈜와 SK이노베이션, SK텔레콤 등 그룹 주요 계열사도 출자에 참여\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"그룹 계열사의 투자 재원 부담 우려가 하락에 일부 작용했을 수 있습니다. 다만 SK가 부담할 금액은 확인되지 않았습니다.\", \"direction_match\": true, \"strength\": \"partial\"}, {\"layer\": \"relative\", \"note\": \"SK는 그룹 차원의 투자 재원 부담에 노출돼 다른 대형주와 차이가 났을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"자금을 대는 것\", \"term\": \"출자\"}, {\"plain\": \"필요할 때마다 납입하는 방식\", \"term\": \"캐피털 콜\"}], \"background\": {\"bullish\": [], \"bearish\": [], \"neutral\": [{\"text\": \"특수관계인으로부터 주식을 취득했다는 공시 제목이 제공됐지만, 취득 대상과 수량은 메시지에서 확인되지 않습니다.\", \"sources\": [{\"channel\": \"SK\", \"url\": \"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261104000339\", \"datetime_kst\": \"2026-11-04\", \"quote\": \"특수관계인으로부터주식의취득\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"경영 관련 자율공시가 있었지만, 메시지에는 구체적인 내용이 없습니다.\", \"sources\": [{\"channel\": \"SK\", \"url\": \"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261104800602\", \"datetime_kst\": \"2026-11-04\", \"quote\": \"기타경영사항(자율공시)\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}]}, \"not_found\": [\"SK가 실제로 부담할 HYAICO 투자 금액이 메시지에 제시되지 않았습니다.\"], \"events\": [{\"event\": \"SK 등 그룹 계열사들이 HYAICO 투자에 참여하고, 자금은 필요할 때 납입할 예정입니다.\", \"issue_ids\": [\"i1\", \"i2\"], \"factor\": 0, \"dup_channels\": 1, \"placed\": \"factors\"}, {\"event\": \"특수관계인으로부터 주식을 취득했다는 공시가 있었습니다.\", \"issue_ids\": [\"i3\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"경영 관련 자율공시가 있었습니다.\", \"issue_ids\": [\"i4\"], \"background\": {\"slot\": \"neutral\", \"index\": 1}, \"dup_channels\": 1, \"placed\": \"background\"}], \"display_as_of\": \"2026-11-05T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 34692,
+    "completion_tokens": 9799,
+    "total_tokens": 44491,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 27751,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 8075,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 34692,
+    "output_tokens": 9799,
+    "cached_prompt_tokens": 0,
+    "cache_write_tokens": 27751,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 34692,
+    "total": 27754,
+    "cache_read": 0,
+    "cache_write": 27751,
+    "uncached": 3
+  },
+  "cost": 11.82922875,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 93703,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "5125d7cc8ed746e0cf2e55689de0571f51c707e73bb64fdf097479930b42a51d",
+  "generated_at": "2026-11-10T18:44:38+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": "partial",
+  "market_led": false,
+  "move_comparison": "더",
+  "main_cause_sentences": 3,
+  "sector": [
+    "지주"
+  ],
+  "universe_weight": 0.0108,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "SK 등 그룹 계열사의 HYAICO 투자 참여",
+          "relation": "direct"
+        },
+        {
+          "id": "i2",
+          "issue": "HYAICO 투자 재원의 납입 방식",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 4
+    },
+    {
+      "id": "m2",
+      "issues": [],
+      "none_count": 8
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i3",
+          "issue": "특수관계인으로부터 주식 취득 공시",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i4",
+          "issue": "경영 관련 자율공시",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -6.85,
+      "kospi_change_rate_pct": -5.28,
+      "excess_vs_kospi_pp": -1.57,
+      "kospi_weight_pct": 0.83,
+      "kospi_contribution_pp": -0.057,
+      "kospi_ex_self_change_rate_pct": -5.27,
+      "excess_vs_kospi_ex_self_pp": -1.58,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "SK하이닉스 연동",
+        "median_change_rate_pct": -9.73,
+        "excess_vs_group_pp": 2.88,
+        "peer_count": 2,
+        "relation": "diverges",
+        "mixed": false,
+        "judge_in_sentence": true,
+        "members_used": [
+          {
+            "code": "000660",
+            "name": "SK하이닉스",
+            "change_rate_pct": -9.46,
+            "in_sentence": true
+          },
+          {
+            "code": "402340",
+            "name": "SK스퀘어",
+            "change_rate_pct": -10.01,
+            "in_sentence": true
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "034730",
+            "name": "SK",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": -6.85,
+    "krx": -6.85,
+    "source": "KRX /sto/stk_bydd_trd 2026-11-05 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -5.28,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-11-05 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -4.41,
+        "peer_up": 7,
+        "peer_down": 12,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": -2.44
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 1,
+    "background": 2,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "partial",
+      "final": "partial",
+      "basis": "issues"
+    },
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "partially_explained",
+      "final": "partially_explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/SK-2026-11-05-1845__r3.json",
+  "input_used_path": "inputs_used/SK-2026-11-05-1845__r3.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/in_B/SK-2026-11-05-1845__r3.json",
+  "input_sha256": "60fef7aab2c71e705733580d4c8b7836ea196a3ecf498f6f22f082fa01eab5c6",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [
+    "QUOTE_MISSING_SUBJECT: factors[0] 첫 출처 quote 에 AI, HYAICO 가 없다"
+  ],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 4,
+    "messages_total": 4,
+    "relations": {
+      "direct": 4,
+      "none": 12
+    },
+    "issues_used": 4
+  }
+}

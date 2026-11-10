@@ -1,0 +1,188 @@
+{
+  "case_id": "c02_005930_2026-10-29",
+  "status": "labeled",
+  "label_source": "human",
+  "trap_ids": [
+    8,
+    5
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": -4.13,
+    "kospi_change_pct": -1.24,
+    "kospi_basis": "kospi_ex_self",
+    "excess_vs_basis_pp": -4.1,
+    "kospi_relation": "diverges",
+    "peer_relations": {
+      "메모리반도체": "inconclusive"
+    },
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "더",
+    "peer_median_pct": -0.31,
+    "excess_vs_peers_pp": -3.82,
+    "judge_layers": {
+      "move": true,
+      "relative": true
+    },
+    "move_strength_cap": null,
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-10-29T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-10-29T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "no_clear_cause",
+    "relative": "no_clear_cause"
+  },
+  "confidence_level": "none",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "3Q26 잠정실적: 매출 195조원(컨센 -2.7%), 영업이익 107조원(컨센 +0.5%)",
+      "importance": "should",
+      "layer": [
+        "move",
+        "relative"
+      ],
+      "expected_mention": "factors",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19240",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/skitteam/4851",
+          "tier": "primary"
+        }
+      ],
+      "key_facts": [
+        "3Q26 실적",
+        "영업이익"
+      ],
+      "rationale": "그 날 가장 큰 직접 공시이지만 컨센 부합인데 -4.13% 하락이라 방향이 맞지 않음. 직접 재료의 방향이 불분명·반대라 판정은 no_clear_cause 이고 none 이라 must 를 두지 않음. 상한 coincident"
+    },
+    {
+      "id": "e2",
+      "summary": "주주환원: 3분기 현금배당 총 30조원, 2026년 잔여재원 55~75조원(자사주 매입·소각 포함)",
+      "importance": "should",
+      "layer": [
+        "move"
+      ],
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19241",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "주주환원"
+      ],
+      "rationale": "호재성 재료인데 주가는 하락해 방향 반대. 대조 서술만 허용"
+    },
+    {
+      "id": "e3",
+      "summary": "2026년 시설투자 약 84.4조원 계획(DS 76.8조원, SDC 3.9조원)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4853",
+          "tier": "primary"
+        }
+      ],
+      "key_facts": [
+        "시설투자"
+      ],
+      "rationale": "맥락 정보"
+    },
+    {
+      "id": "e4",
+      "summary": "장 전 메모리 업계 소식(Meritz Overnight): 중국 CXMT 낮은 수율에도 첨단 AI 메모리 생산 착수 예정, 솔리다임 美 낸드 공장 60조원 투자 추진",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19237",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "CXMT"
+      ],
+      "rationale": "경쟁사·업계 소식이라 간접 재료. 기사 제목 한 줄씩이고 삼성전자에 대한 직접 언급이 없어 하락 원인으로 쓰기에 약함. 상한 coincident"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "direction_flip",
+      "subject": "주주환원(배당·자사주) 발표",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "down",
+      "example": "주주환원 발표의 영향으로 주가가 하락했다"
+    },
+    {
+      "id": "f2",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "down",
+      "example": "외국인·기관 순매도가 하락 원인이다"
+    },
+    {
+      "id": "f3",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "up",
+      "example": "대형주보다 덜 내렸다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "실적 부합·주주환원 발표에도 주가가 -4.13% 하락한 이유",
+    "대형주 중간값보다 더 내린 이유"
+  ],
+  "beginner_terms": [
+    "컨센서스",
+    "잠정실적",
+    "주주환원",
+    "시설투자",
+    "CAPEX"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

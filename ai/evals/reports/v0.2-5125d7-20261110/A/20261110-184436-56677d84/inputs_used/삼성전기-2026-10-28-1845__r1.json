@@ -1,0 +1,110 @@
+{
+  "stock": "삼성전기",
+  "code": "009150",
+  "target_date": "2026-10-28",
+  "cutoff": "2026-10-28T18:45:00+09:00",
+  "change_pct": 8.74,
+  "market": {
+    "index": "코스피",
+    "change_pct": 6.63,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": 2.67,
+    "peer_up": 17,
+    "peer_down": 2,
+    "peer_total": 19,
+    "excess_pct": 6.07
+  },
+  "messages": [
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19207",
+      "datetime_kst": "2026-10-28T07:39:03+09:00",
+      "text": "Meritz Overnight Tech 2026. 10. 28 (수)\n\n[메리츠증권 반도체/디스플레이 김선우]\n\n★ 메모리 스팟가격\n DRAM(DDR4 8Gb: 1D +0.07%, 1W +0.73%, 1M +1.20%)\n         (DDR5 16Gb: 1D 0.00%, 1W +1.04%, 1M +6.36%)\n NAND(MLC 64Gb: 1D 0.00%, 1W +0.92%, 1M +7.05%)\n\n★ 반도체/디스플레이 주요 뉴스 플로우\nSeagate FY1Q27 실적발표. 매출액 42억달러(+61% YoY), 조정 EPS 7.68달러(+194% YoY)를 기록하며, 시장 예상치를 상회. 데이터 생성과 보존, 재사용이 지속되면서 스토리지 수요가 누적적으로 증가하고 있으며, 장기 고객 수요에 대한 가시성이 높아지고 있어 스토리지 산업은 향후 수년에 걸쳐 성장 국면에 진입했음을 언급. 아울러, 역대 최대 수준인 15억달러의 FCF을 기록함을 강조. 차분기 가이던스 역시 시장 예상치를 뛰어넘는 견조한 수준으로 제시한 가운데, 매출의 4~6% 수준의 Capex가 예정되었음에도 절대적인 규모 자체가 시장 예상치를 소폭 상회하자 시간외 주가 5.4% 하락 중 (Seagate)\nhttps://buly.kr/58VKF8O\n\n오라클, 엔비디아 칩 공급 계약 확대… 구글·세레브라스 제품도 추가 (NIKKEI Asia)\nhttps://buly.kr/GvpF3op\n\n브로드컴, 앤스로픽에 83.4조 규모 대여용 XPU 등 공급 (TheElec)\nhttps://buly.kr/5JQ5Fct\n\n엔비디아 메타의 유상증자에 30억 달러 참여 예정, \"뮤즈 AI 파트너십 강화\" (Business Post)\nhttps://buly.kr/CsmfQpH\n\nTSMC, AI 수요 급증에 CoWoS 패키징 가격 20% 인상 검토 (TrendForce)\nhttps://buly.kr/31WEV0m\n\n엔비디아, 베라 루빈 HBM4 대역폭 13% 하향…삼성·SK하이닉스 공급 확대 기대 (전자신문)\nhttps://buly.kr/jcNkSk\n\n취임 4주년 날, 로봇 개발 현장 간 이재용 (중앙일보)\nhttps://buly.kr/6ik96A5\n\n애플 폴더블 아이폰 ‘듀오’, 힌지 결함 논란에도 강한 수요에 출하 목표 44% 상향 전망 (TrendForce)\nhttps://buly.kr/ET1UGCO\n\n★ 전일 해외 관련업체 주요 주가등락 (2%p 이상)\n삼성전자(+4.2%), SK하이닉스(+5.2%), Micron(+2.8%), Western Digital(+6.9%), Nanya(+6.5%), Lenovo(+2.9%), Asus(+2.2%), Intel(+3.6%), Qualcomm(+2.5%), TI(+3.6%), STMicro(+7.1%), Marvell(+4.2%), AMD(+5.5%), Magnachip(+6.3%), UMC(-2.4%), BOE(-2.9%), AUO(-5.5%), Sharp(-2.6%), 원익 IPS(+4.9%), 에스에프에이(+2%), AP시스템(+3.5%), 테스(+5.6%), ASML(+2.8%), AMAT(+2.2%), KLA(+3%), Tokyo Electron(+3.1%), 원익머트리얼즈(+7.4%), 솔브레인(+6.4%), Kanto Denka(+2.7%), 이녹스첨단소재(+2.5%), UDC(+2.1%), 삼성전기(+7.4%), Murata(+2.7%), Yageo(+2.8%), 삼성SDI(+5.1%), LG에너지솔루션(+2%), CATL(-2.1%), Panasonic(+3%)\n\n(자료: Bloomberg, DRAMeXchange, 언론자료) \n\n\n*동 자료는 Compliance 규정을 준수하여 사전 공표된 자료이며, 고객의 증권투자결과에 대한 법적 책임소재의 증빙자료로 사용될 수 없습니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "KISGregKim",
+      "url": "https://t.me/KISGregKim/18879",
+      "datetime_kst": "2026-10-28T08:47:30+09:00",
+      "text": "KOSPI to open higher tracking US markets gain for the 2nd day on AI optimism driven by Anthropic IPO. Eyes on SK HYNIX 3Q earnings and return policy detail, and if local insto and foreign extend net buy streak for 4 and 2-days respectively.\n\n* 3Q TODAY: SK HYNIX (9:00), SEMCO (13:00), HD HHI, HD KSOE (14:00), SAMSUNG C&T, SAMSUNG EPIS, DOOSAN FUEL CELL, HOTEL SHILLA, YUHAN CORP (16:00)\n* SK HYNIX (000660): 1) 3Q earnings release this morning: Cons OP W77tn. Street also expect special dvd, 2) Solidigm in discussion with the US to invest $45bn for US plant.\n* CHIP: China's Alibaba, Tencent and ByteDance have asked SEC (005930) and SK HYNIX (000660) for long-term server DRAM supply agreements, press.\n* DOOSAN CORP (000150) to invest W399bn in CCL production expansion at Gimje, Korea plant as part of its W970bn investment plan announced back in Sep.\n* HD HYUNDAI (267250) to issue W588.7bn worth EB with 2.4mn shrs of HD HMS (443060) as underlying. Proceeds for debt repayment.\n* HD HHI (329180)'s labor union and management reached an agreement on wage deal.\n* NUCLEAR: S.Korea's Kori Nuclear Power Plant Units 3 and 4 to resume power generation as early as 1H27 amid AI-driven demand surge.\n* NAVER (035420) signed an $9bn agreement with Brookfield to secure AI computing infra.\n* SK INNOV (096770) SK ON's battery plant in Hungary has been blacklisted for environmental violations, incurring W400mn fine and two-year ban on gov't subsidies.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19221",
+      "datetime_kst": "2026-10-28T12:01:38+09:00",
+      "text": "[메리츠증권 전기전자/IT부품 양승수]\n\n삼성전기 3Q26 실적발표 안내드립니다.\n\n매출액: 3조 7,633억원 (vs 컨센서스 3조 8,072억원)\n영업이익: 6,910억원 (vs 컨센서스 6,420억원)\n지배주주순이익: 4,687억원 (vs 컨센서스 5,242억원)\n\nhttps://buly.kr/AlnZjgD (Dart)\n\n* 본 내용은 당사의 코멘트 없이 국내외 언론사 뉴스 및 전자공시자료 등을 인용한 것으로 별도의 승인 절차 없이 제공합니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4814",
+      "datetime_kst": "2026-10-28T12:05:08+09:00",
+      "text": "# 삼성전기 (시총: 97조 271억원)\n- 3Q26 실적공시 (잠정)\n\n[ SK증권 박형우, 정영환]\nIT 하드웨어 / 배터리\n\n▶️ 실적 공시:\n- 매출액: 3조 7,633억원 (YoY +30%)\n(컨센 매출: 3조 8,264억원, 컨센 대비 -1%)\n \n- 영업이익: 6,910억원 (YoY +166%)\n(컨센 OP: 6,453억원, 컨센 대비 +8%)\n\n- OPM: +18.3%\n(컨센 OPM: +16.8%)\n\n▶️ URL: https://buly.kr/AlnZjgD\n\n* SK증권 리서치 IT팀 채널 :    \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19227",
+      "datetime_kst": "2026-10-28T14:29:47+09:00",
+      "text": "[메리츠증권 전기전자/IT부품 양승수]\n\n▶ 삼성전기(009150)\n3Q26 컨퍼런스콜 Q&A 정리\n\n삼성전기 3Q26 컨퍼런스콜 Q&A 정리본 공유드립니다.\n\n[삼성전기 컨퍼런스콜 핵심질문 4선]\n\nQ1) (전사) 4분기 및 2027년 실적 전망은?\n\nA1) 지난 3분기는 환율 영향에도 불구하고 AI 데이터센터 부품 수요의 고성장세와 ADAS 관련 수요 확대가 지속되면서 MLCC 및 FC-BGA 고부가 제품 판매가 큰 폭으로 증가. 이에 따라 전분기 및 전년동기 대비 실적이 개선되며 역대 최대 실적 달성\n\n4분기에도 빅테크 고객사들의 차세대 AI 서버 중심 인프라 투자 확대와 관련 부품의 고용량화·고다층화·대면적화 등 고사양화가 지속되면서 MLCC와 FC-BGA의 타이트한 수급 상황이 3분기 대비 더욱 심화될 전망\n\nMLCC는 AI 서버 관련 GPU, 광모듈, 컨버터 등에 사용되는 초고용량·고전압 제품 공급을 적극 확대할 계획. 하이퍼스케일러 및 반도체 업체 등 글로벌 빅테크 고객들과 장기공급계약 체결을 지속하고, 타이트한 수급 상황을 고려한 전략적인 Capa 운영 및 가격 대응을 통해 실적 성장을 이어갈 예정\n\nFC-BGA는 Multi-core가 적용된 서버 CPU용 기판과 Embedded 기판 등 서버 CPU 및 AI 가속기용 고부가 신제품 공급을 적극 확대할 계획. 타이트한 수급 상황을 고려한 전략적 판가 운영을 통해 고부가 제품 중심의 매출 성장세를 지속할 예정\n\n4분기에도 MLCC와 FC-BGA의 Product Mix 개선, 평균 판가 상승 및 AI 데이터센터향 매출 비중의 추가 확대 등에 힘입어 통상적인 계절성을 넘어서는 전분기 대비 큰 폭의 실적 성장 예상\n\n이러한 시장 상황과 실적 성장 추세는 2027년에도 지속될 것으로 전망. AI 데이터센터 수요 강세에 따라 MLCC 및 패키지기판의 타이트한 수급 상황이 더욱 심화되고, 고용량·고전압 MLCC 및 대면적·고다층 FC-BGA 등 고부가 제품 수요 증가로 평균 판가 상승 추세도 상당 기간 지속될 전망\n\nMLCC는 AI 데이터센터향 초고용량 및 Embedded 관련 신제품 개발을 확대하고 ADAS용 대형·초고용량·고온 등 고판가 제품 공급을 집중 확대할 계획. 실리콘 커패시터 역시 신규 응용처 진입 및 고객 다변화를 통해 매출과 수익성을 적극 확대할 예정\n\n패키지기판은 Embedded 기판, AI 가속기용 기판 등 신규 고부가 제품의 빅테크 고객사 진입을 확대하고, 고객 수요에 기반한 적극적인 Capa 증설과 전략적 판가 운영을 통해 매출 및 수익성을 지속 강화할 계획\n\n중장기 성장을 위한 추가 Capa 증설도 차질 없이 추진할 예정이며, 2027년에는 1분기부터 매분기 큰 폭의 실적 성장을 기록하며 역대 최대 실적을 달성할 것으로 전망\n\nQ2) (MLCC) 장기공급계약 진행 현황과 향후 계획은?\n\nA2) 지난 분기에 이어 데이터센터용 최선단 기종인 1005 47μF, 1608 100μF 등을 중심으로 주요 고객사들과 장기공급계약을 진행 중\n\n현재까지 약 50여 개 고객사와 고용량·고압 등 고부가 제품 및 시장 수요 대비 공급이 크게 부족한 최선단 제품 중심으로 장기공급계약을 체결 완료했거나 추가 계약을 진행 중\n\n이를 통해 2027년 MLCC 매출의 과반 이상이 장기공급계약에서 발생할 것으로 예상\n\n장기공급계약을 통해 고객 수요를 선점하고 효율적인 생산계획 수립으로 생산성을 극대화할 수 있을 것으로 기대. 또한 고객사의 차세대 프로젝트에 동사 신제품 채용이 확대되는 효과도 기대되며, 이를 기반으로 중장기 매출 성장성을 크게 제고할 수 있을 것으로 전망\n\nAI 서버용 MLCC 수요 강세에 대응하기 위해 지속적인 투자를 통해 AI 데이터센터용 중심으로 생산 능력을 선제적으로 확대해 왔으며, 올해도 전년 대비 공급 능력을 확대 중\n\n필리핀에 건설 중인 신공장은 2027년부터 최선단 고부가 MLCC 중심으로 양산을 개시할 예정. AI 및 자율주행 이동 로봇 등을 제조 현장에 활용해 제조 경쟁력도 강화할 계획\n\nAI 서버용 최선단 제품은 높은 기술력과 안정적인 공급 역량이 요구돼 공급 가능 업체가 제한적이며, 신규 Capa 증설에도 상당한 시간이 소요되는 만큼 타이트한 수급 상황은 지속될 것으로 전망\n\nQ3) (FC-BGA) 9월 공시한 약 6.8조원 규모의 패키지기판 증설 투자와 향후 양산 및 매출 확대 계획은?\n\nA3) AI 데이터센터향 패키지기판의 고다층·대면적화 추세로 Capa 잠식이 심화되고 있으며, 기술력을 갖춘 소수 업체만 고사양 제품에 대응할 수 있는 시장 구조가 형성되고 있음\n\n고객사 관점에서도 패키지기판을 단순 부품이 아닌 장기간 공동 개발을 진행하고 안정적인 공급망을 구축해야 하는 전략적 부품으로 인식하는 추세\n\n당사는 이러한 시장 변화에 대응해 AI 데이터센터향 매출 비중을 지속 확대하며 시장 내 입지를 강화해 왔음\n\n주요 빅테크 고객사들로부터 기술력과 안정적인 공급 능력을 인정받아 대규모 투자비 지원과 장기공급계약 체결을 완료했으며, 이를 기반으로 세종·부산·베트남의 FC-BGA Capa 증설을 진행 중\n\n이번 증설 투자는 시장 수요가 급증하고 있는 AI 데이터센터향 고부가 제품을 중심으로 진행되며, 2027년부터 단계적으로 양산을 시작하고 2028년부터 매출에 본격적으로 기여할 예정\n\n이를 통해 큰 폭의 매출 증가와 업계 내 위상 강화를 추진할 계획\n\n한편 이번 대규모 증설에도 고객사 수요를 모두 충족하기 어려운 상황으로 추가 물량 확대 요청이 지속되고 있음. 당사는 시장 상황과 수급 현황을 면밀히 검토해 추가 증설의 시점과 규모를 신중하게 판단할 계획\n\nQ4) (FC-BGA) Embedded 기판의 공급 현황 및 향후 사업 확대 가능성은?\n\nA4) AI 반도체가 고성능화되면서 소비전력과 발열이 크게 증가하고 있어 칩에 안정적으로 전력을 공급하는 기술의 중요성이 높아지고 있음\n\nEmbedded 기판은 수동부품을 기판 내부에 내장함으로써 전력 공급 경로를 최소화해 전력 효율과 안정성을 향상시키고, 부품과 칩 간 신호 전달 거리를 단축해 고속 신호 품질을 개선할 수 있다는 장점 보유\n\n이에 따라 Embedded 기판은 AI 반도체의 고성능 구현을 위한 핵심 솔루션으로 주목받고 있으며, 고객 수요 증가에 따라 관련 시장도 빠르게 성장 중\n\n당사는 수동부품과 이를 내장한 FC-BGA 기판을 동시에 공급할 수 있는 글로벌 유일 업체로, 이는 당사만의 차별화된 경쟁력\n\n업계 최고 수준의 부품 Embedding 기술력을 기반으로 현재 주요 빅테크 고객사향 Embedded 기판을 공급 중이며, 2027년 이후 공급량을 본격적으로 확대할 예정\n\n향후 고사양 데이터센터용 Embedded 기판은 내장되는 부품 수가 증가하고 능동부품까지 Embedding하는 방향으로 발전할 것으로 예상\n\n당사는 주요 거래선과 Embedded 기판 관련 개발 협업을 강화하고 이를 차별화 기술로 육성해 시장 선점을 추진할 계획\n\n자세한 내용은 아래 링크 참조 부탁드립니다.\n\nhttps://buly.kr/9XOGu8M (링크)\n\n* 동 자료는 Compliance 규정을 준수하여 사전 공표된 자료이며, 고객의 증권 투자 결과에 대한 법적 책임소재의 증빙자료로 사용될 수 없습니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19237",
+      "datetime_kst": "2026-10-29T07:51:39+09:00",
+      "text": "Meritz Overnight Tech 2026. 10. 29. (목)\n\n[메리츠증권 반도체/디스플레이 김선우]\n\n★ 메모리 스팟가격\n DRAM(DDR4 8Gb: 1D -0.13%, 1W +0.60%, 1M +1.40%)\n         (DDR5 16Gb: 1D 0.00%, 1W +0.77%, 1M +6.05%)\n NAND(MLC 64Gb: 1D 0.00%, 1W +0.92%, 1M +4.85%)\n\n★ 반도체/디스플레이 주요 뉴스 플로우\nFY1Q27 Microsoft 실적발표. 매출액 923억달러(+19% YoY), 조정 EPS 4.89달러로 시장 예상치를 상회. AI 인프라 투자 확대가 클라우드 사업의 성장으로 이어지며 Azure 매출은 332억달러(+48% YoY)로 시장 예상치를 상회했고, Microsoft Cloud 매출도 639억달러(+30% YoY)를 기록. 현금 기준 Capex는 394억달러로 예상치 466억달러를 하회한 가운데, 대규모 AI 투자에 따른 수익 창출 성과가 확인되면서 투자 부담 우려가 일부 완화. Azure의 예상보다 높은 성장세와 AI 투자 성과가 부각되며 시간외 주가는 3.3% 상승 중 (Microsoft)\nhttps://buly.kr/5JQ5cAu\n\nFY3Q26 Alphabet 실적발표. 매출액 1,276억달러(+25% YoY), EPS 2.12달러로 시장 예상치를 하회. AI 인프라 및 TPU 수요 확대에 힘입어 Google Cloud 매출은 307억달러(+103% YoY)를 기록했으나, 핵심 수익원인 검색 및 유튜브 광고 매출은 시장 기대치를 하회. FY26 Capex 가이던스 1,950–2,050억달러를 유지하고 FY27에도 큰 폭의 증가를 전망. 지분증권 평가손실 87억달러가 실적에 반영된 가운데, 광고 사업 성장 둔화와 AI 투자 부담에 따른 FCF 악화가 부각되며 시간외 주가는 10.3% 하락 중 (Google)\nhttps://buly.kr/CB7dsJx\n\n'SK하이닉스 손자회사' 솔리다임, 美 낸드 공장에 60조원 투자 추진 (조선비즈)\nhttps://buly.kr/5qAMYBZ\n\n중국 CXMT, 낮은 수율에도 첨단 AI 메모리 생산 착수 예정 (Reuters)\nhttps://buly.kr/6157XPU\n\n엔비디아·AMD, 메타에 40억달러 투자…AI 동맹 강화 (매일경제)\nhttps://buly.kr/9XOH9Mt\n\nOpenAI, 구글 AI칩 구매 계획…TPU 도입 확대 검토 (Reuters)\nhttps://buly.kr/CM2Oqn6\n\n★ 전일 관련업체 주요 주가등락 (2%p 이상)\n삼성전자(9%), SK하이닉스(+10.9%), Micron(+5.9%), Western Digital(+4.1%), Nanya(+8.2%), LG전자(+2.7%), HPQ(-3.4%), Sony(-2.8%), Lenovo(+6.3%), Asus(+2.2%), Marvell(+3.3%), AMD(+3.2%), Mediatek(+6.9%), DB하이텍(+5.7%), Magnachip(+4.4%), UMC(+4.5%), SMIC(+5.4%), BOE(+2.1%), LG디스플레이(+2.7%), AUO(+6.3%), 원익 IPS(+6.1%), 에스에프에이(+4.2%), AP시스템(+7.9%), 테스(+7%), AMAT(+5.1%), KLA(+3.3%), LAM Research(+5.4%), Tokyo Electron(+4.4%), 원익머트리얼즈(+5.4%), 솔브레인(+3.6%), Kanto Denka(+2.9%), 덕산네오룩스(-3.2%), 이녹스첨단소재(+2.3%), Idemitsu Kosan(-3.2%), 삼성전기(+8.7%), Murata(+5.2%), Yageo(+5%), 삼성SDI(+5.1%), Panasonic(+2.7%)\n\n(자료: Bloomberg, DRAMeXchange, 언론자료)\n\n*동 자료는 Compliance 규정을 준수하여 사전 공표된 자료이며, 고객의 증권투자결과에 대한 법적 책임소재의 증빙자료로 사용될 수 없습니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19238",
+      "datetime_kst": "2026-10-29T07:52:01+09:00",
+      "text": "[메리츠증권 전기전자/IT부품 양승수]\n\n삼성전기(009150): \n길어지는 이익의 활주로 \n\n▶ 3Q26 Review: AI 중심의 체질 개선 본격화\n\n- 3Q26 실적은 매출액 3.8조원(+30.3% YoY), 영업이익 6,910억원(+165.5% YoY)을 기록, 영업이익 기준 시장 컨센서스를 7.1% 상회\n\n- MLCC는 유통채널향 가격 인상 효과와 AI 데이터센터 중심의 제품 믹스 개선에 힘입어 수익성이 30% 수준에 도달한 것으로 추정\n\n- 특히 MLCC 매출 내 데이터센터향 비중이 2Q26 18% → 3Q26 32%로 가파르게 확대되면서 Blended ASP +12.0% QoQ 상승한 것으로 파악\n\n- 동시에 가동률이 100% 내외에 도달한 상황에서도 재고일수가 3주 수준으로 감소하며 MLCC의 구조적인 수급 타이트닝이 지속되고 있다는 점 역시 긍정적\n\n- ABF기판 역시 서버용 CPU와 스위치향 수요 확대에 힘입어 매출액이 +27.8% QoQ 증가한 가운데, 수익성 또한 30%에 근접하는 수준까지 개선된 것으로 추정\n\n▶ 4Q26 Preview: 끝을 모르는 P의 상승 \n\n- 4Q26E 예상 영업이익은 8,666억원(+261.8% YoY)으로 시장 컨센서스(7,023억원)를 23.4% 재차 상회할 전망\n\n-  MLCC는 일부 다이렉트 거래선향 가격 인상과 AI 제품 중심의 믹스 개선에 힘입어 Blended ASP가 +16.0% QoQ 추가 상승할 것으로 기대\n\n- 특히 AI 서버향 MLCC는 현재 주력으로 공급 중인 1005 47μF 외에도 0603 10μF 및 1608 100μF 등 소형·초고용량 제품으로 수요가 확대될 전망\n\n- ABF 역시 스위치향 제품 공급을 본격화한 신규 거래선으로 LPU용 기판 공급까지 확대되며 성장이 가속화될 전망\n\n- 서버 CPU향 역시 동사가 기술적 해자를 보유한 Embedded PCB의 공급이 확대되는 가운데, 4분기부터는 기존 거래선에 이어 신규 CPU 고객사향 납품까지 본격화될 것으로 예상\n\n▶ 이익 성장의 시계는 더 멀리\n\n- Future Electronics와 TrendForce에 따르면 삼성전기의 MLCC와 ABF 기판 리드타임은 각각 52주와 48~56주로, 현재 주문하더라도 제품 인도까지 약 1년이 소요\n\n- 이는 양 사업부의 타이트한 수급 환경이 장기화되고 있음을 보여주는 동시에, 2028년까지 이어질 동사의 가파른 이익 성장에 대한 가시성을 뒷받침\n\n- 향후 실적 눈높이의 추가 상향을 이끌 핵심 변수는 신규 LTA\n\n- 현재까지 공시된 LTA 규모는 약 4.3조원(MLCC+Si-CAP+패키지기판)으로, 당사는 연내 복수의 고객사와 추가 LTA 체결이 이어지며 시장의 이익 추정치가 상향되는 동시에 밸류에이션 기준점 역시 2027년에서 2028년 이후로 확장될 것으로 기대\n\n- 또한 10월 29일 Ibiden과 30일 Murata의 실적 발표가 ABF 기판과 MLCC의 구조적 공급 부족을 재확인하며, 동사의 중장기 실적 성장 가시성을 뒷받침할 것으로 예상\n\n- 투자의견 Buy를 유지, 실적 추정치 상향을 반영해 적정주가를 230만원으로 상향 제시\n\nhttps://buly.kr/DPWwkXm (링크) \n\n*동 자료는 Compliance 규정을 준수하여 사전 공표된 자료이며, 고객의 증권투자결과에 대한 법적 책임소재의 증빙자료로 사용될 수 없습니다.",
+      "mention": "mentioned"
+    }
+  ],
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": 8.74,
+      "kospi_change_rate_pct": 6.63,
+      "excess_vs_kospi_pp": 2.11,
+      "kospi_weight_pct": 2.0,
+      "kospi_contribution_pp": 0.174,
+      "kospi_ex_self_change_rate_pct": 6.59,
+      "excess_vs_kospi_ex_self_pp": 2.15,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "전자부품",
+        "median_change_rate_pct": -1.74,
+        "excess_vs_group_pp": 10.48,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "mixed": false,
+        "judge_in_sentence": null,
+        "members_used": [
+          {
+            "code": "011070",
+            "name": "LG이노텍",
+            "change_rate_pct": -1.74,
+            "in_sentence": true
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "009150",
+            "name": "삼성전기",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,264 @@
+{
+  "case_id": "b01_034730_2026-11-05",
+  "summary": {
+    "n_runs": 3,
+    "expected_verdict": {
+      "move": "no_clear_cause",
+      "relative": "no_clear_cause"
+    },
+    "verdicts": [
+      {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      }
+    ],
+    "verdict_match_runs": {
+      "move": 3,
+      "relative": 3
+    },
+    "rule_a_violations": [
+      0,
+      0,
+      0
+    ],
+    "overclaim_candidates": [
+      0,
+      0,
+      0
+    ],
+    "omission_candidates": [
+      0,
+      0,
+      0
+    ],
+    "spurious_candidates": [
+      0,
+      0,
+      0
+    ],
+    "possible_contributor": [
+      {},
+      {},
+      {}
+    ],
+    "recap_cited": [
+      0,
+      0,
+      0
+    ],
+    "injected_cited": [
+      0,
+      0,
+      0
+    ],
+    "skipped_llm": [
+      null,
+      null,
+      null
+    ],
+    "verify_status": [
+      "passed",
+      "passed",
+      "passed"
+    ],
+    "same_conclusion_runs": 3,
+    "same_verdict_runs": 3,
+    "cost": 16.72
+  },
+  "reports": [
+    {
+      "run_id": "SK-2026-11-05-1845__r1",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 6.07203325,
+      "is_error": false,
+      "verdict": {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      "verdict_match": {
+        "move": true,
+        "relative": true
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e2",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [],
+      "rule_a_violation_count": 0,
+      "overclaim_candidates": 0,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {},
+      "conclusion": {
+        "verdict": {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        },
+        "linked_events": [],
+        "extra": 0
+      }
+    },
+    {
+      "run_id": "SK-2026-11-05-1845__r2",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 6.111909,
+      "is_error": false,
+      "verdict": {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      "verdict_match": {
+        "move": true,
+        "relative": true
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e2",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [],
+      "rule_a_violation_count": 0,
+      "overclaim_candidates": 0,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {},
+      "conclusion": {
+        "verdict": {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        },
+        "linked_events": [],
+        "extra": 0
+      }
+    },
+    {
+      "run_id": "SK-2026-11-05-1845__r3",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 4.539441,
+      "is_error": false,
+      "verdict": {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      "verdict_match": {
+        "move": true,
+        "relative": true
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e2",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [],
+      "rule_a_violation_count": 0,
+      "overclaim_candidates": 0,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {},
+      "conclusion": {
+        "verdict": {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        },
+        "linked_events": [],
+        "extra": 0
+      }
+    }
+  ]
+}
