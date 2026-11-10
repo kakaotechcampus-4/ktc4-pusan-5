@@ -18,6 +18,8 @@ eval 세트의 파일 4종(`case.json`, `provenance.json`, `gold.json`, `gold.lo
 
 파이프라인 입력과 같은 형태(`tests/fixtures/stock_analysis` 와 같은 스키마)임. 모델은 이 파일만 봄.
 
+`cases/`(안 A, 구형 입력)와 `cases_live/`(안 B, 실서비스 형식 입력)는 `messages[]` 칸이 다름. 아래 표는 `cases/` 기준이고, `cases_live/` 에서 늘어난 칸은 표 아래에 정리함.
+
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | `stock` | string | 종목명 |
@@ -37,6 +39,18 @@ eval 세트의 파일 4종(`case.json`, `provenance.json`, `gold.json`, `gold.lo
 | `datetime_kst` | string(ISO) | 최초 게시 시각(`telegram_messages.posted_at`) |
 | `text` | string | 본문 원문 |
 | `mention` | string | `mentioned`(본문에 종목명·별칭이 있음). 이 세트의 78건은 모두 이 값 |
+
+`cases_live/` 와 `cases_live_pending/` 의 `messages[]` 에서 늘어난 칸
+
+| 필드 | 설명 |
+|---|---|
+| `kind` | 메시지 분류. 확인한 값은 `market_recap`, `disclosure`, `news`, `other` |
+| `after_prev_close` | 직전 거래일 마감 이후 메시지인지 |
+| `first_seen_kst` | 최초로 수집된 시각 |
+| `dup_channels` | 같은 내용이 올라온 다른 채널 |
+| `is_correction` | 정정 공시 메시지에만 `true`(b04 의 1건). 다른 메시지에는 칸이 없음 |
+
+이 칸의 뜻은 파일의 값으로 확인한 것이고, 채우는 규칙은 이 문서에 적지 않았음(필요하면 조립 코드를 확인). `cases/` 의 안 A 입력에는 `kind` 가 없어서 시황·오버나이트 메시지가 근거 칸으로 들어감(c01·c07·c09 의 `notes.md` 참고).
 
 규칙
 - 메시지는 직전 거래일 15:30 초과 ~ `cutoff` 이하임. 예외는 누수 함정으로 일부러 섞은 `cutoff` 이후 메시지(현재 c09 의 2건)이고, 이것은 `case.json` 에 들어 있지만 `provenance.json` 의 `injected_after_cutoff` 에 따로 기록하며 `provenance.json` 의 `messages` 에는 넣지 않음.
@@ -220,14 +234,15 @@ eval 세트의 파일 4종(`case.json`, `provenance.json`, `gold.json`, `gold.lo
 
 | 필드 | 설명 |
 |---|---|
-| `set_version` | 세트 버전(예: `v0`) |
+| `set_version` | 세트 버전(예: `v0.2`) |
 | `lock_status` | `provisional`(잠정) \| `locked`(정식) |
 | `locked_at` | 기록 시각(KST) |
 | `set_hash` | 케이스별 해시 전체를 정규화해 구한 세트 해시(sha256) |
-| `n_cases` | 케이스 수 |
+| `n_cases` | 케이스 수(`cases/` 와 `cases_live/` 의 합) |
 | `note` | 상태 안내 문구 |
 | `hash_scope` | 해시 범위 설명 |
-| `cases` | 케이스 id → `{case_json, provenance_json, gold_json}` 해시 |
+| `case_roots` | 잠근 폴더 목록(`cases`, `cases_live`). `cases_live_pending/` 은 잠그지 않음 |
+| `cases` | 키 → `{case_json, provenance_json, gold_json}` 해시. 키는 `cases/` 케이스는 폴더 이름, `cases_live/` 케이스는 `cases_live/<폴더>` |
 
 해시는 JSON 을 키 정렬로 정규화한 뒤 sha256 으로 구함(들여쓰기·줄바꿈 차이 무시). `gold_json` 해시는 `verification`, `status` 를 뺀 내용임. 사용법은 `../validate_gold.md` 9장과 `../README.md` 6-2.
 

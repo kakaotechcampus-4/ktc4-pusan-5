@@ -25,6 +25,8 @@ eval 세트를 만들면서 정한 것과 그 이유를 남김. 라벨링 기준
 | ADR-015 | 정식 잠금 전에 잠정 잠금을 기록하고 해시에서 일부 칸을 제외 | 채택 |
 | ADR-016 | 평가 결과(`reports/`)를 git 에 전부 커밋 | 채택 |
 | ADR-017 | `acceptable_alternatives` 칸은 이번 세트에서 쓰지 않음 | 채택 |
+| ADR-018 | 규칙 A: 사건 강도로 보고서 link 유무를 코드 채점 | 채택 |
+| ADR-019 | `cases_live` 를 안 A 와 분리해 잠금 | 채택 |
 
 ---
 
@@ -217,11 +219,11 @@ eval 세트를 만들면서 정한 것과 그 이유를 남김. 라벨링 기준
 
 **배경.** 정식 잠금 조건(체크리스트·블라인드 재라벨링 완료, `verification` 기록)이 아직 충족되지 않았음. `verification` 에 검증 완료를 쓰는 것은 사실이 아님.
 
-**결정.** `lock_set.py` 로 `v0` 를 `provisional` 로 기록함. 해시 대상은 `case.json`, `provenance.json`, `gold.json`(`verification`·`status` 제외)이고, JSON 을 키 정렬로 정규화한 뒤 sha256 을 구함. 정식 잠금은 검증을 마친 뒤 `--provisional` 없이 기록함.
+**결정.** `lock_set.py` 로 `v0` 를 `provisional` 로 기록함(이후 팀원이 `cases_live/` 를 잠금 대상에 넣고 `v0.1`, `v0.2` 로 다시 기록함. ADR-019 참고). 해시 대상은 `case.json`, `provenance.json`, `gold.json`(`verification`·`status` 제외)이고, JSON 을 키 정렬로 정규화한 뒤 sha256 을 구함. 정식 잠금은 검증을 마친 뒤 `--provisional` 없이 기록함.
 
 **대안과 기각 이유.** `verification` 을 임의로 채워 정식 잠금하는 안은 검증하지 않은 것을 검증했다고 적게 돼 기각. 잠금을 미루는 안은 잠금 전에 gold 가 소리 없이 바뀌는 것을 못 잡아 기각.
 
-**결과.** 검증 기록을 채우거나 `status` 를 바꿔도 해시가 바뀌지 않음. gold 내용이 바뀌면 `--check` 가 알려 줌.
+**결과.** 검증 기록을 채우거나 `status` 를 바꿔도 해시가 바뀌지 않음. gold 내용이 바뀌면 `--check` 가 알려 줌. 현재 기록은 `v0.2`(provisional, 13건)임.
 
 ## ADR-016. 평가 결과를 git 에 전부 커밋
 
@@ -245,6 +247,29 @@ eval 세트를 만들면서 정한 것과 그 이유를 남김. 라벨링 기준
 **결정.** 이번 세트에서는 채우지 않고 `[]` 로 둠. 재라벨링에서 어긋난 항목은 `rationale` 로 하나로 정하고, 정하기 어려우면 `verification.low_confidence` 에 적어 점수·개선 판정에서 제외함.
 
 **결과.** 판정이 갈릴 수 있는 케이스(c04, c06, c08)의 대안 판정은 각 `notes.md` 에만 적혀 있고 채점에 쓰이지 않음. 칸을 쓰려면 형식과 판정 규칙을 먼저 `rubric.md` 에 정의해야 함.
+
+## ADR-018. 규칙 A: 사건 강도에 따라 보고서 link 의 유무를 코드로 채점
+
+- **상태:** 채택(팀 결정, 2026-11-10)
+- **관련:** 커밋 `44ef420`, `20daf5e`, `8b60cf4`, `9875495`, `../score_rule_a.py`
+
+**결정.** gold 사건의 `max_causal_strength` 가 `coincident` 이면 보고서에 그 사건 link 가 없어야, `likely_cause` 이면 있어야 정답으로 셈. `possible_contributor` 는 둘 다 정답이고 있음·없음을 따로 셈. 보고서 link 는 출처 URL 이 사건의 `supporting_sources` 에 있으면 그 사건, 없으면 입력 본문이 사건 `key_facts` 를 그대로 모두 담을 때 그 사건에 대응시킴. 어느 사건에도 안 맞으면 "gold 밖 link" 로 세어 사람이 확인함.
+
+**세부(스크립트 주석에 적힌 내용).**
+- `key_facts` 부분 일치(낱말 끝 한 글자를 뗀 대조)는 쓰지 않음. "IPO"·"SOX" 가 "IP"·"SO" 로 다른 메시지에 맞아 c03 에서 엉뚱한 사건이 잡혔음(2026-11-10).
+- 그 케이스의 시황·오버나이트 메시지(c01·c07·c09)만 인용한 link 는 사건에 대응시키지 않고 "시황 메시지 link" 로 따로 셈.
+- 대조 link(`direction_match=false`)도 위반 수에서 빼지 않음. 러너 판정이 `direction_match` 를 보지 않고 그 층 link 를 모두 세기 때문.
+
+**결과.** 과장·출처 정확성 같은 의미 판단은 이 채점이 하지 않으므로 사람 채점은 남음. 실행 결과를 보고 gold 가 고쳐졌음: c02 e4 추가, c05 e2 분리와 e3 추가, c01·c03 `key_facts` 조정(각 `notes.md` 와 커밋 `6b5c463`, `9808e41` 참고).
+
+## ADR-019. 실서비스 형식 입력 케이스(`cases_live`)를 안 A 와 분리해 잠금
+
+- **상태:** 채택(팀원 작업)
+- **관련:** 커밋 `a5bf2a3`, `d8b3136`, `b0f33f3`
+
+**결정.** 기존 10건(`cases/`, 안 A 구형 입력)과 별도로 2026-11-05 실서비스 형식 입력 케이스를 둠. 채택한 b01·b04·b05 는 `cases_live/` 에서 `lock_set.py` 로 잠그고, 사람 검증 전인 b02·b03·b06 은 `cases_live_pending/` 에 두어 잠그지 않음. 잠금 키는 `cases_live/<폴더>` 로 하여 `cases/` 키를 그대로 유지함(예전 기록도 `--check` 로 비교 가능). b04 의 정정 공시 메시지에 `is_correction: true` 를 넣고 세트를 v0.2 로 올림.
+
+**알려진 한계.** `cases_live/` 의 gold 는 claude-code 가 쓴 초안(`label_source: claude-code`)이라 사람 검증을 거치지 않았음. 안 B 를 채택한 이유와 b02·b03·b06 을 보류한 이유는 이 문서 작성자가 확인하지 못했음(해당 커밋과 팀원 기록 참고).
 
 ---
 

@@ -1,9 +1,9 @@
 # 종목 변동 보고서 Eval
 
-종목이 왜 움직였는지 설명하는 보고서(`ai/` 파이프라인이 생성)를 **사람이 검증한 정답(gold)** 과 대조해 평가하는 10개의 eval set입니다.
+종목이 왜 움직였는지 설명하는 보고서(`ai/` 파이프라인이 생성)를 **사람이 검증한 정답(gold)** 과 대조해 평가하는 eval set입니다. 구형 입력 케이스 10건(`cases/`)과 실서비스 형식 입력 케이스(`cases_live/`)로 이루어져 있습니다.
 
 - **목적:** 절대 점수가 아니라 프롬프트·모델을 고치기 전후를 같은 잣대로 비교하는 개선 추적입니다. 게이트는 모니터링이고 합격·불합격 기준으로 쓰지는 않고 있습니다.
-- **범위:** 케이스 10건, gold 작성자 1명, 대상일 2026-10-19~10-30입니다. dev/test 분리는 없습니다.
+- **범위:** `cases/` 10건(대상일 2026-10-19~10-30, gold 작성자 1명)과 `cases_live/` 3건(대상일 2026-11-05, gold는 claude-code 초안)입니다. 보류 3건은 `cases_live_pending/` 에 있습니다. dev/test 분리는 없습니다.
 - **한계:** 10건 모두 노리는 함정이 있어서 "원인이 명확한 날의 품질 저하"는 이 세트로 볼 수 없습니다. 비율 지표는 실서비스 성능을 대표하지 않고 "어떤 함정이 뚫렸나"를 보는 용도입니다.
 
 ## 1. 폴더 구조
@@ -16,7 +16,9 @@ ai/evals/
   validate_gold.py    gold 검증 스크립트
   validate_gold.md    검증 스크립트 설명
   lock_set.py         세트 잠금 기록·변경 확인 스크립트
+  score_rule_a.py     규칙 A 채점 스크립트(러너 실행 결과를 gold 사건과 대조)
   gold.lock.json      잠금 기록(세트 버전, 상태, 케이스별 해시)
+  reports/<실행>/     실행·채점 결과(git에 커밋)
   docs/schema.md      데이터 스키마 레퍼런스
   docs/add_case.md    케이스 추가·수정 가이드
   docs/decisions.md   결정 기록(ADR)
@@ -36,7 +38,9 @@ ai/evals/
 | `notes.md`        | 라벨링 중 망설인 점과 판단 이유                                   | 주지 않습니다             |
 
 
-## 2. 케이스 10건
+## 2. 케이스
+
+### 2-1. `cases/` 10건(안 A, 구형 입력)
 
 등락률은 KRX 종가 기준(%)이고, 대형주 대비는 대형주 유니버스 중간값과의 차이(%p)입니다.
 
@@ -55,6 +59,23 @@ ai/evals/
 | c08 | LG디스플레이(034220) | 10-22 | -1.63  | +1.16  | no\_clear\_cause | no\_clear\_cause     | none    |
 | c09 | 삼성전기(009150)    | 10-28 | +8.74  | +6.07  | explained        | explained            | partial |
 | c10 | LG이노텍(011070)   | 10-27 | +2.04  | +0.37  | no\_clear\_cause | no\_clear\_cause     | none    |
+
+`explained` 로 둔 케이스는 c01·c03·c09 세 건입니다. 2026-11-10에 c02에 사건 e4(메모리 업계 소식, 강도 상한 `coincident`)가, c05에 사건 e3(업황 자료 속 약세 대목)가 추가됐고 판정은 바뀌지 않았습니다. c01·c07·c09에는 시황·오버나이트 메시지를 gold 사건으로 두지 않는다는 메모가 `notes.md` 에 있습니다(규칙 A 채점에서 따로 셉니다).
+
+### 2-2. `cases_live/` 3건과 `cases_live_pending/` 3건(안 B, 실서비스 형식 입력)
+
+대상일은 모두 2026-11-05입니다. 입력(`case.json`)에 `market` 이 `null` 이고 gold는 claude-code가 쓴 초안(`label_source: claude-code`)입니다. 사람 검증 전입니다.
+
+| 위치 | 케이스 | 종목 | 등락률 | move / relative | 확신 |
+|---|---|---|---|---|---|
+| `cases_live/` | b01 | SK(034730) | -6.85 | no\_clear\_cause / no\_clear\_cause | none |
+| `cases_live/` | b04 | 하나금융지주(086790) | +3.16 | no\_clear\_cause / no\_clear\_cause | none |
+| `cases_live/` | b05 | 삼성화재(000810) | -0.15 | no\_clear\_cause / no\_clear\_cause | none |
+| `cases_live_pending/` | b02 | 셀트리온(068270) | +7.50 | partially\_explained / partially\_explained | partial |
+| `cases_live_pending/` | b03 | 두산에너빌리티(034020) | -6.45 | no\_clear\_cause / no\_clear\_cause | none |
+| `cases_live_pending/` | b06 | NAVER(035420) | +8.26 | partially\_explained / partially\_explained | partial |
+
+`cases_live_pending/` 은 잠그지 않고 채점에도 쓰지 않습니다. b04의 정정 공시 메시지에는 `is_correction: true` 가 들어 있습니다.
 
 
 ## 3. 어떻게 평가하는가
@@ -134,7 +155,7 @@ gold는 사건마다 "말해도 되는 최대 강도"를 정해 둡니다. 보�
 
 ### A. 세트 만들기
 
-평가셋은 현재 폴더의 cases 사용하면 됩니다
+평가셋은 현재 폴더의 cases 사용하면 됩니다(실서비스 형식 입력은 `cases_live`).
 
 1. `case.json` 조립과 공시 접수 시각 확인
 2. gold 작성(모델 출력을 보지 않고 `case.json` 만 보고 작성)
@@ -143,10 +164,31 @@ gold는 사건마다 "말해도 되는 최대 강도"를 정해 둡니다. 보�
 
 ### B. 평가 실행(프롬프트·모델이 바뀔 때마다)
 
-1. 케이스 10건을 생성합니다. 마감 이후 케이스는 KRX로 시장 비교를 계산하므로 `ai/.env` 의 KRX 키가 동작해야 축 D가 채점됩니다.
+1. 케이스를 케이스당 3회 생성합니다. 생성은 러너가 하며, 이 브랜치에는 러너가 없습니다(v0.2 실행은 `feature/peer-group-mixed-direction-e2e` 브랜치 코드를 썼습니다). 마감 이후 케이스는 KRX로 시장 비교를 계산하므로 `ai/.env` 의 KRX 키가 동작해야 축 D가 채점됩니다.
 2. `verify_status` 가 `passed` 가 아니면 Reject로 셉니다. 코드가 판정 일치, 시각, 시장 비교 수치·방향어를 대조합니다.
-3. 첫 baseline은 사람이 gold와 대조해 의미 판단(과장·누락·출처·불확실성)을 채점합니다.
+3. `score_rule_a.py` 로 규칙 A 채점을 합니다(아래 4-B-1). 첫 baseline의 의미 판단(과장·누락·출처·불확실성)은 사람이 gold와 대조해 채점합니다.
 4. 그 뒤 judge(DeepSeek)를 같은 생성 결과에 3회 돌려 초안을 내고, 사람 채점과 비교해 얼마나 믿을지 봅니다. 갈린 쌍과 hard fail 후보는 사람이 확인합니다.
+
+#### 4-B-1. 규칙 A 채점(`score_rule_a.py`)
+
+러너 실행 결과(`parsed/`)에서 보고서가 인용한 근거(link)를 gold 사건과 맞춰 코드로 셉니다. 2026-11-10 팀 결정입니다.
+
+| gold 사건 강도 | 정답 |
+|---|---|
+| `coincident` | 보고서에 그 사건 link가 **없어야** 정답 |
+| `likely_cause` | 그 사건 link가 **있어야** 정답 |
+| `possible_contributor` | 있어도 없어도 정답. 있음·없음을 따로 셈 |
+
+```bash
+python3 evals/score_rule_a.py --cases evals/cases      --run evals/reports/<id>/<러너 실행 디렉터리> --out evals/reports/<id>
+python3 evals/score_rule_a.py --cases evals/cases_live --run evals/reports/<id>/<러너 실행 디렉터리> --out evals/reports/<id>
+```
+
+- **link와 사건 대응:** 출처 URL이 사건의 `supporting_sources` 에 있으면 그 사건입니다. 없으면 입력 본문이 사건의 `key_facts` 를 모두 그대로(부분 일치 없이) 담을 때 그 사건입니다. 어느 사건에도 안 맞으면 "gold 밖 link"로 세고 사람이 근거 없는 원인 후보로 확인합니다.
+- **시황 메시지 link:** 그 케이스의 시황·오버나이트 메시지만 인용한 link는 사건에 대응시키지 않고 따로 셉니다(c01·c07·c09).
+- **대조 link:** `direction_match=false` 인 link도 위반 수에 넣고 `contrast_links` 로 따로 셉니다.
+- **같이 세는 것:** 층별 판정 일치, `cutoff` 이후 삽입 자료 인용 수, LLM 없이 낸 정형 보고서 수, 3회 결론 일치.
+- 의미 판단(과장 문장, 출처 정확성)은 하지 않습니다. 위반·후보는 사람이 확인합니다.
 
 ### C. 개선 반복
 
@@ -156,7 +198,22 @@ gold는 사건마다 "말해도 되는 최대 강도"를 정해 둡니다. 보�
 
 ## 5. 평가 결과 확인
 
-결과는 파일로만 남기고 DB에는 적재하지 않습니다. 실행마다 `ai/evals/reports/<eval_run_id>/` 에서 확인하면 됩니다.
+결과는 파일로만 남기고 DB에는 적재하지 않습니다. 실행마다 `ai/evals/reports/` 아래에서 확인하면 됩니다.
+
+### 현재 있는 결과
+
+`score_rule_a.py` 의 결과와 실행 기록만 있습니다. 아래 "목표 구조"의 `summary.md`, `human_queue.jsonl` 은 아직 구현되지 않았습니다.
+
+| 위치 | 내용 |
+|---|---|
+| `reports/A-20261110/`, `reports/B-20261110/` | 안 A(10건), 안 B 실행 결과(`<실행>/{inputs,inputs_used,parsed}`)와 규칙 A 채점(`summary.json`, `cases/<case_id>.json`), v0.1 gold로 다시 채점한 `rescore-v0.1/` |
+| `reports/v0.2-5125d7-20261110/` | v0.2 세트를 프롬프트 `5125d7…` 로 3회 실행한 결과(`A/`, `B/`). `README.md` 에 실행 조건, `compare.md`·`compare.json` 에 rescore-v0.1과의 비교 |
+
+- 케이스별 상세는 `<A 또는 B>/cases/<case_id>.json`, 집계는 `summary.json` 의 `totals` 입니다.
+- 칸 순서와 읽는 법은 `compare.md` 첫머리에 있습니다. 판정 일치(move·relative), 규칙 A 위반, gold 밖 link, 대조 link, 시황 link, 과장·누락 후보, 3회 결론 일치, 정형 보고서 수, verify 실패 수, 비용이 있습니다.
+- 케이스당 3회라 1회 차이는 흔들림일 수 있습니다. 프롬프트·코드가 여러 번 바뀐 사이의 비교는 변경 하나의 효과로 읽으면 안 됩니다(`reports/v0.2-5125d7-20261110/README.md` 의 주의 참고).
+
+### 목표 구조(계획)
 
 ```
 reports/<eval_run_id>/
@@ -188,7 +245,8 @@ reports/<eval_run_id>/
 ### 6-1. 검증
 
 ```bash
-python3 evals/validate_gold.py            # 10건 전체
+python3 evals/validate_gold.py            # cases/ 10건 전체
+python3 evals/validate_gold.py --root evals/cases_live   # cases_live/ 케이스
 python3 evals/validate_gold.py c07 c10    # 일부 케이스만
 python3 evals/validate_gold.py --strict   # 아직 안 채운 칸도 오류로 처리
 ```
@@ -201,7 +259,7 @@ python3 evals/validate_gold.py --strict   # 아직 안 채운 칸도 오류로 �
 
 ```bash
 python3 evals/lock_set.py --check                                  # 기록과 현재 파일 비교
-python3 evals/lock_set.py --write --version v0 --provisional       # 잠정 잠금 기록
+python3 evals/lock_set.py --write --version v0.2 --provisional     # 잠정 잠금 기록(버전 이름은 예시)
 python3 evals/lock_set.py --write --version v1                     # 정식 잠금 기록
 ```
 
