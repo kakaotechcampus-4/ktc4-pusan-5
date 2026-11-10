@@ -15,7 +15,7 @@
 ## 판정 근거(expected_verdict, confidence_level)
 move explained / relative explained, confidence partial
 - 직접 공시(풍문 해명, 07:33)와 뉴스룸 확인, 시장 개장 전 공개, 방향 일치(+4.42%, 대형주 대비 +6.21%), 상충 재료 없음. 증권사 해석도 주주환원 강화로 같은 방향.
-- 대형주 중간값이 -1.79% 로 반대 방향이라 시장 몫이 아니라 종목 고유 재료가 분명함. 이 세트에서 유일하게 explained 로 둔 케이스.
+- 대형주 중간값이 -1.79% 로 반대 방향이라 시장 몫이 아니라 종목 고유 재료가 분명함. 이 세트에서 두 층을 explained 로 둔 케이스는 c01·c03·c09 세 건.
 - 대안: partially_explained. 하루 만에 이 재료가 상승 전부를 설명한다고 보기 어렵다는 입장이면 가능.
 
 ## 외국인·기관 매매(수급)를 forbidden_claims(f2)에 넣은 이유
