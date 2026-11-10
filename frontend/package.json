@@ -15,7 +15,10 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "check:design": "node scripts/check-design.mjs",
-    "check": "npm run lint && npm run check:design"
+    "check": "npm run lint && npm run check:design",
+    "e2e": "playwright test",
+    "e2e:mock": "playwright test --grep-invert @backend",
+    "e2e:typecheck": "tsc -p e2e/tsconfig.json"
   },
   "dependencies": {
     "lightweight-charts": "^5.2.1",
@@ -26,6 +29,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.65.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",

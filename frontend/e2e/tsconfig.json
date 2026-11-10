@@ -1,0 +1,23 @@
+{
+  // E2E 전용. 앱 빌드(tsc -b)와 섞이지 않게 frontend/tsconfig.json references 에 넣지 않는다.
+  // 확인: npm run e2e:typecheck
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    // src/lib/types.ts 가 앞으로 '@/...' 를 import 해도 깨지지 않게 앱과 같은 별칭을 둔다
+    "paths": { "@/*": ["../src/*"] },
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["./**/*.ts", "../playwright.config.ts"]
+}
