@@ -172,6 +172,9 @@ REPAIR_SKIPPED_OVER_CAP = "REPAIR_SKIPPED_OVER_CAP"
 COUNT_OVER_CAP = "COUNT_OVER_CAP"
 # factor 출처가 모두 입력 kind 가 flow_rank·market_recap 인 메시지다. 결과(순위·시황)만으로 원인을 세웠다.
 FACTOR_RESULT_SOURCES_ONLY = "FACTOR_RESULT_SOURCES_ONLY"
+# link 를 단 factor 의 출처가 모두 입력 is_correction: true 공시다. 정정 공시는 이미 낸 서류를 고친 것이라 그 자체로
+# 원인으로 쓰지 않는다(프롬프트 1부). 제목만으로는 무엇을 고쳤는지 알 수 없어 실패가 아니라 경고로 둔다.
+DISCLOSURE_CORRECTION_AS_CAUSE = "DISCLOSURE_CORRECTION_AS_CAUSE"
 # factor 출처에 theme_recap 메시지가 있는데, 그 메시지에서 이 factor 로 묶인 이슈 중 relation 이 sector 인
 # 것이 없다. 이 종목 업종이 아닌 테마 단락을 근거로 썼을 수 있다.
 THEME_RECAP_NOT_SECTOR = "THEME_RECAP_NOT_SECTOR"
@@ -1269,6 +1272,7 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
     COUNT_OVER_CAP              4부 개수 상한을 넘었다(CAPS).
     아래는 payload 가 있어야 본다. kind 는 모델이 적은 is_market_recap 이 아니라 입력 kind 로 정한다.
     FACTOR_RESULT_SOURCES_ONLY  출처가 모두 flow_rank·market_recap 메시지인 factor.
+    DISCLOSURE_CORRECTION_AS_CAUSE  link 를 단 factor 의 출처가 모두 is_correction: true 공시다.
     THEME_RECAP_NOT_SECTOR      theme_recap 출처의 이슈 중 이 factor 로 묶인 sector 이슈가 없다.
                                 issue_trace 가 있어야 본다(events → issue_ids → issue_trace relation).
     QUOTE_MISSING_SUBJECT       첫 출처 quote 에 event 의 매매 주체·영문 고유명이 없다.
@@ -1305,6 +1309,12 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
         if source_kinds and all(k in RESULT_KINDS for k in source_kinds):
             out.append(_p(FACTOR_RESULT_SOURCES_ONLY,
                           f"factors[{i}] 출처가 모두 {'·'.join(RESULT_KINDS)} 메시지다({', '.join(source_kinds)})"))
+    corrections = {m.get("url") for m in _messages(payload) if m.get("is_correction") is True}
+    for i, f in enumerate(factors):
+        urls = [s.get("url") for s in _sources(f)]
+        if _links(f) and urls and all(u in corrections for u in urls):
+            out.append(_p(DISCLOSURE_CORRECTION_AS_CAUSE,
+                          f"factors[{i}] 출처가 모두 정정 공시다({', '.join(map(str, urls))}). 정정 공시는 그 자체로 원인으로 쓰지 않는다"))
     mentions = {m.get("url"): mention_of(m) for m in _messages(payload)}
     if isinstance(issue_trace, list):
         id_to_url = {i: m.get("url") for i, m in message_ids(payload)}

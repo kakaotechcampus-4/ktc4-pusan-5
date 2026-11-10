@@ -61,7 +61,7 @@ JSON 하나를 받습니다.
 <메시지> = { "id": "<m1, m2 … messages 칸에만 붙는다>",
              "channel": "", "url": "", "datetime_kst": "", "text": "", "mention": "mentioned|not_mentioned",
              "kind": "", "after_prev_close": <true | false>, "first_seen_kst": "<시각 | null>",
-             "dup_channels": <숫자> }
+             "dup_channels": <숫자>, "is_correction": <true | false, 공시에만> }
 ```
 
 **세 칸의 용도.** 칸마다 쓸 수 있는 곳이 정해져 있습니다.
@@ -83,6 +83,7 @@ JSON 하나를 받습니다.
 - `dup_channels` 는 같은 내용으로 묶인 메시지들의 채널 수입니다. 묶인 것이 없으면 1 입니다.
 - `kind: "news"` 는 뉴스 기사입니다. `channel` 은 언론사, `url` 은 기사 주소, `text` 는 기사 제목과 본문입니다.
   텔레그램 메시지와 똑같이 이슈를 찾고 출처로 씁니다. 언론사가 다르면 다른 채널입니다.
+- `kind: "disclosure"` 의 `is_correction: true` 는 정정 공시입니다. 이미 낸 공시를 고친 것이라 그 자체로 원인으로 쓰지 않습니다.
 - **기준 시각은 입력 `display_as_of` 입니다**(러너가 정합니다). `cutoff` 가 장 마감 뒤(예: 다음 날 아침)여도 이 보고서가
   설명하는 것은 `target_date` 장 마감까지의 움직임이라 `display_as_of` 는 그날 장 마감 시각입니다(장 마감이 늦춰지는 날은
   그 시각). 장 마감 전이면 `cutoff` 시각입니다. `cutoff` 의 시각을 기준 시각으로 쓰지 않습니다.

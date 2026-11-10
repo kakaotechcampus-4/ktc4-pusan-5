@@ -17,6 +17,8 @@ classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카�
 이어진 공시 카드(stock_card_ids)를 뒤에 붙인다. 본문은 get_sources(include_body=True, cutoff=cutoff) 로 읽고,
 본문이 없는 자료(첨부만·본문 추출 실패·보관 정책으로 지움·기준 시각 뒤에 받음)는 빼고 meta 에 사유를 남긴다.
 공시는 목록만 저장해 본문이 없으므로 제목을 text 로 넣는다(kind disclosure, mentioned).
+정정 공시(제목이 CORRECTION_RE 로 시작 — [기재정정]·[첨부정정]·[첨부추가])는 is_correction: true 다. 이미 낸 서류를
+고친 것이라 그날의 새 사건이 아니다(프롬프트 1부, 검증 경고 DISCLOSURE_CORRECTION_AS_CAUSE). 공시 메시지에만 이 칸이 있다.
 뉴스·리포트는 기준 시각 전에 본문을 받아 둔 것만 들어간다(body_fetched_at 기준) — 보고서보다 먼저 수집해야 한다.
 
 ## 메시지 칸
@@ -55,6 +57,7 @@ classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카�
 import argparse
 import asyncio
 import json
+import re
 from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -76,6 +79,8 @@ NEWS_CARD_TYPE = "news"
 PDF_CARD_TYPE = "pdf"
 DISCLOSURE_CARD_TYPE = "disclosure"
 INPUT_CARD_TYPES = (MESSAGE_CARD_TYPE, NEWS_CARD_TYPE, PDF_CARD_TYPE, DISCLOSURE_CARD_TYPE)
+# 정정 공시 제목 머리. DART 보고서명 앞 괄호 표시다. [발행조건확정]·[연장결정] 은 새 결정이라 넣지 않는다
+CORRECTION_RE = re.compile(r"^\[(기재정정|첨부정정|첨부추가)\]")
 # 제목을 본문 앞에 붙이는 자료(기사·리포트). 공시는 본문이 없어 제목만 넣는다
 TITLED_CARD_TYPES = (NEWS_CARD_TYPE, PDF_CARD_TYPE)
 MENTIONED_PATH = "company"
@@ -169,6 +174,11 @@ def message_time(record: SourceRecord) -> str | None:
     """datetime_kst. 시각을 모르는 리포트·공시는 작성일·접수일(YYYY-MM-DD)."""
     moment = _kst(record.published_at or record.available_at)
     return moment or (record.write_date.isoformat() if record.write_date else None)
+
+
+def is_correction(title: str | None) -> bool:
+    """정정 공시인가. 보고서명이 CORRECTION_RE 로 시작하면 정정이다."""
+    return bool(title) and CORRECTION_RE.match(title.strip()) is not None
 
 
 def disclosure_source(card_id: int) -> dict[str, Any]:
@@ -288,6 +298,8 @@ def build_input(
             "first_seen_kst": first_seen,
             "dup_channels": dup_channels,
         }
+        if source["card_type"] == DISCLOSURE_CARD_TYPE:
+            message["is_correction"] = is_correction(record.title)
         trace = {"source_card_id": card_id, "card_type": source["card_type"], "url": record.url,
                  "card_label": source["card_label"],
                  "paths": sorted({e["path"] for e in source["events"]}), "kind": message["kind"],
@@ -415,7 +427,7 @@ async def main(args: argparse.Namespace) -> None:
     counts = meta["counts"]
     print(f"{path}  since {meta['since']} ({meta['since_basis']})  메시지 {counts['messages']}"
           f" (근거 {counts['evidence']} · 시황 {counts['market_recap']}, 시황 뺌 {counts['market_recap_dropped']})"
-          f"  넣은 기사 {counts['news']}"
+          f"  넣은 기사 {counts['news']}  공시 {counts['disclosure']}"
           f"  본문 없음 {counts['no_body']}  중복 뺌 {counts['duplicates']}  메시지 밖 {counts['skipped_card_types']}"
           f"  미분류 {meta['unclassified']} · 실패 {meta['failed']} · 기준 시각 뒤 본문 {meta['not_observed']}")
 

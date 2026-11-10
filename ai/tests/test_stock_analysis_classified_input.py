@@ -161,6 +161,33 @@ def test_pdf_and_disclosure_cards_go_in_and_missing_bodies_are_left_out():
     assert [m["kind"] for m in split_messages(payload)["messages"]] == ["other", "other", "disclosure"]
 
 
+@pytest.mark.parametrize(("title", "expected"), [
+    ("[기재정정]주식소각결정", True),
+    ("[첨부정정]주요사항보고서(자기주식취득결정)", True),
+    ("[첨부추가]투자설명서", True),
+    ("[발행조건확정]증권신고서(채무증권)", False),   # 새 결정이라 정정이 아니다
+    ("[연장결정]자기주식취득결정", False),
+    ("주식소각결정", False),
+    ("주요사항보고서(정정 전 내용 포함)", False),   # 머리 괄호가 아니면 정정이 아니다
+    (None, False),
+])
+def test_is_correction(title, expected):
+    assert ci.is_correction(title) is expected
+
+
+def test_disclosure_messages_carry_is_correction_and_model_gets_it():
+    sources = [source(10, event("company")), ci.disclosure_source(11), ci.disclosure_source(12)]
+    records = [record(10), disclosure_record(11, title="[기재정정]주식소각결정"), disclosure_record(12)]
+    payload, _ = build(sources, records)
+    by_url = {m["url"]: m for m in payload["messages"]}
+    assert "is_correction" not in by_url["https://t.me/mock_ch/10"]   # 공시에만 있다
+    assert by_url["https://dart.mock/11"]["is_correction"] is True
+    assert by_url["https://dart.mock/12"]["is_correction"] is False
+    sent = {m["url"]: m for m in model_input(payload)["messages"]}
+    assert sent["https://dart.mock/11"]["is_correction"] is True
+    assert check_input(payload) == []
+
+
 def test_news_cards_become_news_messages():
     sources = [source(13, event("company"), card_type="news"), source(12, event("industry"), card_type="news"),
                source(11, event("macro", None), card_type="news"), source(10, event("company"), card_type="news"),
