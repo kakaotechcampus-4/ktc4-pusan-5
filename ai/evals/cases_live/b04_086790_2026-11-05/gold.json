@@ -1,0 +1,104 @@
+{
+  "case_id": "b04_086790_2026-11-05",
+  "status": "labeled",
+  "label_source": "claude-code",
+  "labeled_by": "claude-code",
+  "label_note": "보고서 에이전트 실행 전에 case.json 만 보고 작성. 사람 검증 전(draft_unverified)",
+  "trap_ids": [],
+  "traps": [
+    "근거 칸이 공시 1건뿐이고 제목만 있음([기재정정]주식소각결정, 접수일 11-04, 시각 미확인)",
+    "시황 메시지 3건이 모두 다른 업종(원전·바이오·에너지) 이야기",
+    "급락장 반대 방향 상승(relative 반대로)"
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": 3.16,
+    "kospi_change_pct": -5.28,
+    "kospi_basis": "kospi",
+    "excess_vs_basis_pp": 8.44,
+    "kospi_relation": "diverges",
+    "peer_relations": {
+      "은행지주": "follows"
+    },
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "반대로",
+    "peer_median_pct": -5.96,
+    "excess_vs_peers_pp": 9.12,
+    "judge_layers": {
+      "move": true,
+      "relative": true
+    },
+    "move_strength_cap": null,
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-11-05T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-11-05T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "no_clear_cause",
+    "relative": "no_clear_cause"
+  },
+  "confidence_level": "none",
+  "events": [],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "false_cause",
+      "subject": "주식소각결정(기재정정) 공시",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "up",
+      "example": "주식 소각 결정 공시가 상승에 영향을 줬을 수 있다"
+    },
+    {
+      "id": "f2",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "down",
+      "example": "하나금융지주도 대형주와 함께 내렸다"
+    },
+    {
+      "id": "f3",
+      "type": "fabricated_cause",
+      "subject": "금리 하락 수혜(은행주 강세)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "up",
+      "example": "금리 하락 수혜로 은행주가 올랐다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "하나금융지주가 급락장에서 오른 이유",
+    "주식소각결정 원 공시와 정정 내용, 접수 시각(입력에는 제목만 있음)",
+    "하나금융지주 종목의 외국인·기관 수급"
+  ],
+  "beginner_terms": [
+    "주식 소각",
+    "기재정정",
+    "은행지주",
+    "대형주 중간값"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

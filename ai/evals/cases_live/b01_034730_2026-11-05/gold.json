@@ -1,0 +1,164 @@
+{
+  "case_id": "b01_034730_2026-11-05",
+  "status": "labeled",
+  "label_source": "claude-code",
+  "labeled_by": "claude-code",
+  "label_note": "보고서 에이전트 실행 전에 case.json 만 보고 작성. 사람 검증 전(draft_unverified)",
+  "trap_ids": [],
+  "traps": [
+    "공시 2건이 근거 칸에 있으나 제목만 있고 접수 시각을 알 수 없음(공시 근거 경로)",
+    "하락을 설명하는 재료가 시황 메시지(market_recap)에만 있음(시황 근거 제외)",
+    "SK하이닉스 소식(HYAICO)이 SK 메시지로 분류돼 들어옴"
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": -6.85,
+    "kospi_change_pct": -5.28,
+    "kospi_basis": "kospi",
+    "excess_vs_basis_pp": -1.57,
+    "kospi_relation": "diverges",
+    "peer_relations": {
+      "SK하이닉스 연동": "diverges"
+    },
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "더",
+    "peer_median_pct": -4.41,
+    "excess_vs_peers_pp": -2.44,
+    "judge_layers": {
+      "move": true,
+      "relative": true
+    },
+    "move_strength_cap": "partial",
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-11-05T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-11-05T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "no_clear_cause",
+    "relative": "no_clear_cause"
+  },
+  "confidence_level": "none",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "SK하이닉스 美 AI 투자법인 'HYAICO(하이코)' 확정. 최대 100억달러 출자 계획, SK㈜·SK이노베이션·SK텔레콤 등 계열사도 출자 참여 예정",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19373",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "HYAICO",
+        "SK㈜"
+      ],
+      "rationale": "SK하이닉스의 사업 소식이고 SK㈜는 출자 참여 예정으로만 나옴. 주가 방향을 정할 재료가 아니고 13:12 공개. 상한 coincident"
+    },
+    {
+      "id": "e2",
+      "summary": "미국 중간선거 민주당 압승으로 AI 산업 규제 강화 우려 → 코스피 4%대 급락, 외국인 대량 순매도(시황)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.etoday.co.kr/news/view/2644616",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "AI 산업 관련 규제",
+        "급락"
+      ],
+      "rationale": "시장 전체 시황 요약(market_recap)이고 SK 를 다루지 않음. 결과 지표라 원인 자리에 쓰지 않음(rubric §4-2)"
+    },
+    {
+      "id": "e3",
+      "summary": "민주당 의회 장악으로 배터리·태양광 업계 수혜 기대(SK온 등 언급), 데이터센터 규제는 전력기기 변수",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://biz.chosun.com/industry/company/2026/11/05/BMUCVKYEWFENBJYAY2OPLVEDXY/?utm_source=naver&utm_medium=original&utm_campaign=biz",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "SK온"
+      ],
+      "rationale": "SK 계열사(SK온)가 업종 기사에 한 번 나오는 간접 재료. 방향도 SK 하락과 맞지 않음. 상한 coincident"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "false_cause",
+      "subject": "특수관계인 주식 취득·기타경영사항 공시",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "down",
+      "example": "주식 취득 공시가 하락에 영향을 줬을 수 있다"
+    },
+    {
+      "id": "f2",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "up",
+      "example": "SK 는 대형주보다 덜 내렸다"
+    },
+    {
+      "id": "f3",
+      "type": "fabricated_cause",
+      "subject": "SK 종목의 외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "down",
+      "example": "외국인 순매도로 SK 가 하락했다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "SK 가 대형주 중간값보다 더 내린 이유",
+    "11-04 공시 2건(특수관계인으로부터주식의취득, 기타경영사항)의 접수 시각과 내용(입력에는 제목만 있음)",
+    "SK 종목의 외국인·기관 수급"
+  ],
+  "beginner_terms": [
+    "지주회사",
+    "특수관계인",
+    "자율공시",
+    "대형주 중간값"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}
