@@ -1,0 +1,228 @@
+{
+  "run_id": "하나금융지주-2026-11-05-1845__r1",
+  "final_text": "{\"ticker\": \"086790\", \"name\": \"하나금융지주\", \"date\": \"2026-11-05\", \"as_of\": \"2026-11-05T18:45:00+09:00\", \"change_pct\": 3.16, \"verdict\": \"explained\", \"relative_verdict\": \"no_clear_cause\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 하나금융지주는 3.16% 상승했고 코스피는 5.28% 하락했습니다. 대형주 19개 중 13개가 하락했고 중간값은 5.96% 하락해, 하나금융지주는 대형주 전반과 반대로 움직였습니다. 코스피는 내렸지만 하나금융지주는 올랐습니다.\", \"main_cause\": \"주식소각 결정 공시를 정정한 점이 상승에 보탬이 됐을 수 있습니다.\", \"relative\": \"코스피는 내렸지만 하나금융지주는 대체로 3.63% 오른 같은 은행지주 그룹의 KB금융·신한지주·우리금융지주와 함께 올랐습니다.\", \"counter\": null, \"unexplained\": \"대형주 전반과 반대로 움직였지만, 공시 제목에 소각 규모와 실행 시점이 없어 이 재료가 주가에 미친 정도를 가늠하기 어렵습니다.\"}, \"factors\": [{\"event\": \"하나금융지주가 주식소각 결정 공시를 정정했습니다.\", \"detail\": \"\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"하나금융지주\", \"url\": \"https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261104800373\", \"datetime_kst\": \"2026-11-04\", \"quote\": \"[기재정정]주식소각결정\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"회사 공시가 직접 이 종목을 다루고 상승 방향과 맞아, 상승 요인이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [], \"background\": {\"bullish\": [], \"bearish\": [], \"neutral\": []}, \"not_found\": [\"공시 제목만으로는 주식소각 규모와 실행 시점을 확인할 수 없습니다.\"], \"events\": [{\"event\": \"하나금융지주가 주식소각 결정 공시를 정정했습니다.\", \"issue_ids\": [\"i1\"], \"factor\": 0, \"dup_channels\": 1, \"placed\": \"factors\"}], \"display_as_of\": \"2026-11-05T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 24820,
+    "completion_tokens": 3105,
+    "total_tokens": 27925,
+    "prompt_tokens_details": {
+      "cached_tokens": 19784,
+      "cache_write_tokens": 4026,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 2313,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 24820,
+    "output_tokens": 3105,
+    "cached_prompt_tokens": 19784,
+    "cache_write_tokens": 4026,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 24820,
+    "total": 23814,
+    "cache_read": 19784,
+    "cache_write": 4026,
+    "uncached": 4
+  },
+  "cost": 3.1854625,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 25752,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:56:19+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "반대로",
+  "main_cause_sentences": 3,
+  "sector": [
+    "은행",
+    "금융지주"
+  ],
+  "universe_weight": 0.0103,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "주식소각 결정 공시를 정정",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": 3.16,
+      "kospi_change_rate_pct": -5.28,
+      "excess_vs_kospi_pp": 8.44,
+      "kospi_weight_pct": 0.7,
+      "kospi_contribution_pp": 0.022,
+      "kospi_ex_self_change_rate_pct": -5.34,
+      "excess_vs_kospi_ex_self_pp": 8.5,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "은행지주",
+        "median_change_rate_pct": 3.63,
+        "excess_vs_group_pp": -0.47,
+        "peer_count": 3,
+        "relation": "follows",
+        "members_used": [
+          {
+            "code": "105560",
+            "name": "KB금융"
+          },
+          {
+            "code": "055550",
+            "name": "신한지주"
+          },
+          {
+            "code": "316140",
+            "name": "우리금융지주"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "086790",
+            "name": "하나금융지주",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": 3.16,
+    "krx": 3.16,
+    "source": "KRX /sto/stk_bydd_trd 2026-11-05 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -5.28,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-11-05 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -5.96,
+        "peer_up": 6,
+        "peer_down": 13,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 9.12
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 1,
+    "background": 0,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "explained",
+      "final": "explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "no_clear_cause",
+      "final": "no_clear_cause"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/하나금융지주-2026-11-05-1845__r1.json",
+  "input_used_path": "inputs_used/하나금융지주-2026-11-05-1845__r1.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inB/b04__r1.json",
+  "input_sha256": "1c5a71dc296bcb5e66b0d403438b8be71a022648af44519acf0221d5434ed5cf",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 1,
+    "messages_total": 1,
+    "relations": {
+      "direct": 1
+    },
+    "issues_used": 1
+  }
+}

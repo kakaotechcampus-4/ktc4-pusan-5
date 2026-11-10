@@ -115,8 +115,36 @@ class Settings(BaseSettings):
     classification_extract_model: str | None = None
     classification_link_model: str | None = None
     classification_judge_model: str | None = None
+    classification_same_event_model: str | None = None
     # 출력 상한(추론 토큰 포함). 판정 응답은 사건 × 후보 수만큼 길어진다.
     classification_max_tokens: int = 6000
+    # ③ 홍보성 사건 거르기에 Jev 를 더한다(classification/promo.py). 끄면 정규식만 본다.
+    # 켜면 아래 JEV_* 가 필요하고, Jev 비용이 원화라 LLM_PROVIDER=elice 일 때만 켤 수 있다.
+    classification_promo_jev: bool = False
+
+    # Jev(TypeSafe, Elice 경유) 판단 전용 모델. 채팅 API 가 아니라 /v1/decisions 로 질문을 보내고
+    # 질문마다 정해진 형식의 답(choice·noul·score)을 받는다(llm/jev.py). 위 LLM_* 와 따로 둔다 —
+    # 추출은 luna 같은 생성 모델이 하고 고르는 단계만 Jev 가 하므로 한 실행에 둘이 같이 돈다.
+    # 주소는 요청을 보낼 전체 주소다. 키를 비우면 LLM_API_KEY 를 쓴다(같은 Elice Serverless 키).
+    jev_url: str | None = None
+    jev_api_key: str | None = None
+    # latest 는 TypeSafe 가 새 버전을 내면 답이 바뀐다. 비교가 흔들리지 않게 버전을 고정해 둔다.
+    jev_model: str = "typesafe/jev-1.14"
+    # 1M 입력 토큰당 원화 단가. 출력은 과금되지 않는다. LLM_* 단가처럼 기본값을 두지 않는다.
+    jev_input_krw_per_m: float | None = None
+    # 짧은 판단은 1초 안팎이지만 약 32KB 를 넘는 입력은 긴 문맥 모드로 느려진다.
+    jev_timeout_sec: float = 120.0
+    # ④ 판정에서 관계 경로 후보(공급·고객·경쟁·지분)를 누가 판정하나. luna 면 지금처럼 판정 호출 하나가 전부
+    # 판정하고, jev 면 관계 후보만 Jev 질문으로 판정한다(judge_relation.py). jev 는 위 JEV_* 설정이 필요하다.
+    # 모델 비교 실험(2026-11-06~07)에서 관계 경로는 Jev 가 더 정확하고 다시 돌려도 거의 같았다.
+    classification_relation_judge: Literal["luna", "jev"] = "luna"
+
+    # `run`(--ids 없이)에만 거는 비용 장치. 비우면 걸지 않는다(classification/selection.py).
+    # 종목당 상한: 날마다 종목마다 네이버 뉴스를 이만큼만 분류한다. 텔레그램·PDF 는 전부 분류한다.
+    classification_per_stock_cap: int | None = None
+    # 하루 비용 상한: 오늘(KST) 분류 비용 합계가 이 금액에 닿으면 새 자료를 시작하지 않는다.
+    # 통화는 비용 통화(Elice 원화, OpenRouter 달러)다.
+    classification_daily_budget: float | None = None
 
     @field_validator("stock_analysis_stream", mode="before")
     @classmethod
@@ -152,6 +180,19 @@ class Settings(BaseSettings):
                 + "\n  단가는 모델 페이지의 1M 토큰당 원화 금액이다. 예전 LLM_*_USD_PER_M 은 더 읽지 않는다."
             )
         return self.llm_base_url.strip().rstrip("/"), self.llm_api_key.strip()
+
+    def require_jev(self) -> tuple[str, str, float]:
+        """(요청 주소, 키, 1M 입력 토큰당 원화). 빠진 게 있으면 무엇을 채울지 알려주고 멈춘다."""
+        key = (self.jev_api_key or "").strip() or (self.llm_api_key or "").strip()
+        missing = [] if (self.jev_url or "").strip() else ["JEV_URL"]
+        missing += [] if key else ["JEV_API_KEY (또는 LLM_API_KEY)"]
+        missing += [] if self.jev_input_krw_per_m is not None else ["JEV_INPUT_KRW_PER_M"]
+        if missing:
+            raise RuntimeError(
+                "Jev 설정이 없다: " + ", ".join(missing)
+                + "\n  ai/.env 에 넣는다. 단가는 모델 페이지의 1M 입력 토큰당 원화 금액이다."
+            )
+        return self.jev_url.strip(), key, self.jev_input_krw_per_m
 
     def require_dart(self) -> str:
         if not self.dart_api_key.strip():

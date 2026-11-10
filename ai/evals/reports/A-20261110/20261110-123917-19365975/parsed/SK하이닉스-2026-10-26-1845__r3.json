@@ -1,0 +1,456 @@
+{
+  "run_id": "SK하이닉스-2026-10-26-1845__r3",
+  "final_text": "{\"ticker\": \"000660\", \"name\": \"SK하이닉스\", \"date\": \"2026-10-26\", \"as_of\": \"2026-10-26T18:45:00+09:00\", \"change_pct\": -0.16, \"verdict\": \"no_clear_cause\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 SK하이닉스는 0.16% 하락했고 코스피는 1.46% 하락했습니다. 대형주 19개 중 16개가 내렸고 중간값은 1.68% 하락해, SK하이닉스는 대형주 전반보다 덜 내렸습니다. SK하이닉스는 코스피에서 21.09% 비중을 차지해 코스피를 0.034%포인트 끌어내렸고, SK하이닉스를 뺀 코스피는 1.81% 하락해 SK하이닉스와 다르게 움직였습니다.\", \"main_cause\": \"제공된 메시지에서 확인된 원인은 없습니다.\", \"relative\": \"SK하이닉스는 SK하이닉스를 뺀 코스피와 다르게 움직였고, 1.16% 내린 같은 메모리반도체 그룹의 삼성전자와 함께 내렸습니다. 그때그때 거래되는 메모리 시세가 한 달 새 6.24% 올라 상대적으로 버팀목이 됐을 수 있습니다. 아마존 클라우드 용량 예약 소식도 반도체 수요 기대를 뒷받침해 덜 내리는 데 보탬이 됐을 수 있습니다.\", \"counter\": null, \"unexplained\": \"기준 시각까지 주가 움직임은 크지 않았습니다.\"}, \"factors\": [{\"event\": \"그때그때 거래되는 DRAM 시세가 한 달 동안 6.24% 올랐습니다.\", \"detail\": \"\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19185\", \"datetime_kst\": \"2026-10-26T07:58:37+09:00\", \"quote\": \"1M +6.24%\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"relative\", \"note\": \"메모리 사업 노출이 적은 대형주보다 가격 상승의 영향을 더 받았을 수 있어 상대적 버팀목이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}, {\"event\": \"아마존은 2027년 클라우드 용량 대부분이 예약됐다고 밝혔습니다.\", \"detail\": \"아마존은 올해 2,200억 달러를 투자하고도 추가 투자 여력이 있다고 시사했습니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4779\", \"datetime_kst\": \"2026-10-26T07:53:19+09:00\", \"quote\": \"2027년 클라우드 용량 대부분 매진\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19185\", \"datetime_kst\": \"2026-10-26T07:58:37+09:00\", \"quote\": \"2027년까지 예약 완료\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"relative\", \"note\": \"클라우드 투자 수요가 반도체 업종에 보탬이 돼 다른 대형주보다 덜 내린 데 영향을 줬을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"그때그때 거래되는 DRAM 시세\", \"term\": \"DRAM 스팟가격\"}], \"background\": {\"bullish\": [{\"text\": \"키옥시아 지분 매각 차익을 재원으로 약 16조원 특별배당을 추진한다는 보도가 있었지만, 회사 발표 전이라 확정되지 않았습니다.\", \"sources\": [{\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4778\", \"datetime_kst\": \"2026-10-26T06:44:59+09:00\", \"quote\": \"특별배당 총액 16조원 안팎 전망\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18858\", \"datetime_kst\": \"2026-10-26T07:54:00+09:00\", \"quote\": \"16T WON SPECIAL DIVIDEND\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"40조원 규모의 자기 주식 매입을 이달 조기 완료했다는 내용이 전해졌습니다.\", \"sources\": [{\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4778\", \"datetime_kst\": \"2026-10-26T06:44:59+09:00\", \"quote\": \"40조원 자사주 매입, 이달 조기 완료\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"bearish\": [{\"text\": \"솔리다임 기업공개가 중단돼 SK하이닉스의 증설 자금 마련이 과제로 거론됐습니다.\", \"sources\": [{\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4779\", \"datetime_kst\": \"2026-10-26T07:53:19+09:00\", \"quote\": \"솔리다임 IPO 중단으로 증설 자금조달이 과제\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"중국 YMTC가 LPDDR5X를 개발 중이며 우한 공장에서 양산할 전망이라는 보도가 나왔습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19185\", \"datetime_kst\": \"2026-10-26T07:58:37+09:00\", \"quote\": \"LPDDR5X 개발 중...우한 Fab3서 양산 전망\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"SK하이닉스와 삼성전자는 엔비디아향 HBM4 8단 제품을 내년 2분기쯤 출하할 계획으로, 앞서 거론된 올 하반기보다 늦어졌습니다.\", \"sources\": [{\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4783\", \"datetime_kst\": \"2026-10-26T16:28:46+09:00\", \"quote\": \"양산 출하 시점을 내년 2분기께로 설정\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"neutral\": []}, \"not_found\": [\"judge_layers.move가 false로 제공되어 등락 층 원인 link를 만들지 않았습니다.\"], \"events\": [{\"event\": \"그때그때 거래되는 DRAM 시세가 한 달 동안 6.24% 올랐습니다.\", \"issue_ids\": [\"i15\"], \"factor\": 0, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"아마존은 2027년 클라우드 용량 대부분이 예약됐다고 밝혔습니다.\", \"issue_ids\": [\"i6\", \"i16\"], \"factor\": 1, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"키옥시아 지분 매각 차익을 재원으로 약 16조원 특별배당을 추진한다는 보도가 있었지만, 회사 발표 전이라 확정되지 않았습니다.\", \"issue_ids\": [\"i3\", \"i14\", \"i29\", \"i30\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"40조원 규모의 자기 주식 매입을 이달 조기 완료했다는 내용이 전해졌습니다.\", \"issue_ids\": [\"i4\"], \"background\": {\"slot\": \"bullish\", \"index\": 1}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"솔리다임 기업공개가 중단돼 SK하이닉스의 증설 자금 마련이 과제로 거론됐습니다.\", \"issue_ids\": [\"i8\"], \"background\": {\"slot\": \"bearish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"중국 YMTC가 LPDDR5X를 개발 중이며 우한 공장에서 양산할 전망이라는 보도가 나왔습니다.\", \"issue_ids\": [\"i20\"], \"background\": {\"slot\": \"bearish\", \"index\": 1}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"SK하이닉스와 삼성전자는 엔비디아향 HBM4 8단 제품을 내년 2분기쯤 출하할 계획으로, 앞서 거론된 올 하반기보다 늦어졌습니다.\", \"issue_ids\": [\"i33\", \"i34\", \"i35\", \"i36\"], \"background\": {\"slot\": \"bearish\", \"index\": 2}, \"dup_channels\": null, \"placed\": \"background\"}], \"display_as_of\": \"2026-10-26T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 24369,
+    "completion_tokens": 12680,
+    "total_tokens": 37049,
+    "prompt_tokens_details": {
+      "cached_tokens": 24366,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 8590,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 24369,
+    "output_tokens": 12680,
+    "cached_prompt_tokens": 24366,
+    "cache_write_tokens": 0,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 24369,
+    "total": 24369,
+    "cache_read": 24366,
+    "cache_write": 0,
+    "uncached": 3
+  },
+  "cost": 9.318987,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 96527,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:45:44+09:00",
+  "move_case": "opposite",
+  "judge_layers": {
+    "move": false,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "덜",
+  "main_cause_sentences": 3,
+  "sector": [
+    "반도체"
+  ],
+  "universe_weight": 0.2988,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "메모리 업체들의 선행 주가수익비율 비교",
+          "relation": "direct"
+        },
+        {
+          "id": "i2",
+          "issue": "SK하이닉스 본주와 미국예탁증서 괴리율",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i3",
+          "issue": "키옥시아 지분 매각 차익을 특별배당으로 환원 추진",
+          "relation": "direct"
+        },
+        {
+          "id": "i4",
+          "issue": "40조원 규모 자사주 매입 조기 완료",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i5",
+          "issue": "스페이스X의 GPU 구매용 부채 조달과 네오클라우드 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i6",
+          "issue": "아마존 클라우드 용량 예약과 추가 투자 여력",
+          "relation": "sector"
+        },
+        {
+          "id": "i7",
+          "issue": "발표된 데이터센터 계획 중 실제 건설 비중 추산",
+          "relation": "sector"
+        },
+        {
+          "id": "i8",
+          "issue": "솔리다임 IPO 중단에 따른 증설 자금조달 과제",
+          "relation": "direct"
+        },
+        {
+          "id": "i9",
+          "issue": "YMTC와 SK하이닉스의 웨이퍼 생산 격차 축소 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i10",
+          "issue": "중국 RTX 가격 급등과 소비자용 GPU 공급 제약",
+          "relation": "sector"
+        },
+        {
+          "id": "i11",
+          "issue": "오픈AI의 할인 경쟁과 컴퓨팅 비용 부담",
+          "relation": "sector"
+        },
+        {
+          "id": "i12",
+          "issue": "캠브리콘의 매출·순이익 증가와 매출 목표",
+          "relation": "sector"
+        },
+        {
+          "id": "i13",
+          "issue": "인피니언과 엔비디아의 전력 변환 기술 협력",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i14",
+          "issue": "키옥시아 지분 차익을 활용한 특별배당 추진 보도",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m5",
+      "issues": [
+        {
+          "id": "i15",
+          "issue": "DRAM·NAND 그때그때 거래되는 시세 상승",
+          "relation": "sector"
+        },
+        {
+          "id": "i16",
+          "issue": "아마존 클라우드 용량 예약 소식",
+          "relation": "sector"
+        },
+        {
+          "id": "i17",
+          "issue": "틱톡 미국 지부의 대규모 컴퓨팅 용량 확보 추진",
+          "relation": "sector"
+        },
+        {
+          "id": "i18",
+          "issue": "소프트뱅크의 말레이시아 AI 투자 추진",
+          "relation": "sector"
+        },
+        {
+          "id": "i19",
+          "issue": "키옥시아 지분 차익을 활용한 특별배당 추진 보도",
+          "relation": "direct"
+        },
+        {
+          "id": "i20",
+          "issue": "YMTC의 LPDDR5X 개발과 양산 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i21",
+          "issue": "캠브리콘의 매출 급증",
+          "relation": "sector"
+        },
+        {
+          "id": "i22",
+          "issue": "삼성전자 텍사스 공장 장비 발주와 생산능력",
+          "relation": "sector"
+        },
+        {
+          "id": "i23",
+          "issue": "엔비디아의 광통신 시제품 공개",
+          "relation": "sector"
+        },
+        {
+          "id": "i24",
+          "issue": "삼성전자의 갤럭시A 감산",
+          "relation": "sector"
+        },
+        {
+          "id": "i25",
+          "issue": "메모리 가격 상승과 PC 출하량 감소",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 1
+    },
+    {
+      "id": "m6",
+      "issues": [
+        {
+          "id": "i26",
+          "issue": "미국 선물 상승과 이란 관련 지정학 위험",
+          "relation": "market"
+        },
+        {
+          "id": "i27",
+          "issue": "3분기 실적 발표 전 기술주 외국인 매도 여부",
+          "relation": "market"
+        },
+        {
+          "id": "i28",
+          "issue": "SK하이닉스 장전 주가 상승 결과",
+          "relation": "direct"
+        },
+        {
+          "id": "i29",
+          "issue": "키옥시아 지분 차익 특별배당 추진 보도",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 8
+    },
+    {
+      "id": "m7",
+      "issues": [
+        {
+          "id": "i30",
+          "issue": "키옥시아 지분 차익을 활용한 특별배당 추진 보도",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m8",
+      "issues": [
+        {
+          "id": "i31",
+          "issue": "메모리 업체들의 선행 주가수익비율 업데이트",
+          "relation": "direct"
+        },
+        {
+          "id": "i32",
+          "issue": "SK하이닉스 본주와 미국예탁증서 괴리율",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m9",
+      "issues": [
+        {
+          "id": "i33",
+          "issue": "SK하이닉스와 삼성전자의 HBM4 8단 출하 시점",
+          "relation": "direct"
+        },
+        {
+          "id": "i34",
+          "issue": "엔비디아의 HBM 탑재 계획 변경",
+          "relation": "sector"
+        },
+        {
+          "id": "i35",
+          "issue": "고단 적층 제품의 발열·수율 문제",
+          "relation": "sector"
+        },
+        {
+          "id": "i36",
+          "issue": "8단 제품 부품 수급과 별도 인증 준비",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -0.16,
+      "kospi_change_rate_pct": -1.46,
+      "excess_vs_kospi_pp": 1.3,
+      "kospi_weight_pct": 21.09,
+      "kospi_contribution_pp": -0.034,
+      "kospi_ex_self_change_rate_pct": -1.81,
+      "excess_vs_kospi_ex_self_pp": 1.65,
+      "kospi_basis": "kospi_ex_self",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "메모리반도체",
+        "median_change_rate_pct": -1.16,
+        "excess_vs_group_pp": 1.0,
+        "peer_count": 1,
+        "relation": "follows",
+        "members_used": [
+          {
+            "code": "005930",
+            "name": "삼성전자"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "000660",
+            "name": "SK하이닉스",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": -0.16,
+    "krx": -0.16,
+    "source": "KRX /sto/stk_bydd_trd 2026-10-26 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -1.46,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-10-26 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -1.68,
+        "peer_up": 2,
+        "peer_down": 16,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 1.52
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 2,
+    "background": 5,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "partial",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 1,
+      "layer": "relative",
+      "model": "partial",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "no_clear_cause",
+      "final": "no_clear_cause"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "partially_explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/SK하이닉스-2026-10-26-1845__r3.json",
+  "input_used_path": "inputs_used/SK하이닉스-2026-10-26-1845__r3.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inA/c04__r3.json",
+  "input_sha256": "e4fb386bc0507c4cf1a35f4abfafb88a13da94a52d819d61010c66eb4905b3a8",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [
+    "STRENGTH_MISMATCH: factors[0].links[0] layer=relative 이슈가 나온 메시지에 mentioned 가 있는데 partial",
+    "STRENGTH_MISMATCH: factors[1].links[0] layer=relative 이슈가 나온 메시지에 mentioned 가 있는데 partial",
+    "QUOTE_MISSING_SUBJECT: factors[0] 첫 출처 quote 에 DRAM 가 없다"
+  ],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 9,
+    "messages_total": 9,
+    "relations": {
+      "direct": 13,
+      "sector": 21,
+      "market": 2,
+      "none": 9
+    },
+    "issues_used": 14
+  }
+}

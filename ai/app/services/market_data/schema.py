@@ -122,13 +122,20 @@ class PeerComparison(BaseModel):
     median_change_rate_pct: float | None  # 그룹 등락률 중앙값 (%). 쓸 구성원이 없으면 None
     excess_vs_group_pp: float | None  # 종목 − 그룹 중앙값 (%p). 대상이 거래정지면 None
     peer_count: int  # 중앙값에 쓴 종목 수 (= len(members_used))
-    # follows      |초과분| ≤ GROUP_FOLLOW_THRESHOLD_PP. 그룹 흐름을 따라갔다
-    # opposite     기준 안이지만 그룹 중앙값과 방향이 반대(보합 0.00 은 방향 없음). 함께 움직였다고 할 수 없다
-    # diverges     기준 초과이고 peer_count ≥ 2. 그룹과 크게 달랐다
-    # inconclusive 기준 초과이고 peer_count 1. 차이가 비교 종목 쪽 사정일 수 있다
+    # follows      |초과분| ≤ GROUP_FOLLOW_THRESHOLD_PP. 그룹 흐름을 따라갔다. 비교 종목 방향이 엇갈렸어도 셋 이상이고
+    #              한 방향이 과반이며 대상 종목도 그 방향(또는 보합 0.00)이면 follows 다
+    # opposite     기준 안이지만 그룹 중앙값과 방향이 반대(보합 0.00 은 방향 없음). 함께 움직였다고 할 수 없다.
+    #              비교 종목 방향이 엇갈린 그룹은 opposite 가 아니다(inconclusive)
+    # diverges     기준 초과이고 peer_count ≥ 2 이며 비교 종목 방향이 엇갈리지 않았다. 그룹과 크게 달랐다
+    # inconclusive 기준 초과이고 peer_count 1. 차이가 비교 종목 쪽 사정일 수 있다. 또는 차이 크기와 상관없이 비교
+    #              종목의 오르내린 방향이 엇갈렸다(오른 종목·내린 종목이 섞임. 위 follows 예외만 빼고). 그룹 중앙값
+    #              하나로 그룹 흐름을 말할 수 없다(context.group_relation)
     # None         초과분이 없다(중앙값을 못 냈거나 대상이 거래정지)
     relation: Literal["follows", "opposite", "diverges", "inconclusive"] | None
     members_used: list[str] = Field(default_factory=list)  # 중앙값에 쓴 종목 코드
+    member_rates_pct: list[float] = Field(default_factory=list)  # members_used 순서의 등락률 (%, 반올림한 보이는 값)
+    # 비교 종목 방향이 엇갈려 inconclusive 가 된 그룹(context.is_mixed). 문장·검증·모델 입력(mixed)이 모두 이 값을 읽는다
+    mixed: bool = False
     members_excluded: list[PeerExclusion] = Field(default_factory=list)
 
 

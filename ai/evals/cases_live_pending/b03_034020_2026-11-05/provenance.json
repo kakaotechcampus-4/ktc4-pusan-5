@@ -1,0 +1,264 @@
+{
+  "case_id": "b03_034020_2026-11-05",
+  "status": "draft_unverified",
+  "author": "claude-code",
+  "assembly": {
+    "builder": "app.services.stock_analysis.classified_input (분류 결과 → 러너 입력, 수정 없이 실행)",
+    "command": "python -m app.services.stock_analysis.classified_input --code 034020 --cutoff 2026-11-05T18:45:00+09:00 --change-pct -6.45",
+    "branch": "feature/eval-live-input (origin/feature/eval_set 620e0e8 기준)",
+    "cutoff_rule": "대상일 18:45 KST (기존 세트와 같음, 화면 기준시각 asOf 는 15:30)",
+    "window": "2026-11-04T15:30:00+09:00 초과 ~ cutoff 이하 (weekday_fallback: market_calendar 비어 있어 평일 기준)",
+    "change_pct_source": "KRX stock_change_rate_pct 종가 등락률을 --change-pct 로 넣음(러너가 마감 후 KRX 값으로 다시 덮어씀)",
+    "market": "null (러너가 KRX 로 market_compare 계산)",
+    "collection": "이 기간 카드는 2026-11-05 14:26 KST 무렵 한 번에 수집(cutoff 이전). 14:26 이후 ~ cutoff 사이 자료는 DB 에 없음",
+    "classification": "classification 은 새로 돌리지 않음. 기간 전체 미분류 카드 수는 builder_meta.unclassified, 이 종목 관련 여부는 notes.md"
+  },
+  "messages": [
+    {
+      "url": "https://t.me/KISGregKim/18940",
+      "datetime_kst": "2026-11-05T08:33:38+09:00",
+      "source_card_id": 253,
+      "card_type": "message",
+      "kind": "other",
+      "mention": "not_mentioned",
+      "card_label": "INDIRECT_CONTEXT",
+      "paths": [
+        "industry"
+      ],
+      "card_collected_at_kst": "2026-11-05T14:26:54+09:00",
+      "card_available_at_kst": "2026-11-05T08:33:38+09:00",
+      "time_source": "telegram_messages.posted_at",
+      "verified_by_human": false,
+      "telegram_collected_via": "web",
+      "telegram_collected_at_kst": "2026-11-05T14:26:54+09:00"
+    },
+    {
+      "url": "https://www.ohmynews.com/NWS_Web/View/at_pg.aspx?CNTN_CD=A0003281584&CMPT_CD=P0010&utm_source=naver&utm_medium=newsearch&utm_campaign=naver_news",
+      "datetime_kst": "2026-11-05T11:21:00+09:00",
+      "source_card_id": 293,
+      "card_type": "news",
+      "kind": "news",
+      "mention": "mentioned",
+      "card_label": "DIRECT",
+      "paths": [
+        "company"
+      ],
+      "card_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "card_available_at_kst": "2026-11-05T11:21:00+09:00",
+      "time_source": "news.published_at",
+      "verified_by_human": false,
+      "news_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "news_body_fetched_at_kst": "2026-11-05T14:27:01+09:00"
+    },
+    {
+      "url": "https://biz.newdaily.co.kr/site/data/html/2026/11/05/2026110500148.html",
+      "datetime_kst": "2026-11-05T12:54:00+09:00",
+      "source_card_id": 290,
+      "card_type": "news",
+      "kind": "news",
+      "mention": "mentioned",
+      "card_label": "DIRECT",
+      "paths": [
+        "company"
+      ],
+      "card_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "card_available_at_kst": "2026-11-05T12:54:00+09:00",
+      "time_source": "news.published_at",
+      "verified_by_human": false,
+      "news_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "news_body_fetched_at_kst": "2026-11-05T14:27:01+09:00"
+    },
+    {
+      "url": "https://www.cbci.co.kr/news/articleView.html?idxno=623563",
+      "datetime_kst": "2026-11-05T12:54:00+09:00",
+      "source_card_id": 291,
+      "card_type": "news",
+      "kind": "news",
+      "mention": "mentioned",
+      "card_label": "DIRECT",
+      "paths": [
+        "company",
+        "industry"
+      ],
+      "card_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "card_available_at_kst": "2026-11-05T12:54:00+09:00",
+      "time_source": "news.published_at",
+      "verified_by_human": false,
+      "news_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "news_body_fetched_at_kst": "2026-11-05T14:27:01+09:00"
+    },
+    {
+      "url": "https://www.vegannews.co.kr/news/article.html?no=400907",
+      "datetime_kst": "2026-11-05T13:16:00+09:00",
+      "source_card_id": 289,
+      "card_type": "news",
+      "kind": "news",
+      "mention": "mentioned",
+      "card_label": "DIRECT",
+      "paths": [
+        "company"
+      ],
+      "card_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "card_available_at_kst": "2026-11-05T13:16:00+09:00",
+      "time_source": "news.published_at",
+      "verified_by_human": false,
+      "news_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "news_body_fetched_at_kst": "2026-11-05T14:27:01+09:00"
+    },
+    {
+      "url": "https://www.sedaily.com/article/20110635?ref=naver",
+      "datetime_kst": "2026-11-05T13:38:00+09:00",
+      "source_card_id": 272,
+      "card_type": "news",
+      "kind": "market_recap",
+      "mention": "not_mentioned",
+      "card_label": null,
+      "paths": [
+        "market"
+      ],
+      "card_collected_at_kst": "2026-11-05T14:26:55+09:00",
+      "card_available_at_kst": "2026-11-05T13:38:00+09:00",
+      "time_source": "news.published_at",
+      "verified_by_human": false,
+      "news_collected_at_kst": "2026-11-05T14:26:55+09:00",
+      "news_body_fetched_at_kst": "2026-11-05T14:26:55+09:00"
+    },
+    {
+      "url": "https://www.etoday.co.kr/news/view/2644616",
+      "datetime_kst": "2026-11-05T13:50:00+09:00",
+      "source_card_id": 270,
+      "card_type": "news",
+      "kind": "market_recap",
+      "mention": "not_mentioned",
+      "card_label": null,
+      "paths": [
+        "market"
+      ],
+      "card_collected_at_kst": "2026-11-05T14:26:55+09:00",
+      "card_available_at_kst": "2026-11-05T13:50:00+09:00",
+      "time_source": "news.published_at",
+      "verified_by_human": false,
+      "news_collected_at_kst": "2026-11-05T14:26:55+09:00",
+      "news_body_fetched_at_kst": "2026-11-05T14:26:55+09:00"
+    },
+    {
+      "url": "https://www.cbci.co.kr/news/articleView.html?idxno=623607",
+      "datetime_kst": "2026-11-05T13:58:00+09:00",
+      "source_card_id": 288,
+      "card_type": "news",
+      "kind": "news",
+      "mention": "mentioned",
+      "card_label": "DIRECT",
+      "paths": [
+        "company",
+        "macro"
+      ],
+      "card_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "card_available_at_kst": "2026-11-05T13:58:00+09:00",
+      "time_source": "news.published_at",
+      "verified_by_human": false,
+      "news_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "news_body_fetched_at_kst": "2026-11-05T14:27:01+09:00"
+    },
+    {
+      "url": "http://www.newstomato.com/ReadNews.aspx?no=1319391&inflow=N",
+      "datetime_kst": "2026-11-05T14:06:00+09:00",
+      "source_card_id": 286,
+      "card_type": "news",
+      "kind": "news",
+      "mention": "mentioned",
+      "card_label": "DIRECT",
+      "paths": [
+        "company",
+        "industry"
+      ],
+      "card_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "card_available_at_kst": "2026-11-05T14:06:00+09:00",
+      "time_source": "news.published_at",
+      "verified_by_human": false,
+      "news_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "news_body_fetched_at_kst": "2026-11-05T14:27:01+09:00"
+    },
+    {
+      "url": "https://www.viva100.com/article/20261105500609",
+      "datetime_kst": "2026-11-05T14:14:00+09:00",
+      "source_card_id": 266,
+      "card_type": "news",
+      "kind": "market_recap",
+      "mention": "not_mentioned",
+      "card_label": null,
+      "paths": [
+        "macro"
+      ],
+      "card_collected_at_kst": "2026-11-05T14:26:55+09:00",
+      "card_available_at_kst": "2026-11-05T14:14:00+09:00",
+      "time_source": "news.published_at",
+      "verified_by_human": false,
+      "news_collected_at_kst": "2026-11-05T14:26:55+09:00",
+      "news_body_fetched_at_kst": "2026-11-05T14:26:55+09:00"
+    },
+    {
+      "url": "https://biz.chosun.com/industry/company/2026/11/05/BMUCVKYEWFENBJYAY2OPLVEDXY/?utm_source=naver&utm_medium=original&utm_campaign=biz",
+      "datetime_kst": "2026-11-05T14:22:00+09:00",
+      "source_card_id": 285,
+      "card_type": "news",
+      "kind": "news",
+      "mention": "mentioned",
+      "card_label": "DIRECT",
+      "paths": [
+        "company",
+        "macro"
+      ],
+      "card_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "card_available_at_kst": "2026-11-05T14:22:00+09:00",
+      "time_source": "news.published_at",
+      "verified_by_human": false,
+      "news_collected_at_kst": "2026-11-05T14:27:01+09:00",
+      "news_body_fetched_at_kst": "2026-11-05T14:27:01+09:00"
+    }
+  ],
+  "disclosures": [],
+  "injected_after_cutoff": [],
+  "builder_meta": {
+    "since": "2026-11-04T15:30:00+09:00",
+    "since_basis": "weekday_fallback",
+    "counts": {
+      "sources": 16,
+      "messages": 11,
+      "evidence": 8,
+      "market_recap": 3,
+      "news": 10,
+      "pdf": 0,
+      "disclosure": 0,
+      "market_recap_dropped": 5,
+      "no_body": 0,
+      "duplicates": 0,
+      "skipped_card_types": {}
+    },
+    "dropped": [
+      {
+        "source_card_id": 231,
+        "reason": "공통 배경 3건 초과"
+      },
+      {
+        "source_card_id": 241,
+        "reason": "공통 배경 3건 초과"
+      },
+      {
+        "source_card_id": 262,
+        "reason": "공통 배경 3건 초과"
+      },
+      {
+        "source_card_id": 292,
+        "reason": "공통 배경 3건 초과"
+      },
+      {
+        "source_card_id": 274,
+        "reason": "공통 배경 3건 초과"
+      }
+    ],
+    "unclassified": 34,
+    "failed": 0,
+    "not_observed": 0
+  }
+}

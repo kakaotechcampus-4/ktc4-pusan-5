@@ -1,0 +1,713 @@
+{
+  "run_id": "SK하이닉스-2026-10-28-1845__r2",
+  "final_text": "{\"ticker\": \"000660\", \"name\": \"SK하이닉스\", \"date\": \"2026-10-28\", \"as_of\": \"2026-10-28T18:45:00+09:00\", \"change_pct\": 10.89, \"verdict\": \"explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 SK하이닉스는 10.89% 올랐고, 코스피는 6.63% 상승했습니다. 비교 대형주 19개 중 17개가 올랐고 중간값은 2.67% 상승해, SK하이닉스는 대형주 전반보다 더 올랐습니다. SK하이닉스는 코스피 비중 21.8%로 지수 상승에 2.374%포인트를 보탰고, SK하이닉스를 뺀 코스피는 5.44% 올라 SK하이닉스는 시장과 다르게 움직였습니다.\", \"main_cause\": \"3분기 영업이익은 83.3조원으로 시장 예상치를 웃돌았지만, 본업 밖에서 난 손실도 32.6조원이었습니다. 회사가 2029년까지 주요 메모리 제품이 사실상 모두 팔린 상태라고 밝힌 점은 수요 전망을 뒷받침했습니다. 2026 회계연도에 주주에게 돌려줄 돈을 약 100조원으로 예상한 점도 상승 요인이 됐을 수 있습니다.\", \"relative\": \"같은 메모리반도체 그룹의 삼성전자는 9.01% 올랐습니다. 3분기 실적 호조와 장기 수요 전망이 대형주 전반과 다른 상승에 힘을 보탰을 수 있습니다. 회사가 주주에게 돌려줄 돈을 약 100조원으로 제시한 점도 차이를 설명할 수 있습니다.\", \"counter\": null, \"unexplained\": \"대형주 전반보다 더 오른 부분에서 실적·수요와 주주환원 재료가 각각 차지한 몫은 자료만으로 나눠 볼 수 없습니다.\"}, \"factors\": [{\"event\": \"3분기 영업이익은 83.3조원으로 시장 예상치를 웃돌았습니다.\", \"detail\": \"본업 밖에서 32.6조원 손실이 났습니다. 회사는 2029년까지 주요 메모리 제품이 사실상 모두 팔린 상태라고 밝혔습니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4807\", \"datetime_kst\": \"2026-10-28T08:32:51+09:00\", \"quote\": \"영업이익 83 조원 (+632% YoY)\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19215\", \"datetime_kst\": \"2026-10-28T08:53:30+09:00\", \"quote\": \"영업외손익 -32.6조원\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4813\", \"datetime_kst\": \"2026-10-28T11:21:43+09:00\", \"quote\": \"2029년까지 DRAM, HBM 사실상 Sold-out\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"예상치를 웃돈 영업이익과 장기 수요 전망이 주가 상승에 힘을 보탰을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"실적과 장기 수요에 직접 연결된 재료가 있어 대형주 전반과 다른 상승을 설명할 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}, {\"event\": \"회사는 2026 회계연도 주주환원 규모를 약 100조원으로 예상했습니다.\", \"detail\": \"20조원 규모의 자기주식 취득을 결의했습니다. 3분기 현금배당은 보통주 한 주당 20,000원으로 결정했습니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4806\", \"datetime_kst\": \"2026-10-28T08:29:41+09:00\", \"quote\": \"2026 회계연도 주주환원 예상 규모 약 100조원\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4811\", \"datetime_kst\": \"2026-10-28T08:48:43+09:00\", \"quote\": \"취득예정금액: 20조770억원\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4808\", \"datetime_kst\": \"2026-10-28T08:34:24+09:00\", \"quote\": \"보통주 1주당 20,000원\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"배당과 자기주식 취득을 포함한 큰 규모의 주주 환원이 주가에 긍정적으로 작용했을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"이 회사의 구체적인 배당·자기주식 취득 계획은 대형주 전반과 구별되는 재료가 될 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"본업 밖에서 난 손실\", \"term\": \"영업외손실\"}, {\"plain\": \"주주에게 돌려줄 돈\", \"term\": \"주주환원\"}], \"background\": {\"bullish\": [{\"text\": \"엔비디아의 차세대 AI 시스템에서 SK하이닉스의 메모리 공급 확대 기대가 전해졌습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19207\", \"datetime_kst\": \"2026-10-28T07:39:03+09:00\", \"quote\": \"삼성·SK하이닉스 공급 확대 기대\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"bearish\": [], \"neutral\": []}, \"not_found\": [\"대형주 전반보다 더 오른 폭을 개별 재료별로 나눠 설명할 수 있는 수치는 제공되지 않았습니다.\", \"같은 메모리반도체 그룹의 비교 대상은 삼성전자 한 종목뿐이며, 그룹 판정은 inconclusive입니다.\"], \"events\": [{\"event\": \"3분기 영업이익 호조와 장기 메모리 수요 전망\", \"issue_ids\": [\"i27\", \"i42\", \"i44\", \"i59\"], \"factor\": 0, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"2026 회계연도 주주환원 계획과 배당·자기주식 취득\", \"issue_ids\": [\"i24\", \"i28\", \"i41\"], \"factor\": 1, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"차세대 AI 시스템 관련 메모리 공급 확대 기대\", \"issue_ids\": [\"i12\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}], \"display_as_of\": \"2026-10-28T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 36990,
+    "completion_tokens": 16504,
+    "total_tokens": 53494,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 29589,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 11421,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 36990,
+    "output_tokens": 16504,
+    "cached_prompt_tokens": 0,
+    "cache_write_tokens": 29589,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 36990,
+    "total": 29593,
+    "cache_read": 0,
+    "cache_write": 29589,
+    "uncached": 4
+  },
+  "cost": 16.90045725,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 117345,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:39:19+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "더",
+  "main_cause_sentences": 3,
+  "sector": [
+    "반도체"
+  ],
+  "universe_weight": 0.2988,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "메모리 업체의 예상 주가수익비율 비교",
+          "relation": "direct"
+        },
+        {
+          "id": "i2",
+          "issue": "SK하이닉스 본주와 ADR의 괴리율",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i3",
+          "issue": "중화권 업체들의 서버 메모리 장기 공급계약 요청",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i4",
+          "issue": "삼성전자·SK하이닉스의 대규모 주주환원 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i5",
+          "issue": "SK하이닉스의 추가 주주환원 규모 추산",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i6",
+          "issue": "DRAM·NAND 거래 시세의 최근 변동",
+          "relation": "sector"
+        },
+        {
+          "id": "i7",
+          "issue": "Seagate 실적 호조와 저장장치 수요 전망",
+          "relation": "none"
+        },
+        {
+          "id": "i8",
+          "issue": "오라클의 칩 공급 계약 확대",
+          "relation": "none"
+        },
+        {
+          "id": "i9",
+          "issue": "브로드컴의 앤스로픽 공급 계약",
+          "relation": "none"
+        },
+        {
+          "id": "i10",
+          "issue": "엔비디아의 메타 투자 참여 계획",
+          "relation": "none"
+        },
+        {
+          "id": "i11",
+          "issue": "TSMC의 CoWoS 가격 인상 검토",
+          "relation": "sector"
+        },
+        {
+          "id": "i12",
+          "issue": "엔비디아 차세대 제품의 메모리 공급 확대 기대",
+          "relation": "direct"
+        },
+        {
+          "id": "i13",
+          "issue": "해외 반도체 관련 종목의 주가 등락",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 4
+    },
+    {
+      "id": "m5",
+      "issues": [
+        {
+          "id": "i14",
+          "issue": "SK하이닉스 3분기 실적 발표 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i15",
+          "issue": "SK하이닉스 추가 주주환원 발표 기대",
+          "relation": "direct"
+        },
+        {
+          "id": "i16",
+          "issue": "엔비디아·메타의 협력 및 투자 계획",
+          "relation": "none"
+        },
+        {
+          "id": "i17",
+          "issue": "AMD의 메타 공급 및 협력 확대",
+          "relation": "none"
+        },
+        {
+          "id": "i18",
+          "issue": "앤스로픽의 AI 연산 자원 구성과 자금 조달",
+          "relation": "none"
+        },
+        {
+          "id": "i19",
+          "issue": "오라클의 AI 시스템·칩 도입 확대",
+          "relation": "none"
+        },
+        {
+          "id": "i20",
+          "issue": "TSMC의 패키징·웨이퍼 가격 인상 검토",
+          "relation": "sector"
+        },
+        {
+          "id": "i21",
+          "issue": "중국의 AI 기업 대출 심사 방식 변화",
+          "relation": "none"
+        },
+        {
+          "id": "i22",
+          "issue": "ASM의 매출 전망 상향과 자사주 매입",
+          "relation": "sector"
+        },
+        {
+          "id": "i23",
+          "issue": "메모리를 포함한 국책 컴퓨팅 클러스터 구축",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 5
+    },
+    {
+      "id": "m6",
+      "issues": [
+        {
+          "id": "i24",
+          "issue": "2026 회계연도 주주환원 규모와 시행 계획",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m7",
+      "issues": [
+        {
+          "id": "i25",
+          "issue": "3분기 매출·영업이익 발표",
+          "relation": "direct"
+        },
+        {
+          "id": "i26",
+          "issue": "3분기 순이익과 예상치 비교",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m8",
+      "issues": [
+        {
+          "id": "i27",
+          "issue": "3분기 매출·영업이익의 예상치 상회",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m9",
+      "issues": [
+        {
+          "id": "i28",
+          "issue": "3분기 현금배당 결정",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m10",
+      "issues": [],
+      "none_count": 0
+    },
+    {
+      "id": "m11",
+      "issues": [
+        {
+          "id": "i29",
+          "issue": "2026 회계연도 주주환원 및 자기주식 취득 계획",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m12",
+      "issues": [
+        {
+          "id": "i30",
+          "issue": "미국 증시 상승과 국내 증시 상승 출발 전망",
+          "relation": "market"
+        },
+        {
+          "id": "i31",
+          "issue": "SK하이닉스 실적 발표와 주주환원 세부안 기대",
+          "relation": "direct"
+        },
+        {
+          "id": "i32",
+          "issue": "솔리다임의 미국 공장 투자 논의",
+          "relation": "direct"
+        },
+        {
+          "id": "i33",
+          "issue": "중화권 업체들의 서버 메모리 장기 계약 요청",
+          "relation": "direct"
+        },
+        {
+          "id": "i34",
+          "issue": "두산의 CCL 생산시설 투자",
+          "relation": "none"
+        },
+        {
+          "id": "i35",
+          "issue": "HD현대의 교환사채 발행",
+          "relation": "none"
+        },
+        {
+          "id": "i36",
+          "issue": "조선업체 노사의 임금 합의",
+          "relation": "none"
+        },
+        {
+          "id": "i37",
+          "issue": "원전 재가동 계획과 AI 전력 수요",
+          "relation": "none"
+        },
+        {
+          "id": "i38",
+          "issue": "네이버의 AI 연산 인프라 계약",
+          "relation": "none"
+        },
+        {
+          "id": "i39",
+          "issue": "SK온 헝가리 공장의 환경 위반 제재",
+          "relation": "none"
+        }
+      ],
+      "none_count": 6
+    },
+    {
+      "id": "m13",
+      "issues": [
+        {
+          "id": "i40",
+          "issue": "3분기 매출·영업이익 실적 공시",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m14",
+      "issues": [
+        {
+          "id": "i41",
+          "issue": "20조원 규모 자기주식 취득 결정",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m15",
+      "issues": [
+        {
+          "id": "i42",
+          "issue": "3분기 매출·영업이익과 전 분기 대비 증가",
+          "relation": "direct"
+        },
+        {
+          "id": "i43",
+          "issue": "DRAM·NAND 출하량과 판매가격 변동",
+          "relation": "direct"
+        },
+        {
+          "id": "i44",
+          "issue": "3분기 영업외손실 발생",
+          "relation": "direct"
+        },
+        {
+          "id": "i45",
+          "issue": "순현금 규모 확대",
+          "relation": "direct"
+        },
+        {
+          "id": "i46",
+          "issue": "4분기 및 2027년 메모리 수요 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i47",
+          "issue": "AI 데이터센터 시장의 장기 성장 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i48",
+          "issue": "서버·저전력 메모리 판매 확대",
+          "relation": "direct"
+        },
+        {
+          "id": "i49",
+          "issue": "4분기 HBM4 매출 전환 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i50",
+          "issue": "14개 고객사와 장기 공급계약 및 물량 확보",
+          "relation": "direct"
+        },
+        {
+          "id": "i51",
+          "issue": "연간 주주환원 규모와 자기주식 매입",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m16",
+      "issues": [
+        {
+          "id": "i52",
+          "issue": "실적발표 컨퍼런스콜 접속 장애와 대체 주소 안내",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m17",
+      "issues": [
+        {
+          "id": "i53",
+          "issue": "분기별 자기주식 매입 지속 계획",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m18",
+      "issues": [
+        {
+          "id": "i54",
+          "issue": "2029년까지 DRAM·HBM 판매 물량 확보",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m19",
+      "issues": [
+        {
+          "id": "i55",
+          "issue": "고객 요청 메모리 물량이 공급 가능량을 상회",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m20",
+      "issues": [
+        {
+          "id": "i56",
+          "issue": "3분기 실적과 이후 실적 추정",
+          "relation": "direct"
+        },
+        {
+          "id": "i57",
+          "issue": "4분기 메모리 출하량 증가 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i58",
+          "issue": "2027년 메모리 수요 증가 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i59",
+          "issue": "2029년까지 메모리 판매 물량 확보 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i60",
+          "issue": "장기 계약으로 향후 생산능력 절반 이상 확보",
+          "relation": "direct"
+        },
+        {
+          "id": "i61",
+          "issue": "HBM4 출하·수율·수익성 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i62",
+          "issue": "현금배당과 자기주식 매입·소각 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i63",
+          "issue": "AI 투자 주체 다변화와 메모리 수요 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i64",
+          "issue": "수요에 맞춘 설비 투자 단계 집행 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i65",
+          "issue": "고객 요청 HBM 물량이 공급 가능량의 두 배",
+          "relation": "direct"
+        },
+        {
+          "id": "i66",
+          "issue": "차세대 DRAM 구조 개발",
+          "relation": "direct"
+        },
+        {
+          "id": "i67",
+          "issue": "AI의 캐시 저장 수요와 SSD 활용 전망",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m21",
+      "issues": [
+        {
+          "id": "i68",
+          "issue": "메모리 업체의 예상 주가수익비율 비교",
+          "relation": "direct"
+        },
+        {
+          "id": "i69",
+          "issue": "SK하이닉스 본주와 ADR의 괴리율",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m22",
+      "issues": [
+        {
+          "id": "i70",
+          "issue": "증권사들의 4분기·2027년 실적 전망 상향",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": 10.89,
+      "kospi_change_rate_pct": 6.63,
+      "excess_vs_kospi_pp": 4.26,
+      "kospi_weight_pct": 21.8,
+      "kospi_contribution_pp": 2.374,
+      "kospi_ex_self_change_rate_pct": 5.44,
+      "excess_vs_kospi_ex_self_pp": 5.45,
+      "kospi_basis": "kospi_ex_self",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "메모리반도체",
+        "median_change_rate_pct": 9.01,
+        "excess_vs_group_pp": 1.88,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "members_used": [
+          {
+            "code": "005930",
+            "name": "삼성전자"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "000660",
+            "name": "SK하이닉스",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": 10.89,
+    "krx": 10.89,
+    "source": "KRX /sto/stk_bydd_trd 2026-10-28 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": 6.63,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-10-28 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": 2.67,
+        "peer_up": 17,
+        "peer_down": 2,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 8.22
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 2,
+    "background": 1,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 1,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 1,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "explained",
+      "final": "explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/SK하이닉스-2026-10-28-1845__r2.json",
+  "input_used_path": "inputs_used/SK하이닉스-2026-10-28-1845__r2.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inA/c01__r2.json",
+  "input_sha256": "830ceb9bd7de199f159565131408ed0d31133a740e308985830e8fb611e19d0c",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 22,
+    "messages_total": 22,
+    "relations": {
+      "direct": 48,
+      "sector": 6,
+      "none": 30,
+      "market": 1
+    },
+    "issues_used": 8
+  }
+}

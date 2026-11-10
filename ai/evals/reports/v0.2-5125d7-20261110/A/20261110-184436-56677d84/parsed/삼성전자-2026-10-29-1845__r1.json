@@ -1,0 +1,485 @@
+{
+  "run_id": "삼성전자-2026-10-29-1845__r1",
+  "final_text": "{\"ticker\": \"005930\", \"name\": \"삼성전자\", \"date\": \"2026-10-29\", \"as_of\": \"2026-10-29T18:45:00+09:00\", \"change_pct\": -4.13, \"verdict\": \"explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 삼성전자는 4.13% 하락했고 코스피는 1.24% 내렸습니다. 대형주 19개 중 11개가 내렸고 중간값은 0.31% 하락해 삼성전자는 대형주 전반보다 더 내렸습니다. 삼성전자는 코스피 비중 29.52%로 지수 하락에 1.219%포인트 기여했고, 삼성전자를 뺀 코스피는 0.03% 하락해 삼성전자는 코스피와 다르게 움직였습니다.\", \"main_cause\": \"삼성전자의 3분기 매출이 시장 예상보다 2.7% 낮았던 점이 하락에 영향을 줬을 수 있습니다. 중국 CXMT의 첨단 AI 메모리 생산 계획도 경쟁 우려를 키워 부담이 됐을 수 있습니다.\", \"relative\": \"삼성전자를 뺀 코스피와는 다르게 움직였고, 같은 메모리반도체 그룹의 SK하이닉스는 2.62% 올랐습니다. 매출 예상 하회라는 삼성전자 고유의 실적 소식이 대형주 전반과의 낙폭 차이에 영향을 줬을 수 있습니다. CXMT의 생산 계획도 메모리 사업 노출 때문에 상대적 약세에 부담이 됐을 수 있습니다.\", \"counter\": \"메모리의 그때그때 거래되는 시세는 한 달 새 1.40% 올랐습니다. 4세대 고대역폭 메모리 매출은 전분기보다 3배 이상 증가했습니다. 현금배당 30조원과 향후 자기 주식 매입·소각 계획도 발표했습니다.\", \"unexplained\": \"대형주 전반보다 더 내린 폭은 매출 예상 하회와 경쟁 우려가 설명할 수 있지만, 각 재료가 주가에 미친 영향의 크기는 제공된 메시지만으로 가늠하기 어렵습니다.\"}, \"factors\": [{\"event\": \"삼성전자의 3분기 매출은 시장 예상보다 2.7% 낮았지만 영업이익은 예상치에 부합했습니다.\", \"detail\": \"\", \"stance\": \"bearish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4851\", \"datetime_kst\": \"2026-10-29T10:03:12+09:00\", \"quote\": \"컨센 대비 -2.7%\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"예상에 못 미친 매출 실적이 하락 압력으로 작용했을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"삼성전자 실적 발표라는 개별 재료가 대형주 전반과의 낙폭 차이에 영향을 줬을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}, {\"event\": \"중국 CXMT가 낮은 수율에도 첨단 AI 메모리 생산에 착수할 예정이라는 보도가 나왔습니다.\", \"detail\": \"\", \"stance\": \"bearish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19237\", \"datetime_kst\": \"2026-10-29T07:51:39+09:00\", \"quote\": \"첨단 AI 메모리 생산 착수 예정\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"메모리 경쟁이 심해질 수 있다는 우려가 주가에 부담이 됐을 수 있습니다. 삼성전자에 직접 나온 소식은 아니어서 추정입니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"메모리 사업 노출이 대형주 전반과 다른 만큼, 경쟁 우려에 더 민감하게 반응했을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"그때그때 거래되는 시세\", \"term\": \"스팟가격\"}, {\"plain\": \"4세대 고대역폭 메모리\", \"term\": \"HBM4\"}, {\"plain\": \"자기 주식을 사들여 없애는 것\", \"term\": \"자사주 매입·소각\"}, {\"plain\": \"설비 등에 쓰는 투자\", \"term\": \"Capex\"}], \"background\": {\"bullish\": [{\"text\": \"메모리의 그때그때 거래되는 시세는 한 달 새 1.40% 올랐습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19237\", \"datetime_kst\": \"2026-10-29T07:51:39+09:00\", \"quote\": \"1M +1.40%\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"4세대 고대역폭 메모리 매출은 전분기보다 3배 이상 증가했다고 밝혔습니다.\", \"sources\": [{\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4860\", \"datetime_kst\": \"2026-10-29T11:47:21+09:00\", \"quote\": \"3Q26 HBM4 매출 +3배 이상 QoQ\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"삼성전자는 남은 재원 55~75조원 가운데 상당 부분을 자기 주식을 사들여 없애는 데 쓰겠다고 밝혔습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19241\", \"datetime_kst\": \"2026-10-29T10:03:42+09:00\", \"quote\": \"잔여재원은 55~75조원 수준\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4860\", \"datetime_kst\": \"2026-10-29T11:47:21+09:00\", \"quote\": \"현금배당 및 상당규모 자사주 매입, 소각 예정\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"삼성전자는 3분기 현금배당 30조원을 결정했고, 지급 예정일은 11월 27일입니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19240\", \"datetime_kst\": \"2026-10-29T09:55:15+09:00\", \"quote\": \"배당: 9월 30일 기준, 30조원 배당\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4852\", \"datetime_kst\": \"2026-10-29T10:04:50+09:00\", \"quote\": \"배당금지급 예정일: 2026-11-27\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"watch\": true}], \"bearish\": [{\"text\": \"삼성디스플레이는 2027년에도 수요 약세가 이어질 것으로 내다봤습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19240\", \"datetime_kst\": \"2026-10-29T09:55:15+09:00\", \"quote\": \"SDC 2027년 수요 약세 지속\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4860\", \"datetime_kst\": \"2026-10-29T11:47:21+09:00\", \"quote\": \"SDC: 수요 약세.\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"neutral\": [{\"text\": \"삼성전자는 2026년 설비 등에 쓰는 투자를 약 84.4조원으로 계획했습니다.\", \"sources\": [{\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4853\", \"datetime_kst\": \"2026-10-29T10:05:27+09:00\", \"quote\": \"2026년 시설투자 예상 금액: 약 84.4조원\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}]}, \"not_found\": [\"메모리반도체 그룹 비교 종목은 SK하이닉스 한 곳뿐이므로 그룹 공통 흐름으로 판정하지 않았습니다.\", \"실적 하회와 경쟁 우려가 각각 주가에 미친 영향의 크기는 메시지에서 분리해 확인할 수 없습니다.\"], \"events\": [{\"event\": \"삼성전자의 3분기 매출이 예상보다 2.7% 낮고 영업이익은 예상치에 부합했습니다.\", \"issue_ids\": [\"i10\", \"i17\"], \"factor\": 0, \"dup_channels\": 1, \"placed\": \"factors\"}, {\"event\": \"중국 CXMT가 첨단 AI 메모리 생산에 착수할 예정이라는 보도가 나왔습니다.\", \"issue_ids\": [\"i6\"], \"factor\": 1, \"dup_channels\": 1, \"placed\": \"factors\"}, {\"event\": \"메모리의 그때그때 거래되는 시세가 한 달 새 1.40% 올랐습니다.\", \"issue_ids\": [\"i2\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"4세대 고대역폭 메모리 매출이 전분기보다 3배 이상 증가했습니다.\", \"issue_ids\": [\"i23\", \"i32\"], \"background\": {\"slot\": \"bullish\", \"index\": 1}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"삼성전자는 남은 재원을 배당과 자기 주식 매입·소각으로 환원할 계획입니다.\", \"issue_ids\": [\"i18\", \"i22\"], \"background\": {\"slot\": \"bullish\", \"index\": 2}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"삼성전자는 3분기 현금배당 30조원을 결정했고 지급 예정일은 11월 27일입니다.\", \"issue_ids\": [\"i16\", \"i19\"], \"background\": {\"slot\": \"bullish\", \"index\": 3}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"삼성디스플레이는 2027년에도 수요 약세가 이어질 것으로 내다봤습니다.\", \"issue_ids\": [\"i14\", \"i26\"], \"background\": {\"slot\": \"bearish\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"삼성전자는 2026년 시설투자를 약 84.4조원으로 계획했습니다.\", \"issue_ids\": [\"i20\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}], \"display_as_of\": \"2026-10-29T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 29272,
+    "completion_tokens": 16390,
+    "total_tokens": 45662,
+    "prompt_tokens_details": {
+      "cached_tokens": 22096,
+      "cache_write_tokens": 5738,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 11436,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 29272,
+    "output_tokens": 16390,
+    "cached_prompt_tokens": 22096,
+    "cache_write_tokens": 5738,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 29272,
+    "total": 27838,
+    "cache_read": 22096,
+    "cache_write": 5738,
+    "uncached": 4
+  },
+  "cost": 12.9253505,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 150189,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "5125d7cc8ed746e0cf2e55689de0571f51c707e73bb64fdf097479930b42a51d",
+  "generated_at": "2026-11-10T19:00:32+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "더",
+  "main_cause_sentences": 3,
+  "sector": [
+    "반도체",
+    "스마트폰"
+  ],
+  "universe_weight": 0.4043,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "삼성전자와 메모리 업체들의 예상 실적 대비 주가 배수 업데이트",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i2",
+          "issue": "메모리 현물 시세의 최근 상승",
+          "relation": "sector"
+        },
+        {
+          "id": "i3",
+          "issue": "마이크로소프트 실적과 AI 투자 성과",
+          "relation": "sector"
+        },
+        {
+          "id": "i4",
+          "issue": "알파벳 실적과 AI 투자 부담",
+          "relation": "sector"
+        },
+        {
+          "id": "i5",
+          "issue": "솔리다임의 미국 낸드 공장 투자 추진",
+          "relation": "sector"
+        },
+        {
+          "id": "i6",
+          "issue": "CXMT의 첨단 AI 메모리 생산 계획",
+          "relation": "sector"
+        },
+        {
+          "id": "i7",
+          "issue": "엔비디아·AMD의 메타 투자",
+          "relation": "none"
+        },
+        {
+          "id": "i8",
+          "issue": "오픈AI의 구글 AI칩 도입 검토",
+          "relation": "none"
+        },
+        {
+          "id": "i9",
+          "issue": "삼성전자 등 관련 업체의 전일 주가 등락",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 2
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i10",
+          "issue": "삼성전자의 3분기 실적과 부문별 이익",
+          "relation": "direct"
+        },
+        {
+          "id": "i11",
+          "issue": "분기 설비투자와 연구개발 투자 증가",
+          "relation": "direct"
+        },
+        {
+          "id": "i12",
+          "issue": "AI 메모리 수요와 공급 부족 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i13",
+          "issue": "파운드리 성장과 테일러 공장 가동 시작",
+          "relation": "direct"
+        },
+        {
+          "id": "i14",
+          "issue": "삼성디스플레이의 2027년 수요 약세 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i15",
+          "issue": "MX 사업의 제품 구성과 운영 전략",
+          "relation": "direct"
+        },
+        {
+          "id": "i16",
+          "issue": "3분기 현금배당 30조원",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i17",
+          "issue": "3분기 매출 예상 하회와 영업이익 예상 부합",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m5",
+      "issues": [
+        {
+          "id": "i18",
+          "issue": "남은 재원의 배당·자기주식 매입 및 소각 계획",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m6",
+      "issues": [
+        {
+          "id": "i19",
+          "issue": "3분기 배당금과 지급 예정일",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m7",
+      "issues": [
+        {
+          "id": "i20",
+          "issue": "2026년 시설투자 계획 84.4조원",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m8",
+      "issues": [
+        {
+          "id": "i21",
+          "issue": "메모리 실적 추정치와 4분기 출하 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i22",
+          "issue": "잔여 재원 환원과 차기 환원정책 발표 일정",
+          "relation": "direct"
+        },
+        {
+          "id": "i23",
+          "issue": "HBM4 매출 증가와 2027년 공급 물량 계약",
+          "relation": "direct"
+        },
+        {
+          "id": "i24",
+          "issue": "메모리 사업의 2027년 AI 수요 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i25",
+          "issue": "시스템LSI의 모바일 둔화와 신규 고객 확보",
+          "relation": "direct"
+        },
+        {
+          "id": "i26",
+          "issue": "삼성디스플레이의 수요 약세 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i27",
+          "issue": "MX의 제품 구성 개선과 원가 대응",
+          "relation": "direct"
+        },
+        {
+          "id": "i28",
+          "issue": "VD·DA 사업의 제품 및 수익성 전략",
+          "relation": "direct"
+        },
+        {
+          "id": "i29",
+          "issue": "2028년까지 메모리 수급이 빠듯할 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i30",
+          "issue": "장기 공급계약 확보와 추가 협상",
+          "relation": "direct"
+        },
+        {
+          "id": "i31",
+          "issue": "파운드리 수주와 폴더블 디스플레이 전략",
+          "relation": "direct"
+        },
+        {
+          "id": "i32",
+          "issue": "HBM4 매출·점유율과 공급 물량 추가 요청",
+          "relation": "direct"
+        },
+        {
+          "id": "i33",
+          "issue": "AI 관련 낸드 수요와 MX의 원가 대응",
+          "relation": "direct"
+        },
+        {
+          "id": "i34",
+          "issue": "국내·미국 파운드리 생산능력 확대",
+          "relation": "direct"
+        },
+        {
+          "id": "i35",
+          "issue": "환율 대응과 시스템LSI 사업 전략",
+          "relation": "direct"
+        },
+        {
+          "id": "i36",
+          "issue": "파운드리 공정 로드맵과 MX 폴더블 전략",
+          "relation": "direct"
+        },
+        {
+          "id": "i37",
+          "issue": "하만의 전장·오디오 사업 실적 개선",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m9",
+      "issues": [
+        {
+          "id": "i38",
+          "issue": "삼성전자와 메모리 업체들의 예상 실적 대비 주가 배수 업데이트",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -4.13,
+      "kospi_change_rate_pct": -1.24,
+      "excess_vs_kospi_pp": -2.89,
+      "kospi_weight_pct": 29.52,
+      "kospi_contribution_pp": -1.219,
+      "kospi_ex_self_change_rate_pct": -0.03,
+      "excess_vs_kospi_ex_self_pp": -4.1,
+      "kospi_basis": "kospi_ex_self",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "메모리반도체",
+        "median_change_rate_pct": 2.62,
+        "excess_vs_group_pp": -6.75,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "mixed": false,
+        "judge_in_sentence": null,
+        "members_used": [
+          {
+            "code": "000660",
+            "name": "SK하이닉스",
+            "change_rate_pct": 2.62,
+            "in_sentence": true
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "005930",
+            "name": "삼성전자",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": -4.13,
+    "krx": -4.13,
+    "source": "KRX /sto/stk_bydd_trd 2026-10-29 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -1.24,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-10-29 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -0.31,
+        "peer_up": 8,
+        "peer_down": 11,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": -3.82
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 2,
+    "background": 6,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 1,
+      "layer": "move",
+      "model": "partial",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 1,
+      "layer": "relative",
+      "model": "partial",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "explained",
+      "final": "explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/삼성전자-2026-10-29-1845__r1.json",
+  "input_used_path": "inputs_used/삼성전자-2026-10-29-1845__r1.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/in_A/삼성전자-2026-10-29-1845__r1.json",
+  "input_sha256": "08deafce1c405453ad3ca6ad2253e16fe34e99e9687a1c95b1247bf5b91d4af5",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [
+    "COUNT_OVER_CAP: background.bullish 4개(최대 3)",
+    "STRENGTH_MISMATCH: factors[1].links[0] layer=move 이슈가 나온 메시지에 mentioned 가 있는데 partial",
+    "STRENGTH_MISMATCH: factors[1].links[1] layer=relative 이슈가 나온 메시지에 mentioned 가 있는데 partial",
+    "QUOTE_MISSING_SUBJECT: factors[1] 첫 출처 quote 에 CXMT 가 없다"
+  ],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 9,
+    "messages_total": 9,
+    "relations": {
+      "direct": 31,
+      "sector": 5,
+      "none": 4
+    },
+    "issues_used": 13
+  }
+}

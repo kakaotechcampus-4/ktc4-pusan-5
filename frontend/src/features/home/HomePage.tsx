@@ -5,11 +5,13 @@ import { mockMarketInsights, mockSignalBoard } from './mock';
 import { focusHomeSearch } from './focusHomeSearch';
 import { useMarketOverview } from './useMarketOverview';
 import { useHomeSections } from './useHomeSections';
+import { useLatestReports } from './useLatestReports';
 import { HomeHero } from './components/HomeHero';
 import { IndexSection } from './components/IndexTiles';
 import { SignalSection } from './components/SignalList';
 import { WatchlistCard } from './components/WatchlistCard';
 import { RankingSection } from './components/RankingSection';
+import { LatestReportsSection } from './components/LatestReportsSection';
 import { MarketFlowSection } from './components/MarketFlowSection';
 import { MarketInsightSection } from './components/MarketInsightSection';
 
@@ -21,6 +23,7 @@ export function HomePage() {
   const [loginOpen, setLoginOpen] = useState(false);
   const sections = useHomeSections();
   const market = useMarketOverview();
+  const reports = useLatestReports();
 
   return (
     <>
@@ -58,6 +61,8 @@ export function HomePage() {
           />
         }
       />
+
+      <LatestReportsSection status={reports.status} items={reports.items} onRetry={reports.retry} />
 
       <MarketFlowSection
         loading={market.loading}

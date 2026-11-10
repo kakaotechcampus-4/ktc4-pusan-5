@@ -1,0 +1,150 @@
+{
+  "case_id": "b05_000810_2026-11-05",
+  "status": "labeled",
+  "label_source": "claude-code",
+  "labeled_by": "claude-code",
+  "label_note": "보고서 에이전트 실행 전에 case.json 만 보고 작성. 사람 검증 전(draft_unverified)",
+  "trap_ids": [],
+  "traps": [
+    "근거 칸 메시지 0건 → LLM 없이 정형 보고서",
+    "등락 층 |−0.15| ≤ 1 이라 판단하지 않음",
+    "보험 그룹 비교 종목이 엇갈림(삼성생명 하락·메리츠금융지주 상승)"
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": -0.15,
+    "kospi_change_pct": -5.28,
+    "kospi_basis": "kospi",
+    "excess_vs_basis_pp": 5.13,
+    "kospi_relation": "diverges",
+    "peer_relations": {
+      "보험": "diverges"
+    },
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "덜",
+    "peer_median_pct": -5.19,
+    "excess_vs_peers_pp": 5.04,
+    "judge_layers": {
+      "move": false,
+      "relative": true
+    },
+    "move_strength_cap": null,
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-11-05T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-11-05T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "no_clear_cause",
+    "relative": "no_clear_cause"
+  },
+  "confidence_level": "none",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "미국 중간선거 민주당 압승 이후 두산에너빌리티(원전·가스터빈) 주가 흐름 관심, 에너지 업종 수혜는 정책 내용에 따라 달라질 수 있다는 기사(시황)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.cbci.co.kr/news/articleView.html?idxno=623607",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "두산에너빌리티"
+      ],
+      "rationale": "시장 전체·타 업종 기사(market_recap)이고 삼성화재 를 다루지 않음. 결과·타 업종 자료라 원인 자리에 쓰지 않음(rubric §4-2). 상한 coincident"
+    },
+    {
+      "id": "e2",
+      "summary": "민주당 양원 탈환으로 의약품 관세 정책 견제 강화 전망, K-바이오 대미 투자 속도조절론 부상(시황)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.viva100.com/article/20261105500609",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "속도조절론"
+      ],
+      "rationale": "시장 전체·타 업종 기사(market_recap)이고 삼성화재 를 다루지 않음. 결과·타 업종 자료라 원인 자리에 쓰지 않음(rubric §4-2). 상한 coincident"
+    },
+    {
+      "id": "e3",
+      "summary": "민주당 의회 장악으로 배터리·태양광 업계 수혜 기대, 태양광·풍력 세액공제 연장 추진(시황)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://biz.chosun.com/industry/company/2026/11/05/BMUCVKYEWFENBJYAY2OPLVEDXY/?utm_source=naver&utm_medium=original&utm_campaign=biz",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "세액공제"
+      ],
+      "rationale": "시장 전체·타 업종 기사(market_recap)이고 삼성화재 를 다루지 않음. 결과·타 업종 자료라 원인 자리에 쓰지 않음(rubric §4-2). 상한 coincident"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "down",
+      "example": "삼성화재는 대형주보다 더 내렸다"
+    },
+    {
+      "id": "f2",
+      "type": "fabricated_cause",
+      "subject": "삼성화재 종목의 외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": null,
+      "example": "기관 매수로 삼성화재가 선방했다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "삼성화재가 대형주 중간값보다 덜 내린 이유",
+    "삼성화재 종목의 외국인·기관 수급"
+  ],
+  "beginner_terms": [
+    "대형주 중간값",
+    "보합"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

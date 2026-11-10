@@ -1,0 +1,137 @@
+{
+  "case_id": "c07_005930_2026-10-26",
+  "status": "labeled",
+  "label_source": "human",
+  "trap_ids": [
+    2,
+    4
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": -1.16,
+    "kospi_change_pct": -1.46,
+    "kospi_basis": "kospi_ex_self",
+    "excess_vs_basis_pp": 0.42,
+    "kospi_relation": "follows",
+    "peer_relations": {
+      "메모리반도체": "follows"
+    },
+    "common_move": false,
+    "market_led": true,
+    "relative_direction": "비슷하게",
+    "peer_median_pct": -1.68,
+    "excess_vs_peers_pp": 0.52,
+    "judge_layers": {
+      "move": true,
+      "relative": false
+    },
+    "move_strength_cap": null,
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-10-26T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-10-26T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "no_clear_cause",
+    "relative": "no_clear_cause"
+  },
+  "confidence_level": "none",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "삼성·SK 엔비디아향 HBM4 8단 양산 출하 시점 내년 2분기(일정 다소 지연)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4783",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "HBM4"
+      ],
+      "rationale": "16:28 장 마감 후 공개라 그날 하락의 원인이 될 수 없음"
+    },
+    {
+      "id": "e2",
+      "summary": "삼성전자 휴머노이드 로봇 기술 점검(이재용 회장 RX사업추진실 방문), CES 2027 독자 모델 공개 예정",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18861",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "휴머노이드"
+      ],
+      "rationale": "로보틱스 업종 리포트 속 언급인 간접 재료"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "false_cause",
+      "subject": "엔비디아향 HBM4 출하 시점 지연",
+      "relation_min": "likely_cause",
+      "object": "주가",
+      "direction": "down",
+      "example": "HBM4 지연이 삼성전자 하락의 주된 요인이다"
+    },
+    {
+      "id": "f2",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "down",
+      "example": "외국인·기관 순매도가 하락 원인이다"
+    },
+    {
+      "id": "f3",
+      "type": "false_cause",
+      "subject": "삼성전자 고유 약세(삼성전자만의 문제)",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "down",
+      "example": "삼성전자만의 악재(고유 요인) 때문에 주가가 하락했다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "삼성전자 -1.16% 하락의 원인(원인 없는 날)",
+    "HBM4 출하 시점 지연이 이 날 주가에 미친 영향"
+  ],
+  "beginner_terms": [
+    "HBM4",
+    "CES"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

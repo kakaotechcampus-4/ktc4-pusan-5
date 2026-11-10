@@ -1,0 +1,77 @@
+{
+  "case_id": "c09_009150_2026-10-28",
+  "status": "draft_unverified",
+  "assembly": {
+    "cutoff_rule": "대상일 18:45 KST (장 마감 15:30 이후, 화면 기준시각 asOf 는 15:30)",
+    "window": "직전 거래일(2026-10-27) 15:30 초과 ~ cutoff 이하",
+    "message_filter": "본문에 종목명(또는 별칭)이 있는 텔레그램 공개 채널 메시지. 시황·테마 메시지(not_mentioned)는 넣지 않음. link_bodies·views·kind·after_prev_close 는 채우지 않음",
+    "aliases": [
+      "삼성전기",
+      "Samsung Electro-Mechanics",
+      "Samsung Electro",
+      "SEMCO"
+    ],
+    "change_pct_source": "KRX stock_change_rate_pct (러너가 마감 후 KRX 값으로 덮어씀)",
+    "market": "null (러너가 KRX 로 market_compare 계산)"
+  },
+  "messages": [
+    {
+      "url": "https://t.me/merITz_tech/19207",
+      "datetime_kst": "2026-10-28T07:39:03+09:00",
+      "time_source": "telegram_messages.posted_at",
+      "verified_by_human": false
+    },
+    {
+      "url": "https://t.me/KISGregKim/18879",
+      "datetime_kst": "2026-10-28T08:47:30+09:00",
+      "time_source": "telegram_messages.posted_at",
+      "verified_by_human": false
+    },
+    {
+      "url": "https://t.me/merITz_tech/19221",
+      "datetime_kst": "2026-10-28T12:01:38+09:00",
+      "time_source": "telegram_messages.posted_at",
+      "verified_by_human": false
+    },
+    {
+      "url": "https://t.me/skitteam/4814",
+      "datetime_kst": "2026-10-28T12:05:08+09:00",
+      "time_source": "telegram_messages.posted_at",
+      "verified_by_human": false
+    },
+    {
+      "url": "https://t.me/merITz_tech/19227",
+      "datetime_kst": "2026-10-28T14:29:47+09:00",
+      "time_source": "telegram_messages.posted_at",
+      "verified_by_human": false
+    }
+  ],
+  "injected_after_cutoff": [
+    {
+      "url": "https://t.me/merITz_tech/19237",
+      "datetime_kst": "2026-10-29T07:51:39+09:00",
+      "why": "함정 9: cutoff 이후 자료를 일부러 섞음"
+    },
+    {
+      "url": "https://t.me/merITz_tech/19238",
+      "datetime_kst": "2026-10-29T07:52:01+09:00",
+      "why": "함정 9: cutoff 이후 자료를 일부러 섞음"
+    }
+  ],
+  "disclosures_pending_time_check": [
+    {
+      "rcept_no": "20261028800169",
+      "report_nm": "연결재무제표기준영업(잠정)실적(공정공시)",
+      "flr_nm": "삼성전기",
+      "rcept_dt": "2026-10-28",
+      "rcept_time_kst": "2026-10-28T11:58:00+09:00",
+      "in_case_json": false,
+      "time_source": "KIND 접수번호 8→0 대응, 회사·제목 일치"
+    }
+  ],
+  "notes": [
+    "공시는 접수 시각을 DART 원문에서 확인하기 전이라 case.json 에 넣지 않음",
+    "gold·verification 은 아직 없음",
+    "영문 별칭 추가로 메시지 1건 보강(Samsung Electro-Mechanics, Samsung Electro, SEMCO)"
+  ]
+}

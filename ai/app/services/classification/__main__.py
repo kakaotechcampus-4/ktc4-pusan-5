@@ -9,9 +9,16 @@ DB 에 쓰는 명령
     … run --ids 101 --experiment --judge-model <모델>
                                            # 저장하되 조회에 쓰는 회차는 바꾸지 않는다(모델 비교)
     … run --limit 20 --concurrency 8       # 자료 8건을 동시에. 비용은 같고 시간만 준다
+    … run --since 2026-11-06 --per-stock-cap 20 --daily-budget 1500
+                                           # 네이버 뉴스는 날마다 종목당 20건만, 오늘 비용 ₩1,500 까지
+                                           # (.env 의 CLASSIFICATION_PER_STOCK_CAP·DAILY_BUDGET 이 기본값)
                                            # --ids 없는 run 은 한 번에 하나만 돈다. 나중 실행은 기다린다
     uv run python -m app.services.classification show 005930 --days 3
                                            # 종목 하나의 판정 자료·공통 배경 (생성 쪽에 넘기는 것)
+    uv run python -m app.services.classification same-event --since 2026-11-01 --limit 200
+                                           # 분류가 끝난 사건을 같은 사건끼리 묶는다
+    … same-event --since 2026-11-01 --limit 200 --dry-run   # 저장하지 않고 결과와 비용만 (LLM 은 부른다)
+                                           # same-event 는 한 번에 하나만 돈다. 나중 실행은 기다린다
 
 run 은 failed 카드가 1건이라도 있으면 끝까지 돈 뒤 exit 1 로 끝난다. no_body·skipped 는 실패가 아니라 exit 0 이다.
 
@@ -27,6 +34,7 @@ articles.json 옆에 classify_<시각>.json 으로 남는다(eval_data 는 git �
 
 단계별 모델은 --extract-model / --link-model / --judge-model, 안 주면 .env 의
 CLASSIFICATION_<단계>_MODEL, 그것도 없으면 SUMMARY_MODEL 이다(llm.py). LLM 은 .env 의 프로바이더로 부른다.
+CLASSIFICATION_PROMO_JEV=true 면 ③ 홍보성 거르기에 Jev 도 부른다(promo.py). 비용은 회차 usage 의 promo 칸이다.
 """
 
 import argparse
@@ -40,20 +48,23 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from time import perf_counter
 
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.scope import KST
 from app.llm.client import cost_currency, endpoint, format_cost
 from app.repositories.classification import (
     DEFAULT_LABELS,
     cards_to_classify,
+    classification_cost_since,
     classified_sources,
+    naver_news_days,
     save_run,
     stored_basis_versions,
     sync_basis,
 )
 from app.repositories.scope import collection_locks
 from app.repositories.source_card import get_sources
-from app.services.classification import splitter
+from app.services.classification import judge_relation, promo, splitter
 from app.services.classification.basis import Basis, BasisError, load_basis
 from app.services.classification.evaluate import (
     load_labels,
@@ -63,6 +74,8 @@ from app.services.classification.evaluate import (
 )
 from app.services.classification.judge import LABELS
 from app.services.classification.pipeline import ClassificationResult, classify
+from app.services.classification.same_event_run import run_same_event
+from app.services.classification.selection import DailyBudget, order_for_classification
 
 # ── 출력 ─────────────────────────────────────────────────────────────────
 
@@ -70,7 +83,9 @@ from app.services.classification.pipeline import ClassificationResult, classify
 def describe(result: ClassificationResult, body: str, basis: Basis) -> list[str]:
     """결과를 사람이 읽는 줄로. try 와 eval 이 쓴다."""
     lines = [f"상태 {result.status}  문장 {result.sentence_count}  비용 {format_cost(result.cost)}"]
-    lines += [f"  {step}: {call.model}" for step, call in result.calls.items()]
+    lines += [f"  {step}: {call.model}" + (f"  실패 — 정규식만 봄: {call.error}"
+                                           if step == promo.STEP and call.error else "")
+              for step, call in result.calls.items()]
     if result.error:
         lines.append(f"오류 {result.error}")
     if result.status != "ok":
@@ -88,6 +103,9 @@ def describe(result: ClassificationResult, body: str, basis: Basis) -> list[str]
                   + (f"(자회사 {link.via_subsidiary})" if link.via_subsidiary else "")
                   + ("*" if link.linked_by == "llm_code" else "") for link in item.links]
         lines.append(f"    연결 {linked}  미연결 {item.unresolved}")
+        if item.promo_jev is not None:
+            lines.append(f"    Jev 홍보성 {item.promo_jev:.2f}"
+                         + ("  → 관계 후보 없음" if promo.is_promo(item.promo_jev) else ""))
         judgments = {j.stock_code: j for j in item.judgments}
         for c in item.candidates:
             j = judgments.get(c.stock_code)
@@ -116,7 +134,7 @@ def result_dict(result: ClassificationResult) -> dict:
             "links": [asdict(link) for link in item.links], "unresolved": item.unresolved,
             "candidates": [{k: v for k, v in asdict(c).items() if k != "link"}
                            for c in item.candidates],
-            "judgments": [asdict(j) for j in item.judgments],
+            "judgments": [asdict(j) for j in item.judgments], "promo_jev": item.promo_jev,
         } for item in result.events],
     }
 
@@ -148,6 +166,8 @@ async def run_classify(args: argparse.Namespace) -> int:
     """
     basis = load_basis(args.basis)
     endpoint()  # 키가 없으면 자료를 읽기 전에 멈춘다
+    promo.require()
+    judge_relation.require()
     # --ids 는 직접 고른 자료라 막지 않는다. 막으면 전체 분류 중에는 모델 비교도 몇 시간씩 멈춘다
     if args.ids is not None:
         return await classify_cards(args, basis)
@@ -171,10 +191,24 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> int:
                 f" {basis.version[:12]} 과 다르다. 먼저 `basis` 를 돌린다."
             )
         since = datetime.combine(args.since, time(), KST) if args.since else None
+        # 비용 장치는 --ids 없는 실행에만 건다. --ids 는 사람이 직접 고른 재분류·실험이다
+        cap = args.per_stock_cap if args.ids is None else None
+        limit = args.daily_budget if args.ids is None else None
         card_ids = await cards_to_classify(session, card_ids=args.ids, since=since,
-                                           limit=args.limit, retry=args.retry)
+                                           limit=None if cap else args.limit, retry=args.retry)
+        dropped = 0
+        if cap:
+            naver = await naver_news_days(session, card_ids)
+            card_ids, dropped = order_for_classification(card_ids, naver, basis.stocks.values(), cap)
+            card_ids = card_ids[:args.limit] if args.limit is not None else card_ids
+        today = datetime.combine(datetime.now(KST).date(), time(), KST)
+        budget = DailyBudget(limit, await classification_cost_since(session, today) if limit else 0.0)
     print(f"{len(card_ids)}건 · 기준 {basis.version[:12]} · 동시 {args.concurrency}"
           + (" · 실험(현재 회차를 바꾸지 않음)" if args.experiment else ""))
+    if cap:
+        print(f"종목당 상한 {cap}건: 네이버 뉴스 {dropped}건은 분류하지 않음(원문은 남음)")
+    if limit is not None:
+        print(f"하루 비용 상한 {format_cost(limit)}: 오늘 이미 {format_cost(budget.spent)}")
 
     statuses: Counter = Counter()
     total = 0.0
@@ -189,6 +223,10 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> int:
         try:
             # 본문을 게이트 안에서 읽는다. 밖에서 읽으면 대기하는 자료의 본문이 전부 메모리에 올라온다
             async with gate:
+                # 상한에 닿으면 시작하지 않는다. 회차를 만들지 않으므로 다음 실행(다음 날)에 다시 고른다
+                if not budget.allows():
+                    statuses["budget"] += 1
+                    return
                 async with SessionLocal() as session:
                     records = await get_sources(session, [card_id], include_body=True)
                 if not records:
@@ -198,6 +236,7 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> int:
                                         basis, models=models_of(args))
                 # 저장에 실패해도 이미 쓴 비용과 재시도는 합계에 남긴다
                 total += result.cost
+                budget.add(result.cost)
                 retries += result.rate_limit_retries
                 try:
                     run_id = await _save(card_id, result, make_current=not args.experiment)
@@ -222,6 +261,8 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> int:
               f"{format_cost(result.cost)}", flush=True)
         if result.error:
             print(f"        오류 {result.error[:200]}", flush=True)
+        if (asked := result.calls.get(promo.STEP)) and asked.error:
+            print(f"        Jev 홍보성 실패 — 정규식만 봄: {asked.error[:200]}", flush=True)
 
     try:
         await asyncio.gather(*(work(card_id) for card_id in card_ids))
@@ -230,6 +271,10 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> int:
         print("\n상태 " + (", ".join(f"{k} {v}" for k, v in statuses.items()) or "없음")
               + f"  비용 {format_cost(total)}  429 재시도 {retries}회"
               + f"  소요 {perf_counter() - started:,.0f}초")
+        if statuses["budget"]:
+            print(f"하루 비용 상한에 닿아 {statuses['budget']}건은 시작하지 않음"
+                  f" (오늘 {format_cost(budget.spent)} / 상한 {format_cost(budget.limit)})")
+    # 하루 상한으로 시작하지 않은 자료는 failed 가 아니다. 다음 실행에서 다시 고른다
     failed = statuses["failed"]
     if failed:
         # 자동화가 알아채도록 종료 코드로도 알린다(main). 사유는 위의 카드별 「오류」 줄과 classification_runs.error
@@ -297,6 +342,8 @@ async def run_show(args: argparse.Namespace) -> None:
 
 async def run_try(args: argparse.Namespace) -> None:
     basis = load_basis(args.basis)
+    promo.require()
+    judge_relation.require()
     body = args.file.read_text(encoding="utf-8")
     result = await classify(args.title, body, basis, models=models_of(args))
     print("\n".join(describe(result, body, basis)))
@@ -331,6 +378,8 @@ async def run_eval(args: argparse.Namespace) -> None:
         raise SystemExit(f"없는 기사 ID: {', '.join(missing)}")
     ids = ids[: args.limit] if args.limit else ids
     endpoint()
+    promo.require()
+    judge_relation.require()
 
     results, statuses, total = [], Counter(), 0.0
     recall, linked, out_of_basis = Counter(), Counter(), 0
@@ -428,6 +477,12 @@ def main() -> None:
                      help="저장만 하고 조회에 쓰는 회차를 바꾸지 않는다")
     run.add_argument("--concurrency", type=int, default=1,
                      help="동시에 분류할 자료 수. 8 까지 재 봤다. 429 로그가 자주 보이면 낮춘다")
+    run.add_argument("--per-stock-cap", type=int, default=settings.classification_per_stock_cap,
+                     help="날마다 종목당 네이버 뉴스 상한. 비우면 .env 의 CLASSIFICATION_PER_STOCK_CAP."
+                          " 0 이면 걸지 않는다. --ids 에는 걸지 않는다")
+    run.add_argument("--daily-budget", type=float, default=settings.classification_daily_budget,
+                     help="오늘(KST) 분류 비용 상한. 비우면 .env 의 CLASSIFICATION_DAILY_BUDGET."
+                          " --ids 에는 걸지 않는다")
     add_models(run)
 
     show = sub.add_parser("show", help="종목 하나에 붙는 분류 자료를 본다")
@@ -435,6 +490,12 @@ def main() -> None:
     show.add_argument("--until", default=None, help="기준 시각 ISO 8601. 비우면 지금")
     show.add_argument("--days", type=int, default=3, help="기준 시각에서 며칠 전까지")
     show.add_argument("--labels", nargs="+", default=list(DEFAULT_LABELS), choices=LABELS)
+
+    same_event = sub.add_parser("same-event", help="분류가 끝난 사건을 같은 사건끼리 묶는다")
+    same_event.add_argument("--since", type=_date, default=None, help="이 날짜(KST) 이후 자료")
+    same_event.add_argument("--limit", type=int, default=None, help="이번에 처리할 자료 수")
+    same_event.add_argument("--dry-run", action="store_true",
+                            help="저장하지 않고 결과와 비용만 본다. LLM 비용은 든다")
 
     try_parser = sub.add_parser("try", help="본문 파일 하나를 분류해 본다 (DB 안 씀)")
     try_parser.add_argument("file", type=Path)
@@ -465,6 +526,8 @@ def main() -> None:
                 raise SystemExit(1)
         elif args.command == "show":
             asyncio.run(run_show(args))
+        elif args.command == "same-event":
+            asyncio.run(run_same_event(args.since, args.limit, args.dry_run))
         elif args.command == "try":
             asyncio.run(run_try(args))
         elif args.review:

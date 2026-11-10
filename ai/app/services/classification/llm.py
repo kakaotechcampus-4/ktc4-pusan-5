@@ -3,6 +3,7 @@
     extract  ① 사건 추출 (자료당 1회)
     link     ② 별칭에 안 걸린 표기를 코드 목록에서 고름 (그런 표기가 있을 때만)
     judge    ④ (사건, 후보 종목) 해당 여부 판정 (후보가 있을 때만)
+    same_event  분류를 마친 뒤 같은 사건 묶기 (후보가 있을 때만)
 
 모델은 호출 쪽이 넘긴 값 > `.env` 의 CLASSIFICATION_<단계>_MODEL > SUMMARY_MODEL 순서로 정한다.
 단계마다 다른 모델을 써 보는 실험을 하려고 나눴다(예: 추출은 싼 모델, 판정은 큰 모델).
@@ -20,12 +21,15 @@ import hashlib
 import logging
 import random
 from dataclasses import dataclass, field
+from typing import Literal, get_args
 
 from app.core.config import settings
 from app.llm.client import LLMError, LLMRateLimited, complete, cost_detail, load_prompt
 
 logger = logging.getLogger(__name__)
-STEPS = ("extract", "link", "judge")
+Step = Literal["extract", "link", "judge", "same_event"]
+STEPS = get_args(Step)
+SAME_EVENT_STEP: Step = "same_event"
 # 429 뒤 기다리는 초. 동시에 거절된 호출이 한꺼번에 다시 몰리지 않게 실제로는 1~1.5배로 흩는다
 RATE_LIMIT_WAITS = (5, 20, 60)
 

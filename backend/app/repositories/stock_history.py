@@ -11,7 +11,7 @@ HISTORY_TTL = timedelta(days=7)
 async def save_history(session, code, period, kind, data, now):
     values = {"stock_code": code, "period_end": period}
     if kind == "history_cap":
-        values.update(market_cap=None, cap_as_of=None, cap_collected_at=now)
+        values.update(market_cap=None, cap_as_of=None, cap_close=None, cap_collected_at=now)
     else:
         values.update(rs=None, rs_as_of=None, rs_base_date=None, rs_collected_at=now)
     values.update(data or {})

@@ -255,3 +255,88 @@ export type StockListResponse = {
   complete: boolean;
   asOf: string;
 };
+
+/* ── GET /api/stocks/{code}/report — 종목 변동 요인 보고서 ───────────────── */
+
+export type ReportVerdict = 'explained' | 'partially_explained' | 'no_clear_cause';
+export type ReportStance = 'bullish' | 'bearish' | 'neutral';
+export type ReportLayer = 'move' | 'relative';
+export type ReportStrength = 'sufficient' | 'partial' | 'insufficient';
+
+export type ReportSource = {
+  channel: string | null;
+  url: string | null;
+  datetimeKst: string | null;
+  match: 'direct' | 'indirect' | null;
+  isMarketRecap: boolean | null;
+};
+
+/** 사건 하나가 어느 층(등락·상대)의 질문에 어떻게 답하는가 */
+export type ReportLink = {
+  layer: ReportLayer;
+  note: string | null;
+  directionMatch: boolean | null;
+  strength: ReportStrength | null;
+};
+
+export type ReportFactor = {
+  event: string;
+  detail: string;
+  stance: ReportStance | null;
+  unconfirmed: boolean;
+  links: ReportLink[];
+  sources: ReportSource[];
+};
+
+/** conceptSlug 가 있으면 같은 용어의 개념 글이 있다. `/concepts/{slug}` 로 연결한다. */
+export type ReportTerm = { plain: string; term: string; conceptSlug: string | null };
+
+export type ReportBackgroundItem = {
+  text: string;
+  sources: ReportSource[];
+  watch: boolean | null;
+};
+
+export type ReportBackground = {
+  bullish: ReportBackgroundItem[];
+  bearish: ReportBackgroundItem[];
+  neutral: ReportBackgroundItem[];
+};
+
+export type ReportSummary = {
+  move: string | null;
+  mainCause: string | null;
+  relative: string | null;
+  counter: string | null;
+  unexplained: string | null;
+};
+
+export type StockReport = {
+  id: number;
+  code: string;
+  name: string | null;
+  asOf: string;
+  changePct: number | null;
+  /** LLM 생성 시각. 모르면 null */
+  generatedAt: string | null;
+  verdict: ReportVerdict;
+  relativeVerdict: ReportVerdict | null;
+  summary: ReportSummary;
+  factors: ReportFactor[];
+  terms: ReportTerm[];
+  background: ReportBackground;
+};
+
+/** 홈의 보고서 목록 한 줄. 눌러서 종목 상세로 간다. headline 은 LLM 생성물이다. */
+export type ReportListItem = {
+  id: number;
+  code: string;
+  name: string | null;
+  asOf: string;
+  changePct: number | null;
+  generatedAt: string | null;
+  verdict: ReportVerdict;
+  headline: string | null;
+};
+
+export type ReportList = { items: ReportListItem[] };
