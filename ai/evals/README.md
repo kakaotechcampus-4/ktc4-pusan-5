@@ -17,6 +17,9 @@ ai/evals/
   validate_gold.md    검증 스크립트 설명
   lock_set.py         세트 잠금 기록·변경 확인 스크립트
   gold.lock.json      잠금 기록(세트 버전, 상태, 케이스별 해시)
+  docs/schema.md      데이터 스키마 레퍼런스
+  docs/add_case.md    케이스 추가·수정 가이드
+  docs/decisions.md   결정 기록(ADR)
   cases/<case_id>/    케이스 10건
 ```
 
@@ -225,4 +228,7 @@ python3 evals/lock_set.py --write --version v1                     # 정식 잠�
 | `eval_overview.md`         | 평가 전체 흐름, `gold.json` 칸이 평가에서 어디에 쓰이는지, 파이프라인 다이어그램을 볼 때    |
 | `rubric.md`                | gold를 쓰거나 재라벨링할 때. 값 정의, 인과 강도 기본 상한, 금지 주장 형식, 실패 유형이 있습니다 |
 | `validate_gold.md`         | 검증 스크립트가 무엇을 어떻게 검사하는지 볼 때                                  |
+| `docs/schema.md`           | 파일 4종(`case.json`, `provenance.json`, `gold.json`, `gold.lock.json`)의 필드와 허용 값을 볼 때 |
+| `docs/add_case.md`         | 새 케이스를 만들거나 기존 케이스를 고칠 때. 메시지 추출, 공시 접수 시각 확인, 시장 칸 계산 절차가 있습니다 |
+| `docs/decisions.md`        | 설계 결정(기준·경계·제외 항목)을 왜 그렇게 정했는지 볼 때. 바꿀 때는 기존 항목을 지우지 않고 새 항목으로 대체합니다 |
 | `cases/<case_id>/notes.md` | 그 케이스의 판단 이유를 볼 때                                           |
