@@ -36,7 +36,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from validate_gold import fact_match  # noqa: E402  같은 대조 규칙을 쓴다
+from validate_gold import fact_match  # 같은 대조 규칙을 쓴다
 
 LAYERS = ("move", "relative")
 # 케이스별 시황·오버나이트 메시지. gold 사건이 아니고 notes.md 에 적어 둠(2026-11-10). 이 메시지만 인용한 link 는 따로 센다
@@ -108,7 +108,6 @@ def score_report(w: dict, case: dict, gold: dict, prov: dict, recap_urls: set[st
         out["error"] = "보고서 없음"
         return out
     events = gold.get("events") or []
-    ev_by_id = {e["id"]: e for e in events}
     msgs = {m["url"]: m for m in case.get("messages", [])}
     texts = {u: m.get("text") or "" for u, m in msgs.items()}
     injected = {x["url"] if isinstance(x, dict) else x for x in prov.get("injected_after_cutoff", [])}
@@ -142,7 +141,7 @@ def score_report(w: dict, case: dict, gold: dict, prov: dict, recap_urls: set[st
             recap_msg_links.append({"factor": i, "event": f.get("event"), "urls": urls,
                                     "links": [(l["layer"], l.get("strength")) for l in links]})
             continue
-        hit, why = factor_events(f, events, texts)
+        hit, _why = factor_events(f, events, texts)
         for eid in hit:
             for l in links:
                 linked[eid].add(l["layer"]); strengths[eid].append((l["layer"], l.get("strength")))
@@ -252,7 +251,7 @@ def main() -> int:
         tot["recap_cited"] += sum(row["recap_cited"])
         tot["injected_cited"] += sum(row["injected_cited"])
         tot["skipped_llm"] += sum(bool(s) for s in row["skipped_llm"])
-        tot["cost_x100"] += int(round(row["cost"] * 100))
+        tot["cost_x100"] += round(row["cost"] * 100)
     tot["cost"] = tot.pop("cost_x100") / 100
     summary["totals"] = dict(tot)
     (args.out / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

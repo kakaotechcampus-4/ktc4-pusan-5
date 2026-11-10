@@ -255,9 +255,9 @@ def check_case(case_dir: Path, strict: bool) -> Report:
                 r.err(f"{w}: move_strength_cap partial 인 날 move 층 사건은 likely_cause 를 쓸 수 없음")
             pct = layer_pct(me, l)
             st = e.get("stance")
-            if st in ("bullish", "bearish") and sign(pct) and (1 if st == "bullish" else -1) != sign(pct):
-                if strength in STRENGTH_RANK and strength != "coincident":
-                    r.err(f"{w}: {l} 층 방향({pct:+})과 stance `{st}` 가 반대인데 상한이 `{strength}` (방향 반대 재료는 coincident)")
+            if (st in ("bullish", "bearish") and sign(pct) and (1 if st == "bullish" else -1) != sign(pct)
+                    and strength in STRENGTH_RANK and strength != "coincident"):
+                r.err(f"{w}: {l} 층 방향({pct:+})과 stance `{st}` 가 반대인데 상한이 `{strength}` (방향 반대 재료는 coincident)")
         if e.get("importance") == "must" and not layers:
             r.warn(f"{w}: must 인데 layer 가 비어 있음")
         # 복수 원인인 날 중요도별 상한
