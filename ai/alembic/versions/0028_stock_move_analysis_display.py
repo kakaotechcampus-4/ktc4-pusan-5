@@ -22,7 +22,9 @@ display_as_of 는 러너가 쓰는 꼴만 받는다: 확장 ISO 8601 날짜·시
 선택), 오프셋은 Z·±HH·±HHMM·±HH:MM 이고 없으면 KST. 그 밖은 NULL 이다. 적재(datetime.fromisoformat)는
 더 넓게 받아서 날짜만·시만·기본 형식(20261103T1530)·쉼표 소수·소수 7자리 이상·초 단위 오프셋은
 적재하면 값이 들고 이 리비전은 NULL 로 둔다. 러너는 isoformat() 으로만 적어 그런 값이 없다. 범위 밖 값
-(초 60, 2월 30일)과 시간대 이름(UTC 등)은 둘 다 NULL 이다. 값 검사에 pg_input_is_valid 를 쓴다(PostgreSQL 16 이상).
+(24시, 초 60, 2월 30일)과 시간대 이름(UTC 등)은 둘 다 NULL 이다. 24시는 Postgres 가 다음 날 0시로 받지만
+적재(파이썬 3.12 fromisoformat)는 받지 않아 정규식에서 시를 00~23 으로 막는다. 값 검사에 pg_input_is_valid 를
+쓴다(PostgreSQL 16 이상).
 
 relative_verdict 칼럼은 24자다. 그보다 긴 문자열이 있으면 표본 id 와 함께 멈춘다 — 이 리비전 전에는
 칼럼이 없어 어떤 길이든 적재됐다. 러너는 이 값을 계산값으로 덮어써서(finalize.recompute_verdicts)
@@ -121,7 +123,7 @@ def upgrade() -> None:
                                     THEN (a.raw_json ->> 'display_is_close')::boolean END,
             display_as_of = CASE
                 WHEN jsonb_typeof(a.raw_json -> 'display_as_of') <> 'string'
-                     OR v.shown !~ '^\d{4}-\d{2}-\d{2}[T ]\d{2}:[0-5]\d(:[0-5]\d(\.\d{1,6})?)?(Z|[+-]\d{2}(:?\d{2})?)?$'
+                     OR v.shown !~ '^\d{4}-\d{2}-\d{2}[T ]([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d{1,6})?)?(Z|[+-]\d{2}(:?\d{2})?)?$'
                      OR NOT pg_input_is_valid(v.shown, 'timestamptz') THEN NULL
                 WHEN v.shown ~ '(Z|[+-]\d{2}(:?\d{2})?)$' THEN v.shown::timestamptz
                 ELSE v.shown::timestamp AT TIME ZONE 'Asia/Seoul'
