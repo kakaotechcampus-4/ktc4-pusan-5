@@ -44,6 +44,7 @@ from app.models.classification import (
     Industry,
     StockIndustry,
 )
+from app.repositories.classification_same_event import event_clusters
 from app.repositories.source_card import (
     available_since,
     available_within,
@@ -60,6 +61,8 @@ TAGGED_BY = "classification"
 DEFAULT_LABELS = ("DIRECT", "INDIRECT_CONTEXT")
 # 자료 대표값(card_label)을 고르는 순서. 생성 쪽 mention(옛 이름 match)은 이 값이 아니라 사건의 path 로 정한다
 LABEL_STRENGTH = ("DIRECT", "INDIRECT_CONTEXT", "UNKNOWN", "NOT_APPLICABLE")
+# 아직 묶지 않았거나 묶지 않는 사건(거시·시장 등)의 값. 응답 모양이 같게 키는 둔다
+NO_CLUSTER = dict.fromkeys(("cluster_id", "source_count", "publisher_count", "counts_by_type"))
 
 
 # ── 기준표 ────────────────────────────────────────────────────────────────
@@ -292,6 +295,9 @@ async def classified_sources(
 
     사건은 본문에서 나왔다. 공개는 until 전이어도 본문을 그 뒤에 받았거나 받은 시각을 모르면 그 시점에는
     알 수 없던 내용이라 sources 에서 빼고 not_observed 로 센다(get_sources 의 cutoff 와 같은 규칙).
+
+    사건마다 같은 사건 묶음(cluster_id)과 그 묶음의 수(source_count·publisher_count·counts_by_type)를
+    더한다. 수도 같은 기간·기준 시각으로 센다. 묶이지 않은 사건은 네 값이 None 이다.
     """
     window = available_within(until, since)
     base = (
@@ -327,6 +333,7 @@ async def classified_sources(
     )).all()) if picked else {}
     card_ids = list(channels)
     records = {r.id: r for r in await get_sources(session, card_ids)}
+    clusters = await event_clusters(session, set(events), until=until, since=since)
 
     sources = []
     not_observed = 0
@@ -351,6 +358,7 @@ async def classified_sources(
                 "role": event.role, "tense": event.tense,
                 "sentence_indices": list(event.sentence_indices),
                 "context_indices": list(event.context_indices), "label": label, "path": path,
+                **clusters.get(event.id, NO_CLUSTER),
             } for event, label, path in items],
         })
 

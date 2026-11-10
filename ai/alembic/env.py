@@ -27,7 +27,10 @@ target_metadata = Base.metadata
 # 칼럼을 지우라는 마이그레이션을 만든다.
 MANAGED_TABLES = {
     "analyst_reports",
+    "classification_cluster_calls",
     "classification_event_applicability",
+    "classification_event_cluster_members",
+    "classification_event_clusters",
     "classification_event_entities",
     "classification_events",
     "classification_runs",
