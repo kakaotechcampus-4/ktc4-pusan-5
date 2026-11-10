@@ -108,6 +108,23 @@ class StockDailyPrice(Base):
     collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class StockInvestorSnapshot(Base):
+    """종목별 최근 거래일의 기관 순매수. 종목당 1행."""
+
+    __tablename__ = "stock_investor_snapshot"
+    __table_args__ = (PrimaryKeyConstraint(name="pk_stock_investor_snapshot"),)
+    stock_code: Mapped[str] = mapped_column(
+        ForeignKey("stock.code", name="fk_stock_investor_snapshot_stock"), primary_key=True
+    )
+    trade_date: Mapped[date] = mapped_column(Date)
+    # 순매도는 음수. 수량은 주, 대금은 원(KIS 백만원 단위를 환산)
+    institution_net_qty: Mapped[int] = mapped_column(BigInteger)
+    institution_net_value: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
+    source: Mapped[str] = mapped_column(String(12), default="KIS")
+    source_as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class StockCollectionState(Base):
     __tablename__ = "stock_collection_state"
     __table_args__ = (PrimaryKeyConstraint(name="pk_stock_collection_state"),)
@@ -132,7 +149,7 @@ class StockCollectionJob(Base):
             "status IN ('queued','running','idle','failed')", name="ck_stock_collection_job_status"
         ),
         CheckConstraint(
-            "resource IN ('snapshot','prices','income','eps','stability','quarter_income','quarter_ratios','history_cap','history_rs')", name="ck_stock_collection_job_resource"
+            "resource IN ('snapshot','prices','income','eps','stability','quarter_income','quarter_ratios','history_cap','history_rs','investor')", name="ck_stock_collection_job_resource"
         ),
         CheckConstraint(
             "range_end >= range_start AND attempts >= 0",

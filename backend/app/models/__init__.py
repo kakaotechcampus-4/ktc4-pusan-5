@@ -4,6 +4,7 @@ from app.models.market import MarketSnapshot
 from app.models.market_calendar import MarketCalendarDay
 from app.models.ranking import RankingSnapshot
 from app.models.report import Report, ReportBlock, ReportCitation
+from app.models.report_scrap import ReportScrap
 from app.models.source_card import SourceCard
 from app.models.stock import (
     Stock,
@@ -35,6 +36,7 @@ __all__ = [
     "Report",
     "ReportBlock",
     "ReportCitation",
+    "ReportScrap",
     "SourceCard",
     "Stock",
     "StockAnnualEps",

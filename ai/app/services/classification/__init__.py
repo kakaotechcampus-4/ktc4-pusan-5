@@ -13,7 +13,7 @@ docs/RELATION_REVIEW.md(회사–회사)다.
     pipeline      ①~④ 를 잇는다. DB 를 쓰지 않는다
     basis         기준 JSON(app/data/classification_basis/) 읽기·검사
     llm           단계별 모델로 LLM 을 부른다
-    evaluate      ① 추출을 실험 정답과 대조한다
+    evaluate      실험 정답과 대조한다. 문장 재현율(① 추출만)과 종목 연결(①~④)을 따로 낸다
 
 저장·조회는 repositories/classification.py, 실행은 `python -m app.services.classification`(__main__.py).
 DIRECT 판정은 source_card_stocks 에 tagged_by = classification 으로도 들어간다.

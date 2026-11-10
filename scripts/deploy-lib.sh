@@ -5,6 +5,9 @@
 # 마지막으로 배포가 끝까지 성공한 커밋(전체 SHA)과 그때의 DB 마이그레이션 버전. 한 줄: "<sha> <revision>"
 # 서버의 HEAD 는 실패한 배포도 가리킬 수 있어서(git reset 이 먼저 일어난다) 되돌릴 대상으로 쓰지 않는다.
 STATE_FILE="${DEPLOY_STATE_FILE:-$HOME/.basis-deploy-last-good}"
+# 컨테이너가 healthy 가 된 배포는 먼저 후보로만 적는다. 외부 smoke test 까지 통과해야 promote.sh 가 STATE_FILE 로 올린다.
+# (healthy 여도 Caddy/TLS/라우팅 문제로 외부에서는 안 될 수 있어서, 그런 SHA 가 되돌릴 곳으로 남지 않게 한다.)
+CANDIDATE_FILE="${STATE_FILE}.candidate"
 CORE_SERVICES="db backend caddy"
 
 # 현재 DB 의 alembic 버전. 읽지 못하면 빈 문자열.
@@ -24,6 +27,50 @@ read_state() {
 
 write_state() {
   printf '%s %s\n' "$1" "$2" > "$STATE_FILE"
+}
+
+write_candidate() {
+  printf '%s %s\n' "$1" "$2" > "$CANDIDATE_FILE"
+}
+
+# 후보의 SHA 가 $1 과 같을 때만 STATE_FILE 로 올린다. 다른 배포가 후보를 덮어썼다면 올리지 않는다.
+promote_candidate() {
+  local c_sha="" c_rev=""
+  if [ -f "$CANDIDATE_FILE" ]; then
+    read -r c_sha c_rev < "$CANDIDATE_FILE" || true
+  fi
+  if [ -z "$c_sha" ] || [ "$c_sha" != "$1" ]; then
+    echo "promote: 후보 기록(${c_sha:0:7})이 대상(${1:0:7})과 다릅니다." >&2
+    return 1
+  fi
+  write_state "$c_sha" "$c_rev" && rm -f "$CANDIDATE_FILE"
+}
+
+# 마지막 성공 SHA 로 코드를 되돌린다. read_state 를 먼저 불러 LAST_SHA·LAST_REV 가 채워져 있어야 한다.
+# DB 마이그레이션 버전이 마지막 성공 때와 같을 때만 한다. 다르면 옛 코드가 시작하지 못하고
+# downgrade 는 데이터를 지우므로 자동으로 하지 않고 rollback.sh 를 안내한다. 되돌리면 0, 아니면 1.
+auto_rollback() {
+  if [ -z "$LAST_SHA" ]; then
+    echo "auto-rollback: 마지막 성공 기록($STATE_FILE)이 없어 자동 롤백하지 않습니다." >&2
+    return 1
+  fi
+
+  local cur_rev
+  cur_rev="$(db_revision)"
+  if [ -z "$cur_rev" ] || [ "$cur_rev" != "$LAST_REV" ]; then
+    echo "auto-rollback: DB 버전 ${LAST_REV:-?} -> ${cur_rev:-읽지 못함}. 마이그레이션이 적용됐을 수 있어 자동 롤백하지 않습니다." >&2
+    echo "auto-rollback: 서버에서 'bash scripts/rollback.sh --yes' 로 DB 구조까지 되돌리세요." >&2
+    return 1
+  fi
+
+  echo "auto-rollback: DB 구조가 그대로라 마지막 성공 ${LAST_SHA:0:7} 로 자동 롤백합니다."
+  if checkout_sha "$LAST_SHA" && deploy_core; then
+    start_collector
+    echo "auto-rollback: 완료 (${LAST_SHA:0:7})."
+    return 0
+  fi
+  echo "auto-rollback: 자동 롤백도 실패했습니다. 직접 확인이 필요합니다." >&2
+  return 1
 }
 
 has_service() {

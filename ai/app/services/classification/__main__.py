@@ -9,6 +9,9 @@ DB 에 쓰는 명령
     … run --ids 101 --experiment --judge-model <모델>
                                            # 저장하되 조회에 쓰는 회차는 바꾸지 않는다(모델 비교)
     … run --limit 20 --concurrency 8       # 자료 8건을 동시에. 비용은 같고 시간만 준다
+    … run --since 2026-11-06 --per-stock-cap 20 --daily-budget 1500
+                                           # 네이버 뉴스는 날마다 종목당 20건만, 오늘 비용 ₩1,500 까지
+                                           # (.env 의 CLASSIFICATION_PER_STOCK_CAP·DAILY_BUDGET 이 기본값)
                                            # --ids 없는 run 은 한 번에 하나만 돈다. 나중 실행은 기다린다
     uv run python -m app.services.classification show 005930 --days 3
                                            # 종목 하나의 판정 자료·공통 배경 (생성 쪽에 넘기는 것)
@@ -21,7 +24,8 @@ DB 를 쓰지 않는 명령 — 프롬프트·모델을 바꿔 가며 볼 때
     … eval --articles … --limit 3 --judge-model <모델>
     … eval --articles … --review eval_data/news_compare_tg/classify_<시각>.json   # 검토표 CSV 만
 
-eval 은 같은 폴더에 labels.csv 가 있으면 ① 추출을 정답 문장과 대조한다(evaluate.py). 결과는
+eval 은 같은 폴더에 labels.csv 가 있으면 정답과 대조해 두 점수를 따로 낸다(evaluate.py).
+문장 재현율은 ① 추출만, 종목 연결은 정답 종목 판정(④)까지 본다. 결과는
 articles.json 옆에 classify_<시각>.json 으로 남는다(eval_data 는 git 에 안 올라간다).
 
 단계별 모델은 --extract-model / --link-model / --judge-model, 안 주면 .env 의
@@ -40,13 +44,16 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from time import perf_counter
 
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.scope import KST
 from app.llm.client import cost_currency, endpoint, format_cost
 from app.repositories.classification import (
     DEFAULT_LABELS,
     cards_to_classify,
+    classification_cost_since,
     classified_sources,
+    naver_news_days,
     save_run,
     stored_basis_versions,
     sync_basis,
@@ -55,9 +62,15 @@ from app.repositories.scope import collection_locks
 from app.repositories.source_card import get_sources
 from app.services.classification import promo, splitter
 from app.services.classification.basis import Basis, BasisError, load_basis
-from app.services.classification.evaluate import load_labels, score, write_review
+from app.services.classification.evaluate import (
+    load_labels,
+    sentence_recall,
+    stock_linked,
+    write_review,
+)
 from app.services.classification.judge import LABELS
 from app.services.classification.pipeline import ClassificationResult, classify
+from app.services.classification.selection import DailyBudget, order_for_classification
 
 # ── 출력 ─────────────────────────────────────────────────────────────────
 
@@ -172,10 +185,24 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> int:
                 f" {basis.version[:12]} 과 다르다. 먼저 `basis` 를 돌린다."
             )
         since = datetime.combine(args.since, time(), KST) if args.since else None
+        # 비용 장치는 --ids 없는 실행에만 건다. --ids 는 사람이 직접 고른 재분류·실험이다
+        cap = args.per_stock_cap if args.ids is None else None
+        limit = args.daily_budget if args.ids is None else None
         card_ids = await cards_to_classify(session, card_ids=args.ids, since=since,
-                                           limit=args.limit, retry=args.retry)
+                                           limit=None if cap else args.limit, retry=args.retry)
+        dropped = 0
+        if cap:
+            naver = await naver_news_days(session, card_ids)
+            card_ids, dropped = order_for_classification(card_ids, naver, basis.stocks.values(), cap)
+            card_ids = card_ids[:args.limit] if args.limit is not None else card_ids
+        today = datetime.combine(datetime.now(KST).date(), time(), KST)
+        budget = DailyBudget(limit, await classification_cost_since(session, today) if limit else 0.0)
     print(f"{len(card_ids)}건 · 기준 {basis.version[:12]} · 동시 {args.concurrency}"
           + (" · 실험(현재 회차를 바꾸지 않음)" if args.experiment else ""))
+    if cap:
+        print(f"종목당 상한 {cap}건: 네이버 뉴스 {dropped}건은 분류하지 않음(원문은 남음)")
+    if limit is not None:
+        print(f"하루 비용 상한 {format_cost(limit)}: 오늘 이미 {format_cost(budget.spent)}")
 
     statuses: Counter = Counter()
     total = 0.0
@@ -190,6 +217,10 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> int:
         try:
             # 본문을 게이트 안에서 읽는다. 밖에서 읽으면 대기하는 자료의 본문이 전부 메모리에 올라온다
             async with gate:
+                # 상한에 닿으면 시작하지 않는다. 회차를 만들지 않으므로 다음 실행(다음 날)에 다시 고른다
+                if not budget.allows():
+                    statuses["budget"] += 1
+                    return
                 async with SessionLocal() as session:
                     records = await get_sources(session, [card_id], include_body=True)
                 if not records:
@@ -199,6 +230,7 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> int:
                                         basis, models=models_of(args))
                 # 저장에 실패해도 이미 쓴 비용과 재시도는 합계에 남긴다
                 total += result.cost
+                budget.add(result.cost)
                 retries += result.rate_limit_retries
                 try:
                     run_id = await _save(card_id, result, make_current=not args.experiment)
@@ -233,6 +265,10 @@ async def classify_cards(args: argparse.Namespace, basis: Basis) -> int:
         print("\n상태 " + (", ".join(f"{k} {v}" for k, v in statuses.items()) or "없음")
               + f"  비용 {format_cost(total)}  429 재시도 {retries}회"
               + f"  소요 {perf_counter() - started:,.0f}초")
+        if statuses["budget"]:
+            print(f"하루 비용 상한에 닿아 {statuses['budget']}건은 시작하지 않음"
+                  f" (오늘 {format_cost(budget.spent)} / 상한 {format_cost(budget.limit)})")
+    # 하루 상한으로 시작하지 않은 자료는 failed 가 아니다. 다음 실행에서 다시 고른다
     failed = statuses["failed"]
     if failed:
         # 자동화가 알아채도록 종료 코드로도 알린다(main). 사유는 위의 카드별 「오류」 줄과 classification_runs.error
@@ -306,6 +342,22 @@ async def run_try(args: argparse.Namespace) -> None:
     print("\n".join(describe(result, body, basis)))
 
 
+def _score_lines(title: str, scores: Counter) -> list[str]:
+    """채점 하나의 합계. scores 의 키는 (원인 있는 기사인가, 판정)."""
+    with_cause = sum(v for (has, _), v in scores.items() if has)
+    no_cause = sum(v for (has, _), v in scores.items() if not has)
+    if not with_cause and not no_cause:
+        return []
+    lines = [title]
+    if with_cause:
+        lines.append(f"  원인 있는 기사 {with_cause}건: 전부 담음 {scores[(True, 'all')]} · "
+                     f"일부 {scores[(True, 'some')]} · 못 담음 {scores[(True, 'none')]}")
+    if no_cause:
+        lines.append(f"  원인 없는 기사 {no_cause}건: 걸러냄 {scores[(False, 'pass')]} · "
+                     f"그 종목 근거를 냄 {scores[(False, 'fail')]}")
+    return lines
+
+
 async def run_eval(args: argparse.Namespace) -> None:
     basis = load_basis(args.basis)
     articles: dict = json.loads(args.articles.read_text(encoding="utf-8"))
@@ -321,7 +373,8 @@ async def run_eval(args: argparse.Namespace) -> None:
     endpoint()
     promo.require()
 
-    results, statuses, scores, total = [], Counter(), Counter(), 0.0
+    results, statuses, total = [], Counter(), 0.0
+    recall, linked, out_of_basis = Counter(), Counter(), 0
     print(f"{len(ids)}건 · 정답 {'있음' if labels else '없음'} · 기준 {basis.version[:12]}\n")
     for n, article_id in enumerate(ids, start=1):
         article = articles[article_id]
@@ -330,32 +383,38 @@ async def run_eval(args: argparse.Namespace) -> None:
         statuses[result.status] += 1
         total += result.cost
         label = labels.get(article_id)
-        verdict = (score([i.event for i in result.events], label)
-                   if label and result.status == "ok" else None)
-        if verdict:
-            scores[(bool(label.gold), verdict)] += 1
+        verdict = verdict_linked = None
+        if label and result.status == "ok":
+            verdict = sentence_recall([i.event for i in result.events], label)
+            recall[(bool(label.gold), verdict)] += 1
+            verdict_linked = stock_linked(result.events, label, basis)
+            if verdict_linked:
+                linked[(bool(label.gold), verdict_linked)] += 1
+            else:
+                out_of_basis += 1
+        graded = (f"문장 {verdict} · 연결 {verdict_linked or '기준 밖'}" if verdict else "")
         direct = ",".join(basis.stocks[c].name for c in sorted(result.direct_stocks())) or "-"
         print(f"[{n:>2}/{len(ids)}] {article_id} {result.status:<7} 사건 {len(result.events):>2}  "
-              f"{('정답 ' + verdict) if verdict else '':<9} DIRECT {direct}  {format_cost(result.cost)}")
+              f"{graded:<22} DIRECT {direct}  {format_cost(result.cost)}")
         if result.error:
             print(f"        오류 {result.error[:200]}")
         results.append({
             "id": article_id, "title": article.get("title"),
             "label": {"kind": label.kind, "stock": label.stock, "gold": sorted(label.gold),
                       "memo": label.memo, "reason": label.reason} if label else None,
-            "verdict": verdict, "cost": result.cost, "run": result_dict(result),
+            "verdict": verdict, "verdict_linked": verdict_linked,
+            "cost": result.cost, "run": result_dict(result),
         })
 
     print("\n=== 합계 ===")
     print("상태 " + ", ".join(f"{k} {v}" for k, v in statuses.items()))
-    with_cause = sum(v for (has, _), v in scores.items() if has)
-    no_cause = sum(v for (has, _), v in scores.items() if not has)
-    if with_cause:
-        print(f"원인 있는 기사 {with_cause}건: 전부 담음 {scores[(True, 'all')]} · "
-              f"일부 {scores[(True, 'some')]} · 못 담음 {scores[(True, 'none')]}")
-    if no_cause:
-        print(f"원인 없는 기사 {no_cause}건: 걸러냄 {scores[(False, 'pass')]} · "
-              f"그 종목 근거를 냄 {scores[(False, 'fail')]}")
+    # 두 점수는 다른 단계를 잰다. 합치지 않고 따로 찍는다(evaluate.py)
+    for line in _score_lines("문장 재현율 (① 추출: 어느 사건이든 정답 문장을 덮었나)", recall):
+        print(line)
+    for line in _score_lines("종목 연결 (①~④: 정답 종목에 붙은 사건이 정답 문장을 덮었나)", linked):
+        print(line)
+    if out_of_basis:
+        print(f"  정답 종목이 기준 밖이라 종목 연결을 못 잰 기사 {out_of_basis}건")
     print(f"비용 {format_cost(total)} (기사당 평균 {format_cost(total / max(len(ids), 1))})")
 
     out = args.out or args.articles.parent / f"classify_{datetime.now(KST):%Y%m%d-%H%M%S}.json"
@@ -410,6 +469,12 @@ def main() -> None:
                      help="저장만 하고 조회에 쓰는 회차를 바꾸지 않는다")
     run.add_argument("--concurrency", type=int, default=1,
                      help="동시에 분류할 자료 수. 8 까지 재 봤다. 429 로그가 자주 보이면 낮춘다")
+    run.add_argument("--per-stock-cap", type=int, default=settings.classification_per_stock_cap,
+                     help="날마다 종목당 네이버 뉴스 상한. 비우면 .env 의 CLASSIFICATION_PER_STOCK_CAP."
+                          " 0 이면 걸지 않는다. --ids 에는 걸지 않는다")
+    run.add_argument("--daily-budget", type=float, default=settings.classification_daily_budget,
+                     help="오늘(KST) 분류 비용 상한. 비우면 .env 의 CLASSIFICATION_DAILY_BUDGET."
+                          " --ids 에는 걸지 않는다")
     add_models(run)
 
     show = sub.add_parser("show", help="종목 하나에 붙는 분류 자료를 본다")

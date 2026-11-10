@@ -134,6 +134,13 @@ class Settings(BaseSettings):
     # 짧은 판단은 1초 안팎이지만 약 32KB 를 넘는 입력은 긴 문맥 모드로 느려진다.
     jev_timeout_sec: float = 120.0
 
+    # `run`(--ids 없이)에만 거는 비용 장치. 비우면 걸지 않는다(classification/selection.py).
+    # 종목당 상한: 날마다 종목마다 네이버 뉴스를 이만큼만 분류한다. 텔레그램·PDF 는 전부 분류한다.
+    classification_per_stock_cap: int | None = None
+    # 하루 비용 상한: 오늘(KST) 분류 비용 합계가 이 금액에 닿으면 새 자료를 시작하지 않는다.
+    # 통화는 비용 통화(Elice 원화, OpenRouter 달러)다.
+    classification_daily_budget: float | None = None
+
     @field_validator("stock_analysis_stream", mode="before")
     @classmethod
     def _blank_stream_is_auto(cls, value: object) -> object:

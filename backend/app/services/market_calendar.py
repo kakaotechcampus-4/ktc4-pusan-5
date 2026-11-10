@@ -37,6 +37,11 @@ def market_open(now: datetime, calendar: TradingCalendar) -> bool:
     )
 
 
+def market_close_at(day: date) -> datetime:
+    """해당 날짜의 장 마감 시각."""
+    return datetime.combine(day, time(MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE), tzinfo=KST)
+
+
 def last_market_close(now: datetime, calendar: TradingCalendar) -> datetime:
     """가장 최근에 장이 마감한 시각. 휴장일은 건너뛴다."""
     local = now.astimezone(KST)
@@ -46,9 +51,7 @@ def last_market_close(now: datetime, calendar: TradingCalendar) -> datetime:
         MARKET_CLOSE_MINUTE,
     ):
         day = _previous_open_day(day, calendar)
-    return datetime.combine(
-        day, time(MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE), tzinfo=KST
-    )
+    return market_close_at(day)
 
 
 def _previous_open_day(day: date, calendar: TradingCalendar) -> date:
