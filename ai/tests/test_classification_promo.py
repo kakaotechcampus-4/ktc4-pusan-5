@@ -51,7 +51,7 @@ def paths(result) -> dict[str, str]:
 
 
 async def test_sure_jev_promo_drops_relation_candidates(monkeypatch, jev_on) -> None:
-    """정규식이 못 잡은 홍보성 사건을 Jev 가 0.9 이상으로 보면 경쟁사 후보를 만들지 않는다."""
+    """정규식이 못 잡은 홍보성 사건을 Jev 가 문턱(0.7) 이상으로 보면 경쟁사 후보를 만들지 않는다."""
     fake_llm(monkeypatch, extract=LG_EVENT, judge=NO_JUDGMENTS)
     jev = fake_jev(monkeypatch, 0.95)
     result = await classify(TITLE, JEV_ONLY, BASIS)
@@ -140,4 +140,4 @@ def test_bad_answers_are_left_to_regex() -> None:
               for n in (1, 2, 3, 4)]
     answers = {"e1": {"noul": True}, "e2": {"noul": 1.5}, "e3": {"choice": "true"}, "e4": {"noul": 0.92}}
     assert promo.parse_answers(answers, events) == {4: 0.92}
-    assert not promo.is_promo(None) and promo.is_promo(0.9) and not promo.is_promo(0.89)
+    assert not promo.is_promo(None) and promo.is_promo(0.7) and not promo.is_promo(0.69)
