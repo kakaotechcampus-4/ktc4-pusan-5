@@ -19,16 +19,24 @@
     같은 (사건, 종목)에 판정 둘 이상       → 처음 것만            duplicate_dropped
 
 JSON 으로 열리지 않거나 사건 번호를 알아볼 수 없으면 보정하지 않고 JudgeParseError → 회차 failed.
+
+**관계 후보 나눠 보내기(CLASSIFICATION_RELATION_JUDGE=jev).** 관계 경로 후보는 Jev 질문으로 판정하고
+(judge_relation.py) 이 LLM 호출에는 회사·산업 경로 후보만 넣는다. 둘 중 하나라도 실패하면 회차 failed.
+기본값 luna 는 지금처럼 호출 하나가 모든 후보를 판정한다.
 """
 
+import asyncio
 import json
 from collections import Counter
 from dataclasses import dataclass, field
 
+from app.core.config import settings
+from app.llm import jev
 from app.services.classification import llm
 from app.services.classification.basis import Basis
 from app.services.classification.candidates import Candidate
 from app.services.classification.events import Event, strip_fence
+from app.services.classification.judge_relation import judge_relations
 from app.services.classification.link import EntityLink
 
 PROMPT_NAME = "classification_judge"
@@ -62,6 +70,7 @@ class Judging:
     judgments: dict[tuple[int, str], Judgment] = field(default_factory=dict)
     fixes: dict[str, int] = field(default_factory=lambda: dict.fromkeys(FIX_KEYS, 0))
     error: str | None = None
+    relation_call: llm.StepCall | None = None  # 관계 후보를 Jev 로 판정했을 때만(judge_relation.py)
 
 
 def _industry_line(basis: Basis, link) -> str:
@@ -192,6 +201,37 @@ async def judge(title: str, sentences: list[str],
     items = [item for item in items if item[2]]
     if not items:
         return Judging(call=None)
+    if settings.classification_relation_judge != "jev":
+        return await _judge_with_llm(title, sentences, items, basis, model)
+
+    # 관계 경로 후보는 Jev 로, 나머지(회사·산업)는 LLM 판정 호출로 나눠 보낸다. 둘은 서로 기다리지 않는다
+    jev.endpoint()  # 설정이 빠졌으면 자료마다 실패로 남기지 않고 여기서 멈춘다
+    split = {kind: [(e, links, [c for c in cands if (c.path == "relation") == (kind == "relation")])
+                    for e, links, cands in items] for kind in ("llm", "relation")}
+    split = {kind: [item for item in part if item[2]] for kind, part in split.items()}
+    llm_part, relation_part = await asyncio.gather(
+        _judge_with_llm(title, sentences, split["llm"], basis, model) if split["llm"] else _none(),
+        judge_relations(title, sentences, split["relation"], basis) if split["relation"] else _none(),
+    )
+    result = llm_part or Judging(call=None)
+    if relation_part is not None:
+        relation_call, decided, missing, error = relation_part
+        result.relation_call = relation_call
+        if error and not result.error:
+            result.error = error
+        for (order, stock), (label, reason) in decided.items():
+            result.judgments[(order, stock)] = Judgment(order, stock, label, reason)
+        result.fixes["missing_filled"] += missing
+    return result
+
+
+async def _none() -> None:
+    return None
+
+
+async def _judge_with_llm(title: str, sentences: list[str],
+                          items: list[tuple[Event, list[EntityLink], list[Candidate]]], basis: Basis,
+                          model: str | None) -> Judging:
     call = await llm.call("judge", PROMPT_NAME, build_judge_message(title, sentences, items, basis),
                           model=model)
     if not call.ok:

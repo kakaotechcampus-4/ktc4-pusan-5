@@ -232,7 +232,8 @@ async def save_run(session: AsyncSession, card_id: int, result: ClassificationRe
         raw_response=extract.raw_response if extract else None,
         judge_prompt_sha256=judge.prompt_sha256 if judge else None,
         judge_raw_response=judge.raw_response if judge else None,
-        judge_fixes=result.judge_fixes if judge else {}, error=result.error, usage=usage,
+        judge_fixes=result.judge_fixes if judge or "judge_relation" in result.calls else {},
+        error=result.error, usage=usage,
         is_current=current,
     )
     session.add(run)

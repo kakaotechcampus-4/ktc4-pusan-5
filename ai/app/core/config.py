@@ -133,6 +133,10 @@ class Settings(BaseSettings):
     jev_input_krw_per_m: float | None = None
     # 짧은 판단은 1초 안팎이지만 약 32KB 를 넘는 입력은 긴 문맥 모드로 느려진다.
     jev_timeout_sec: float = 120.0
+    # ④ 판정에서 관계 경로 후보(공급·고객·경쟁·지분)를 누가 판정하나. luna 면 지금처럼 판정 호출 하나가 전부
+    # 판정하고, jev 면 관계 후보만 Jev 질문으로 판정한다(judge_relation.py). jev 는 위 JEV_* 설정이 필요하다.
+    # 모델 비교 실험(2026-11-06~07)에서 관계 경로는 Jev 가 더 정확하고 다시 돌려도 거의 같았다.
+    classification_relation_judge: Literal["luna", "jev"] = "luna"
 
     # `run`(--ids 없이)에만 거는 비용 장치. 비우면 걸지 않는다(classification/selection.py).
     # 종목당 상한: 날마다 종목마다 네이버 뉴스를 이만큼만 분류한다. 텔레그램·PDF 는 전부 분류한다.
