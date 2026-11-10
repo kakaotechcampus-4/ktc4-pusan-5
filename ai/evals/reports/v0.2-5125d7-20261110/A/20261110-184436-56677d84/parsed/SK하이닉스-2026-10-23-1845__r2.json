@@ -1,0 +1,504 @@
+{
+  "run_id": "SK하이닉스-2026-10-23-1845__r2",
+  "final_text": "{\"ticker\": \"000660\", \"name\": \"SK하이닉스\", \"date\": \"2026-10-23\", \"as_of\": \"2026-10-23T18:45:00+09:00\", \"change_pct\": 4.42, \"verdict\": \"explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 SK하이닉스는 4.42% 올랐고 코스피는 0.30% 상승했습니다. 대형주 19개 중 13개가 내렸고 중간값은 1.79% 하락해, SK하이닉스는 대형주 전반과 반대로 움직였습니다. SK하이닉스는 코스피 비중 20.25%로 지수 상승에 0.895%포인트를 보탰고, SK하이닉스를 뺀 코스피는 0.75% 내려 종목은 시장과 다르게 움직였습니다.\", \"main_cause\": \"솔리다임의 상장 검토 중단이 주주가치 훼손 우려를 덜어 주며 상승에 힘을 보탰을 수 있습니다.\", \"relative\": \"SK하이닉스는 자신을 뺀 코스피와는 다르게 움직였습니다. 같은 메모리반도체 그룹의 삼성전자는 0.47% 올랐고 SK하이닉스는 4.42% 올랐습니다. 솔리다임 상장 중단이라는 종목 고유의 재료가 대형주 전반과 다른 상승에 보탬이 됐을 수 있습니다.\", \"counter\": null, \"unexplained\": \"솔리다임 상장 검토 중단이 주가에 반영된 크기를 따로 가늠할 수 있는 수치는 제공되지 않았습니다.\"}, \"factors\": [{\"event\": \"SK하이닉스가 솔리다임의 상장 전 투자와 상장 검토를 중단한다고 밝혔습니다.\", \"detail\": \"회사는 자본시장 여건과 주가 흐름을 고려했다고 설명했습니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19171\", \"datetime_kst\": \"2026-10-23T07:46:02+09:00\", \"quote\": \"솔리다임은 프리 IPO 및 기업공개(IPO) 검토를 중단합니다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4766\", \"datetime_kst\": \"2026-10-23T06:44:33+09:00\", \"quote\": \"손자회사 솔리다임의 나스닥 IPO 철회 결정\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18851\", \"datetime_kst\": \"2026-10-23T08:21:25+09:00\", \"quote\": \"scraps Solidigm US IPO plan\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"상장에 따른 기존 주주가치 훼손 우려를 낮춰 오늘 상승에 보탬이 됐을 수 있습니다. 종목을 직접 다룬 발표가 있어 근거가 확인됩니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"솔리다임 상장 중단은 SK하이닉스에 직접 걸린 사안이어서, 다른 대형주 전반과 다른 상승에 보탬이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [], \"background\": {\"bullish\": [{\"text\": \"메리츠증권은 28일 실적설명회에서 강화된 주주환원 방안이 나올 가능성이 높다고 전망했습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19178\", \"datetime_kst\": \"2026-10-23T11:01:43+09:00\", \"quote\": \"강화된 주주환원 방안이 제시될 가능성이 높을 것으로 예상\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"watch\": true}], \"bearish\": [], \"neutral\": [{\"text\": \"회사는 솔리다임의 생산능력 확충과 경쟁력 강화가 여전히 과제라고 밝혔습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19171\", \"datetime_kst\": \"2026-10-23T07:46:02+09:00\", \"quote\": \"여전히 솔리다임의 생산능력 확충과 경쟁력 강화는 중요한 과제입니다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}]}, \"not_found\": [], \"events\": [{\"event\": \"솔리다임의 상장 검토 중단\", \"issue_ids\": [\"i3\", \"i4\", \"i5\", \"i6\", \"i12\", \"i21\", \"i32\", \"i39\"], \"factor\": 0, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"솔리다임의 생산능력 확충 필요\", \"issue_ids\": [\"i7\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"실적설명회에서 주주환원 방안 발표 가능성\", \"issue_ids\": [\"i33\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}], \"display_as_of\": \"2026-10-23T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 31874,
+    "completion_tokens": 12593,
+    "total_tokens": 44467,
+    "prompt_tokens_details": {
+      "cached_tokens": 22096,
+      "cache_write_tokens": 7820,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 9166,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 31874,
+    "output_tokens": 12593,
+    "cached_prompt_tokens": 22096,
+    "cache_write_tokens": 7820,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 31874,
+    "total": 29919,
+    "cache_read": 22096,
+    "cache_write": 7820,
+    "uncached": 3
+  },
+  "cost": 10.603886,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 123396,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "5125d7cc8ed746e0cf2e55689de0571f51c707e73bb64fdf097479930b42a51d",
+  "generated_at": "2026-11-10T18:49:01+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "반대로",
+  "main_cause_sentences": 3,
+  "sector": [
+    "반도체"
+  ],
+  "universe_weight": 0.2988,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "메모리 4사 12개월 선행 주가수익비율",
+          "relation": "direct"
+        },
+        {
+          "id": "i2",
+          "issue": "SK하이닉스 본주와 ADR 괴리율",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i3",
+          "issue": "솔리다임 미국 상장 철회 결정",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i4",
+          "issue": "솔리다임 미국 상장 철회 결정 재전달",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i5",
+          "issue": "솔리다임 프리IPO·상장 검토 중단 확정",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m5",
+      "issues": [
+        {
+          "id": "i6",
+          "issue": "솔리다임 프리IPO·상장 검토 중단 발표",
+          "relation": "direct"
+        },
+        {
+          "id": "i7",
+          "issue": "솔리다임 생산능력 확대와 자금조달 필요",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m6",
+      "issues": [
+        {
+          "id": "i8",
+          "issue": "메모리 현물 가격 상승",
+          "relation": "sector"
+        },
+        {
+          "id": "i9",
+          "issue": "웨스턴디지털 실적과 저장장치 수요 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i10",
+          "issue": "메타 AI 투자 확대와 잉여현금흐름 적자",
+          "relation": "none"
+        },
+        {
+          "id": "i11",
+          "issue": "젠슨 황의 메모리 공급 과잉 전망 부인",
+          "relation": "sector"
+        },
+        {
+          "id": "i12",
+          "issue": "솔리다임 미국 상장 철회 보도",
+          "relation": "direct"
+        },
+        {
+          "id": "i13",
+          "issue": "SK하이닉스의 3조원 자산운용 위탁",
+          "relation": "direct"
+        },
+        {
+          "id": "i14",
+          "issue": "마이크론의 핵심광물 가공사업 투자",
+          "relation": "none"
+        },
+        {
+          "id": "i15",
+          "issue": "마이크론 대만 노조의 24시간 파업",
+          "relation": "sector"
+        },
+        {
+          "id": "i16",
+          "issue": "인피니언·엔비디아의 데이터센터 전력기술 확대",
+          "relation": "none"
+        },
+        {
+          "id": "i17",
+          "issue": "인텔 애리조나 공장 장비 반입과 공사 진전",
+          "relation": "none"
+        },
+        {
+          "id": "i18",
+          "issue": "삼성디스플레이의 OLED 경쟁 참여",
+          "relation": "none"
+        },
+        {
+          "id": "i19",
+          "issue": "해외 반도체·전자업체 주가 등락 목록",
+          "relation": "none"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m7",
+      "issues": [
+        {
+          "id": "i20",
+          "issue": "나스닥·반도체지수 급락과 코스피 약세 전망",
+          "relation": "market"
+        },
+        {
+          "id": "i21",
+          "issue": "솔리다임 미국 상장 계획 철회",
+          "relation": "direct"
+        },
+        {
+          "id": "i22",
+          "issue": "삼성전기의 테슬라·엔비디아 투자 유치",
+          "relation": "none"
+        },
+        {
+          "id": "i23",
+          "issue": "대덕전자의 반도체 장비 투자",
+          "relation": "none"
+        },
+        {
+          "id": "i24",
+          "issue": "HD현대의 미국 합작사 설립 협상",
+          "relation": "none"
+        },
+        {
+          "id": "i25",
+          "issue": "한화에어로스페이스의 궤도수송선 개발",
+          "relation": "none"
+        },
+        {
+          "id": "i26",
+          "issue": "영풍·MBK의 고려아연 공개매수 소송 1심 패소",
+          "relation": "none"
+        },
+        {
+          "id": "i27",
+          "issue": "LG이노텍의 엔비디아 협력",
+          "relation": "none"
+        },
+        {
+          "id": "i28",
+          "issue": "JB금융의 중앙아시아 금융사 인수",
+          "relation": "none"
+        }
+      ],
+      "none_count": 7
+    },
+    {
+      "id": "m8",
+      "issues": [
+        {
+          "id": "i29",
+          "issue": "SOCAMM 메모리 모듈 공급 부족 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i30",
+          "issue": "티엘비의 차세대 메모리 기판 개발",
+          "relation": "none"
+        },
+        {
+          "id": "i31",
+          "issue": "티엘비 베트남 공장 증설 계획",
+          "relation": "none"
+        }
+      ],
+      "none_count": 2
+    },
+    {
+      "id": "m9",
+      "issues": [
+        {
+          "id": "i32",
+          "issue": "솔리다임 상장 검토 중단과 주주환원 기대",
+          "relation": "direct"
+        },
+        {
+          "id": "i33",
+          "issue": "3분기 실적설명회에서 주주환원책 발표 기대",
+          "relation": "direct"
+        },
+        {
+          "id": "i34",
+          "issue": "40조원 규모 자사주 매입 완료",
+          "relation": "direct"
+        },
+        {
+          "id": "i35",
+          "issue": "SK하이닉스의 PBR과 본주·ADR 괴리율",
+          "relation": "direct"
+        },
+        {
+          "id": "i36",
+          "issue": "AI 인프라에 따른 낸드 수요와 생산능력 확보",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m10",
+      "issues": [
+        {
+          "id": "i37",
+          "issue": "AI 메모리 수요와 장기공급계약 관련 업황 전망",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m11",
+      "issues": [
+        {
+          "id": "i38",
+          "issue": "상장 검토 중단 뒤 SK하이닉스 주가 반등",
+          "relation": "direct"
+        },
+        {
+          "id": "i39",
+          "issue": "솔리다임 상장에 따른 지배구조 우려",
+          "relation": "direct"
+        },
+        {
+          "id": "i40",
+          "issue": "솔리다임 성장자금 조달 방식의 불확실성",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m12",
+      "issues": [
+        {
+          "id": "i41",
+          "issue": "메모리 4사 12개월 선행 주가수익비율 업데이트",
+          "relation": "direct"
+        },
+        {
+          "id": "i42",
+          "issue": "SK하이닉스 본주와 ADR 괴리율 업데이트",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": 4.42,
+      "kospi_change_rate_pct": 0.3,
+      "excess_vs_kospi_pp": 4.12,
+      "kospi_weight_pct": 20.25,
+      "kospi_contribution_pp": 0.895,
+      "kospi_ex_self_change_rate_pct": -0.75,
+      "excess_vs_kospi_ex_self_pp": 5.17,
+      "kospi_basis": "kospi_ex_self",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "메모리반도체",
+        "median_change_rate_pct": 0.47,
+        "excess_vs_group_pp": 3.95,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "mixed": false,
+        "judge_in_sentence": null,
+        "members_used": [
+          {
+            "code": "005930",
+            "name": "삼성전자",
+            "change_rate_pct": 0.47,
+            "in_sentence": true
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "000660",
+            "name": "SK하이닉스",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": 4.42,
+    "krx": 4.42,
+    "source": "KRX /sto/stk_bydd_trd 2026-10-23 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": 0.3,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-10-23 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -1.79,
+        "peer_up": 6,
+        "peer_down": 13,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 6.21
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 1,
+    "background": 2,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "explained",
+      "final": "explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/SK하이닉스-2026-10-23-1845__r2.json",
+  "input_used_path": "inputs_used/SK하이닉스-2026-10-23-1845__r2.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/in_A/SK하이닉스-2026-10-23-1845__r2.json",
+  "input_sha256": "f0b850f15c9dd19cff01e19bebebb404442d9c13bd6183e4bebe07e3182c5ff4",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 12,
+    "messages_total": 12,
+    "relations": {
+      "direct": 19,
+      "sector": 7,
+      "none": 24,
+      "market": 1
+    },
+    "issues_used": 10
+  }
+}

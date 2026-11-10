@@ -1,0 +1,266 @@
+{
+  "run_id": "HD현대-2026-10-28-1845__r2",
+  "final_text": "{\"ticker\": \"267250\", \"name\": \"HD현대\", \"date\": \"2026-10-28\", \"as_of\": \"2026-10-28T18:45:00+09:00\", \"change_pct\": 6.53, \"verdict\": \"partially_explained\", \"relative_verdict\": \"no_clear_cause\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 HD현대는 6.53% 올랐습니다. 코스피는 6.63% 상승했고, 대형주 20개 중 18개가 올랐으며 중간값은 3.46% 상승해 HD현대는 대형주 전반보다 더 올랐습니다. 코스피와 비슷하게 움직였습니다.\", \"main_cause\": \"앤스로픽 기업공개를 둘러싼 인공지능 낙관론으로 미국 증시가 오른 흐름이 국내 주식에도 보탬이 됐을 수 있습니다.\", \"relative\": null, \"counter\": \"HD현대중공업의 잠정 매출은 시장 예상보다 8.7% 낮았습니다. 한투증권은 상선 매출 단가가 10.9% 낮아질 가능성을 전했습니다.\", \"unexplained\": \"대형주 전반보다 더 오른 부분은 제공된 메시지에서 확인된 HD현대 고유의 호재로 설명되지 않습니다. 조선업 전망과 계열사 실적만 제시돼 HD현대 자체에 미친 영향의 크기를 판단하기 어렵습니다.\"}, \"factors\": [{\"event\": \"앤스로픽 기업공개를 둘러싼 인공지능 낙관론에 미국 증시가 이틀째 상승했습니다.\", \"detail\": \"\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18879\", \"datetime_kst\": \"2026-10-28T08:47:30+09:00\", \"quote\": \"AI optimism driven by Anthropic IPO\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"미국 증시의 상승 흐름이 국내 주식에도 보탬이 됐을 수 있습니다. HD현대 고유의 상승 요인까지 확인해 주는 재료는 아닙니다.\", \"direction_match\": true, \"strength\": \"partial\"}]}], \"terms\": [{\"plain\": \"보유 주식으로 바꿀 수 있는 채권\", \"term\": \"교환사채\"}, {\"plain\": \"소형원자로 주요 장비\", \"term\": \"SMR 주기기\"}], \"background\": {\"bullish\": [{\"text\": \"한투증권은 신규 사업이 실제 수주와 양산으로 이어지면 조선 3사 매출의 25~40%를 차지할 수 있다고 전망했습니다. HD현대중공업의 발전엔진과 소형원자로 주요 장비 수주가 가시화될 가능성도 언급했습니다.\", \"sources\": [{\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18881\", \"datetime_kst\": \"2026-10-28T09:27:16+09:00\", \"quote\": \"조선 3사 매출액의 25~40%를 차지하는\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18881\", \"datetime_kst\": \"2026-10-28T09:27:16+09:00\", \"quote\": \"대출력 발전엔진의 신규 수주\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18881\", \"datetime_kst\": \"2026-10-28T09:27:16+09:00\", \"quote\": \"상업화 단계에 진입한 SMR 주기기 수주\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"bearish\": [{\"text\": \"HD현대중공업의 잠정 매출은 시장 예상보다 8.7% 낮았습니다.\", \"sources\": [{\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18885\", \"datetime_kst\": \"2026-10-28T13:21:20+09:00\", \"quote\": \"매출액: 8.7% 하회\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"한투증권은 상선 매출 단가가 10.9% 낮아질 가능성이 시장에 반영됐다고 전했습니다.\", \"sources\": [{\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18881\", \"datetime_kst\": \"2026-10-28T09:27:16+09:00\", \"quote\": \"상선 매출선가가 10.9% 하락할 가능성\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"neutral\": [{\"text\": \"HD현대는 보유 주식으로 바꿀 수 있는 채권 5,887억원어치를 발행해 차입금 상환에 쓸 계획입니다.\", \"sources\": [{\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18879\", \"datetime_kst\": \"2026-10-28T08:47:30+09:00\", \"quote\": \"W588.7bn worth EB\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"HD현대중공업 노사가 임금 협상에 합의했습니다.\", \"sources\": [{\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18879\", \"datetime_kst\": \"2026-10-28T08:47:30+09:00\", \"quote\": \"reached an agreement on wage deal\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}]}, \"not_found\": [\"상대 움직임을 설명할 HD현대 자체의 새로운 수주나 실적 변화는 제공된 메시지에서 확인되지 않았습니다.\"], \"events\": [{\"event\": \"앤스로픽 기업공개를 둘러싼 인공지능 낙관론에 미국 증시가 이틀째 상승했습니다.\", \"issue_ids\": [\"i1\"], \"factor\": 0, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"HD현대중공업의 잠정 매출은 시장 예상보다 8.7% 낮았습니다.\", \"issue_ids\": [\"i11\"], \"background\": {\"slot\": \"bearish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"한투증권은 상선 매출 단가가 10.9% 낮아질 가능성이 시장에 반영됐다고 전했습니다.\", \"issue_ids\": [\"i6\", \"i7\"], \"background\": {\"slot\": \"bearish\", \"index\": 1}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"신규 사업이 조선 3사 매출의 25~40%를 차지할 수 있고 HD현대중공업의 발전엔진·소형원자로 주요 장비 수주도 기대된다는 전망이 나왔습니다.\", \"issue_ids\": [\"i8\", \"i9\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"HD현대는 보유 주식으로 바꿀 수 있는 채권을 발행해 차입금을 갚을 계획입니다.\", \"issue_ids\": [\"i3\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"HD현대중공업 노사가 임금 협상에 합의했습니다.\", \"issue_ids\": [\"i5\"], \"background\": {\"slot\": \"neutral\", \"index\": 1}, \"dup_channels\": null, \"placed\": \"background\"}], \"display_as_of\": \"2026-10-28T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 25549,
+    "completion_tokens": 12696,
+    "total_tokens": 38245,
+    "prompt_tokens_details": {
+      "cached_tokens": 22096,
+      "cache_write_tokens": 2760,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 9869,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 25549,
+    "output_tokens": 12696,
+    "cached_prompt_tokens": 22096,
+    "cache_write_tokens": 2760,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 25549,
+    "total": 24859,
+    "cache_read": 22096,
+    "cache_write": 2760,
+    "uncached": 3
+  },
+  "cost": 9.784985,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 118022,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "5125d7cc8ed746e0cf2e55689de0571f51c707e73bb64fdf097479930b42a51d",
+  "generated_at": "2026-11-10T18:44:39+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": "partial",
+  "market_led": false,
+  "move_comparison": "더",
+  "main_cause_sentences": 3,
+  "sector": null,
+  "universe_weight": null,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "앤스로픽발 AI 낙관론에 미국 증시 상승",
+          "relation": "market"
+        },
+        {
+          "id": "i2",
+          "issue": "외국인·기관 순매수 흐름 연장 여부",
+          "relation": "market"
+        },
+        {
+          "id": "i3",
+          "issue": "HD현대의 교환사채 발행과 차입금 상환",
+          "relation": "direct"
+        },
+        {
+          "id": "i4",
+          "issue": "HD현대중공업·HD한국조선해양 실적 발표 일정",
+          "relation": "sector"
+        },
+        {
+          "id": "i5",
+          "issue": "HD현대중공업 노사 임금 합의",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 7
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i6",
+          "issue": "상선 중심 성장 정체에 따른 조선업 우려",
+          "relation": "sector"
+        },
+        {
+          "id": "i7",
+          "issue": "상선 매출 단가 10.9% 하락 가능성",
+          "relation": "sector"
+        },
+        {
+          "id": "i8",
+          "issue": "신규 사업이 조선업의 성장 동력이 될 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i9",
+          "issue": "HD현대중공업의 발전엔진·SMR 수주 기대",
+          "relation": "sector"
+        },
+        {
+          "id": "i10",
+          "issue": "조선주 밸류에이션과 비중확대 의견",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m3",
+      "issues": [],
+      "none_count": 1
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i11",
+          "issue": "HD현대중공업 잠정 매출·영업이익의 예상 하회",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": 6.53,
+      "kospi_change_rate_pct": 6.63,
+      "excess_vs_kospi_pp": -0.1,
+      "kospi_weight_pct": 0.24,
+      "kospi_contribution_pp": 0.016,
+      "kospi_ex_self_change_rate_pct": 6.63,
+      "excess_vs_kospi_ex_self_pp": -0.1,
+      "kospi_basis": "kospi",
+      "kospi_relation": "follows"
+    },
+    "peers": []
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": 6.53,
+    "krx": 6.53,
+    "source": "KRX /sto/stk_bydd_trd 2026-10-28 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": 6.63,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-10-28 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": 3.46,
+        "peer_up": 18,
+        "peer_down": 2,
+        "peer_total": 20
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 3.07
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 1,
+    "background": 5,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "partial",
+      "final": "partial",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "partially_explained",
+      "final": "partially_explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "no_clear_cause",
+      "final": "no_clear_cause"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/HD현대-2026-10-28-1845__r2.json",
+  "input_used_path": "inputs_used/HD현대-2026-10-28-1845__r2.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/in_A/HD현대-2026-10-28-1845__r2.json",
+  "input_sha256": "def4527b08f43b12c7161622429a9cc2e176ece332d0e16d38cbd095cc02eb8d",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 4,
+    "messages_total": 4,
+    "relations": {
+      "market": 2,
+      "direct": 1,
+      "sector": 8,
+      "none": 8
+    },
+    "issues_used": 8
+  }
+}

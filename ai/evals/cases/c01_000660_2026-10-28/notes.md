@@ -12,3 +12,6 @@ move explained / relative explained, confidence partial
 - 입력에 나오는 "수급"은 MLCC·메모리 등 제품의 수요·공급을 뜻하고, "기관"은 연구기관·단체 이름이라 투자자별 매매와 무관함.
 - 보고서가 외국인·기관 매매를 원인으로 쓰면 입력에서 근거를 댈 수 없는 지어낸 원인이라 `relation_min` 을 `none`(언급만 해도 금지)으로 둠. 모른다고 쓴 문장은 걸리지 않음.
 
+## 시황·오버나이트 메시지 https://t.me/KISGregKim/18879 (2026-11-10)
+- 시황·오버나이트 메시지. 안 A 입력에는 kind 가 없어 근거 칸으로 들어감. 실서비스에서는 분류 단계에서 걸러질 수 있음.
+- gold 사건으로 두지 않음. 채점(score_rule_a.py)은 이 메시지만 인용한 link 를 gold 밖 link 와 따로 "시황 메시지 link" 로 셈.

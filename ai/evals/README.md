@@ -20,7 +20,9 @@ ai/evals/
   docs/schema.md      데이터 스키마 레퍼런스
   docs/add_case.md    케이스 추가·수정 가이드
   docs/decisions.md   결정 기록(ADR)
-  cases/<case_id>/    케이스 10건
+  cases/<case_id>/    케이스 10건(안 A, 구형 입력)
+  cases_live/<case_id>/          실서비스 형식 입력 케이스(안 B 중 채택한 b01·b04·b05, gold 는 claude-code 초안)
+  cases_live_pending/<case_id>/  사람 검증 전 보류 케이스(b02·b03·b06). 잠그지 않음
 ```
 
 케이스 폴더 하나에는 파일 4개가 있습니다.
@@ -205,7 +207,7 @@ python3 evals/lock_set.py --write --version v1                     # 정식 잠�
 
 | 항목 | 내용 |
 |---|---|
-| 해시 대상 | 케이스마다 `case.json`, `provenance.json`, `gold.json` |
+| 해시 대상 | `cases/` 와 `cases_live/` 의 케이스마다 `case.json`, `provenance.json`, `gold.json`. 기록 키는 `cases/` 케이스는 폴더 이름, `cases_live/` 케이스는 `cases_live/<폴더>` 입니다. `cases_live_pending/` 은 잠그지 않습니다 |
 | 해시에서 빼는 칸 | `gold.json` 의 `verification`, `status`. 검증 기록을 채울 때 잠금이 깨지지 않게 하기 위함입니다 |
 | `provisional` | 잠정 잠금. 체크리스트·블라인드 재라벨링·`verification` 이 끝나기 전 상태입니다 |
 | `locked` | 정식 잠금. 위 검증을 모두 마친 뒤 `--provisional` 없이 기록합니다 |

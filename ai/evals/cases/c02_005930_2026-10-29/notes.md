@@ -16,6 +16,11 @@ move no_clear_cause / relative no_clear_cause, confidence none
 - 약한 부정 요소(매출 컨센 -2.7%, Capex 26.9조원, SDC 등 약세 전망)는 하락 폭을 설명하기에 약해, 보고서가 이를 원인으로 단정하면 `OVERCLAIM`(상한 coincident).
 - 대안: `partially_explained`(방향이 반대인 직접 재료를 부분 설명으로 인정). 이 경우 e1 을 `must` 로 올릴 수 있음.
 
+## e4 를 추가한 이유(2026-11-10)
+- 19237(Meritz Overnight, 07:51)은 장 전 메모리 업계 기사 제목 묶음. 중국 CXMT 첨단 AI 메모리 생산 착수 예정, 솔리다임 美 낸드 공장 60조원 투자 추진이 삼성전자에는 경쟁 부담으로 읽힐 수 있음.
+- 삼성전자에 대한 직접 언급이 없는 간접 재료라 `optional`, 상한 `coincident`, `stance: bearish`. 판정은 바꾸지 않음.
+- 안 A 실행(2026-11-10)에서 3회 모두 이 메시지를 하락 요인으로 link 해 gold 밖 link 로 잡혔던 것을 사건으로 둠.
+
 ## 외국인·기관 매매(수급)를 forbidden_claims(f2)에 넣은 이유
 - 유형은 `fabricated_cause`(입력에 없는 원인). 이 케이스의 `case.json` 에는 외국인·기관의 순매수·순매도 자료가 없음.
 - 입력에 나오는 "수급"은 MLCC·메모리 등 제품의 수요·공급을 뜻하고, "기관"은 연구기관·단체 이름이라 투자자별 매매와 무관함.

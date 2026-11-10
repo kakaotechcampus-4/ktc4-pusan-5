@@ -1,0 +1,446 @@
+{
+  "run_id": "삼성전기-2026-10-30-1845__r3",
+  "final_text": "{\"ticker\": \"009150\", \"name\": \"삼성전기\", \"date\": \"2026-10-30\", \"as_of\": \"2026-10-30T18:45:00+09:00\", \"change_pct\": -7.5, \"verdict\": \"explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 삼성전기는 7.5% 내렸습니다. 코스피는 3.48% 하락했고, 대형주 19개 중 12개가 내렸으며 중간값은 2.9% 하락해 삼성전기는 대형주 전반보다 더 내렸습니다. 코스피와 다르게 움직였습니다.\", \"main_cause\": \"적층 세라믹 부품 시장에서 일부 고객사가 공급업체를 바꾸려 가격 경쟁을 벌인 사례가 전해졌습니다. 이 경쟁이 삼성전기 제품의 가격 전망에 부담이 됐을 수 있습니다.\", \"relative\": \"코스피와 다르게 움직였고, 같은 전자부품 그룹의 LG이노텍은 6.19% 내렸습니다. 가격 경쟁 우려가 삼성전기의 적층 세라믹 부품 사업에 더 크게 닿아 대형주 전반보다 더 내린 배경이 됐을 수 있습니다.\", \"counter\": \"반면 삼성전기는 글로벌 대형기업에 적층 세라믹 부품을 공급하는 계약을 체결했습니다. 메리츠증권은 AI용 고부가 제품과 범용 제품 가격 인상에 따른 삼성전기 수혜를 전망했습니다.\", \"unexplained\": \"대형주 전반보다 더 내린 부분은 가격 경쟁 우려만으로 크기를 가늠하기 어렵습니다. 가격 경쟁의 실제 범위와 삼성전기 공급 물량에 미친 영향은 메시지에 제시되지 않았습니다.\"}, \"factors\": [{\"event\": \"적층 세라믹 부품 시장에서 일부 고객사가 공급업체를 바꾸려 가격 경쟁을 벌인 사례가 전해졌습니다.\", \"detail\": \"메리츠증권은 소비자용 제품 수요 부진으로 범용 제품의 가격 인상 기대가 약해졌다고 봤습니다.\", \"stance\": \"bearish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19257\", \"datetime_kst\": \"2026-10-30T07:50:56+09:00\", \"quote\": \"일부 고객사들이 공급업체 전환을 유도하기 위해 가격 경쟁\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"가격 경쟁이 적층 세라믹 부품의 가격 전망에 부담을 줘 주가 하락에 작용했을 수 있습니다. 업종 소식에 따른 추정이어서 근거는 부분적입니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"적층 세라믹 부품 사업 노출이 대형주 전반과 달라 가격 경쟁 우려가 삼성전기에 더 크게 닿았을 수 있습니다. 업종 소식에 따른 추정입니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"적층 세라믹 부품\", \"term\": \"MLCC\"}], \"background\": {\"bullish\": [{\"text\": \"삼성전기는 글로벌 대형기업에 적층 세라믹 부품을 8,793억원 규모로 공급하는 계약을 맺었습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19267\", \"datetime_kst\": \"2026-10-30T14:17:47+09:00\", \"quote\": \"계약금액: 8,793억원 (매출대비: 7.8%)\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4875\", \"datetime_kst\": \"2026-10-30T14:31:58+09:00\", \"quote\": \"계약 금액: 8,793억 원\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"메리츠증권은 AI용 고부가 제품과 범용 제품 가격 인상에 따른 삼성전기 수혜를 전망했습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19257\", \"datetime_kst\": \"2026-10-30T07:50:56+09:00\", \"quote\": \"AI향 MLCC 비중 상승과 범용 MLCC 가격 인상의 동반 수혜\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"bearish\": [], \"neutral\": []}, \"not_found\": [\"m1은 기준일 전날 15:58에 게시된 메시지여서 당일 원인 근거로 사용하지 않았습니다.\", \"가격 경쟁이 삼성전기의 실제 공급 물량이나 계약 가격에 미친 영향은 확인되지 않습니다.\"], \"events\": [{\"event\": \"적층 세라믹 부품 시장의 공급업체 전환 유도 가격 경쟁\", \"issue_ids\": [\"i17\", \"i26\"], \"factor\": 0, \"dup_channels\": 1, \"placed\": \"factors\"}, {\"event\": \"삼성전기의 글로벌 대형기업 대상 적층 세라믹 부품 공급 계약\", \"issue_ids\": [\"i31\", \"i32\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"메리츠증권의 삼성전기 AI 제품·가격 인상 수혜 전망\", \"issue_ids\": [\"i27\"], \"background\": {\"slot\": \"bullish\", \"index\": 1}, \"dup_channels\": 1, \"placed\": \"background\"}], \"display_as_of\": \"2026-10-30T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 23177,
+    "completion_tokens": 9769,
+    "total_tokens": 32946,
+    "prompt_tokens_details": {
+      "cached_tokens": 23174,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 6932,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 23177,
+    "output_tokens": 9769,
+    "cached_prompt_tokens": 23174,
+    "cache_write_tokens": 0,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 23177,
+    "total": 23177,
+    "cache_read": 23174,
+    "cache_write": 0,
+    "uncached": 3
+  },
+  "cost": 7.8338695,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 75603,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:47:21+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "더",
+  "main_cause_sentences": 3,
+  "sector": [
+    "전자부품",
+    "MLCC",
+    "카메라모듈",
+    "반도체 기판"
+  ],
+  "universe_weight": 0.0269,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "AI 추론 수요로 고용량 MLCC 수요 증가",
+          "relation": "sector"
+        },
+        {
+          "id": "i2",
+          "issue": "AI 플랫폼 공급 확대와 고용량 MLCC 부족 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i3",
+          "issue": "통신용 MLCC까지 공급 부족 확산",
+          "relation": "sector"
+        },
+        {
+          "id": "i4",
+          "issue": "무라타 증설에도 단기 공급 부족 완화 제한",
+          "relation": "sector"
+        },
+        {
+          "id": "i5",
+          "issue": "원재료·물류비 상승으로 생산 원가 부담",
+          "relation": "sector"
+        },
+        {
+          "id": "i6",
+          "issue": "삼성전기 등 MLCC 업체 가격 인상 가능성",
+          "relation": "direct"
+        },
+        {
+          "id": "i7",
+          "issue": "노트북 주문과 스마트폰 출하 감소 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i8",
+          "issue": "소비자용 MLCC 가격 하락과 인상세 둔화",
+          "relation": "sector"
+        },
+        {
+          "id": "i9",
+          "issue": "대만·중국 업체의 소비자용 제품 수혜 전망",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i10",
+          "issue": "야교 3분기 매출과 영업이익 증가",
+          "relation": "sector"
+        },
+        {
+          "id": "i11",
+          "issue": "야교의 MLCC·탄탈럼 제품 성장",
+          "relation": "sector"
+        },
+        {
+          "id": "i12",
+          "issue": "야교 제품 가동률 95% 근접",
+          "relation": "sector"
+        },
+        {
+          "id": "i13",
+          "issue": "야교의 AI 관련 매출 비중 상승",
+          "relation": "sector"
+        },
+        {
+          "id": "i14",
+          "issue": "야교가 주요 고객사와 공급 계약 체결",
+          "relation": "sector"
+        },
+        {
+          "id": "i15",
+          "issue": "야교가 생산능력 10~15% 확대 계획",
+          "relation": "sector"
+        },
+        {
+          "id": "i16",
+          "issue": "유통 재고 보유 기간과 중화권 재고 감소",
+          "relation": "sector"
+        },
+        {
+          "id": "i17",
+          "issue": "고객사의 공급업체 전환 유도 가격 경쟁",
+          "relation": "sector"
+        },
+        {
+          "id": "i18",
+          "issue": "야교 수주 지표 하락에도 수주 둔화는 아니라는 설명",
+          "relation": "sector"
+        },
+        {
+          "id": "i19",
+          "issue": "야교 AI 제품 수주 지표가 평균 상회",
+          "relation": "sector"
+        },
+        {
+          "id": "i20",
+          "issue": "야교의 4분기 가동률·수주 지표 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i21",
+          "issue": "야교의 4분기 매출과 이익률 개선 전망",
+          "relation": "sector"
+        },
+        {
+          "id": "i22",
+          "issue": "AI 수요로 수동부품 공급 여건이 타이트하다는 분석",
+          "relation": "sector"
+        },
+        {
+          "id": "i23",
+          "issue": "삼성전기도 4분기 가동률이 높을 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i24",
+          "issue": "야교의 원가 반영과 수익성 유지 설명",
+          "relation": "sector"
+        },
+        {
+          "id": "i25",
+          "issue": "AI 제품으로 생산능력 재배분되는 구조적 업황 분석",
+          "relation": "sector"
+        },
+        {
+          "id": "i26",
+          "issue": "소비자 제품 수요 부진으로 가격 인상 기대 약화",
+          "relation": "sector"
+        },
+        {
+          "id": "i27",
+          "issue": "삼성전기의 AI 제품·가격 인상 수혜 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i28",
+          "issue": "삼성전기의 반도체 기판 성장성 평가",
+          "relation": "direct"
+        },
+        {
+          "id": "i29",
+          "issue": "유통채널 가격 인상이 직거래로 확산될 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i30",
+          "issue": "MLCC 밸류체인 실적 추정과 평가 개선 전망",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i31",
+          "issue": "삼성전기가 8,793억원 MLCC 공급 계약 체결",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i32",
+          "issue": "삼성전기가 8,793억원 MLCC 공급 계약 체결",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -7.5,
+      "kospi_change_rate_pct": -3.48,
+      "excess_vs_kospi_pp": -4.02,
+      "kospi_weight_pct": 2.04,
+      "kospi_contribution_pp": -0.153,
+      "kospi_ex_self_change_rate_pct": -3.4,
+      "excess_vs_kospi_ex_self_pp": -4.1,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "전자부품",
+        "median_change_rate_pct": -6.19,
+        "excess_vs_group_pp": -1.31,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "members_used": [
+          {
+            "code": "011070",
+            "name": "LG이노텍"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "009150",
+            "name": "삼성전기",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": -7.5,
+    "krx": -7.5,
+    "source": "KRX /sto/stk_bydd_trd 2026-10-30 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -3.48,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-10-30 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -2.9,
+        "peer_up": 7,
+        "peer_down": 12,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": -4.6
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 1,
+    "background": 2,
+    "max_items": 10
+  },
+  "quote_repair": [
+    {
+      "kind": "background",
+      "path": "background.bullish[1]",
+      "slot": "bullish",
+      "text": "메리츠증권은 AI용 고부가 제품과 범용 제품 가격 인상에 따른 삼성전기 수혜를 전망했습니다.",
+      "failed": [
+        "QUOTE_NOT_IN_SOURCE: background.bullish[1].sources[0] 'AI향 고부가 MLCC와 범용 MLCC 가격 인상의 동반 수혜'"
+      ],
+      "usage": {
+        "prompt_tokens": 2541,
+        "completion_tokens": 331,
+        "total_tokens": 2872,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 2030,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 207,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        },
+        "input_tokens": 2541,
+        "output_tokens": 331,
+        "cached_prompt_tokens": 0,
+        "cache_write_tokens": 2030,
+        "finish_reason": "stop",
+        "cost_currency": "KRW"
+      },
+      "cost": 0.5925585,
+      "error": null,
+      "retry_failed": [],
+      "result": "fixed",
+      "quotes": [
+        "AI향 MLCC 비중 상승과 범용 MLCC 가격 인상의 동반 수혜"
+      ]
+    }
+  ],
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "partial",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "partial",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "partially_explained",
+      "final": "explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "partially_explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/삼성전기-2026-10-30-1845__r3.json",
+  "input_used_path": "inputs_used/삼성전기-2026-10-30-1845__r3.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inA/c05__r3.json",
+  "input_sha256": "a942e6b6804a4e1f38357a765c81d6415ca19186c50ade5e4c3a5229d4f7f8f7",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [
+    "STRENGTH_MISMATCH: factors[0].links[0] layer=move 이슈가 나온 메시지에 mentioned 가 있는데 partial",
+    "STRENGTH_MISMATCH: factors[0].links[1] layer=relative 이슈가 나온 메시지에 mentioned 가 있는데 partial"
+  ],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 4,
+    "messages_total": 4,
+    "relations": {
+      "sector": 25,
+      "direct": 7
+    },
+    "issues_used": 5
+  }
+}

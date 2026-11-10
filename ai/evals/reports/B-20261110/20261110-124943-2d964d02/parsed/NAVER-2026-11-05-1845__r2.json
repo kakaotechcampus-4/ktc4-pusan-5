@@ -1,0 +1,218 @@
+{
+  "run_id": "NAVER-2026-11-05-1845__r2",
+  "final_text": "{\"ticker\": \"035420\", \"name\": \"NAVER\", \"date\": \"2026-11-05\", \"as_of\": \"2026-11-05T18:45:00+09:00\", \"change_pct\": 8.26, \"verdict\": \"no_clear_cause\", \"relative_verdict\": \"no_clear_cause\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 NAVER는 8.26% 올랐고 코스피는 5.28% 내렸습니다. 대형주 20개 중 7개가 올랐고 13개가 내렸으며, 중간값은 5.19% 하락해 NAVER는 대형주 전반과 반대로 움직였습니다. 코스피와 다르게 움직였습니다.\", \"main_cause\": \"제공된 메시지에서 확인된 원인은 없습니다.\", \"relative\": \"같은 인터넷 그룹의 카카오는 10.65% 올랐습니다.\", \"counter\": null, \"unexplained\": \"대형주 전반과 반대로 움직인 이유는 제공된 메시지에서 확인되지 않습니다. 합병 심사 일정은 전해졌지만 심사 결과는 아직 제시되지 않아 주가 상승과의 연결을 확인하기 어렵습니다.\"}, \"factors\": [], \"terms\": [], \"background\": {\"bullish\": [], \"bearish\": [], \"neutral\": [{\"text\": \"공정거래위원회는 11월 18일 두나무·네이버파이낸셜 합병을 심사할 예정입니다.\", \"sources\": [{\"channel\": \"KISGregKim\", \"url\": \"https://t.me/KISGregKim/18939\", \"datetime_kst\": \"2026-11-05T08:14:57+09:00\", \"quote\": \"KFTC to review Dunamu-Naver\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"watch\": true}]}, \"not_found\": [\"합병 심사 일정 외에 NAVER의 당일 상승을 설명할 종목별 사건은 확인되지 않았습니다.\"], \"events\": [{\"event\": \"공정거래위원회의 두나무·네이버파이낸셜 합병 심사 일정\", \"issue_ids\": [\"i2\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}], \"display_as_of\": \"2026-11-05T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 24244,
+    "completion_tokens": 4194,
+    "total_tokens": 28438,
+    "prompt_tokens_details": {
+      "cached_tokens": 24241,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 3434,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 24244,
+    "output_tokens": 4194,
+    "cached_prompt_tokens": 24241,
+    "cache_write_tokens": 0,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 24244,
+    "total": 24244,
+    "cache_read": 24241,
+    "cache_write": 0,
+    "uncached": 3
+  },
+  "cost": 3.309149,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 33018,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:57:39+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "반대로",
+  "main_cause_sentences": 3,
+  "sector": [
+    "인터넷"
+  ],
+  "universe_weight": null,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "기술주 약세 우려가 코스피 상승을 제한할 전망",
+          "relation": "market"
+        },
+        {
+          "id": "i2",
+          "issue": "두나무·네이버파이낸셜 합병 심사 일정",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 10
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": 8.26,
+      "kospi_change_rate_pct": -5.28,
+      "excess_vs_kospi_pp": 13.54,
+      "kospi_weight_pct": 0.57,
+      "kospi_contribution_pp": 0.047,
+      "kospi_ex_self_change_rate_pct": -5.36,
+      "excess_vs_kospi_ex_self_pp": 13.62,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "인터넷",
+        "median_change_rate_pct": 10.65,
+        "excess_vs_group_pp": -2.39,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "members_used": [
+          {
+            "code": "035720",
+            "name": "카카오"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "035420",
+            "name": "NAVER",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": 8.26,
+    "krx": 8.26,
+    "source": "KRX /sto/stk_bydd_trd 2026-11-05 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -5.28,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-11-05 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -5.19,
+        "peer_up": 7,
+        "peer_down": 13,
+        "peer_total": 20
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 13.45
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 0,
+    "background": 1,
+    "max_items": 10
+  },
+  "strength_recomputed": [],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "no_clear_cause",
+      "final": "no_clear_cause"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "no_clear_cause",
+      "final": "no_clear_cause"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/NAVER-2026-11-05-1845__r2.json",
+  "input_used_path": "inputs_used/NAVER-2026-11-05-1845__r2.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inB/b06__r2.json",
+  "input_sha256": "10a2208274fc264b676f95ba8604873d1997b1d04d38ccdcc140d30327de314f",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 1,
+    "messages_total": 1,
+    "relations": {
+      "market": 1,
+      "direct": 1,
+      "none": 10
+    },
+    "issues_used": 1
+  }
+}

@@ -1,0 +1,444 @@
+{
+  "case_id": "c03_000660_2026-10-23",
+  "summary": {
+    "n_runs": 3,
+    "expected_verdict": {
+      "move": "explained",
+      "relative": "explained"
+    },
+    "verdicts": [
+      {
+        "move": "explained",
+        "relative": "explained"
+      },
+      {
+        "move": "explained",
+        "relative": "explained"
+      },
+      {
+        "move": "explained",
+        "relative": "explained"
+      }
+    ],
+    "verdict_match_runs": {
+      "move": 3,
+      "relative": 3
+    },
+    "rule_a_violations": [
+      2,
+      1,
+      2
+    ],
+    "overclaim_candidates": [
+      2,
+      1,
+      2
+    ],
+    "omission_candidates": [
+      0,
+      0,
+      0
+    ],
+    "spurious_candidates": [
+      0,
+      0,
+      0
+    ],
+    "possible_contributor": [
+      {},
+      {},
+      {}
+    ],
+    "recap_cited": [
+      0,
+      0,
+      0
+    ],
+    "injected_cited": [
+      0,
+      0,
+      0
+    ],
+    "skipped_llm": [
+      null,
+      null,
+      null
+    ],
+    "verify_status": [
+      "passed",
+      "passed",
+      "passed"
+    ],
+    "same_conclusion_runs": 2,
+    "same_verdict_runs": 3,
+    "cost": 40.11
+  },
+  "reports": [
+    {
+      "run_id": "SK하이닉스-2026-10-23-1845__r1",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 13.872946,
+      "is_error": false,
+      "verdict": {
+        "move": "explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": true,
+        "relative": true
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ],
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e2",
+          "importance": "must",
+          "cap": "likely_cause",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 있음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ],
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        }
+      ],
+      "rule_a_violations": [
+        {
+          "id": "e1",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        },
+        {
+          "id": "e3",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        }
+      ],
+      "rule_a_violation_count": 2,
+      "overclaim_candidates": 2,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "칸 없음(구형 입력)": 5
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e1",
+          "e2",
+          "e3"
+        ],
+        "extra": 0
+      }
+    },
+    {
+      "run_id": "SK하이닉스-2026-10-23-1845__r2",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 14.393503,
+      "is_error": false,
+      "verdict": {
+        "move": "explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": true,
+        "relative": true
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e2",
+          "importance": "must",
+          "cap": "likely_cause",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 있음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [
+        {
+          "id": "e1",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        }
+      ],
+      "rule_a_violation_count": 1,
+      "overclaim_candidates": 1,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "칸 없음(구형 입력)": 3
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e1",
+          "e2"
+        ],
+        "extra": 0
+      }
+    },
+    {
+      "run_id": "SK하이닉스-2026-10-23-1845__r3",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 11.84384425,
+      "is_error": false,
+      "verdict": {
+        "move": "explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": true,
+        "relative": true
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ],
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e2",
+          "importance": "must",
+          "cap": "likely_cause",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 있음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        }
+      ],
+      "rule_a_violations": [
+        {
+          "id": "e1",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        },
+        {
+          "id": "e3",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        }
+      ],
+      "rule_a_violation_count": 2,
+      "overclaim_candidates": 2,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "칸 없음(구형 입력)": 5
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e1",
+          "e2",
+          "e3"
+        ],
+        "extra": 0
+      }
+    }
+  ]
+}

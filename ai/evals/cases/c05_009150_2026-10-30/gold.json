@@ -67,7 +67,7 @@
     },
     {
       "id": "e2",
-      "summary": "MLCC 업황 호조: TrendForce 고용량 MLCC 부족 1H27까지 지속, Yageo 3Q 컨센 상회",
+      "summary": "MLCC 업황 호조: TrendForce 고용량(AI용) MLCC 부족 1H27까지 지속, Yageo 3Q 영업이익 컨센 상회",
       "importance": "optional",
       "layer": [],
       "expected_mention": "background",
@@ -86,7 +86,30 @@
       "key_facts": [
         "MLCC"
       ],
-      "rationale": "간접 재료이고 방향 반대"
+      "rationale": "간접 재료이고 방향 반대. 같은 두 메시지의 하락 방향 대목은 e3 로 나눔"
+    },
+    {
+      "id": "e3",
+      "summary": "같은 업황 자료 속 약세 신호: 소비자용 MLCC 현물가 10월 초 약 5% 하락, 노트북 ODM 4Q 주문 -10~15% YoY, 범용 MLCC 가격 인상 기대 약화, 공급처 전환 유도 가격 경쟁 사례, Yageo BB Ratio 2.2→2.0",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19247",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/merITz_tech/19257",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "소비자용"
+      ],
+      "rationale": "방향은 하락과 맞지만 간접 재료(업황)이고 두 자료 모두 결론은 AI용 공급 부족·업사이클 지속이라 곁가지 대목. 10월 초 현물가 하락은 며칠 전 정보. -7.50% 를 설명하기에 약해 상한 coincident"
     }
   ],
   "acceptable_alternatives": [],

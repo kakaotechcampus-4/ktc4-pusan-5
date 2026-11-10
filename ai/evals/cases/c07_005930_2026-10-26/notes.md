@@ -12,6 +12,10 @@ move no_clear_cause / relative no_clear_cause, confidence none
 - relative 는 대형주 대비 +0.52 라 judge_layers 가 false. move(-1.16%)는 market_led 가 true 이고 재료가 모두 optional·coincident(마감 후 HBM4 소식, 간접 로보틱스 리포트).
 - 대안: 없음. 원인 없는 날 후보.
 
+## 시황·오버나이트 메시지 https://t.me/merITz_tech/19185 (2026-11-10)
+- 시황·오버나이트 메시지. 안 A 입력에는 kind 가 없어 근거 칸으로 들어감. 실서비스에서는 분류 단계에서 걸러질 수 있음.
+- gold 사건으로 두지 않음. 채점(score_rule_a.py)은 이 메시지만 인용한 link 를 gold 밖 link 와 따로 "시황 메시지 link" 로 셈.
+
 ## 외국인·기관 매매(수급)를 forbidden_claims(f2)에 넣은 이유
 - 유형은 `fabricated_cause`(입력에 없는 원인). 이 케이스의 `case.json` 에는 외국인·기관의 순매수·순매도 자료가 없음.
 - 입력에 나오는 "수급"은 MLCC·메모리 등 제품의 수요·공급을 뜻하고, "기관"은 연구기관·단체 이름이라 투자자별 매매와 무관함.
