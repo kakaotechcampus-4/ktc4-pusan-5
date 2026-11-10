@@ -41,6 +41,7 @@ from validate_gold import fact_match  # noqa: E402  같은 대조 규칙을 쓴�
 LAYERS = ("move", "relative")
 # 케이스별 시황·오버나이트 메시지. gold 사건이 아니고 notes.md 에 적어 둠(2026-11-10). 이 메시지만 인용한 link 는 따로 센다
 LEGACY_RECAP_URLS = {
+    "c01_000660_2026-10-28": {"https://t.me/KISGregKim/18879"},
     "c07_005930_2026-10-26": {"https://t.me/merITz_tech/19185"},
     "c09_009150_2026-10-28": {"https://t.me/KISGregKim/18879"},
 }
