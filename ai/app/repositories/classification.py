@@ -335,7 +335,8 @@ async def classified_sources(
     )).all()) if picked else {}
     card_ids = list(channels)
     records = {r.id: r for r in await get_sources(session, card_ids)}
-    clusters = await event_clusters(session, set(events), until=until, since=since)
+    clusters = await event_clusters(session, set(events), until=until, since=since,
+                                    observed_by=observed_by)
 
     sources = []
     not_observed = 0
