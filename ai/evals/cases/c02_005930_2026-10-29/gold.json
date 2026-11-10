@@ -105,6 +105,25 @@
         "시설투자"
       ],
       "rationale": "맥락 정보"
+    },
+    {
+      "id": "e4",
+      "summary": "장 전 메모리 업계 소식(Meritz Overnight): 중국 CXMT 낮은 수율에도 첨단 AI 메모리 생산 착수 예정, 솔리다임 美 낸드 공장 60조원 투자 추진",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19237",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "CXMT"
+      ],
+      "rationale": "경쟁사·업계 소식이라 간접 재료. 기사 제목 한 줄씩이고 삼성전자에 대한 직접 언급이 없어 하락 원인으로 쓰기에 약함. 상한 coincident"
     }
   ],
   "acceptable_alternatives": [],
