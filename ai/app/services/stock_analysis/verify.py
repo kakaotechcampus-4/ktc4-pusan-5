@@ -252,11 +252,12 @@ _KOSPI_CONTRAST = re.compile(
 # 쓰고 방향이 엇갈렸다고 덧붙인다(프롬프트 「동종 그룹」). 코스피에 붙은 말은 뺀다(_check_compare_opposite 와 같다). 경고다.
 # 종목별 등락률이 맞는지는 COMPARE_MEMBER_RATE 가 본다.
 COMPARE_MIXED_GROUP_RATE = "COMPARE_MIXED_GROUP_RATE"
-# 방향이 엇갈린 그룹(위와 같은 그룹)을 relative 에 쓰면서 엇갈렸다는 말("방향이 엇갈려" 등, _MIXED_STATED)이 없다. 종목별
-# 등락률만 쓰면 그룹 흐름을 왜 말하지 않는지가 빠진다. 그룹을 가리키는 문장이나 바로 다음 문장에 있으면 된다
+# 방향이 엇갈린 그룹(위와 같은 그룹)을 relative 에 쓰면서 엇갈렸다는 말("방향이 엇갈려", "오른 종목과 내린 종목이 섞여" 등,
+# _MIXED_STATED)이 없다. 종목별 등락률만 쓰면 그룹 흐름을 왜 말하지 않는지가 빠진다. 그룹을 가리키는 문장이나 바로 다음
+# 문장에 있으면 된다
 # ("… 기아는 0.83% 내렸습니다. 두 종목의 방향이 엇갈려 …"). 경고다.
 COMPARE_MIXED_NOT_STATED = "COMPARE_MIXED_NOT_STATED"
-_MIXED_STATED = re.compile(r"엇갈|방향이\s*(?:서로\s*)?(?:달라|달랐|반대)")
+_MIXED_STATED = re.compile(r"엇갈|섞여|섞인|방향이\s*(?:서로\s*)?(?:달라|달랐|반대)")
 # 입력 members_used[].change_rate_pct(비교 종목 각자의 등락률)가 있는 그룹에서, summary.relative 에 쓴 비교 종목의 등락률·방향이
 # 입력과 다르다(프롬프트 「동종 그룹」). 이름 목록 앞뒤에 붙은 등락을 본다.
 #   "1.00% 오른 같은 자동차 그룹의 기아", "0.35~0.80% 오른 같은 자동차 그룹의 현대차·기아"   수치 → 이름 목록
@@ -266,11 +267,16 @@ _MIXED_STATED = re.compile(r"엇갈|방향이\s*(?:서로\s*)?(?:달라|달랐|�
 # 등락률 부호와 맞아야 한다. "대체로 X% 안팎"·"대체로 보합인" 은 그룹 등락률이라 그 값과 맞아야 하고, 문장에서 빠지는
 # 종목(in_sentence: false)이 있는 그룹과 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상)에는 쓰지 않는다. 그 밖에 비교 종목
 # 이름이 나온 문장의 % 수치는 비교 종목 등락률·그룹 등락률(그룹 등락률을 쓰는 그룹만)·이 종목 등락률 가운데 하나여야 한다
-# ("기아(1.20%)" 같은 꼴). 그룹 판정과 상관없이 모든 그룹을 본다. 종목별 등락률이 없는 입력(예전 형식)은 보지 않는다.
+# ("기아(1.20%)" 같은 꼴). 그 수치에 부호(+, -, −)가 붙어 있고 바로 앞 종목 이름(비교 종목·이 종목 가운데 가장 가까운 것)이
+# 비교 종목이며 수치 크기가 그 종목 등락률과 같으면, 부호도 입력 방향과 맞아야 한다("현대차(-2.16%)" 는 현대차가 +2.16 이면
+# 틀림). 앞 이름이 이 종목이거나 크기가 다르면 그 종목 수치가 아니라고 보고 크기만 본다. 부호도 방향 말도 없는 수치는 크기만
+# 본다. 그룹 판정과 상관없이 모든 그룹을 본다. 종목별 등락률이 없는 입력(예전 형식)은 보지 않는다.
 # 다른 비교 경고와 같이 경고다 — 문장 꼴을 정규식으로 읽어 LLM 이 다르게 쓰면 놓치거나 잘못 잡을 수 있다.
 COMPARE_MEMBER_RATE = "COMPARE_MEMBER_RATE"
 _RATE_NUM = r"\d+(?:\.\d+)?"
 _PERCENT = re.compile(rf"({_RATE_NUM})\s*(?:~|%(?!p))")
+# 수치 바로 앞의 부호. 숫자 뒤에 붙은 "-"(범위 "0.35-0.80%")는 부호가 아니다. −(U+2212)도 마이너스다.
+_SIGN_BEFORE = re.compile(r"(?<![\d.])([+\-−])\s*$")
 # 이름이 이것으로 끝나는 그룹은 지분으로 이어진 묶음이라 문장에 "<앞부분> 지분으로 이어진" 으로 쓴다(프롬프트 「동종 그룹」).
 LINKED_GROUP_SUFFIX = " 연동"
 
@@ -1764,7 +1770,8 @@ def _check_compare_member_rate(report: dict[str, Any], payload: dict[str, Any]) 
         rates = _member_rates(peer)
         if rates is None:
             continue
-        problem = _member_rate_problem(sentences, peer, rates, allowed)
+        stock = payload.get("stock") if isinstance(payload.get("stock"), str) else ""
+        problem = _member_rate_problem(sentences, peer, rates, allowed, stock)
         if problem:
             out.append(_p(COMPARE_MEMBER_RATE, f"{peer['group']} 그룹 비교 종목: summary.relative 에 {problem}"))
     return out
@@ -1789,7 +1796,7 @@ def _no_group_rate(peer: dict[str, Any]) -> bool:
 
 
 def _member_rate_problem(sentences: list[str], peer: dict[str, Any], rates: dict[str, Decimal],
-                         allowed: set[Decimal]) -> str | None:
+                         allowed: set[Decimal], stock: str = "") -> str | None:
     """그룹 하나의 비교 종목 등락률 문제(첫 번째) 또는 None. COMPARE_MEMBER_RATE 주석의 규칙."""
     center = _decimal(peer.get("median_change_rate_pct"))
     rest = _no_group_rate(peer)
@@ -1844,6 +1851,27 @@ def _member_rate_problem(sentences: list[str], peer: dict[str, Any], rates: dict
             for m in _PERCENT.finditer(s):
                 if Decimal(m.group(1)) not in allowed:
                     return f"입력에 없는 수치 {m.group(1)}% 를 비교 종목 문장에 썼다 {s!r}"
+                if (problem := _signed_rate_problem(s, m, rates, stock)):
+                    return problem
+    return None
+
+
+def _signed_rate_problem(sentence: str, number: re.Match[str], rates: dict[str, Decimal], stock: str) -> str | None:
+    """부호 붙은 수치가 바로 앞 비교 종목의 입력 방향과 반대인가. COMPARE_MEMBER_RATE 주석의 부호 규칙."""
+    sign = _SIGN_BEFORE.search(sentence[:number.start()])
+    if sign is None:
+        return None
+    # 부호 앞에서 가장 가까운 종목 이름. 이 종목 이름도 후보에 넣어, 이 종목 수치를 비교 종목 것으로 보지 않는다
+    names = [*rates, stock] if stock else list(rates)
+    head = sentence[:sign.start()]
+    owner = max(names, key=lambda n: head.rfind(n) + len(n) if head.rfind(n) >= 0 else -1)
+    if head.rfind(owner) < 0 or owner not in rates or owner == stock:
+        return None
+    rate, value = rates[owner], Decimal(number.group(1))
+    if abs(rate) != value or rate == 0:
+        return None
+    if (1 if sign.group(1) == "+" else -1) != (rate > 0) - (rate < 0):
+        return f"부호가 입력 방향과 다르다({owner} {rate:+.2f}%) {sign.group(1)}{number.group(1)}% {sentence!r}"
     return None
 
 

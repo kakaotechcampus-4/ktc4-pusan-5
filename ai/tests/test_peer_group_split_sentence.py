@@ -607,3 +607,60 @@ def test_canned_report_with_two_groups_never_trips_its_own_compare_warnings() ->
                 "mixed_and_follows"):
         assert seen[key] > 0, key
     assert failures == [], f"{len(failures)}건: {failures[:5]}"
+
+
+# --- 부호 붙은 비교 종목 수치 (COMPARE_MEMBER_RATE), "섞여" 표현 (COMPARE_MIXED_NOT_STATED) --------------------------
+# 팀 리뷰: 크기만 보고 부호를 안 봐서 "현대차(-2.16%)와 기아(+0.83%)" 처럼 방향을 반대로 써도 통과했다.
+# 리뷰 예시 그룹 — 현대차 +2.16·기아 −0.83, 대상 현대모비스 +2.50.
+
+@pytest.mark.parametrize("relative", [
+    f"같은 자동차 그룹의 현대차(-2.16%)와 기아(+0.83%)는 {MIXED_TAIL}",  # 괄호 안, 둘 다 반대 (- 하이픈)
+    f"같은 자동차 그룹의 현대차(−2.16%)와 기아(0.83%)는 {MIXED_TAIL}",  # 유니코드 마이너스, 현대차만 틀림
+    f"같은 자동차 그룹의 현대차(+2.16%)와 기아(+0.83%)는 {MIXED_TAIL}",  # 기아만 틀림
+    f"같은 자동차 그룹의 현대차는 -2.16%, 기아는 +0.83%로 {MIXED_TAIL}",  # 괄호 없이 부호만
+])
+def test_llm_signed_member_rate_with_wrong_direction_is_warned(relative) -> None:
+    payload = _payload(2.50, [2.16, -0.83])
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    warnings = [w for w in check_warnings(report, payload) if code_of(w) == COMPARE_MEMBER_RATE]
+    assert len(warnings) == 1 and "부호가 입력 방향과 다르다" in warnings[0]
+
+
+@pytest.mark.parametrize("relative", [
+    f"같은 자동차 그룹의 현대차(+2.16%)와 기아(-0.83%)는 {MIXED_TAIL}",  # 맞는 부호 (- 하이픈)
+    f"같은 자동차 그룹의 현대차(+2.16%)와 기아(−0.83%)는 {MIXED_TAIL}",  # 맞는 부호 (− 유니코드)
+    f"같은 자동차 그룹의 현대차(2.16%)와 기아(0.83%)는 {MIXED_TAIL}",  # 부호도 방향 말도 없으면 크기만
+    # 이 종목 수치는 바로 앞 이름이 이 종목이라 비교 종목 부호로 보지 않는다
+    f"같은 자동차 그룹의 현대차(+2.16%)·기아(−0.83%)는 {MIXED_TAIL} 현대모비스는 +2.50% 올랐습니다.",
+])
+def test_llm_signed_member_rate_with_right_direction_is_not_warned(relative) -> None:
+    payload = _payload(2.50, [2.16, -0.83])
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert _compare_warnings(report, payload) == set()
+
+
+@pytest.mark.parametrize(("range_text", "warned"), [
+    ("0.35-0.80%", False),  # 숫자 뒤에 붙은 "-" 는 범위다. 부호로 읽으면 기아(+0.80)와 방향이 반대라 걸린다
+    ("0.35, -0.80%", True),  # 쉼표 뒤의 "-" 는 부호다
+])
+def test_hyphen_after_number_is_a_range_not_a_sign(range_text, warned) -> None:
+    payload = _payload(0.27, [0.35, 0.80, -1.37])  # 현대차 +0.35·기아 +0.80 은 문장에, 현대위아 −1.37 은 따로
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = (
+        f"현대모비스는 코스피, 그리고 같은 자동차 그룹의 현대차·기아({range_text})와 비슷하게 움직여 시장 전체 흐름을 "
+        "따라갔습니다. 같은 그룹의 현대위아는 1.37% 내렸습니다.")
+    assert (COMPARE_MEMBER_RATE in _compare_warnings(report, payload)) is warned
+
+
+@pytest.mark.parametrize("relative", [
+    "같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내려, 오른 종목과 내린 종목이 섞여 그룹 흐름과 비교하기 어렵습니다.",
+    ("같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내렸습니다. 오른 종목과 내린 종목이 섞인 그룹이라 그룹 흐름과 "
+     "비교하기 어렵습니다."),
+])
+def test_mixed_stated_with_seokyeo_is_not_warned(relative) -> None:
+    payload = _payload(2.50, [2.16, -0.83])
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert _compare_warnings(report, payload) == set()
