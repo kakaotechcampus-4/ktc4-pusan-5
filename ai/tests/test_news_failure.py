@@ -4,18 +4,82 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.services.news.failure import failure_kind, http_error, is_retryable, retry_due
+from app.services.news.failure import (
+    counts_toward_limit,
+    failure_kind,
+    http_error,
+    is_retryable,
+    retry_due,
+)
 
 
 @pytest.mark.parametrize("error", ["http_error: 429", "http_429"])
 def test_rate_limit_waits_ten_minutes(error):
     mock_now = datetime(2026, 10, 28, tzinfo=UTC)
-    assert not retry_due(error, mock_now, now=mock_now)
-    assert not retry_due(error, mock_now - timedelta(minutes=9, seconds=59), now=mock_now)
-    assert retry_due(error, mock_now - timedelta(minutes=10), now=mock_now)
-    assert retry_due(error, None, now=mock_now)
-    assert retry_due("http_error: 503", mock_now, now=mock_now)
-    assert not retry_due("http_error: 404", None, now=mock_now)
+    assert not retry_due(error, mock_now, failures=0, now=mock_now)
+    assert not retry_due(error, mock_now - timedelta(minutes=9, seconds=59), failures=0,
+                         now=mock_now)
+    assert retry_due(error, mock_now - timedelta(minutes=10), failures=0, now=mock_now)
+    assert retry_due(error, None, failures=0, now=mock_now)
+    assert retry_due("http_error: 503", mock_now, failures=0, now=mock_now)
+    assert not retry_due("http_error: 404", None, failures=0, now=mock_now)
+
+
+@pytest.mark.parametrize("error", ["extract_failed", "extract_empty", "no_body", "unrecorded", None])
+def test_extract_and_unknown_failures_wait_thirty_minutes(error):
+    """구조적으로 못 읽는 사이트를 수집 주기마다 다시 열지 않는다. 일시 실패는 바로 다시 연다."""
+    mock_now = datetime(2026, 11, 6, tzinfo=UTC)
+    assert not retry_due(error, mock_now, failures=0, now=mock_now)
+    assert not retry_due(error, mock_now - timedelta(minutes=29, seconds=59), failures=0,
+                         now=mock_now)
+    assert retry_due(error, mock_now - timedelta(minutes=30), failures=0, now=mock_now)
+    # 시각 없는 기존 행은 한 번 더 확인한다
+    assert retry_due(error, None, failures=0, now=mock_now)
+    assert retry_due("request_failed: ReadTimeout", mock_now, failures=0, now=mock_now)
+
+
+@pytest.mark.parametrize("error", ["extract_empty", "no_body", "unrecorded", None])
+def test_extract_and_unknown_failures_give_up_after_three(error):
+    """세 번 실패하면 대기 시간이 지나도 다시 열지 않는다. 시각이 없어도 마찬가지다."""
+    mock_now = datetime(2026, 11, 6, tzinfo=UTC)
+    long_ago = mock_now - timedelta(hours=1)
+    assert retry_due(error, long_ago, failures=2, now=mock_now)
+    assert not retry_due(error, long_ago, failures=3, now=mock_now)
+    assert not retry_due(error, None, failures=3, now=mock_now)
+    assert is_retryable(error, failures=2)
+    assert not is_retryable(error, failures=3)
+
+
+@pytest.mark.parametrize("error", ["request_failed: ReadTimeout", "http_error: 503",
+                                   "http_error: 429"])
+def test_transient_and_rate_limit_are_not_capped_by_count(error):
+    """다시 열면 될 수 있는 실패는 횟수로 포기하지 않는다. 24시간 규칙만 받는다."""
+    mock_now = datetime(2026, 11, 6, tzinfo=UTC)
+    assert retry_due(error, mock_now - timedelta(hours=1), failures=10, now=mock_now)
+    assert is_retryable(error, failures=10)
+
+
+@pytest.mark.parametrize(("body_error", "counted"), [
+    ("extract_empty", True),
+    ("no_body", True),
+    ("unrecorded", True),
+    (None, True),
+    ("request_failed: ReadTimeout", False),
+    ("http_error: 503", False),
+    ("http_error: 429", False),
+    ("http_error: 404", False),
+])
+def test_only_extract_and_unknown_failures_count_toward_the_limit(body_error, counted):
+    """일시 실패·429 가 횟수에 섞이면 추출 실패를 한 번만 해도 바로 포기하게 된다."""
+    assert counts_toward_limit(body_error) is counted
+
+
+def test_failure_count_is_required():
+    """빠뜨리면 0 으로 읽혀 추출 실패를 끝없이 다시 열므로 기본값을 두지 않는다."""
+    with pytest.raises(TypeError):
+        retry_due("extract_empty", None)  # type: ignore[call-arg]
+    with pytest.raises(TypeError):
+        is_retryable("extract_empty")  # type: ignore[call-arg]
 
 
 @pytest.mark.parametrize(("body_error", "kind"), [
@@ -50,9 +114,9 @@ def test_failure_kind(body_error, kind):
 
 
 def test_only_permanent_failures_are_not_retried():
-    assert not is_retryable("http_error: 404")
-    assert is_retryable("http_error: 429")
-    assert is_retryable("unrecorded")
+    assert not is_retryable("http_error: 404", 0)
+    assert is_retryable("http_error: 429", 0)
+    assert is_retryable("unrecorded", 0)
 
 
 def test_http_error_format_is_shared():
