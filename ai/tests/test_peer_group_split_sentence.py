@@ -664,3 +664,60 @@ def test_mixed_stated_with_seokyeo_is_not_warned(relative) -> None:
     report = gen.canned_report(payload)
     report["summary"]["relative"] = relative
     assert _compare_warnings(report, payload) == set()
+
+
+# --- 대상 이름이 비교 종목 이름의 앞부분인 경우 (SK ⊂ SK스퀘어·SK하이닉스) ------------------------------------------
+# 코드 리뷰: 대상 이름을 부분 문자열로 찾아, 대상 SK 가 "SK스퀘어" 안에서도 잡혔다. 그 뒤의 SK스퀘어 등락률을 SK 것으로 봐
+# COMPARE_TARGET_RATE_MISSING 이 나지 않았고, 부호 검사도 "SK그룹" 안의 SK 를 대상으로 봐 비교 종목 부호를 건너뛰었다.
+
+SK_GROUP = ("SK하이닉스 연동", [("000660", "SK하이닉스"), ("402340", "SK스퀘어")])
+
+
+def _sk_payload() -> dict:
+    """대상 SK +1.00, SK하이닉스 0.00·SK스퀘어 +1.00. 판정은 follows(중앙값 0.50)."""
+    code, name = "034730", "SK"
+    group, members = SK_GROUP
+    groups = {group: {code: name, **dict(members)}}
+    stocks = [stock(code, 100, 1.00), stock("000660", 100, 0.00), stock("402340", 100, 1.00)]
+    ctx = build_market_context(code, DAY, kospi(KOSPI_RATE), stocks, groups=groups, stock_groups={code: (group,)})
+    compare = mc.to_input(ctx, groups=groups)
+    excess = round(1.00 - KOSPI_RATE, 2)
+    compare["kospi"] = {
+        "stock_change_rate_pct": 1.00, "kospi_change_rate_pct": KOSPI_RATE, "excess_vs_kospi_pp": excess,
+        "kospi_weight_pct": 0.7, "kospi_contribution_pp": 0.0, "kospi_ex_self_change_rate_pct": KOSPI_RATE,
+        "excess_vs_kospi_ex_self_pp": excess, "kospi_basis": "kospi",
+        "kospi_relation": kospi_relation(excess, 1.00, KOSPI_RATE)}
+    return _report_input(name, code, 1.00, KOSPI_RATE, compare)
+
+
+@pytest.mark.parametrize(("relative", "missing"), [
+    # SK 등락률을 빼고 SK스퀘어 수치만 — "SK스퀘어" 안의 SK 는 대상이 아니다
+    ("SK하이닉스 지분으로 이어진 SK스퀘어는 1.00% 올랐습니다. SK하이닉스 지분으로 이어진 SK하이닉스는 보합이었습니다.", True),
+    (("SK하이닉스 지분으로 이어진 SK스퀘어는 1.00% 올랐고, SK는 1.00% 올랐습니다. "
+      "SK하이닉스 지분으로 이어진 SK하이닉스는 보합이었습니다."), False),
+    ("SK하이닉스 지분으로 이어진 SK스퀘어는 1.00% 올랐고, SK(+1.00%)도 올랐습니다.", False),
+])
+def test_target_name_inside_member_name_is_not_the_target(relative, missing) -> None:
+    payload = _sk_payload()
+    [peer] = payload["market_compare"]["peers"]
+    assert peer["relation"] == "follows" and peer["judge_in_sentence"] is True
+    # verify 단위 시험: 판정하는 말을 빼는 그룹이라고 두고 대상 등락률 찾기만 본다(이 숫자로는 다시 판정해도 follows 라
+    # 실제 입력에서는 true 다 — 대상과 비교 종목 등락률이 같으면 문장에 보이는 종목과의 차이가 0 이다)
+    peer["judge_in_sentence"] = False
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert (COMPARE_TARGET_RATE_MISSING in _compare_warnings(report, payload)) is missing
+
+
+@pytest.mark.parametrize(("relative", "warned"), [
+    # "SK그룹" 안의 SK 를 대상으로 보면 -1.00% 를 대상 수치로 보고 건너뛴다. 앞 종목은 SK스퀘어(+1.00)다
+    ("SK하이닉스 지분으로 이어진 SK스퀘어는 SK그룹 재편 기대 속에 -1.00%, SK하이닉스는 보합이었습니다.", True),
+    ("SK하이닉스 지분으로 이어진 SK스퀘어는 SK그룹 재편 기대 속에 +1.00%, SK하이닉스는 보합이었습니다.", False),
+    # 대상 SK 자신의 수치는 비교 종목 부호로 보지 않는다
+    ("SK하이닉스 지분으로 이어진 SK스퀘어는 1.00% 올랐고, SK는 +1.00% 올랐습니다.", False),
+])
+def test_signed_rate_owner_is_found_by_whole_name(relative, warned) -> None:
+    payload = _sk_payload()
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert (COMPARE_MEMBER_RATE in _compare_warnings(report, payload)) is warned

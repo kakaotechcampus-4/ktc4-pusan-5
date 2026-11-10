@@ -277,6 +277,15 @@ _RATE_NUM = r"\d+(?:\.\d+)?"
 _PERCENT = re.compile(rf"({_RATE_NUM})\s*(?:~|%(?!p))")
 # 수치 바로 앞의 부호. 숫자 뒤에 붙은 "-"(범위 "0.35-0.80%")는 부호가 아니다. −(U+2212)도 마이너스다.
 _SIGN_BEFORE = re.compile(r"(?<![\d.])([+\-−])\s*$")
+# 종목 이름의 앞뒤 경계. 앞에 글자·숫자가 붙지 않고, 뒤에는 조사가 하나 붙거나 글자·숫자가 아닌 것이 온다. "SK는"·"SK(" 의
+# SK 는 이름이지만 "SK스퀘어"·"SK하이닉스"·"SK그룹" 안의 SK 는 아니다(이름이 다른 이름의 앞부분인 경우).
+_NAME_HEAD = r"(?<![가-힣A-Za-z0-9])"
+_NAME_TAIL = r"(?=(?:은|는|이|가|의|와|과|도|만|을|를|에|로|으로|에서)?(?![가-힣A-Za-z0-9]))"
+
+
+def _name_matches(text: str, name: str) -> list[re.Match[str]]:
+    """text 에서 종목 이름 name 이 단어로 나온 자리(_NAME_HEAD·_NAME_TAIL)."""
+    return list(re.finditer(rf"{_NAME_HEAD}{re.escape(name)}{_NAME_TAIL}", text)) if name else []
 # 이름이 이것으로 끝나는 그룹은 지분으로 이어진 묶음이라 문장에 "<앞부분> 지분으로 이어진" 으로 쓴다(프롬프트 「동종 그룹」).
 LINKED_GROUP_SUFFIX = " 연동"
 
@@ -1649,7 +1658,7 @@ def _stock_rate_in(sentence: str, stock: str, rate: Decimal, member_names: list[
     의 1.00% 는 이 종목 등락률이 1.00% 여도 기아 것이다."""
     if not stock:
         return False
-    for m in re.finditer(re.escape(stock), sentence):
+    for m in _name_matches(sentence, stock):  # 부분 문자열로 찾으면 대상 SK 가 "SK스퀘어" 안에서도 잡힌다
         rest = sentence[m.end():]
         found = re.search(r"보합", rest) if rate == 0 else _PERCENT.search(rest)
         if found is None:
@@ -1862,10 +1871,12 @@ def _signed_rate_problem(sentence: str, number: re.Match[str], rates: dict[str, 
     if sign is None:
         return None
     # 부호 앞에서 가장 가까운 종목 이름. 이 종목 이름도 후보에 넣어, 이 종목 수치를 비교 종목 것으로 보지 않는다
+    # 이름은 앞뒤 경계로 찾는다(_name_matches). 부분 문자열로 찾으면 "SK스퀘어" 안의 "SK" 를 이 종목 SK 로 본다
     names = [*rates, stock] if stock else list(rates)
     head = sentence[:sign.start()]
-    owner = max(names, key=lambda n: head.rfind(n) + len(n) if head.rfind(n) >= 0 else -1)
-    if head.rfind(owner) < 0 or owner not in rates or owner == stock:
+    ends = {n: max((m.end() for m in _name_matches(head, n)), default=-1) for n in names}
+    owner = max(names, key=lambda n: ends[n])
+    if ends[owner] < 0 or owner not in rates or owner == stock:
         return None
     rate, value = rates[owner], Decimal(number.group(1))
     if abs(rate) != value or rate == 0:
