@@ -154,9 +154,38 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
 (`market_compare.MarketCompare` → `market_data.build_market_context`). 형식은 프롬프트 1부 그대로다 — 비교 판정
 `kospi.kospi_basis`(`kospi` | `kospi_ex_self`, 코스피 비중 10% 이상이면 자기 제외 코스피)·`kospi.kospi_relation`
 (`follows` | `opposite` | `diverges` | null)과 그룹마다 `peers[].relation`(`follows` | `opposite` | `diverges` | `inconclusive` | null).
-`opposite` 는 차이가 기준 안이지만 오르내린 방향이 반대인 날이다(보합 0.00 은 방향 없음). 판정 기준은
+`opposite` 는 차이가 기준 안이지만 오르내린 방향이 반대인 날이다(보합 0.00 은 방향 없음). `diverges` 인데 이 종목과
+기준 시장의 방향이 같으면 "코스피와는 다르게" 로 쓰고 "코스피는 올랐지만" 같은 반대를 잇는 말은 쓰지 않는다(경고
+`COMPARE_KOSPI_CONTRAST`, summary.move·relative). 코스피 수치는 summary.move 에만 쓰고 relative 에는 쓰지 않는다(경고
+`COMPARE_KOSPI_RATE_IN_RELATIVE`). 판정 기준은
 `market_data/context.py` 상수(`KOSPI_EX_SELF_WEIGHT_PCT`, `KOSPI_FOLLOW_THRESHOLD_PP`, `GROUP_FOLLOW_THRESHOLD_PP`)다.
-프롬프트에 없는 계산 칸(비중 분모, 재계산 코스피, `weight_basis`)은 보내지 않고, `members_used` 는 `{code, name}` 으로 바꾼다.
+프롬프트에 없는 계산 칸(비중 분모, 재계산 코스피, `weight_basis`)은 보내지 않고, `members_used` 는
+`{code, name, change_rate_pct, in_sentence}` 로 바꾼다.
+
+**그룹 문장에 쓸 종목**(`market_compare.sentence_members`). 판정은 그대로 두고 문장만 정한다.
+
+- `members_used[].change_rate_pct` — 그 비교 종목의 등락률(반올림한 보이는 값).
+- `members_used[].in_sentence` — `summary.relative` 그룹 문장에 이름과 등락률로 쓸 종목. 그룹 등락률(중앙값)과 방향이 같은
+  종목만 `true` 다(그룹 등락률이 보합이면 보합인 종목). 보합이거나 방향이 다른 종목이 섞인 그룹을 "대체로 X% 안팎" 으로 쓰면
+  그 종목도 같은 방향으로 움직인 것처럼 읽히기 때문이다. `false` 인 종목은 따로 한 문장("같은 그룹의 현대차는 보합이었습니다.")으로
+  쓴다. `follows`·`diverges`·`opposite` 만 나눈다. `inconclusive`·`null` 은 모두 `true`.
+- `mixed` — 비교 종목 방향이 엇갈린 그룹(`inconclusive`, 비교 종목 둘 이상)이면 `true`. 그 그룹은 그룹 등락률 없이 모든
+  비교 종목을 각자의 등락률로 쓰고 엇갈렸다고 덧붙인다
+  ("같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내려, 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다.").
+- `judge_in_sentence` — 그룹 문장에 판정하는 말("비슷하게"·"크게 달랐다")을 써도 되는가. `in_sentence: true` 종목만으로
+  다시 판정해(그 종목들의 중앙값, `group_relation`, 비교 종목 수는 원래 수) 원래 판정과 같으면 `true`. 다르면 독자가 보는
+  숫자와 판정이 어긋나 등락만 쓴다(예: 현대차 0.00·기아 +1.00 에 대상 +1.80 은 중앙값 0.50 기준 `diverges` 지만 기아와는
+  0.80%p 차이). `follows`·`diverges` 에만 값이 있고 `opposite`·`inconclusive`·`null` 은 `null` 이다 — 원래 판정하는 말을
+  쓰지 않는 판정이라 칸이 필요 없고, `false` 로 보내면 모델이 엇갈린 그룹에 아래 `false` 규칙을 가져다 써 "방향이 엇갈려" 를
+  빠뜨렸다.
+  `follows`·`diverges` 인데 `false` 면 relative 그룹 문장에 이 종목 등락률을 반드시 쓰고(독자가 두 숫자를 나란히 보게),
+  `summary.unexplained` 에도 그 그룹과의 차이를 판정하는 말("같은 자동차 그룹과 다르게 오른 이유")을 쓰지 않는다. 재료를 찾는
+  규칙은 판정대로라 그대로다.
+- 검증: 경고 `COMPARE_MEMBER_RATE`(relative 의 비교 종목 등락률·방향이 입력과 다름, 빠지는 종목이 있는 그룹에 그룹 등락률),
+  `COMPARE_OPPOSITE_WORDING`(`judge_in_sentence: false` 그룹에 판정하는 말. relative 와 unexplained),
+  `COMPARE_TARGET_RATE_MISSING`(`judge_in_sentence: false` 인 `follows`·`diverges` 그룹을 relative 에 쓰면서 이 종목 등락률이 없음),
+  `COMPARE_MIXED_NOT_STATED`(엇갈린 그룹을 쓰면서 "방향이 엇갈려" 같은 말이 없음). `COMPARE_MEMBER_RATE` 는 엇갈린 그룹의 종목별
+  등락률도 보고, 엇갈린 그룹에 그룹 등락률을 쓰면 잡는다.
 
 ```jsonc
 // KB금융 2026-10-29 (실제 KRX 응답으로 계산)
@@ -168,8 +197,8 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
              "excess_vs_kospi_ex_self_pp": 3.1, "kospi_basis": "kospi", "kospi_relation": "diverges" },
   // 그룹 등락률은 신한지주 0.80·우리금융지주 3.01·하나금융지주 3.82 의 중앙값. 평균(2.54)이었으면 초과분 −0.72%p 로 follows 였다
   "peers": [ { "group": "은행지주", "median_change_rate_pct": 3.01, "excess_vs_group_pp": -1.19, "peer_count": 3,
-               "relation": "diverges",
-               "members_used": [ { "code": "055550", "name": "신한지주" }, … ],
+               "relation": "diverges", "mixed": false, "judge_in_sentence": true,
+               "members_used": [ { "code": "055550", "name": "신한지주", "change_rate_pct": 0.8, "in_sentence": true }, … ],
                "members_excluded": [ { "code": "105560", "name": "KB금융", "reason": "self" } ] } ]
 }
 ```

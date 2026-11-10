@@ -1,0 +1,67 @@
+{
+  "bas_dd": "2026-11-04",
+  "kospi": {
+    "bas_dd": "2026-11-04",
+    "series": "KOSPI",
+    "name": "코스피",
+    "close": 5683.8,
+    "change": 35.01,
+    "change_rate": 0.62,
+    "open": 5786.13,
+    "high": 5828.13,
+    "low": 5421.72,
+    "volume": 276391323,
+    "trade_value": 23948643541319,
+    "market_cap": 4690046643095522
+  },
+  "stocks": [
+    {
+      "bas_dd": "2026-11-04",
+      "code": "000270",
+      "name": "기아",
+      "market": "KOSPI",
+      "close": 95800,
+      "change": -800,
+      "change_rate": -0.83,
+      "open": 96800,
+      "high": 97500,
+      "low": 92500,
+      "volume": 1104281,
+      "trade_value": 104625967900,
+      "market_cap": 37401565208400,
+      "listed_shares": 390412998
+    },
+    {
+      "bas_dd": "2026-11-04",
+      "code": "012330",
+      "name": "현대모비스",
+      "market": "KOSPI",
+      "close": 355000,
+      "change": 4500,
+      "change_rate": 1.28,
+      "open": 354500,
+      "high": 359000,
+      "low": 342000,
+      "volume": 227892,
+      "trade_value": 79870083750,
+      "market_cap": 31886307675000,
+      "listed_shares": 89820585
+    },
+    {
+      "bas_dd": "2026-11-04",
+      "code": "005380",
+      "name": "현대차",
+      "market": "KOSPI",
+      "close": 283500,
+      "change": 6000,
+      "change_rate": 2.16,
+      "open": 279000,
+      "high": 283500,
+      "low": 268500,
+      "volume": 663328,
+      "trade_value": 183640106250,
+      "market_cap": 57682750482000,
+      "listed_shares": 203466492
+    }
+  ]
+}

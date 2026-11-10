@@ -482,6 +482,20 @@ WHO = "같은 은행지주 그룹의 신한지주·하나금융지주·우리금
     (_with_compare("follows", [_peer("inconclusive", -5.49, "메모리반도체", [{"code": "000660", "name": "SK하이닉스"}])]),
      "KB금융은 코스피와 비슷하게 움직였습니다.",
      "같은 메모리반도체 그룹의 SK하이닉스는 5.49% 내렸습니다."),
+    # 비교 종목이 둘 이상인데 inconclusive 면 방향이 엇갈린 그룹이다. 그룹 등락률(대체로 X% 안팎)을 쓰지 않는다.
+    # 코스피 판정이 follows 면 종목 자신의 결론(코스피를 따라갔다)을 앞에 남긴다
+    (_with_compare("follows", [_peer("inconclusive", 0.0)]),
+     "KB금융은 코스피와 비슷하게 움직였습니다.",
+     f"KB금융은 코스피와 비슷하게 움직여 시장 전체 흐름을 따라갔습니다. {WHO}는 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."),
+    # 코스피 판정이 follows 가 아니면 엇갈림 문장만(코스피 비교는 summary.move 에 있다)
+    (_with_compare("opposite", [_peer("inconclusive", 0.0)], change=-0.5, kospi=0.4),
+     "코스피는 올랐고 KB금융은 내렸습니다.",
+     f"{WHO}는 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."),
+    (_with_compare("diverges", [_peer("inconclusive", 1.11, "SK하이닉스 연동",
+                                     [{"code": "000660", "name": "SK하이닉스"}, {"code": "034730", "name": "SK"}])],
+                   change=-2.5, kospi=1.2),
+     "코스피는 올랐지만 KB금융은 내렸습니다.",
+     "SK하이닉스 지분으로 이어진 SK하이닉스·SK는 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."),
     # 연동 그룹은 지분으로 이어진 관계로 쓴다
     (_with_compare("follows", [_peer("follows", 1.2, "SK하이닉스 연동",
                                      [{"code": "000660", "name": "SK하이닉스"}, {"code": "034730", "name": "SK"}])],
