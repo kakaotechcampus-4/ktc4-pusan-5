@@ -50,6 +50,13 @@ classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카�
 자료의 종류대로 other·news). 기사는 제목을 뺀 본문으로 비교해, 기사 본문을 옮긴 텔레그램 메시지와도 묶인다.
 나머지는 meta dropped 에 대표 자료 ID 와 함께 남긴다. 공통 배경 MARKET_RECAP_LIMIT 은 묶은 뒤에 센다.
 
+## 대상일(target_date)
+
+주지 않으면 cutoff 의 날짜(KST)다. --target-date D 를 주면 입력 target_date 가 D 가 된다 — 장 마감 뒤 만든 보고서를
+다음 날 아침(cutoff D+1 08:30)에 다시 만들 때 쓴다. target_date 가 D 라야 러너가 cutoff 를 D 장 마감 이후로 보고
+(market_compare.after_close) KRX 비교를 켜고, 화면 기준 시각도 D 장 마감이 된다. 주지 않으면 D+1 장중으로 읽혀
+KRX 비교가 꺼진다. 조회 끝은 그대로 cutoff 라, D 장 마감 뒤 ~ cutoff 사이 자료와 날짜만 있는 D 자료도 들어온다.
+
 ## 조회 시작(since)
 
 주지 않으면 target_date 직전 거래일의 장 마감 시각(market_compare.market_close — 평소 15:30, LATE_CLOSE 날은 그
@@ -275,9 +282,11 @@ def require_known_stock(code: str) -> str:
 
 def build_input(
     found: dict[str, Any], records: Mapping[int, SourceRecord], *, code: str, cutoff: datetime,
-    change_pct: float, since: datetime,
+    change_pct: float, since: datetime, target_date: date | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """(러너 입력, meta). found 는 classified_sources 결과, records 는 그 메시지·뉴스 카드의 get_sources(include_body=True)."""
+    """(러너 입력, meta). found 는 classified_sources 결과, records 는 그 메시지·뉴스 카드의 get_sources(include_body=True).
+
+    target_date 를 안 주면 cutoff 의 날짜(KST)다(맨 위 「대상일」)."""
     name = require_known_stock(code)
 
     items, dropped, boundary = [], [], []  # items: 본문 있는 메시지의 (message, trace), classified_sources 순서
@@ -360,7 +369,7 @@ def build_input(
 
     payload = {
         "stock": name, "code": code,
-        "target_date": cutoff.astimezone(KST).date().isoformat(),
+        "target_date": (target_date or cutoff.astimezone(KST).date()).isoformat(),
         "cutoff": cutoff.isoformat(timespec="seconds"),
         "change_pct": change_pct,
         "market": None,
@@ -388,19 +397,23 @@ def build_input(
 
 async def load_input(
     session: AsyncSession, code: str, *, cutoff: datetime, change_pct: float,
-    since: datetime | None = None,
+    since: datetime | None = None, target_date: date | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """DB 에서 읽어 (러너 입력, meta). since 를 안 주면 직전 거래일 장 마감(맨 위 설명)."""
+    """DB 에서 읽어 (러너 입력, meta). since 를 안 주면 target_date 직전 거래일 장 마감(맨 위 설명).
+    target_date 를 안 주면 cutoff 의 날짜다. 조회 끝은 target_date 와 관계없이 cutoff 다."""
     if cutoff.utcoffset() is None:
         raise ValueError("cutoff must be timezone-aware")
+    day = target_date or cutoff.astimezone(KST).date()
+    if day > cutoff.astimezone(KST).date():
+        raise ValueError(f"target_date {day} 가 cutoff 날짜보다 뒤다: {cutoff.isoformat()}")
     # 종목표에 없는 종목이면 DB 를 읽어 봐야 입력을 만들 수 없다. 조회 전에 멈춘다
     require_known_stock(code)
     if since is not None:
         since_basis = "argument"
     else:
-        open_days = await read_open_days(session, cutoff.astimezone(KST).date())
+        open_days = await read_open_days(session, day)
         since_basis = "market_calendar" if open_days is not None else "weekday_fallback"
-        since = previous_close(cutoff.astimezone(KST).date(), open_days)
+        since = previous_close(day, open_days)
     found = await classified_sources(session, code, until=cutoff, since=since)
     # 공시는 분류하지 않아 classified_sources 에 없다. 같은 기간에 이 종목으로 이어진 공시 카드를 뒤에 붙인다.
     # 공시만 고르는 건 조회에서 한다 — 이어진 카드를 전부 get_sources 로 읽고 거르면 메시지·기사 카드의 링크·공유
@@ -410,7 +423,7 @@ async def load_input(
     ids = [s["source_card_id"] for s in found["sources"] if s["card_type"] in INPUT_CARD_TYPES]
     records = {r.id: r for r in await get_sources(session, ids, include_body=True, cutoff=cutoff)}
     payload, meta = build_input(found, records, code=code, cutoff=cutoff, change_pct=change_pct,
-                                since=since)
+                                since=since, target_date=target_date)
     meta["since_basis"] = since_basis
     return payload, meta
 
@@ -439,7 +452,8 @@ async def main(args: argparse.Namespace) -> None:
     async with SessionLocal() as session:
         payload, meta = await load_input(
             session, args.code, cutoff=_aware(args.cutoff), change_pct=args.change_pct,
-            since=_aware(args.since) if args.since else None)
+            since=_aware(args.since) if args.since else None,
+            target_date=date.fromisoformat(args.target_date) if args.target_date else None)
     path = write(args.out, payload, meta)
     counts = meta["counts"]
     print(f"{path}  since {meta['since']} ({meta['since_basis']})  메시지 {counts['messages']}"
@@ -456,9 +470,16 @@ def cli(argv: list[str] | None = None) -> None:
     parser.add_argument("--cutoff", required=True, help="기준 시각 ISO 8601. 시간대가 없으면 KST")
     parser.add_argument("--change-pct", type=float, required=True,
                         help="기준 시각 등락률. 장 마감 뒤 KRX 가 ok 면 러너가 덮어쓴다")
-    parser.add_argument("--since", help="조회 시작. 없으면 직전 거래일 장 마감")
+    parser.add_argument("--since", help="조회 시작. 없으면 target_date 직전 거래일 장 마감")
+    parser.add_argument("--target-date", help="대상일 YYYY-MM-DD. 없으면 cutoff 의 날짜. 장 마감 뒤 다음 날 아침 "
+                                              "cutoff 로 다시 만들 때 그 전 거래일을 준다")
     parser.add_argument("--out", type=Path, default=Path("runs/classified_inputs"))
     args = parser.parse_args(argv)
+    if args.target_date:
+        try:
+            date.fromisoformat(args.target_date)
+        except ValueError:
+            parser.error(f"--target-date 는 YYYY-MM-DD 여야 한다: {args.target_date!r}")
     try:
         require_known_stock(args.code)
     except UnknownStockError as exc:
