@@ -721,3 +721,57 @@ def test_signed_rate_owner_is_found_by_whole_name(relative, warned) -> None:
     report = gen.canned_report(payload)
     report["summary"]["relative"] = relative
     assert (COMPARE_MEMBER_RATE in _compare_warnings(report, payload)) is warned
+
+
+def _sk_square_payload() -> dict:
+    """대상 SK스퀘어 +1.00, 비교 종목 SK +0.50 하나. SK하이닉스는 그날 시세가 없어 비교 종목에서 빠진다(members_excluded
+    missing). 비교 종목에 SK 가 있고, 문장에는 비교 종목이 아닌 SK하이닉스가 나온다."""
+    code, name, group = "402340", "SK스퀘어", "SK하이닉스 연동"
+    groups = {group: {code: name, "000660": "SK하이닉스", "034730": "SK"}}
+    stocks = [stock(code, 100, 1.00), stock("034730", 100, 0.50)]
+    ctx = build_market_context(code, DAY, kospi(KOSPI_RATE), stocks, groups=groups, stock_groups={code: (group,)})
+    compare = mc.to_input(ctx, groups=groups)
+    excess = round(1.00 - KOSPI_RATE, 2)
+    compare["kospi"] = {
+        "stock_change_rate_pct": 1.00, "kospi_change_rate_pct": KOSPI_RATE, "excess_vs_kospi_pp": excess,
+        "kospi_weight_pct": 0.7, "kospi_contribution_pp": 0.0, "kospi_ex_self_change_rate_pct": KOSPI_RATE,
+        "excess_vs_kospi_ex_self_pp": excess, "kospi_basis": "kospi",
+        "kospi_relation": kospi_relation(excess, 1.00, KOSPI_RATE)}
+    payload = _report_input(name, code, 1.00, KOSPI_RATE, compare)
+    [peer] = compare["peers"]
+    assert [m["name"] for m in peer["members_used"]] == ["SK"]
+    return payload
+
+
+@pytest.mark.parametrize(("relative", "missing"), [
+    # 이 종목 이름과 수치 사이의 "SK하이닉스" 안 SK 를 비교 종목 SK 로 보면 1.00% 를 SK 것으로 보고 건너뛴다
+    ("SK스퀘어는 SK하이닉스 지분 가치가 오르며 1.00% 올랐고, SK하이닉스 지분으로 이어진 SK는 0.50% 올랐습니다.", False),
+    # 이름과 수치 사이에 비교 종목 SK 가 단어로 끼면 그 수치는 SK 것이다
+    ("SK스퀘어는 SK하이닉스 지분 가치가 오르며 올랐고, SK하이닉스 지분으로 이어진 SK는 0.50% 올랐습니다.", True),
+])
+def test_member_name_inside_other_name_is_not_the_member_for_target_rate(relative, missing) -> None:
+    payload = _sk_square_payload()
+    [peer] = payload["market_compare"]["peers"]
+    assert peer["relation"] == "follows" and peer["judge_in_sentence"] is True
+    # verify 단위 시험: 판정하는 말을 빼는 그룹이라고 두고 대상 등락률 찾기만 본다(test_target_name_inside_member_name_… 와 같은 방식)
+    peer["judge_in_sentence"] = False
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert (COMPARE_TARGET_RATE_MISSING in _compare_warnings(report, payload)) is missing
+
+
+@pytest.mark.parametrize(("relative", "warned"), [
+    # 비교 종목 SK 가 나오지 않는 문장. "SK하이닉스" 안의 SK 로 비교 종목 문장이라고 보면 SK하이닉스 수치 3.20% 를
+    # 입력에 없는 비교 종목 수치로 경고한다
+    ("SK스퀘어는 1.00% 올랐고, SK하이닉스는 3.20% 올랐습니다. SK하이닉스 지분으로 이어진 SK는 0.50% 올랐습니다.", False),
+    # 비교 종목 SK 를 쓴 문장의 입력에 없는 수치는 지금처럼 경고한다
+    ("SK스퀘어는 1.00% 올랐고, SK하이닉스 지분으로 이어진 SK는 3.20% 올랐습니다.", True),
+    # 조사가 겹치거나 "보다" 가 붙어도 비교 종목 이름이다
+    ("SK스퀘어는 1.00% 올라, 3.20% 오른 SK보다 덜 올랐습니다.", True),
+    ("SK스퀘어는 1.00% 올랐고, SK에서도 3.20% 를 말했습니다.", True),
+])
+def test_member_name_inside_other_name_is_not_the_member_for_member_rate(relative, warned) -> None:
+    payload = _sk_square_payload()
+    report = gen.canned_report(payload)
+    report["summary"]["relative"] = relative
+    assert (COMPARE_MEMBER_RATE in _compare_warnings(report, payload)) is warned

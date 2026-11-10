@@ -20,6 +20,7 @@ LLM 을 부르지 않는다. 모델에게 "네 인용이 맞느냐" 를 물으�
 """
 
 import re
+from collections.abc import Iterable
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -277,15 +278,31 @@ _RATE_NUM = r"\d+(?:\.\d+)?"
 _PERCENT = re.compile(rf"({_RATE_NUM})\s*(?:~|%(?!p))")
 # 수치 바로 앞의 부호. 숫자 뒤에 붙은 "-"(범위 "0.35-0.80%")는 부호가 아니다. −(U+2212)도 마이너스다.
 _SIGN_BEFORE = re.compile(r"(?<![\d.])([+\-−])\s*$")
-# 종목 이름의 앞뒤 경계. 앞에 글자·숫자가 붙지 않고, 뒤에는 조사가 하나 붙거나 글자·숫자가 아닌 것이 온다. "SK는"·"SK(" 의
-# SK 는 이름이지만 "SK스퀘어"·"SK하이닉스"·"SK그룹" 안의 SK 는 아니다(이름이 다른 이름의 앞부분인 경우).
+# 종목 이름(대상·비교 종목)의 앞뒤 경계. 앞에 글자·숫자가 붙지 않고, 뒤에는 조사가 붙거나(겹쳐도 된다: "에서도", "와는")
+# 글자·숫자가 아닌 것이 온다. "SK는"·"SK(" 의 SK 는 이름이지만 "SK스퀘어"·"SK하이닉스"·"SK그룹" 안의 SK 는 아니다(이름이 다른
+# 이름의 앞부분인 경우). 종목 이름은 _name_pattern 으로만 찾는다 — 부분 문자열(in·find)로 찾으면 위 SK 가 다시 잡힌다
 _NAME_HEAD = r"(?<![가-힣A-Za-z0-9])"
-_NAME_TAIL = r"(?=(?:은|는|이|가|의|와|과|도|만|을|를|에|로|으로|에서)?(?![가-힣A-Za-z0-9]))"
+_JOSA = "은|는|이|가|의|와|과|도|만|을|를|에|로|으로|에서|보다|처럼|까지|부터|만큼"
+_NAME_TAIL = rf"(?=(?:{_JOSA})*(?![가-힣A-Za-z0-9]))"
+
+
+def _name_pattern(names: Iterable[str], *, tail: bool = True) -> str:
+    """종목 이름 여럿 중 하나가 단어로 나온 자리를 찾는 정규식 조각. 긴 이름부터 맞춘다. tail=False 는 뒤 경계를 부르는 쪽
+    정규식이 정할 때("기아와 함께" 처럼 이름 바로 뒤에 붙는 꼴을 따로 쓰는 곳)만 쓴다. 이름이 없으면 아무것도 맞지 않는다."""
+    names = sorted({n for n in names if n}, key=len, reverse=True)
+    if not names:
+        return r"(?!)"
+    return rf"{_NAME_HEAD}(?:{'|'.join(re.escape(n) for n in names)}){_NAME_TAIL if tail else ''}"
 
 
 def _name_matches(text: str, name: str) -> list[re.Match[str]]:
-    """text 에서 종목 이름 name 이 단어로 나온 자리(_NAME_HEAD·_NAME_TAIL)."""
-    return list(re.finditer(rf"{_NAME_HEAD}{re.escape(name)}{_NAME_TAIL}", text)) if name else []
+    """text 에서 종목 이름 name 이 단어로 나온 자리."""
+    return list(re.finditer(_name_pattern([name]), text))
+
+
+def _has_name(text: str, names: Iterable[str]) -> bool:
+    """text 에 종목 이름 names 중 하나가 단어로 나오나."""
+    return re.search(_name_pattern(names), text) is not None
 # 이름이 이것으로 끝나는 그룹은 지분으로 이어진 묶음이라 문장에 "<앞부분> 지분으로 이어진" 으로 쓴다(프롬프트 「동종 그룹」).
 LINKED_GROUP_SUFFIX = " 연동"
 
@@ -1611,7 +1628,7 @@ def _unexplained_group_judged(text: str, peer: dict[str, Any], *, single: bool) 
     if judged:
         return None
     names = [m["name"] for m in peer.get("members_used") or [] if isinstance(m, dict) and isinstance(m.get("name"), str)]
-    targets = [re.escape(group_mention(peer["group"]))] + [re.escape(n) for n in sorted(names, key=len, reverse=True)]
+    targets = [re.escape(group_mention(peer["group"]))] + ([_name_pattern(names, tail=False)] if names else [])
     if single:
         targets.append(r"같은\s+그룹")
     subject = "|".join(targets)
@@ -1664,7 +1681,7 @@ def _stock_rate_in(sentence: str, stock: str, rate: Decimal, member_names: list[
         if found is None:
             continue
         between = rest[:found.start()]
-        if any(n in between for n in member_names if n != stock):
+        if _has_name(between, [n for n in member_names if n != stock]):
             continue
         if rate == 0 or Decimal(found.group(1)) == abs(rate):
             return True
@@ -1810,21 +1827,21 @@ def _member_rate_problem(sentences: list[str], peer: dict[str, Any], rates: dict
     center = _decimal(peer.get("median_change_rate_pct"))
     rest = _no_group_rate(peer)
     why = "방향이 엇갈린 그룹" if is_mixed_peer(peer) else "문장에서 빠지는 비교 종목이 있는 그룹"
-    names = "|".join(re.escape(n) for n in sorted(rates, key=len, reverse=True))
+    names = _name_pattern(rates)
     listed = rf"(?P<names>(?:{names})(?:·(?:{names}))*)"
     mention = rf"(?:같은\s+)?{re.escape(group_mention(peer['group']))}의?\s+"
     amount = rf"(?P<rough>대체로\s*)?(?:(?P<low>{_RATE_NUM})\s*~\s*)?(?P<value>{_RATE_NUM})%\s*(?P<about>안팎\s*)?"
     patterns = [
         re.compile(rf"{amount}(?P<verb>오른|내린|상승한|하락한)\s+{mention}{listed}"),
-        re.compile(rf"(?<![가-힣A-Za-z0-9]){listed}(?:은|는|이|가)\s+{amount}(?P<verb>올랐|내렸|올라|내려|상승|하락)"),
+        re.compile(rf"{listed}(?:은|는|이|가)\s+{amount}(?P<verb>올랐|내렸|올라|내려|상승|하락)"),
         re.compile(rf"(?P<rough>대체로\s*)?보합인\s+{mention}{listed}"),
-        re.compile(rf"(?<![가-힣A-Za-z0-9]){listed}(?:은|는|이|가)\s+(?P<rough>대체로\s*)?보합"),
+        re.compile(rf"{listed}(?:은|는|이|가)\s+(?P<rough>대체로\s*)?보합"),
     ]
     # "현대차는 0.40%, 기아는 1.20% 올랐" — 쉼표로 이은 종목마다 수치가 있고 등락 말은 끝에 한 번. 종목마다 따로 본다
     josa = r"(?:은|는|이|가)\s+"
-    pair = rf"(?<![가-힣A-Za-z0-9])(?P<name>{names}){josa}(?P<value>{_RATE_NUM})%"
+    pair = rf"(?P<name>{names}){josa}(?P<value>{_RATE_NUM})%"
     pair_list = re.compile(
-        rf"(?<![가-힣A-Za-z0-9])(?:{names}){josa}{_RATE_NUM}%\s*,\s*"
+        rf"(?:{names}){josa}{_RATE_NUM}%\s*,\s*"
         rf"(?:(?:{names}){josa}{_RATE_NUM}%\s*,\s*)*(?:{names}){josa}{_RATE_NUM}%\s*(?P<verb>올랐|내렸|올라|내려|상승|하락)")
     for s in sentences:
         for m in pair_list.finditer(s):
@@ -1856,7 +1873,7 @@ def _member_rate_problem(sentences: list[str], peer: dict[str, Any], rates: dict
                     return f"입력 등락률({'·'.join(f'{r:.2f}%' for r in listed_rates)})과 다르다 {m.group(0)!r}"
                 if any((r > 0) - (r < 0) != sign for r in listed_rates):
                     return f"오르내린 방향이 입력 등락률과 다르다 {m.group(0)!r}"
-        if any(n in s for n in rates):
+        if _has_name(s, rates):
             for m in _PERCENT.finditer(s):
                 if Decimal(m.group(1)) not in allowed:
                     return f"입력에 없는 수치 {m.group(1)}% 를 비교 종목 문장에 썼다 {s!r}"
@@ -1871,7 +1888,7 @@ def _signed_rate_problem(sentence: str, number: re.Match[str], rates: dict[str, 
     if sign is None:
         return None
     # 부호 앞에서 가장 가까운 종목 이름. 이 종목 이름도 후보에 넣어, 이 종목 수치를 비교 종목 것으로 보지 않는다
-    # 이름은 앞뒤 경계로 찾는다(_name_matches). 부분 문자열로 찾으면 "SK스퀘어" 안의 "SK" 를 이 종목 SK 로 본다
+    # 이름은 앞뒤 경계로 찾는다(_name_pattern). 부분 문자열로 찾으면 "SK스퀘어" 안의 "SK" 를 이 종목 SK 로 본다
     names = [*rates, stock] if stock else list(rates)
     head = sentence[:sign.start()]
     ends = {n: max((m.end() for m in _name_matches(head, n)), default=-1) for n in names}
