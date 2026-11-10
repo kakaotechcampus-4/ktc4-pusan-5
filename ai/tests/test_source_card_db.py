@@ -320,7 +320,7 @@ def test_cards_get_earliest_public_time_date_and_report_stock(database):
 
 
 def test_stock_card_ids_respects_the_cutoff(database):
-    """기준 시각 이후 자료와, 시각을 몰라 같은 날인지 알 수 없는 자료는 빠진다."""
+    """기준 시각 이후 자료는 빠지고, 시각 없이 작성일만 있는 리포트는 작성일이 기준 시각 날짜인 조회에만 들어간다."""
     from app.repositories.source_card import stock_card_ids
 
     alembic(database, "upgrade", "head")
@@ -337,12 +337,13 @@ def test_stock_card_ids_respects_the_cutoff(database):
         return in_session(database, lambda s: stock_card_ids(s, "005930", until=until, since=since))
 
     kst = timezone(timedelta(hours=9))
-    # 10-05 09:00: 네이버 리포트(10-04 작성)만. 기사는 10:00 에 공개됐다
-    assert find(datetime(2026, 10, 5, 9, 0, tzinfo=kst)) == [ids["pdf1"]]
-    # 10-05 15:30: 리포트와 기사. 다른 종목의 메시지는 빠진다
-    assert find(datetime(2026, 10, 5, 15, 30, tzinfo=kst)) == [ids["pdf1"], ids["news1"]]
-    # 10-04 15:30: 작성일이 같은 날인 리포트는 기준 시각 전인지 몰라 뺀다
-    assert find(datetime(2026, 10, 4, 15, 30, tzinfo=kst)) == []
+    # 네이버 리포트(10-04 작성, 시각 없음)는 작성일이 기준 시각 날짜(보고서 대상일)와 같은 보고서에만 들어간다
+    # 10-05 09:00: 아무것도 없다. 리포트는 10-04 보고서 몫이고 기사는 10:00 에 공개됐다
+    assert find(datetime(2026, 10, 5, 9, 0, tzinfo=kst)) == []
+    # 10-05 15:30: 기사만. 다른 종목의 메시지는 빠진다
+    assert find(datetime(2026, 10, 5, 15, 30, tzinfo=kst)) == [ids["news1"]]
+    # 10-04 15:30: 작성일이 대상일과 같은 리포트는 넣는다(장 마감 뒤 작성분이 섞일 수 있음)
+    assert find(datetime(2026, 10, 4, 15, 30, tzinfo=kst)) == [ids["pdf1"]]
     # since 로 앞쪽을 자른다
     assert find(datetime(2026, 10, 5, 15, 30, tzinfo=kst),
                 since=datetime(2026, 10, 5, 0, 0, tzinfo=kst)) == [ids["news1"]]

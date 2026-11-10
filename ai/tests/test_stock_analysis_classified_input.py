@@ -9,7 +9,12 @@ from sqlalchemy.exc import ProgrammingError
 
 from app.collectors.stock_analysis import collect_inputs
 from app.core.scope import KST
-from app.repositories.source_card.read_model import SourceRecord, body_observed_by, hide_after_cutoff
+from app.repositories.source_card.query import since_day_counts
+from app.repositories.source_card.read_model import (
+    SourceRecord,
+    body_observed_by,
+    hide_after_cutoff,
+)
 from app.services.stock_analysis import classified_input as ci
 from app.services.stock_analysis.generate import check_input, model_input, needs_llm
 from app.services.stock_analysis.verify import split_messages
@@ -189,35 +194,23 @@ def test_disclosure_messages_carry_is_correction_and_model_gets_it():
     assert check_input(payload) == []
 
 
-def test_untimed_disclosure_on_since_day_is_left_out_with_reason():
-    """접수 시각을 모르는 공시는 접수일이 조회 시작일(SINCE 11-02)보다 뒤일 때만 넣는다(맨 위 설명)."""
-    on_since_day = disclosure_record(11)
-    on_since_day.write_date = SINCE.date()
-    timed = disclosure_record(12)  # 같은 날 접수지만 수집기가 장 마감 뒤에 처음 봐 공개 시각이 있다
-    timed.write_date = SINCE.date()
-    timed.available_at = SINCE + timedelta(hours=1)
-    after = disclosure_record(13, title="현금ㆍ현물배당결정")  # 접수일 11-03, 시각 모름. 제목이 같으면 중복으로 묶인다
-    sources = [source(10, event("company")), ci.disclosure_source(11), ci.disclosure_source(12),
-               ci.disclosure_source(13)]
-    payload, meta = build(sources, [record(10), on_since_day, timed, after])
+def test_disclosures_left_out_by_the_query_are_recorded_with_their_edge():
+    """조회(available_within)가 경계 날짜라 뺀 시각 없는 공시는 원문을 읽지 않고 meta dropped 에 사유만 남는다.
+    조회 시작일이면 boundary_disclosure, 게시 끝 날짜면 close_day_disclosure 다."""
+    timed = disclosure_record(12)  # 조회 시작일 접수지만 수집기가 장 마감 뒤에 처음 봐 공개 시각이 있다
+    timed.write_date, timed.available_at = SINCE.date(), SINCE + timedelta(hours=1)
+    sources = [source(10, event("company")), ci.disclosure_source(12)]
+    left_out = [(11, SINCE.date(), "since_day"), (14, CUTOFF.date(), "until_day")]
+    payload, meta = ci.build_input(found(*sources), {r.id: r for r in [record(10), timed]}, code=CODE,
+                                   cutoff=CUTOFF, change_pct=-1.2, since=SINCE, left_out=left_out)
 
-    assert [m["url"] for m in payload["messages"]] == [
-        "https://t.me/mock_ch/10", "https://dart.mock/12", "https://dart.mock/13"]
-    assert meta["counts"]["disclosure_boundary"] == 1
-    assert meta["counts"]["disclosure"] == 2
-    assert meta["counts"]["no_body"] == 0   # 본문 없음과 따로 센다
-    [dropped] = meta["dropped"]
-    assert dropped["source_card_id"] == 11
-    assert dropped["reason"].startswith("boundary_disclosure: 접수일 2026-11-02 이 조회 시작일")
-
-
-def test_boundary_rule_is_only_for_disclosures():
-    """시각 없이 작성일만 있는 리포트는 그대로 둔다(이번 규칙은 공시만)."""
-    report = pdf_record(11)
-    report.write_date = SINCE.date()
-    payload, meta = build([source(11, event("company"), card_type="pdf")], [report])
-    assert [m["url"] for m in payload["messages"]] == ["https://mock.research/11.pdf"]
-    assert meta["counts"]["disclosure_boundary"] == 0
+    assert [m["url"] for m in payload["messages"]] == ["https://t.me/mock_ch/10", "https://dart.mock/12"]
+    counts = meta["counts"]
+    assert (counts["disclosure_boundary"], counts["disclosure_close_day"], counts["no_body"]) == (1, 1, 0)
+    reasons = {d["source_card_id"]: d["reason"] for d in meta["dropped"]}
+    assert reasons[11].startswith("boundary_disclosure: 접수일 2026-11-02 이 조회 시작일")
+    assert reasons[14].startswith("close_day_disclosure: 접수일 2026-11-03 이 게시 끝 날짜")
+    assert "게시 끝(2026-11-03T15:30+09:00)" in reasons[14]
 
 
 def test_news_cards_become_news_messages():
@@ -401,6 +394,10 @@ def test_previous_close(day, open_days, expected):
     assert ci.previous_close(day, open_days) == expected
 
 
+async def no_left_out(session, code, *, until, since=None):
+    return []
+
+
 class FakeSession:
     """market_calendar 읽기만 흉내 낸다. rows 가 None 이면 표가 없는 것처럼 실패한다."""
 
@@ -460,6 +457,7 @@ def test_load_input_default_since(monkeypatch, rows, basis, since):
     monkeypatch.setattr(ci, "classified_sources", fake_classified)
     monkeypatch.setattr(ci, "stock_card_ids", fake_linked)
     monkeypatch.setattr(ci, "get_sources", fake_sources)
+    monkeypatch.setattr(ci, "untimed_disclosures_left_out", no_left_out)
     payload, meta = asyncio.run(ci.load_input(FakeSession(rows), CODE, cutoff=CUTOFF, change_pct=-1.2))
 
     assert seen["classified"] == seen["linked"] == (CODE, CUTOFF, since)
@@ -485,6 +483,7 @@ def test_load_input_uses_given_since(monkeypatch):
     monkeypatch.setattr(ci, "classified_sources", fake_classified)
     monkeypatch.setattr(ci, "stock_card_ids", fake_linked)
     monkeypatch.setattr(ci, "get_sources", fake_sources)
+    monkeypatch.setattr(ci, "untimed_disclosures_left_out", no_left_out)
     _, meta = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=CUTOFF, change_pct=0.0, since=SINCE))
     assert meta["since_basis"] == "argument"
 
@@ -499,11 +498,29 @@ NEXT_MORNING = datetime(2026, 11, 6, 8, 30, tzinfo=KST)      # 다음 날 08:30 
 
 
 def posted_within(rec: SourceRecord, until: datetime, since: datetime) -> bool:
-    """조회 SQL(available_within·available_since)을 파이썬으로 옮긴 것. 날짜만 있으면 until 날짜보다 앞서야 한다."""
+    """조회 SQL(query.available_within)을 파이썬으로 옮긴 것. 같은 규칙을 실제 SQL 로는 DB 테스트
+    (test_dart_disclosure_db·test_source_card_db)가 본다.
+    시각 없는 공시는 since 날짜 < 접수일 < until 날짜(since 가 DART 접수 전이면 since 날짜도), 그 밖의 날짜만 있는
+    자료(리포트)는 until 날짜와 같을 때만."""
     if rec.available_at is not None:
         return since <= rec.available_at <= until
-    day = rec.write_date
-    return day is not None and since.astimezone(KST).date() <= day < until.astimezone(KST).date()
+    day, until_day, since_day = rec.write_date, until.astimezone(KST).date(), since.astimezone(KST).date()
+    if day is None:
+        return False
+    if rec.kind == "disclosure":
+        return (since_day <= day if since_day_counts(since) else since_day < day) and day < until_day
+    return day == until_day
+
+
+def left_out_of(records: list[SourceRecord], disclosures: tuple[int, ...], until: datetime,
+                since: datetime) -> list[tuple[int, date, str]]:
+    """query.untimed_disclosures_left_out 를 파이썬으로 옮긴 것."""
+    days = {until.astimezone(KST).date(): "until_day"}
+    if not since_day_counts(since):
+        days.setdefault(since.astimezone(KST).date(), "since_day")
+    return [(r.id, r.write_date, days[r.write_date])
+            for r in sorted(records, key=lambda r: (r.write_date or date.min, r.id))
+            if r.id in disclosures and r.available_at is None and r.write_date in days]
 
 
 def fake_db(monkeypatch, records: list[SourceRecord], disclosures: tuple[int, ...] = ()) -> dict:
@@ -528,6 +545,10 @@ def fake_db(monkeypatch, records: list[SourceRecord], disclosures: tuple[int, ..
         seen["linked"] = (until, since)
         return [i for i in disclosures if posted_within(by_id[i], until, since)]
 
+    async def fake_left_out(session, code, *, until, since=None):
+        seen["left_out"] = (until, since)
+        return left_out_of(records, disclosures, until, since)
+
     async def fake_sources(session, ids, *, include_body=False, cutoff=None):
         seen["sources_cutoff"] = cutoff
         out = [copy.copy(by_id[i]) for i in ids]
@@ -538,6 +559,7 @@ def fake_db(monkeypatch, records: list[SourceRecord], disclosures: tuple[int, ..
     monkeypatch.setattr(ci, "classified_sources", fake_classified)
     monkeypatch.setattr(ci, "stock_card_ids", fake_linked)
     monkeypatch.setattr(ci, "get_sources", fake_sources)
+    monkeypatch.setattr(ci, "untimed_disclosures_left_out", fake_left_out)
     return seen
 
 
@@ -611,6 +633,8 @@ def test_target_date_reads_posts_until_target_close_only(monkeypatch, cutoff):
     assert meta["posted_until"] == "2026-11-05T15:30:00+09:00" and meta["since"] == SINCE_OF_TARGET.isoformat()
     assert payload["target_date"] == "2026-11-05" and payload["cutoff"] == cutoff.isoformat()
     assert meta["counts"]["disclosure"] == 1 and meta["counts"]["disclosure_boundary"] == 0
+    assert meta["counts"]["disclosure_close_day"] == 1   # 날짜만 있는 D 공시(15)는 사유와 함께 빠진다
+    assert seen["left_out"] == (CLOSE, SINCE_OF_TARGET)
     assert check_input(payload) == []
 
 
@@ -682,6 +706,117 @@ def test_late_close_day_reads_until_the_delayed_close(monkeypatch):
 def test_target_date_after_cutoff_date_is_an_error():
     with pytest.raises(ValueError, match="target_date"):
         asyncio.run(ci.load_input(NoDbSession(), CODE, cutoff=CUTOFF, change_pct=0.0, target_date=date(2026, 11, 4)))
+
+
+def test_untimed_items_of_target_day_go_to_exactly_one_report_or_are_recorded(monkeypatch):
+    """리뷰 2번 상황. D 장중에 접수된 시각 없는 공시와 D 에 쓴 네이버 리포트를 D 보고서(16:00·다음 날 08:30, 대상일 D)와
+    D+1 보고서(16:00, 대상일 D+1)로 만든다. 리포트는 D 보고서에만 들어가고, 공시는 어디에도 안 들어가는 대신
+    D 보고서 meta 에 close_day_disclosure, D+1 보고서 meta 에 boundary_disclosure 로 남는다."""
+    disclosure = untimed_disclosure(40, TARGET, "단일판매ㆍ공급계약체결")
+    report = pdf_record(41)
+    report.write_date = TARGET
+    runs = {"D 16:00": (AFTERNOON, TARGET), "D+1 08:30": (NEXT_MORNING, TARGET),
+            "D+1 16:00": (datetime(2026, 11, 6, 16, 0, tzinfo=KST), date(2026, 11, 6))}
+    urls, reasons = {}, {}
+    for name, (cutoff, target) in runs.items():
+        fake_db(monkeypatch, [disclosure, report], disclosures=(40,))
+        payload, meta = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=cutoff, change_pct=1.0,
+                                                  target_date=target))
+        urls[name] = [m["url"] for m in payload["messages"]]
+        reasons[name] = {d["source_card_id"]: d["reason"] for d in meta["dropped"]}
+
+    assert urls == {"D 16:00": ["https://mock.research/41.pdf"], "D+1 08:30": ["https://mock.research/41.pdf"],
+                    "D+1 16:00": []}
+    assert reasons["D 16:00"][40].startswith("close_day_disclosure: 접수일 2026-11-05 이 게시 끝 날짜")
+    assert reasons["D+1 08:30"][40].startswith("close_day_disclosure: 접수일 2026-11-05 이 게시 끝 날짜")
+    assert reasons["D+1 16:00"][40].startswith("boundary_disclosure: 접수일 2026-11-05 이 조회 시작일")
+
+
+@pytest.mark.parametrize(("since", "included"), [
+    (datetime(2026, 11, 9, 0, 0, tzinfo=KST), True),    # 자정
+    (datetime(2026, 11, 9, 6, 30, tzinfo=KST), True),   # DART 접수 전
+    (datetime(2026, 11, 9, 9, 0, tzinfo=KST), False),   # 접수가 열린 뒤 — 그 전 공시일 수 있다
+])
+def test_since_before_dart_opens_keeps_since_day_disclosures(monkeypatch, since, included):
+    """리뷰 3번. since 가 그날 DART 접수 전이면 since 날짜의 시각 없는 공시는 모두 since 뒤라 넣는다."""
+    fake_db(monkeypatch, [untimed_disclosure(50, date(2026, 11, 9), "주식소각결정")], disclosures=(50,))
+    payload, meta = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=datetime(2026, 11, 10, 16, 0, tzinfo=KST),
+                                              change_pct=0.0, since=since))
+    assert ([m["url"] for m in payload["messages"]] == ["https://dart.mock/50"]) is included
+    assert meta["counts"]["disclosure_boundary"] == (0 if included else 1)
+
+
+TUESDAY_MORNING = datetime(2026, 11, 10, 8, 30, tzinfo=KST)
+
+
+@pytest.mark.parametrize(("cutoff", "target", "open_days", "ok"), [
+    (AFTERNOON, TARGET, None, True),                                   # 같은 날
+    (NEXT_MORNING, TARGET, None, True),                                # 직전 거래일
+    (datetime(2026, 11, 9, 8, 30, tzinfo=KST), date(2026, 11, 6), None, True),  # 월요일 → 금요일
+    (TUESDAY_MORNING, date(2026, 11, 6), {date(2026, 11, 9): False}, True),     # 월요일 휴장이면 화요일 → 금요일
+    (TUESDAY_MORNING, date(2026, 11, 6), None, False),                 # 달력이 없으면 평일 규칙이라 월요일만
+    (NEXT_MORNING, date(2026, 11, 4), None, False),                    # 이틀 전
+    (TUESDAY_MORNING, date(2026, 11, 2), None, False),                 # 리뷰 4번의 오타
+    (CUTOFF, date(2026, 11, 4), None, False),                          # cutoff 날짜보다 뒤
+])
+def test_check_range_target_date(cutoff, target, open_days, ok):
+    if ok:
+        ci.check_range(cutoff, target_date=target, open_days=open_days)
+    else:
+        with pytest.raises(ci.InputRangeError, match="target_date"):
+            ci.check_range(cutoff, target_date=target, open_days=open_days)
+
+
+def test_check_range_since_after_posted_end():
+    with pytest.raises(ci.InputRangeError, match="공개 끝"):
+        ci.check_range(NEXT_MORNING, target_date=TARGET, since=datetime(2026, 11, 5, 16, 0, tzinfo=KST))
+    ci.check_range(NEXT_MORNING, target_date=TARGET, since=CLOSE)   # 같으면 된다
+    with pytest.raises(ci.InputRangeError, match="공개 끝"):
+        ci.check_range(CUTOFF, since=CUTOFF + timedelta(minutes=1))
+
+
+def test_load_input_checks_range_with_market_calendar(monkeypatch):
+    fake_db(monkeypatch, [])
+    payload, meta = asyncio.run(ci.load_input(FakeSession([(date(2026, 11, 9), False)]), CODE, cutoff=TUESDAY_MORNING,
+                                              change_pct=0.0, target_date=date(2026, 11, 6)))
+    assert payload["target_date"] == "2026-11-06" and meta["since"] == "2026-11-05T15:30:00+09:00"
+    with pytest.raises(ci.InputRangeError, match="직전 거래일"):   # 달력이 없으면 화요일의 직전 거래일은 월요일
+        asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=TUESDAY_MORNING, change_pct=0.0,
+                                  target_date=date(2026, 11, 6)))
+    with pytest.raises(ci.InputRangeError, match="공개 끝"):
+        asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=NEXT_MORNING, change_pct=0.0, target_date=TARGET,
+                                  since=datetime(2026, 11, 5, 17, 0, tzinfo=KST)))
+
+
+async def must_not_open_db(args):
+    raise AssertionError("DB 를 여는 main 까지 가면 안 된다")
+
+
+@pytest.mark.parametrize("extra", [
+    ["--cutoff", "2026-11-10T16:00:00+09:00", "--target-date", "2026-11-11"],    # 리뷰 5번
+    ["--cutoff", "2026-11-10T08:30:00+09:00", "--target-date", "2026-11-02"],    # 리뷰 4번
+    ["--cutoff", "2026-11-06T08:30:00+09:00", "--target-date", "2026-11-05", "--since", "2026-11-05T17:00:00+09:00"],
+    ["--cutoff", "2026-11-06T08:30:00+09:00", "--target-date", "2026-11-5x"],
+    ["--cutoff", "어제 저녁"],
+])
+def test_cli_rejects_bad_range_before_db_with_exit_2(monkeypatch, capsys, extra):
+    monkeypatch.setattr(ci, "main", must_not_open_db)
+    with pytest.raises(SystemExit) as info:
+        ci.cli(["--code", CODE, "--change-pct", "0", *extra])
+    assert info.value.code == 2
+    assert "Traceback" not in capsys.readouterr().err
+
+
+def test_cli_turns_calendar_range_error_into_exit_2(monkeypatch, capsys):
+    async def calendar_says_no(args):
+        raise ci.InputRangeError("target_date 2026-11-06 는 cutoff 날짜(2026-11-10)이거나 그 직전 거래일(2026-11-09)이어야 한다")
+
+    monkeypatch.setattr(ci, "main", calendar_says_no)
+    with pytest.raises(SystemExit) as info:
+        ci.cli(["--code", CODE, "--change-pct", "0", "--cutoff", "2026-11-10T08:30:00+09:00", "--target-date", "2026-11-09"])
+    assert info.value.code == 2
+    err = capsys.readouterr().err
+    assert "직전 거래일" in err and "Traceback" not in err
 
 
 class NoDbSession:

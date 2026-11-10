@@ -19,11 +19,15 @@ classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카�
 공시는 목록만 저장해 본문이 없으므로 제목을 text 로 넣는다(kind disclosure, mentioned).
 정정 공시(제목이 CORRECTION_RE 로 시작 — [기재정정]·[첨부정정]·[첨부추가])는 is_correction: true 다. 이미 낸 서류를
 고친 것이라 그날의 새 사건이 아니다(프롬프트 1부, 검증 경고 DISCLOSURE_CORRECTION_AS_CAUSE). 공시 메시지에만 이 칸이 있다.
-**접수 시각을 모르는 공시는 조회 시작일 공시를 뺀다.** DART 목록은 접수일만 주고, 공시 카드의 공개 시각은 수집기가
-접수일 당일에 처음 본 시각뿐이다(source_card registration). 그 시각이 없으면 조회는 날짜로만 고르므로(available_since)
-조회 시작일(직전 거래일)에 접수된 공시가 장 마감(since) 전 것인지 알 수 없다. 넣으면 이미 반영된 전날 재료가 섞이므로
-접수일이 조회 시작일보다 뒤인 것만 넣고, 뺀 공시는 meta dropped 에 사유와 남긴다(counts.disclosure_boundary).
-전날 장 마감 뒤 공시도 같이 빠진다 — 잡으려면 수집기를 그날 저녁에도 돌려 공개 시각이 남게 해야 한다.
+**접수 시각을 모르는 공시는 경계 날짜 것을 뺀다.** DART 목록은 접수일만 주고, 공시 카드의 공개 시각은 수집기가
+접수일 당일에 처음 본 시각뿐이다(source_card registration). 그 시각이 없으면 조회(query.available_within)는 접수일이
+조회 시작일보다 뒤이고 게시 끝 날짜보다 앞인 것만 고른다 — 조회 시작일 것은 전날 장 마감 전 공시일 수 있고, 게시 끝
+날짜 것은 게시 끝 뒤 공시일 수 있다. 조회 시작이 그날 DART 접수가 열리기 전이면(자정 등) 조회 시작일 것도 넣는다.
+뺀 공시는 untimed_disclosures_left_out 으로 읽어 meta dropped 에 사유와 남긴다(boundary_disclosure: 조회 시작일,
+counts.disclosure_boundary / close_day_disclosure: 게시 끝 날짜, counts.disclosure_close_day). 그래서 대상일 장중에
+접수된 시각 없는 공시는 대상일 보고서(게시 끝 날짜)와 다음 거래일 보고서(조회 시작일) 모두에서 빠지고 두 meta 에 남는다.
+수집기를 장중에 주기적으로 돌리면 시각이 남으므로 이 경우는 백필한 날에만 생긴다.
+원래 날짜만 있는 자료(네이버 리포트 작성일)는 그 날짜가 대상일(게시 끝 날짜)인 보고서에만 들어간다.
 뉴스·리포트는 기준 시각 전에 본문을 받아 둔 것만 들어간다(body_fetched_at 기준) — 보고서보다 먼저 수집해야 한다.
 
 ## 메시지 칸
@@ -60,7 +64,7 @@ KRX 비교가 꺼진다.
 **target_date 를 주면 두 번 모두 같은 근거 범위를 읽는다.** 공개 시각(available_at, 날짜만 있으면 날짜)의 끝은
 min(cutoff, D 장 마감 — market_compare.market_close)이고, 분류 자료 조회와 공시 조회가 같은 끝을 쓴다. 그래서 D 장
 마감 뒤 게시된 메시지·공시, D+1 장 전 메시지, 날짜만 있는 D 공시(같은 날이면 장 마감 전인지 알 수 없다 —
-available_within)는 들어오지 않는다. 본문을 받은 시각(body_fetched_at)의 끝은 실제 cutoff 다 — 장 마감 전에 게시됐고
+available_within, meta close_day_disclosure)는 들어오지 않는다. 작성일이 D 인 네이버 리포트는 두 번 모두 들어간다. 본문을 받은 시각(body_fetched_at)의 끝은 실제 cutoff 다 — 장 마감 전에 게시됐고
 장 마감 뒤 cutoff 전에 받은 메시지를 살린다. 그래서 08:30 입력에는 밤사이 늦게 받은 장중 메시지가 더 들어올 수 있다.
 장 마감 뒤 해설 메시지는 두 보고서 모두에서 빠진다. 공개 끝은 meta posted_until 에 남는다.
 
@@ -77,7 +81,7 @@ import argparse
 import asyncio
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -88,7 +92,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.scope import KST
 from app.repositories.classification import classified_sources
-from app.repositories.source_card import get_sources, stock_card_ids
+from app.repositories.source_card import get_sources, stock_card_ids, untimed_disclosures_left_out
 from app.repositories.source_card.read_model import SourceRecord
 from app.services.stock_analysis import stock_meta
 from app.services.stock_analysis.market_compare import market_close
@@ -200,10 +204,46 @@ def is_correction(title: str | None) -> bool:
     return bool(title) and CORRECTION_RE.match(title.strip()) is not None
 
 
-def boundary_disclosure(record: SourceRecord, since: datetime) -> bool:
-    """공개 시각을 모르는 공시인데 접수일이 조회 시작일 이전이다. 조회 시작(since) 전 공시일 수 있어 뺀다(맨 위 설명)."""
-    return (record.available_at is None and record.write_date is not None
-            and record.write_date <= since.astimezone(KST).date())
+def left_out_reason(day: date, edge: str, *, since: datetime, until: datetime) -> str:
+    """조회가 경계 날짜라 뺀 시각 없는 공시(untimed_disclosures_left_out)의 meta 사유."""
+    if edge == "since_day":
+        return (f"boundary_disclosure: 접수일 {day.isoformat()} 이 조회 시작일이고 접수 시각을 몰라 "
+                f"조회 시작({since.isoformat(timespec='minutes')}) 전 공시일 수 있음")
+    return (f"close_day_disclosure: 접수일 {day.isoformat()} 이 게시 끝 날짜이고 접수 시각을 몰라 "
+            f"게시 끝({until.isoformat(timespec='minutes')}) 뒤 공시일 수 있음")
+
+
+# ── 입력 범위 검사 ─────────────────────────────────────────────────────────
+
+class InputRangeError(ValueError):
+    """target_date·since·cutoff 가 서로 맞지 않는다. CLI 는 사용법 오류(exit 2)로 끝낸다."""
+
+
+def posted_until(cutoff: datetime, target_date: date | None) -> datetime:
+    """공개 시각의 끝. target_date 가 없으면 cutoff, 있으면 min(cutoff, target_date 장 마감)(맨 위 「대상일」)."""
+    if target_date is None:
+        return cutoff
+    return min(cutoff, datetime.combine(target_date, market_close(target_date), tzinfo=KST))
+
+
+def check_range(cutoff: datetime, *, target_date: date | None = None, since: datetime | None = None,
+                open_days: Mapping[date, bool] | None = None) -> None:
+    """target_date 는 cutoff 날짜이거나 그 직전 거래일, since 는 공개 끝보다 늦지 않아야 한다.
+
+    open_days 가 없으면 평일을 개장일로 본다(previous_close) — DB 를 열기 전 CLI 검사가 그렇다. 그래서 평일 휴장일
+    다음 날 CLI 는 그 전 거래일 대상일을 거절할 수 있다. load_input 은 market_calendar 로 다시 본다.
+    """
+    cutoff_day = cutoff.astimezone(KST).date()
+    if target_date is not None and target_date != cutoff_day:
+        previous = previous_close(cutoff_day, open_days).date()
+        if target_date != previous:
+            raise InputRangeError(f"target_date {target_date} 는 cutoff 날짜({cutoff_day})이거나 그 직전 거래일"
+                                  f"({previous})이어야 한다")
+    if since is not None:
+        until = posted_until(cutoff, target_date)
+        if since > until:
+            raise InputRangeError(f"since {since.isoformat(timespec='minutes')} 가 공개 끝 "
+                                  f"{until.isoformat(timespec='minutes')} 보다 늦다")
 
 
 def disclosure_source(card_id: int) -> dict[str, Any]:
@@ -290,13 +330,15 @@ def require_known_stock(code: str) -> str:
 def build_input(
     found: dict[str, Any], records: Mapping[int, SourceRecord], *, code: str, cutoff: datetime,
     change_pct: float, since: datetime, target_date: date | None = None,
+    left_out: Sequence[tuple[int, date, str]] = (),
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """(러너 입력, meta). found 는 classified_sources 결과, records 는 그 메시지·뉴스 카드의 get_sources(include_body=True).
 
-    target_date 를 안 주면 cutoff 의 날짜(KST)다(맨 위 「대상일」)."""
+    target_date 를 안 주면 cutoff 의 날짜(KST)다(맨 위 「대상일」). left_out 은 조회가 경계 날짜라 뺀 시각 없는 공시
+    (untimed_disclosures_left_out)로, meta dropped 에 사유만 남긴다."""
     name = require_known_stock(code)
 
-    items, dropped, boundary = [], [], []  # items: 본문 있는 메시지의 (message, trace), classified_sources 순서
+    items, dropped = [], []  # items: 본문 있는 메시지의 (message, trace), classified_sources 순서
     bodies = []  # items 와 같은 순서의 본문. 중복은 기사 제목을 뺀 본문으로 비교한다
     skipped_types: dict[str, int] = {}
     position = {s["source_card_id"]: n for n, s in enumerate(found["sources"])}
@@ -309,11 +351,6 @@ def build_input(
         if not has_text(source["card_type"], record):
             dropped.append({"source_card_id": card_id, "reason": record.body_missing_reason
                             if record else "get_sources 에 없음"})
-            continue
-        if source["card_type"] == DISCLOSURE_CARD_TYPE and boundary_disclosure(record, since):
-            boundary.append({"source_card_id": card_id,
-                             "reason": f"boundary_disclosure: 접수일 {record.write_date.isoformat()} 이 조회 시작일이고 "
-                                       f"접수 시각을 몰라 조회 시작({since.isoformat(timespec='minutes')}) 전 공시일 수 있음"})
             continue
         is_common = source["card_label"] is None
         first_seen, dup_channels = bundle_of(source, since)
@@ -339,7 +376,9 @@ def build_input(
         items.append((message, trace))
         bodies.append(record.body or body)
     no_body = len(dropped)
-    dropped += boundary
+    until = posted_until(cutoff, target_date)
+    dropped += [{"source_card_id": card_id, "reason": left_out_reason(day, edge, since=since, until=until)}
+                for card_id, day, edge in left_out]
 
     # 같은 글은 가장 긴 글 하나로 묶는다(맨 위 「중복 묶기」). max 는 길이가 같으면 먼저 나온 글을 고른다
     evidence, common = [], []
@@ -392,7 +431,9 @@ def build_input(
             "pdf": sum(trace["card_type"] == PDF_CARD_TYPE for _, trace in used),
             "disclosure": sum(trace["card_type"] == DISCLOSURE_CARD_TYPE for _, trace in used),
             "market_recap_dropped": len(common) - len(common_kept),
-            "no_body": no_body, "duplicates": duplicates, "disclosure_boundary": len(boundary),
+            "no_body": no_body, "duplicates": duplicates,
+            "disclosure_boundary": sum(edge == "since_day" for _, _, edge in left_out),
+            "disclosure_close_day": sum(edge == "until_day" for _, _, edge in left_out),
             "skipped_card_types": skipped_types,
         },
         "dropped": dropped,
@@ -411,30 +452,37 @@ async def load_input(
     target_date 장 마감), 본문 끝은 cutoff 다(맨 위 「대상일」)."""
     if cutoff.utcoffset() is None:
         raise ValueError("cutoff must be timezone-aware")
-    day = target_date or cutoff.astimezone(KST).date()
-    if day > cutoff.astimezone(KST).date():
-        raise ValueError(f"target_date {day} 가 cutoff 날짜보다 뒤다: {cutoff.isoformat()}")
+    cutoff_day = cutoff.astimezone(KST).date()
+    day = target_date or cutoff_day
+    if day > cutoff_day:  # 달력 없이 아는 오류는 DB 를 읽기 전에 멈춘다
+        raise InputRangeError(f"target_date {day} 가 cutoff 날짜({cutoff_day})보다 뒤다")
     # 종목표에 없는 종목이면 DB 를 읽어 봐야 입력을 만들 수 없다. 조회 전에 멈춘다
     require_known_stock(code)
+    # 달력은 since 를 고르거나 대상일이 직전 거래일인지 볼 때만 읽는다. cutoff 날짜 앞 MAX_LOOKBACK_DAYS 일이라 대상일
+    # (cutoff 날짜이거나 그 직전 거래일) 앞도 담는다
+    open_days = None
+    if since is None or day != cutoff_day:
+        open_days = await read_open_days(session, cutoff_day)
     if since is not None:
         since_basis = "argument"
     else:
-        open_days = await read_open_days(session, day)
         since_basis = "market_calendar" if open_days is not None else "weekday_fallback"
         since = previous_close(day, open_days)
+    check_range(cutoff, target_date=target_date, since=since, open_days=open_days)
     # 공개 끝. 본문을 받은 시각은 장 마감으로 자르지 않고 cutoff 까지 본다(classified_sources observed_by, get_sources)
-    until = cutoff if target_date is None else min(
-        cutoff, datetime.combine(target_date, market_close(target_date), tzinfo=KST))
+    until = posted_until(cutoff, target_date)
     found = await classified_sources(session, code, until=until, since=since, observed_by=cutoff)
     # 공시는 분류하지 않아 classified_sources 에 없다. 같은 기간에 이 종목으로 이어진 공시 카드를 뒤에 붙인다.
     # 공시만 고르는 건 조회에서 한다 — 이어진 카드를 전부 get_sources 로 읽고 거르면 메시지·기사 카드의 링크·공유
     # 메시지까지 읽게 된다
     disclosures = await stock_card_ids(session, code, until=until, since=since, card_type=DISCLOSURE_CARD_TYPE)
+    # 경계 날짜라 조회가 뺀 시각 없는 공시. 원문은 읽지 않고 meta 에 사유만 남긴다
+    left_out = await untimed_disclosures_left_out(session, code, until=until, since=since)
     found["sources"] += [disclosure_source(card_id) for card_id in disclosures]
     ids = [s["source_card_id"] for s in found["sources"] if s["card_type"] in INPUT_CARD_TYPES]
     records = {r.id: r for r in await get_sources(session, ids, include_body=True, cutoff=cutoff)}
     payload, meta = build_input(found, records, code=code, cutoff=cutoff, change_pct=change_pct,
-                                since=since, target_date=target_date)
+                                since=since, target_date=target_date, left_out=left_out)
     meta["since_basis"] = since_basis
     if target_date is not None:
         meta["posted_until"] = until.isoformat(timespec="seconds")
@@ -471,7 +519,8 @@ async def main(args: argparse.Namespace) -> None:
     counts = meta["counts"]
     print(f"{path}  since {meta['since']} ({meta['since_basis']})  메시지 {counts['messages']}"
           f" (근거 {counts['evidence']} · 시황 {counts['market_recap']}, 시황 뺌 {counts['market_recap_dropped']})"
-          f"  넣은 기사 {counts['news']}  공시 {counts['disclosure']} (경계일 뺌 {counts['disclosure_boundary']})"
+          f"  넣은 기사 {counts['news']}  공시 {counts['disclosure']} (경계일 뺌 {counts['disclosure_boundary']}"
+          f" · 게시 끝 날짜 뺌 {counts['disclosure_close_day']})"
           f"  본문 없음 {counts['no_body']}  중복 뺌 {counts['duplicates']}  메시지 밖 {counts['skipped_card_types']}"
           f"  미분류 {meta['unclassified']} · 실패 {meta['failed']} · 기준 시각 뒤 본문 {meta['not_observed']}")
 
@@ -488,16 +537,30 @@ def cli(argv: list[str] | None = None) -> None:
                                               "본다 — 당일 16:00 과 다음 날 08:30 생성에 같은 대상일을 준다")
     parser.add_argument("--out", type=Path, default=Path("runs/classified_inputs"))
     args = parser.parse_args(argv)
+    try:
+        cutoff = _aware(args.cutoff)
+        since = _aware(args.since) if args.since else None
+    except ValueError:
+        parser.error(f"--cutoff·--since 는 ISO 8601 시각이어야 한다: {args.cutoff!r}, {args.since!r}")
+    target_date = None
     if args.target_date:
         try:
-            date.fromisoformat(args.target_date)
+            target_date = date.fromisoformat(args.target_date)
         except ValueError:
             parser.error(f"--target-date 는 YYYY-MM-DD 여야 한다: {args.target_date!r}")
     try:
         require_known_stock(args.code)
     except UnknownStockError as exc:
         parser.exit(1, f"{exc}\n")
-    asyncio.run(main(args))
+    # DB 를 열기 전에 범위를 본다. 달력 없이 평일 규칙이다 — load_input 이 market_calendar 로 다시 본다
+    try:
+        check_range(cutoff, target_date=target_date, since=since)
+    except InputRangeError as exc:
+        parser.error(str(exc))
+    try:
+        asyncio.run(main(args))
+    except InputRangeError as exc:  # market_calendar 로 본 검사(load_input)
+        parser.error(str(exc))
 
 
 if __name__ == "__main__":

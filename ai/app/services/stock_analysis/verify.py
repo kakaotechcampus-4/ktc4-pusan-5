@@ -1309,9 +1309,10 @@ def check_warnings(report: dict[str, Any] | None, payload: dict[str, Any] | None
         if source_kinds and all(k in RESULT_KINDS for k in source_kinds):
             out.append(_p(FACTOR_RESULT_SOURCES_ONLY,
                           f"factors[{i}] 출처가 모두 {'·'.join(RESULT_KINDS)} 메시지다({', '.join(source_kinds)})"))
-    corrections = {m.get("url") for m in _messages(payload) if m.get("is_correction") is True}
+    # url 이 없는 메시지·출처는 비교하지 않는다 — None 끼리 맞아 정정 공시를 인용한 것처럼 보이지 않게
+    corrections = {m.get("url") for m in _messages(payload) if m.get("is_correction") is True and m.get("url")}
     for i, f in enumerate(factors):
-        urls = [s.get("url") for s in _sources(f)]
+        urls = [s.get("url") for s in _sources(f) if s.get("url")]
         if _links(f) and urls and all(u in corrections for u in urls):
             out.append(_p(DISCLOSURE_CORRECTION_AS_CAUSE,
                           f"factors[{i}] 출처가 모두 정정 공시다({', '.join(map(str, urls))}). 정정 공시는 그 자체로 원인으로 쓰지 않는다"))

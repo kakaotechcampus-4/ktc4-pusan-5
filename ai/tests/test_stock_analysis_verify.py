@@ -23,6 +23,7 @@ from app.services.stock_analysis.verify import (
     DIRECT_SOURCE_MISSING,
     DIRECTION_MATCH_WRONG,
     DIRECTION_MISMATCH,
+    DISCLOSURE_CORRECTION_AS_CAUSE,
     DUPLICATE_SOURCES,
     EMPTY_RESPONSE,
     EVENT_BACKGROUND_REF_DUPLICATE,
@@ -32,7 +33,6 @@ from app.services.stock_analysis.verify import (
     EVENT_FACTOR_DUPLICATE,
     EVENT_FACTOR_REF_MISSING,
     EVENT_REASON_MISMATCH,
-    DISCLOSURE_CORRECTION_AS_CAUSE,
     FACTOR_RESULT_SOURCES_ONLY,
     FACTOR_WITHOUT_SOURCE,
     FLAT_MOVE,
@@ -1316,6 +1316,17 @@ def test_correction_with_other_source_or_no_link_is_not_warned():
         m["kind"], m["is_correction"] = "disclosure", False
     assert DISCLOSURE_CORRECTION_AS_CAUSE not in codes(check_warnings(cause_report(), plain))
     assert DISCLOSURE_CORRECTION_AS_CAUSE not in codes(check_warnings(cause_report(), CAUSE))
+
+
+def test_correction_without_url_does_not_match_sources_without_url():
+    """url 이 없는 정정 공시 메시지와 url 이 없는 출처는 None 끼리 맞지 않는다."""
+    payload = copy.deepcopy(CAUSE)
+    payload["messages"].append({**payload["messages"][0], "url": None, "kind": "disclosure", "is_correction": True})
+    no_url = cause_report(factors=[factor(sources=[{**source(), "url": None}])])
+    assert DISCLOSURE_CORRECTION_AS_CAUSE not in codes(check_warnings(no_url, payload))
+    # url 이 있는 정정 공시를 인용하면 여전히 경고한다(url 없는 정정 메시지가 섞여 있어도)
+    payload["messages"][0].update(kind="disclosure", is_correction=True)
+    assert DISCLOSURE_CORRECTION_AS_CAUSE in codes(check_warnings(cause_report(), payload))
 
 
 def theme_trace(relation):

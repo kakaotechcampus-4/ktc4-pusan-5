@@ -10,7 +10,7 @@
 요약은 cutoff 를 주면 늘 뺀다. 나중에 채우거나 덮어쓰는데 그 시각을 남기지 않는다.
 """
 
-from datetime import datetime
+from datetime import date, datetime, time
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,28 +38,80 @@ from app.repositories.source_card.read_model import (
     pdf_record,
 )
 
+DISCLOSURE_CARD_TYPE = "disclosure"
+# DART 전자문서 접수가 열리는 시각(KST). 공개 자료로는 07:30(2023 기사)이라 그보다 이른 07:00 으로 둔다 —
+# since 가 이 시각 이전이면 since 날짜에 접수된 공시는 모두 since 뒤다(since_day_counts)
+DART_OPENS = time(7, 0)
+
 
 def available_since(since: datetime):
-    """카드가 since 이후에 공개됐다는 조건. 공개 시각을 모르는 자료는 날짜(KST)로 판단한다."""
+    """카드가 since 이후에 공개됐다는 조건. 공개 시각을 모르는 자료는 날짜(KST)로 판단한다.
+    분류할 자료 고르기(cards_to_classify)가 쓴다. 보고서 입력의 경계 날짜 규칙은 available_within 에 있다."""
     return or_(SourceCard.available_at >= since, and_(
         SourceCard.available_at.is_(None),
         SourceCard.event_date >= since.astimezone(KST).date(),
     ))
 
 
+def since_day_counts(since: datetime) -> bool:
+    """since 날짜에 접수된 시각 없는 공시가 since 뒤라고 볼 수 있는가. since 가 그날 DART 접수가 열리기 전(자정 포함)이면
+    그날 공시는 모두 since 뒤다."""
+    return since.astimezone(KST).time() <= DART_OPENS
+
+
 def available_within(until: datetime, since: datetime | None = None):
-    """카드가 기준 시각(until) 이전에, since 이후에 공개됐다는 조건. 종목 조회 두 곳이 같이 쓴다
+    """보고서 입력의 조회 조건: 카드가 until 이전에, since 이후에 공개됐다. 종목 조회 두 곳이 같이 쓴다
     (이 함수의 stock_card_ids 와 repositories/classification.py 의 classified_sources).
 
-    공개 시각을 모르는 자료(시각 없이 작성일만 있는 네이버 리포트)는 날짜로 판단한다.
-    기준 시각의 날짜(KST)보다 **앞선 날** 것만 넣는다 — 같은 날이면 기준 시각 전인지 알 수 없다.
-    공개 시각도 날짜도 모르는 자료는 넣지 않는다.
+    공개 시각이 있으면 since <= available_at <= until 이다. 공개 시각 없이 날짜(event_date, KST)만 있는 자료는
+    종류마다 다르다(source_card 에서 이런 자료는 공시와 네이버 리포트뿐이다 — 뉴스·메시지는 늘 시각이 있다).
+
+        공시     접수일만 있고 시각은 수집기가 접수일 안에 처음 봤을 때만 남는다. 시각이 없으면 접수일이
+                 since 날짜보다 뒤이고 until 날짜보다 앞일 때만 넣는다. 두 경계 날짜는 그 시각 전후를 알 수 없어
+                 뺀다 — since 날짜면 전날 장 마감 전 공시일 수 있고, until 날짜면 게시 끝 뒤 공시일 수 있다.
+                 since 가 그날 DART 가 열리기 전(since_day_counts)이면 since 날짜도 넣는다. 뺀 공시는
+                 untimed_disclosures_left_out 으로 따로 읽어 사유를 남긴다
+        그 밖    원래 날짜만 있는 자료(네이버 리포트 작성일). until 날짜(= 보고서 대상일)와 같은 날짜만 넣는다 —
+                 그날 보고서 하나에만 들어간다. 장 마감 뒤에 쓴 것도 섞일 수 있다
+
+    공개 시각도 날짜도 모르는 자료는 넣지 않는다. 분류할 자료를 고르는 available_since 는 이 경계 규칙을 쓰지 않는다
+    (경계 날짜 자료도 분류는 해 둔다).
     """
-    condition = or_(SourceCard.available_at <= until, and_(
+    until_day = until.astimezone(KST).date()
+    timed = SourceCard.available_at <= until
+    if since is not None:
+        timed = and_(timed, SourceCard.available_at >= since)
+    disclosure = SourceCard.event_date < until_day
+    if since is not None:
+        since_day = since.astimezone(KST).date()
+        disclosure = and_(disclosure, SourceCard.event_date >= since_day if since_day_counts(since)
+                          else SourceCard.event_date > since_day)
+    return or_(timed, and_(
         SourceCard.available_at.is_(None),
-        SourceCard.event_date < until.astimezone(KST).date(),
+        or_(and_(SourceCard.card_type == DISCLOSURE_CARD_TYPE, disclosure),
+            and_(SourceCard.card_type != DISCLOSURE_CARD_TYPE, SourceCard.event_date == until_day)),
     ))
-    return condition if since is None else and_(condition, available_since(since))
+
+
+async def untimed_disclosures_left_out(
+    session: AsyncSession, stock_code: str, *, until: datetime, since: datetime | None = None,
+) -> list[tuple[int, date, str]]:
+    """available_within 이 경계 날짜라 뺀, 이 종목의 시각 없는 공시. (공통 ID, 접수일, "since_day" | "until_day").
+
+    until 날짜면 until_day 다(since 와 같은 날이어도). 오래된 순서다. 원문은 읽지 않는다.
+    """
+    until_day = until.astimezone(KST).date()
+    days = {until_day: "until_day"}
+    if since is not None and not since_day_counts(since):
+        days.setdefault(since.astimezone(KST).date(), "since_day")
+    rows = await session.execute(
+        select(SourceCard.id, SourceCard.event_date)
+        .join(SourceCardStock, SourceCardStock.source_card_id == SourceCard.id)
+        .where(SourceCardStock.stock_code == stock_code, SourceCard.card_type == DISCLOSURE_CARD_TYPE,
+               SourceCard.available_at.is_(None), SourceCard.event_date.in_(list(days)))
+        .order_by(SourceCard.event_date, SourceCard.id)
+    )
+    return [(card_id, day, days[day]) for card_id, day in rows.all()]
 
 
 async def stock_card_ids(
@@ -114,9 +166,11 @@ async def get_sources(
     body_missing_reason 에 늘 담는다. 기사·PDF 는 그것을 공유한 텔레그램 메시지들을, 메시지는
     그 메시지가 건 링크·첨부를 discoveries 에 담는다.
 
-    cutoff 는 보고서 기준 시각이다. 주면 그 뒤에 받은 본문은 없는 것으로 보고 사유를
-    not_observed_at_cutoff 로 적고, 요약은 늘 뺀다(규칙은 hide_after_cutoff). stock_card_ids 에
-    준 until 과 같은 값을 넘긴다. cutoff 는 시간대가 있어야 한다.
+    cutoff 는 본문을 받은 시각의 끝(보고서 기준 시각)이다. 주면 그 뒤에 받은 본문은 없는 것으로 보고 사유를
+    not_observed_at_cutoff 로 적고, 요약은 늘 뺀다(규칙은 hide_after_cutoff). stock_card_ids 에 준 until(공개 시각의
+    끝)과 다를 수 있다 — 보고서 입력은 --target-date 를 주면 공개는 대상일 장 마감까지, 본문은 실제 기준 시각까지
+    본다(stock_analysis/classified_input.load_input). 여기에 until 을 넘기면 장 마감 뒤에 받은 장중 자료의 본문이
+    빠진다. cutoff 는 시간대가 있어야 한다.
     """
     if cutoff is not None and cutoff.utcoffset() is None:
         raise ValueError("cutoff must be timezone-aware")
