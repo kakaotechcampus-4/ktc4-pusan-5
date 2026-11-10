@@ -4,6 +4,9 @@
     python3 evals/lock_set.py --check                                # 기록과 현재 파일 비교(다르면 종료 코드 1)
 
 해시 대상: 케이스마다 case.json, provenance.json, gold.json(`verification` 칸과 `status` 는 뺀 내용).
+케이스 폴더: cases/(안 A, 구형 입력)와 cases_live/(안 B, 실서비스 형식 입력). 기록 키는 cases/ 케이스는 폴더 이름 그대로,
+cases_live/ 케이스는 `cases_live/<폴더>` 다. cases/ 키를 그대로 두어 cases/ 만 잠근 예전 기록도 --check 로 비교할 수 있다.
+cases_live_pending/(사람 검증 전 보류 케이스)은 잠그지 않는다.
 `verification` 은 검증을 진행하며 채우는 칸이라 해시에 넣으면 검증 기록을 쓰는 순간 잠금이 깨진다.
 표준 라이브러리만 쓴다. ai/ 폴더에서 실행한다.
 """
@@ -18,6 +21,8 @@ from pathlib import Path
 
 EVALS = Path(__file__).parent
 CASES = EVALS / "cases"
+# (폴더, 기록 키 접두사). 폴더가 없으면 건너뛴다
+CASE_ROOTS = ((CASES, ""), (EVALS / "cases_live", "cases_live/"))
 LOCK = EVALS / "gold.lock.json"
 EXCLUDE_GOLD_KEYS = ("verification", "status")
 
@@ -42,8 +47,13 @@ def case_hashes(d: Path) -> dict:
 
 
 def current() -> dict:
-    dirs = sorted(d for d in CASES.iterdir() if d.is_dir() and (d / "gold.json").exists())
-    return {d.name: case_hashes(d) for d in dirs}
+    out = {}
+    for root, prefix in CASE_ROOTS:
+        if not root.is_dir():
+            continue
+        for d in sorted(d for d in root.iterdir() if d.is_dir() and (d / "gold.json").exists()):
+            out[prefix + d.name] = case_hashes(d)
+    return out
 
 
 def set_hash(cases: dict) -> str:
@@ -66,6 +76,7 @@ def write(version: str, provisional: bool) -> int:
             else "정식 잠금. 이후 gold 를 고치면 세트 버전을 올리고 baseline 을 다시 돌림"
         ),
         "hash_scope": "case.json, provenance.json, gold.json(verification·status 제외), JSON 정규화(키 정렬) 후 sha256",
+        "case_roots": [root.relative_to(EVALS).as_posix() for root, _ in CASE_ROOTS if root.is_dir()],
         "cases": cases,
     }
     LOCK.write_text(json.dumps(lock, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
