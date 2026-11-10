@@ -52,10 +52,17 @@ classified_sources(code, until=cutoff, since) 에서 텔레그램 메시지 카�
 
 ## 대상일(target_date)
 
-주지 않으면 cutoff 의 날짜(KST)다. --target-date D 를 주면 입력 target_date 가 D 가 된다 — 장 마감 뒤 만든 보고서를
-다음 날 아침(cutoff D+1 08:30)에 다시 만들 때 쓴다. target_date 가 D 라야 러너가 cutoff 를 D 장 마감 이후로 보고
+주지 않으면 cutoff 의 날짜(KST)다. 보고서는 대상일 D 16:00 과 다음 날 08:30(KRX 반영)에 두 번 만들고 두 번 모두
+--target-date D 를 준다. target_date 가 D 라야 러너가 D+1 08:30 cutoff 를 D 장 마감 이후로 보고
 (market_compare.after_close) KRX 비교를 켜고, 화면 기준 시각도 D 장 마감이 된다. 주지 않으면 D+1 장중으로 읽혀
-KRX 비교가 꺼진다. 조회 끝은 그대로 cutoff 라, D 장 마감 뒤 ~ cutoff 사이 자료와 날짜만 있는 D 자료도 들어온다.
+KRX 비교가 꺼진다.
+
+**target_date 를 주면 두 번 모두 같은 근거 범위를 읽는다.** 공개 시각(available_at, 날짜만 있으면 날짜)의 끝은
+min(cutoff, D 장 마감 — market_compare.market_close)이고, 분류 자료 조회와 공시 조회가 같은 끝을 쓴다. 그래서 D 장
+마감 뒤 게시된 메시지·공시, D+1 장 전 메시지, 날짜만 있는 D 공시(같은 날이면 장 마감 전인지 알 수 없다 —
+available_within)는 들어오지 않는다. 본문을 받은 시각(body_fetched_at)의 끝은 실제 cutoff 다 — 장 마감 전에 게시됐고
+장 마감 뒤 cutoff 전에 받은 메시지를 살린다. 그래서 08:30 입력에는 밤사이 늦게 받은 장중 메시지가 더 들어올 수 있다.
+장 마감 뒤 해설 메시지는 두 보고서 모두에서 빠진다. 공개 끝은 meta posted_until 에 남는다.
 
 ## 조회 시작(since)
 
@@ -400,7 +407,8 @@ async def load_input(
     since: datetime | None = None, target_date: date | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """DB 에서 읽어 (러너 입력, meta). since 를 안 주면 target_date 직전 거래일 장 마감(맨 위 설명).
-    target_date 를 안 주면 cutoff 의 날짜다. 조회 끝은 target_date 와 관계없이 cutoff 다."""
+    target_date 를 안 주면 cutoff 의 날짜이고 공개·본문 조회 끝이 모두 cutoff 다. 주면 공개 끝은 min(cutoff,
+    target_date 장 마감), 본문 끝은 cutoff 다(맨 위 「대상일」)."""
     if cutoff.utcoffset() is None:
         raise ValueError("cutoff must be timezone-aware")
     day = target_date or cutoff.astimezone(KST).date()
@@ -414,17 +422,22 @@ async def load_input(
         open_days = await read_open_days(session, day)
         since_basis = "market_calendar" if open_days is not None else "weekday_fallback"
         since = previous_close(day, open_days)
-    found = await classified_sources(session, code, until=cutoff, since=since)
+    # 공개 끝. 본문을 받은 시각은 장 마감으로 자르지 않고 cutoff 까지 본다(classified_sources observed_by, get_sources)
+    until = cutoff if target_date is None else min(
+        cutoff, datetime.combine(target_date, market_close(target_date), tzinfo=KST))
+    found = await classified_sources(session, code, until=until, since=since, observed_by=cutoff)
     # 공시는 분류하지 않아 classified_sources 에 없다. 같은 기간에 이 종목으로 이어진 공시 카드를 뒤에 붙인다.
     # 공시만 고르는 건 조회에서 한다 — 이어진 카드를 전부 get_sources 로 읽고 거르면 메시지·기사 카드의 링크·공유
     # 메시지까지 읽게 된다
-    disclosures = await stock_card_ids(session, code, until=cutoff, since=since, card_type=DISCLOSURE_CARD_TYPE)
+    disclosures = await stock_card_ids(session, code, until=until, since=since, card_type=DISCLOSURE_CARD_TYPE)
     found["sources"] += [disclosure_source(card_id) for card_id in disclosures]
     ids = [s["source_card_id"] for s in found["sources"] if s["card_type"] in INPUT_CARD_TYPES]
     records = {r.id: r for r in await get_sources(session, ids, include_body=True, cutoff=cutoff)}
     payload, meta = build_input(found, records, code=code, cutoff=cutoff, change_pct=change_pct,
                                 since=since, target_date=target_date)
     meta["since_basis"] = since_basis
+    if target_date is not None:
+        meta["posted_until"] = until.isoformat(timespec="seconds")
     return payload, meta
 
 
@@ -471,8 +484,8 @@ def cli(argv: list[str] | None = None) -> None:
     parser.add_argument("--change-pct", type=float, required=True,
                         help="기준 시각 등락률. 장 마감 뒤 KRX 가 ok 면 러너가 덮어쓴다")
     parser.add_argument("--since", help="조회 시작. 없으면 target_date 직전 거래일 장 마감")
-    parser.add_argument("--target-date", help="대상일 YYYY-MM-DD. 없으면 cutoff 의 날짜. 장 마감 뒤 다음 날 아침 "
-                                              "cutoff 로 다시 만들 때 그 전 거래일을 준다")
+    parser.add_argument("--target-date", help="대상일 YYYY-MM-DD. 없으면 cutoff 의 날짜. 주면 공개 시각은 그날 장 마감까지만 "
+                                              "본다 — 당일 16:00 과 다음 날 08:30 생성에 같은 대상일을 준다")
     parser.add_argument("--out", type=Path, default=Path("runs/classified_inputs"))
     args = parser.parse_args(argv)
     if args.target_date:

@@ -1,6 +1,7 @@
 """분류 결과 → 러너 입력 어댑터. DB·LLM 을 쓰지 않는다(classified_sources·get_sources·세션을 바꿔 끼운다)."""
 
 import asyncio
+import copy
 from datetime import date, datetime, timedelta
 
 import pytest
@@ -8,7 +9,7 @@ from sqlalchemy.exc import ProgrammingError
 
 from app.collectors.stock_analysis import collect_inputs
 from app.core.scope import KST
-from app.repositories.source_card.read_model import SourceRecord
+from app.repositories.source_card.read_model import SourceRecord, body_observed_by, hide_after_cutoff
 from app.services.stock_analysis import classified_input as ci
 from app.services.stock_analysis.generate import check_input, model_input, needs_llm
 from app.services.stock_analysis.verify import split_messages
@@ -438,7 +439,8 @@ class FakeSession:
 def test_load_input_default_since(monkeypatch, rows, basis, since):
     seen = {}
 
-    async def fake_classified(session, code, *, until, since):
+    async def fake_classified(session, code, *, until, since, observed_by=None):
+        assert observed_by == CUTOFF   # target_date 가 없으면 본문 끝도 cutoff
         seen["classified"] = (code, until, since)
         return found(source(10, event("company")), source(11, event("company"), card_type="news"),
                      source(12, event("company"), card_type="pdf"))
@@ -469,7 +471,7 @@ def test_load_input_default_since(monkeypatch, rows, basis, since):
 
 
 def test_load_input_uses_given_since(monkeypatch):
-    async def fake_classified(session, code, *, until, since):
+    async def fake_classified(session, code, *, until, since, observed_by=None):
         assert since == SINCE
         return found()
 
@@ -489,26 +491,49 @@ def test_load_input_uses_given_since(monkeypatch):
 
 # ── 대상일(--target-date) ─────────────────────────────────────────────────
 
-TARGET = date(2026, 11, 5)                                   # 목요일
-NEXT_MORNING = datetime(2026, 11, 6, 8, 30, tzinfo=KST)      # 다음 날 08:30 에 다시 만든다
+TARGET = date(2026, 11, 5)                                   # 목요일, 장 마감 15:30
+SINCE_OF_TARGET = datetime(2026, 11, 4, 15, 30, tzinfo=KST)
+CLOSE = datetime(2026, 11, 5, 15, 30, tzinfo=KST)
+AFTERNOON = datetime(2026, 11, 5, 16, 0, tzinfo=KST)         # 1차 생성
+NEXT_MORNING = datetime(2026, 11, 6, 8, 30, tzinfo=KST)      # 다음 날 08:30 재생성(KRX 반영)
 
 
-def fake_queries(monkeypatch, records: list[SourceRecord], disclosures: list[int] | None = None) -> dict:
-    """조회 세 곳을 바꿔 끼우고 받은 (until, since)·cutoff 를 seen 에 남긴다."""
+def posted_within(rec: SourceRecord, until: datetime, since: datetime) -> bool:
+    """조회 SQL(available_within·available_since)을 파이썬으로 옮긴 것. 날짜만 있으면 until 날짜보다 앞서야 한다."""
+    if rec.available_at is not None:
+        return since <= rec.available_at <= until
+    day = rec.write_date
+    return day is not None and since.astimezone(KST).date() <= day < until.astimezone(KST).date()
+
+
+def fake_db(monkeypatch, records: list[SourceRecord], disclosures: tuple[int, ...] = ()) -> dict:
+    """조회 세 곳을 SQL 조건대로 거르는 가짜로 바꾼다. 받은 끝 시각을 seen 에 남긴다.
+
+    classified_sources  공개 until·since 로 고르고, 본문을 observed_by(없으면 until)까지 받은 것만 남긴다
+    stock_card_ids      공시를 공개 until·since 로 고른다
+    get_sources         cutoff 뒤에 받은 본문을 뺀다(hide_after_cutoff)
+    """
     seen = {}
-    disclosures = disclosures or []
+    by_id = {r.id: r for r in records}
 
-    async def fake_classified(session, code, *, until, since):
-        seen["classified"] = (until, since)
-        return found(*[source(r.id, event("company")) for r in records if r.id not in disclosures])
+    async def fake_classified(session, code, *, until, since, observed_by=None):
+        seen["classified"] = (until, since, observed_by)
+        picked = [r for r in records if r.id not in disclosures and posted_within(r, until, since)]
+        kept = [r for r in picked if body_observed_by(r, observed_by or until)]
+        result = found(*[source(r.id, event("company")) for r in kept])
+        result["not_observed"] = len(picked) - len(kept)
+        return result
 
     async def fake_linked(session, code, *, until, since, card_type=None):
         seen["linked"] = (until, since)
-        return disclosures
+        return [i for i in disclosures if posted_within(by_id[i], until, since)]
 
     async def fake_sources(session, ids, *, include_body=False, cutoff=None):
         seen["sources_cutoff"] = cutoff
-        return [r for r in records if r.id in ids]
+        out = [copy.copy(by_id[i]) for i in ids]
+        for rec in out:
+            hide_after_cutoff(rec, cutoff)
+        return out
 
     monkeypatch.setattr(ci, "classified_sources", fake_classified)
     monkeypatch.setattr(ci, "stock_card_ids", fake_linked)
@@ -516,66 +541,147 @@ def fake_queries(monkeypatch, records: list[SourceRecord], disclosures: list[int
     return seen
 
 
+def message_at(card_id: int, posted: datetime, fetched: datetime | None = None) -> SourceRecord:
+    rec = record(card_id, posted=posted)
+    rec.body_fetched_at = fetched or posted
+    return rec
+
+
+def timed_disclosure(card_id: int, at: datetime, title: str) -> SourceRecord:
+    rec = disclosure_record(card_id, title=title)
+    rec.write_date, rec.available_at = at.date(), at
+    return rec
+
+
+def untimed_disclosure(card_id: int, day: date, title: str) -> SourceRecord:
+    rec = disclosure_record(card_id, title=title)
+    rec.write_date = day
+    return rec
+
+
+def target_day_records(next_morning: bool = True) -> tuple[list[SourceRecord], tuple[int, ...]]:
+    """대상일 11-05 자료. 10·11·12 만 들어와야 한다. next_morning=False 면 D+1 메시지를 빼 수집이 모두 16:00 전이다."""
+    records = [
+        message_at(10, datetime(2026, 11, 5, 10, 0, tzinfo=KST)),                        # 장중
+        message_at(11, datetime(2026, 11, 5, 15, 20, tzinfo=KST),
+                   fetched=datetime(2026, 11, 5, 15, 40, tzinfo=KST)),                   # 장 마감 전 게시, 뒤에 수집
+        timed_disclosure(12, datetime(2026, 11, 5, 13, 0, tzinfo=KST), "단일판매ㆍ공급계약체결"),  # 장중 공시
+        message_at(13, datetime(2026, 11, 5, 15, 50, tzinfo=KST)),                       # 장 마감 뒤 해설
+        timed_disclosure(14, datetime(2026, 11, 5, 15, 45, tzinfo=KST), "현금ㆍ현물배당결정"),     # 장 마감 뒤 공시
+        untimed_disclosure(15, TARGET, "주식소각결정"),                                     # 날짜만 있는 D 공시
+    ]
+    if next_morning:
+        records.append(message_at(16, datetime(2026, 11, 6, 7, 50, tzinfo=KST)))           # D+1 장 전
+    return records, (12, 14, 15)
+
+
+IN_RANGE = ["https://t.me/mock_ch/10", "https://t.me/mock_ch/11", "https://dart.mock/12"]
+
+
 @pytest.mark.parametrize("rows", [None, [(date(2026, 11, 2), False)]])
 def test_without_target_date_since_and_output_are_unchanged(monkeypatch, rows):
-    """--target-date 가 없으면 target_date 는 cutoff 날짜, since 는 cutoff 날짜의 직전 거래일 장 마감 그대로다."""
-    fake_queries(monkeypatch, [record(10)])
+    """--target-date 가 없으면 target_date 는 cutoff 날짜, since 는 cutoff 날짜의 직전 거래일 장 마감, 공개·본문 끝은
+    모두 cutoff 다(posted_until 도 meta 에 없다)."""
+    fake_db(monkeypatch, [record(10)])
     old = asyncio.run(ci.load_input(FakeSession(rows), CODE, cutoff=CUTOFF, change_pct=-1.2))
-    seen = fake_queries(monkeypatch, [record(10)])
+    seen = fake_db(monkeypatch, [record(10)])
     new = asyncio.run(ci.load_input(FakeSession(rows), CODE, cutoff=CUTOFF, change_pct=-1.2, target_date=None))
 
     assert new == old
     expected = ci.previous_close(CUTOFF.date(), dict(rows) if rows else None)
-    assert seen["classified"] == seen["linked"] == (CUTOFF, expected)
+    assert seen["classified"] == (CUTOFF, expected, CUTOFF)
+    assert seen["linked"] == (CUTOFF, expected) and seen["sources_cutoff"] == CUTOFF
     payload, meta = new
     assert payload["target_date"] == "2026-11-03" and meta["since"] == expected.isoformat()
+    assert "posted_until" not in meta
 
 
-def test_target_date_with_next_morning_cutoff_turns_krx_compare_on(monkeypatch):
-    """대상일 D, cutoff D+1 08:30 이면 since 는 D 직전 거래일 장 마감이고 러너가 KRX 비교를 켠다."""
+@pytest.mark.parametrize("cutoff", [AFTERNOON, NEXT_MORNING])
+def test_target_date_reads_posts_until_target_close_only(monkeypatch, cutoff):
+    """대상일 D 를 주면 16:00·다음 날 08:30 모두 D 장 마감 뒤 게시된 메시지·공시, 날짜만 있는 D 공시, D+1 장 전
+    메시지가 들어오지 않는다. 공개 끝은 장 마감, 본문 끝은 cutoff 다."""
+    records, disclosures = target_day_records()
+    seen = fake_db(monkeypatch, records, disclosures)
+    payload, meta = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=cutoff, change_pct=1.0,
+                                              target_date=TARGET))
+
+    assert [m["url"] for m in payload["messages"]] == IN_RANGE
+    assert seen["classified"] == (CLOSE, SINCE_OF_TARGET, cutoff)
+    assert seen["linked"] == (CLOSE, SINCE_OF_TARGET) and seen["sources_cutoff"] == cutoff
+    assert meta["posted_until"] == "2026-11-05T15:30:00+09:00" and meta["since"] == SINCE_OF_TARGET.isoformat()
+    assert payload["target_date"] == "2026-11-05" and payload["cutoff"] == cutoff.isoformat()
+    assert meta["counts"]["disclosure"] == 1 and meta["counts"]["disclosure_boundary"] == 0
+    assert check_input(payload) == []
+
+
+def test_message_posted_before_close_and_fetched_after_close_is_kept_at_1600(monkeypatch):
+    """D 15:20 게시·15:40 수집 메시지는 16:00 입력에 들어온다. 수집이 16:00 뒤면 16:00 에는 없고 08:30 에는 있다."""
+    late = message_at(20, datetime(2026, 11, 5, 15, 20, tzinfo=KST), fetched=datetime(2026, 11, 5, 23, 0, tzinfo=KST))
+    records = [message_at(11, datetime(2026, 11, 5, 15, 20, tzinfo=KST),
+                          fetched=datetime(2026, 11, 5, 15, 40, tzinfo=KST)), late]
+
+    fake_db(monkeypatch, records)
+    afternoon, meta = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=AFTERNOON, change_pct=1.0,
+                                                target_date=TARGET))
+    assert [m["url"] for m in afternoon["messages"]] == ["https://t.me/mock_ch/11"]
+    assert meta["not_observed"] == 1   # 늦게 받은 20
+
+    fake_db(monkeypatch, records)
+    morning, meta = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=NEXT_MORNING, change_pct=1.0,
+                                              target_date=TARGET))
+    assert [m["url"] for m in morning["messages"]] == ["https://t.me/mock_ch/11", "https://t.me/mock_ch/20"]
+    assert meta["not_observed"] == 0
+
+
+def test_same_inputs_at_1600_and_next_morning_when_everything_was_fetched_by_1600(monkeypatch):
+    records, disclosures = target_day_records(next_morning=False)
+    outputs = {}
+    for cutoff in (AFTERNOON, NEXT_MORNING):
+        fake_db(monkeypatch, records, disclosures)
+        outputs[cutoff] = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=cutoff, change_pct=1.0,
+                                                    target_date=TARGET))
+    (afternoon, a_meta), (morning, m_meta) = outputs[AFTERNOON], outputs[NEXT_MORNING]
+    assert afternoon["messages"] == morning["messages"]
+    assert a_meta["messages"] == m_meta["messages"] and a_meta["dropped"] == m_meta["dropped"]
+    assert [m["url"] for m in morning["messages"]] == IN_RANGE
+
+
+def test_krx_gate_and_display_time_are_unchanged_by_target_date(monkeypatch):
+    """KRX 비교 판정(after_close)·화면 기준 시각은 그대로다. 08:30 은 대상일을 줘야 켜진다(안 주면 11-06 장중).
+    16:00 도 D 장 마감(15:30) 뒤라 판정은 켜진다 — 그 시각에 KRX 당일 데이터가 없으면 러너가 no_data 로 비교 없이 만든다."""
     from app.services.stock_analysis.market_compare import after_close, display_as_of
 
-    seen = fake_queries(monkeypatch, [record(10, posted=NEXT_MORNING - timedelta(hours=20))])
-    payload, meta = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=NEXT_MORNING, change_pct=1.0,
-                                              target_date=TARGET))
-    assert payload["target_date"] == "2026-11-05"
-    assert meta["since"] == "2026-11-04T15:30:00+09:00" and meta["since_basis"] == "weekday_fallback"
-    assert after_close(payload)
-    assert display_as_of(payload) == (datetime(2026, 11, 5, 15, 30, tzinfo=KST), True)
-    assert check_input(payload) == []
-    assert seen["classified"][1] == datetime(2026, 11, 4, 15, 30, tzinfo=KST)
+    records, disclosures = target_day_records()
+    for cutoff in (AFTERNOON, NEXT_MORNING):
+        fake_db(monkeypatch, records, disclosures)
+        made, _ = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=cutoff, change_pct=1.0,
+                                            target_date=TARGET))
+        assert after_close(made)
+        assert display_as_of(made) == (CLOSE, True)
 
-    # 대상일을 주지 않으면 같은 cutoff 가 11-06 장중으로 읽혀 KRX 비교가 꺼진다
-    fake_queries(monkeypatch, [record(10, posted=NEXT_MORNING - timedelta(hours=20))])
-    plain, _ = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=NEXT_MORNING, change_pct=1.0))
+    fake_db(monkeypatch, records, disclosures)
+    plain, plain_meta = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=NEXT_MORNING, change_pct=1.0))
     assert plain["target_date"] == "2026-11-06" and not after_close(plain)
+    assert "posted_until" not in plain_meta
+
+
+def test_late_close_day_reads_until_the_delayed_close(monkeypatch):
+    """LATE_CLOSE 날(2026-11-19, 16:30 마감)은 늦춰진 장 마감까지 게시된 자료를 읽는다."""
+    day = date(2026, 11, 19)
+    records = [message_at(30, datetime(2026, 11, 19, 16, 10, tzinfo=KST)),
+               message_at(31, datetime(2026, 11, 19, 16, 40, tzinfo=KST))]
+    seen = fake_db(monkeypatch, records)
+    payload, meta = asyncio.run(ci.load_input(FakeSession(None), CODE,
+                                              cutoff=datetime(2026, 11, 20, 8, 30, tzinfo=KST),
+                                              change_pct=1.0, target_date=day))
+    assert [m["url"] for m in payload["messages"]] == ["https://t.me/mock_ch/30"]
+    assert seen["classified"][0] == datetime(2026, 11, 19, 16, 30, tzinfo=KST)
+    assert meta["posted_until"] == "2026-11-19T16:30:00+09:00"
 
 
 def test_target_date_after_cutoff_date_is_an_error():
     with pytest.raises(ValueError, match="target_date"):
         asyncio.run(ci.load_input(NoDbSession(), CODE, cutoff=CUTOFF, change_pct=0.0, target_date=date(2026, 11, 4)))
-
-
-def test_current_behavior_next_morning_cutoff_reads_until_cutoff_and_takes_after_close_disclosures(monkeypatch):
-    """현재 동작: 조회 끝은 대상일 장 마감이 아니라 cutoff(D+1 08:30)다. 그래서 D 장 마감 뒤 시각이 있는 공시와
-    날짜만 있는 D 공시(접수일 D 는 조회 시작일 D-1 보다 뒤라 경계일 규칙에도 안 걸림)가 입력에 들어온다.
-    (조회 SQL available_within 은 시각이 있으면 available_at <= until, 날짜만 있으면 event_date < until 날짜다.)"""
-    after_close_timed = disclosure_record(11, title="단일판매ㆍ공급계약체결")
-    after_close_timed.write_date = TARGET
-    after_close_timed.available_at = datetime(2026, 11, 5, 18, 0, tzinfo=KST)   # D 장 마감 뒤
-    untimed_on_target = disclosure_record(12, title="현금ㆍ현물배당결정")
-    untimed_on_target.write_date = TARGET                                       # 시각 모름
-    morning_message = record(10, posted=datetime(2026, 11, 6, 7, 50, tzinfo=KST))  # D+1 장 전
-    seen = fake_queries(monkeypatch, [morning_message, after_close_timed, untimed_on_target], disclosures=[11, 12])
-
-    payload, meta = asyncio.run(ci.load_input(FakeSession(None), CODE, cutoff=NEXT_MORNING, change_pct=1.0,
-                                              target_date=TARGET))
-    since = datetime(2026, 11, 4, 15, 30, tzinfo=KST)
-    assert seen["classified"] == seen["linked"] == (NEXT_MORNING, since)   # 끝은 cutoff
-    assert seen["sources_cutoff"] == NEXT_MORNING
-    assert [m["url"] for m in payload["messages"]] == [
-        "https://t.me/mock_ch/10", "https://dart.mock/11", "https://dart.mock/12"]
-    assert meta["counts"]["disclosure"] == 2 and meta["counts"]["disclosure_boundary"] == 0
 
 
 class NoDbSession:
