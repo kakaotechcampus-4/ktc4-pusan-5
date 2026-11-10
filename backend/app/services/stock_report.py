@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import ValidationError
 
+from app.core.mvp_stocks import MVP_CODES
 from app.repositories.concept import normalize_term
 from app.repositories.stock_report import ReportRow, ReportStoreUnavailable, StockReportRepository
 from app.schemas.stock import Resource
@@ -118,7 +119,8 @@ def source_channels(report: StockReport) -> list[str]:
 
 async def list_reports(repository: StockReportRepository, limit: int) -> ReportList:
     try:
-        rows = await repository.latest_per_stock(limit)
+        # 종목 상세가 열리는 종목만. 목록 밖 종목 카드는 눌러도 404 화면으로 가기 때문이다.
+        rows = await repository.latest_per_stock(limit, MVP_CODES)
     except ReportStoreUnavailable:
         return ReportList(items=[])
     items = []

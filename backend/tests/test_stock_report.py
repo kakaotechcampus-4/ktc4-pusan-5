@@ -16,6 +16,7 @@ from app.repositories.stock_report import (
     StockReportRepository,
     is_missing_table,
     latest_passed_statement,
+    latest_per_stock_statement,
 )
 from app.routers.stocks import get_report_repository, get_term_index
 from app.services import stock_detail
@@ -113,7 +114,7 @@ class FakeReportRepository:
             raise self.error
         return self.row
 
-    async def latest_per_stock(self, limit: int) -> list[ReportRow]:
+    async def latest_per_stock(self, limit: int, codes: frozenset[str]) -> list[ReportRow]:
         if self.error:
             raise self.error
         return [self.row] if self.row else []
@@ -360,3 +361,71 @@ async def test_report_list_skips_unreadable_rows_and_survives_missing_table():
     assert bad.items == []
     gone = await stock_report.list_reports(FakeReportRepository(error=ReportStoreUnavailable("t")), 10)
     assert gone.items == []
+
+
+def test_report_list_statement_reads_only_given_codes_one_per_stock():
+    sql = str(
+        latest_per_stock_statement(5, frozenset({"005930", "000660"})).compile(
+            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+        )
+    )
+    assert "ticker IN ('000660', '005930')" in sql
+    assert "DISTINCT ON" in sql
+    assert "verify_status = 'passed'" in sql
+
+
+class FakeScrap:
+    def __init__(self, id: int, report_id: int) -> None:
+        self.id = id
+        self.report_id = report_id
+        self.created_at = datetime(2026, 11, 10, tzinfo=timezone.utc)
+
+
+@pytest.fixture
+def scraps(monkeypatch):
+    from app.repositories import report_scrap as scrap_repo
+
+    def install(items: list[FakeScrap]) -> None:
+        async def list_for_user(session, user_id):
+            return items
+
+        monkeypatch.setattr(scrap_repo, "list_for_user", list_for_user)
+
+    return install
+
+
+async def test_my_scraps_hides_deleted_unreadable_and_out_of_service_reports(scraps):
+    from app.services import report_scrap
+
+    in_service = {**NEW_FORMAT, "ticker": "005930"}
+
+    class Repo(FakeReportRepository):
+        async def get_many(self, ids):
+            rows = {
+                1: make_row(in_service, id=1, ticker="005930"),
+                2: make_row("not json", id=2, ticker="005930"),
+                3: make_row(NEW_FORMAT, id=3, ticker="TST001"),  # 서비스 목록 밖
+            }
+            return [rows[i] for i in ids if i in rows]  # 4번은 지워진 보고서
+
+    scraps([FakeScrap(10, 1), FakeScrap(11, 2), FakeScrap(12, 3), FakeScrap(13, 4)])
+    result = await report_scrap.list_my_scraps(None, Repo(), user_id=1)
+    assert [item.report_id for item in result.items] == [1]
+    assert result.items[0].sources == ["sample_channel_a"]
+
+
+async def test_my_scraps_is_empty_when_report_table_is_missing(scraps):
+    from app.services import report_scrap
+
+    scraps([FakeScrap(10, 1)])
+    repo = FakeReportRepository(error=ReportStoreUnavailable("t"))
+    assert (await report_scrap.list_my_scraps(None, repo, user_id=1)).items == []
+
+
+async def test_scrapping_a_missing_report_is_404():
+    from app.core.errors import AppError
+    from app.services import report_scrap
+
+    with pytest.raises(AppError) as info:
+        await report_scrap.add_scrap(None, FakeReportRepository(None), 1, 999)
+    assert info.value.code == "REPORT_NOT_FOUND"
