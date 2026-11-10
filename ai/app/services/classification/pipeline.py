@@ -1,7 +1,7 @@
 """자료 하나 분류 — ①~④ 를 잇는다. DB 를 쓰지 않는다.
 
     ① 사건 추출(LLM) → ② 표기 → 종목·산업·외부 기업(사전, 안 잡히면 LLM 코드 선택)
-    → ③ 후보 모으기(기준) → ④ 해당 여부 판정(LLM) + 저장 전 보정
+    → ③ 후보 모으기(기준. 켜면 홍보성 사건을 Jev 에도 묻는다) → ④ 해당 여부 판정(LLM) + 저장 전 보정
 
 결과(ClassificationResult)의 칸은 classification_runs 이하 표의 칼럼과 맞췄다. 저장은
 repositories/classification.py 의 save_run 이 한다. 같은 함수를 DB 없이 실험 기사 묶음에도 쓴다
@@ -10,6 +10,7 @@ repositories/classification.py 의 save_run 이 한다. 같은 함수를 DB 없�
 상태 (전제 P7, 4-3)
     ok        사건 목록을 얻고 판정까지 마침. 사건이 없어도 ok 다 — "이유가 될 내용이 없는 자료"
     failed    ①·②·④ 중 하나라도 호출 실패나 응답 형식 깨짐. 응답 원문은 남긴다
+              ③ Jev 실패는 회차를 실패로 만들지 않는다. 정규식만 본 결과로 이어 가고 usage 에 남긴다
     no_body   본문이 없다. 요약 같은 다른 글로 대신 분류하지 않는다
     skipped   제목·본문이 상한(MAX_INPUT_CHARS)보다 길다
 """
@@ -17,7 +18,7 @@ repositories/classification.py 의 save_run 이 한다. 같은 함수를 DB 없�
 import hashlib
 from dataclasses import dataclass, field
 
-from app.services.classification import splitter
+from app.services.classification import promo, splitter
 from app.services.classification.basis import Basis
 from app.services.classification.candidates import Candidate, collect_candidates
 from app.services.classification.events import Event
@@ -44,6 +45,7 @@ class ClassifiedEvent:
     unresolved: list[str] = field(default_factory=list)  # 어디에도 안 이어진 표기 (막은 표기 포함)
     candidates: list[Candidate] = field(default_factory=list)
     judgments: list[Judgment] = field(default_factory=list)
+    promo_jev: float | None = None  # Jev 홍보성 확률. 물어본 사건만(promo.py)
 
 
 @dataclass
@@ -129,15 +131,32 @@ async def classify(title: str | None, body: str | None, basis: Basis, *,
         item.links += links
         item.unresolved = [m for m in item.unresolved if m not in {link.mention for link in links}]
 
-    # ③ 후보
+    # ③ 후보. 근거 문장은 홍보성 사건을 관계로 넘기지 않을 때 본다(정규식)
+    texts: dict[int, str] = {}
     for item in classified:
-        item.candidates = collect_candidates(item.event, item.links, basis)
+        texts[item.event.order_index] = " ".join(
+            sentences[i - 1] for i in item.event.sentence_indices if 1 <= i <= len(sentences))
+        item.candidates = collect_candidates(item.event, item.links, basis,
+                                             texts[item.event.order_index])
+
+    # ③ 홍보성 Jev (켰을 때만). 정규식에 안 걸려 관계 후보가 남은 사건만 묻는다. 실패하면 정규식 결과 그대로
+    asks = [item for item in classified if any(c.relation_refs for c in item.candidates)]
+    if promo.enabled() and asks:
+        asked = await promo.check(title, sentences, [item.event for item in asks])
+        result.calls[promo.STEP] = asked
+        for item in asks:
+            item.promo_jev = asked.probabilities.get(item.event.order_index)
+            if promo.is_promo(item.promo_jev):
+                item.candidates = collect_candidates(item.event, item.links, basis,
+                                                     texts[item.event.order_index], promo=True)
 
     # ④ 판정
     judging = await judge(title, sentences, [(i.event, i.links, i.candidates) for i in classified],
                           basis, model=models.get("judge"))
     if judging.call is not None:
         result.calls["judge"] = judging.call
+    if judging.relation_call is not None:  # 관계 후보를 Jev 로 판정했을 때(judge_relation.py)
+        result.calls["judge_relation"] = judging.relation_call
     if judging.error:
         result.error = judging.error
         return result

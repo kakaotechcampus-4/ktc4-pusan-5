@@ -4,6 +4,8 @@
                           적는다(과거 결과가 FK 로 가리킨다). 연결·관계는 통째로 바꾼다
     stored_basis_versions 기준표에 들어 있는 기준 버전. 분류 전에 기준 파일과 같은지 본다
     cards_to_classify     분류할 자료(뉴스·PDF·메시지)의 공통 ID
+    naver_news_days       그 자료들과 같은 날짜의 네이버 뉴스 전부. 종목당 상한 순위용(selection.py)
+    classification_cost_since  그 시각 이후 분류 회차의 비용 합계. 하루 비용 상한용
     save_run              분류 결과 하나를 회차로 저장한다. 현재 회차 교체와 source_card_stocks 갱신을
                           같은 트랜잭션에서 한다(4-3·4-6). 커밋은 부르는 쪽이 한다
     classified_sources    종목 하나의 판정 자료 + 공통 배경(거시·시장) 자료 (5-2, 생성 쪽에 넘기는 것)
@@ -13,11 +15,25 @@
 
 from datetime import datetime
 
-from sqlalchemy import and_, delete, exists, func, literal, not_, null, select, union, update
+from sqlalchemy import (
+    Date,
+    Float,
+    and_,
+    cast,
+    delete,
+    exists,
+    func,
+    literal,
+    not_,
+    null,
+    select,
+    union,
+    update,
+)
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import SourceCard
+from app.models import News, SourceCard
 from app.models.classification import (
     ClassificationEvent,
     ClassificationEventApplicability,
@@ -28,6 +44,7 @@ from app.models.classification import (
     Industry,
     StockIndustry,
 )
+from app.repositories.classification_same_event import event_clusters
 from app.repositories.source_card import (
     available_since,
     available_within,
@@ -37,12 +54,15 @@ from app.repositories.source_card import (
 )
 from app.services.classification.basis import Basis
 from app.services.classification.pipeline import ClassificationResult
+from app.services.classification.selection import NewsCandidate
 
 CLASSIFIABLE_CARD_TYPES = ("news", "pdf", "message")
 TAGGED_BY = "classification"
 DEFAULT_LABELS = ("DIRECT", "INDIRECT_CONTEXT")
 # 자료 대표값(card_label)을 고르는 순서. 생성 쪽 mention(옛 이름 match)은 이 값이 아니라 사건의 path 로 정한다
 LABEL_STRENGTH = ("DIRECT", "INDIRECT_CONTEXT", "UNKNOWN", "NOT_APPLICABLE")
+# 아직 묶지 않았거나 묶지 않는 사건(거시·시장 등)의 값. 응답 모양이 같게 키는 둔다
+NO_CLUSTER = dict.fromkeys(("cluster_id", "source_count", "publisher_count", "counts_by_type"))
 
 
 # ── 기준표 ────────────────────────────────────────────────────────────────
@@ -142,6 +162,46 @@ async def cards_to_classify(
     return list((await session.execute(query)).scalars().all())
 
 
+def _kst_day():
+    """카드 공개일(KST). 공개 시각을 모르면 자료 날짜."""
+    return func.coalesce(cast(func.timezone("Asia/Seoul", SourceCard.available_at), Date),
+                         SourceCard.event_date)
+
+
+async def naver_news_days(session: AsyncSession, card_ids: list[int]) -> list[NewsCandidate]:
+    """card_ids 중 네이버 뉴스가 있는 날짜의 네이버 뉴스 전부(이미 분류한 것 포함). 종목당 상한 순위용."""
+    if not card_ids:
+        return []
+    day = _kst_day()
+    days = (select(day).join(News, News.id == SourceCard.news_id)
+            .where(SourceCard.id.in_(card_ids), News.source == "naver").distinct())
+    rows = (await session.execute(
+        select(SourceCard.id, day, News.title, func.coalesce(News.cleaned_text, News.summary),
+               News.published_at)
+        .join(News, News.id == SourceCard.news_id)
+        .where(News.source == "naver", day.in_(days.scalar_subquery()))
+    )).all()
+    return [NewsCandidate(card_id=r[0], day=r[1], title=r[2] or "", body=r[3] or "", published_at=r[4])
+            for r in rows]
+
+
+# 하루 비용 상한이 세는 usage 단계. LLM(추출·표기 연결·판정)과 Jev(관계 후보 판정·홍보성 거르기)를 함께 센다.
+# Jev 를 켜지 않은 회차에는 judge_relation·promo 가 없어 0 으로 더해진다. 단계를 새로 만들면 여기에도 넣는다.
+COST_STAGES = ("extract", "link", "judge", "judge_relation", "promo")
+
+
+async def classification_cost_since(session: AsyncSession, since: datetime) -> float:
+    """since 이후 분류 회차의 비용 합계(COST_STAGES). 통화는 회차를 만든 설정의 통화다."""
+    def stage(name: str):
+        return func.coalesce(cast(ClassificationRun.usage[name]["cost"].astext, Float), 0.0)
+
+    run_cost = sum((stage(s) for s in COST_STAGES[1:]), stage(COST_STAGES[0]))
+    total = await session.scalar(
+        select(func.coalesce(func.sum(run_cost), 0.0)).where(ClassificationRun.classified_at >= since)
+    )
+    return float(total or 0.0)
+
+
 # ── 회차 저장 ─────────────────────────────────────────────────────────────
 
 async def save_run(session: AsyncSession, card_id: int, result: ClassificationResult, *,
@@ -175,7 +235,8 @@ async def save_run(session: AsyncSession, card_id: int, result: ClassificationRe
         raw_response=extract.raw_response if extract else None,
         judge_prompt_sha256=judge.prompt_sha256 if judge else None,
         judge_raw_response=judge.raw_response if judge else None,
-        judge_fixes=result.judge_fixes if judge else {}, error=result.error, usage=usage,
+        judge_fixes=result.judge_fixes if judge or "judge_relation" in result.calls else {},
+        error=result.error, usage=usage,
         is_current=current,
     )
     session.add(run)
@@ -234,6 +295,9 @@ async def classified_sources(
 
     사건은 본문에서 나왔다. 공개는 until 전이어도 본문을 그 뒤에 받았거나 받은 시각을 모르면 그 시점에는
     알 수 없던 내용이라 sources 에서 빼고 not_observed 로 센다(get_sources 의 cutoff 와 같은 규칙).
+
+    사건마다 같은 사건 묶음(cluster_id)과 그 묶음의 수(source_count·publisher_count·counts_by_type)를
+    더한다. 수도 같은 기간·기준 시각으로 센다. 묶이지 않은 사건은 네 값이 None 이다.
     """
     window = available_within(until, since)
     base = (
@@ -269,6 +333,7 @@ async def classified_sources(
     )).all()) if picked else {}
     card_ids = list(channels)
     records = {r.id: r for r in await get_sources(session, card_ids)}
+    clusters = await event_clusters(session, set(events), until=until, since=since)
 
     sources = []
     not_observed = 0
@@ -293,6 +358,7 @@ async def classified_sources(
                 "role": event.role, "tense": event.tense,
                 "sentence_indices": list(event.sentence_indices),
                 "context_indices": list(event.context_indices), "label": label, "path": path,
+                **clusters.get(event.id, NO_CLUSTER),
             } for event, label, path in items],
         })
 

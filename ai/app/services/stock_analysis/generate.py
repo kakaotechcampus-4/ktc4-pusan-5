@@ -18,7 +18,8 @@
 정상 응답(finish_reason=stop)인데 JSON 으로 열리지 않으면(json_status=invalid) 같은 입력으로 한 번 더
 부른다. 따옴표 하나가 빠지는 식의 깨짐은 다시 부르면 대개 열린다. 래퍼 json_retry 에 다시 불렀는지와
 첫 시도의 상태·원문을 남기고, 첫 시도 비용은 cost 에 더한다. 잘림(OUTPUT_TRUNCATED)·빈 응답·호출 실패는
-다시 부르지 않는다 — 같은 설정이면 같은 자리에서 또 잘리고, 호출 실패는 스트림 재시도가 따로 있다.
+다시 부르지 않는다 — 같은 설정이면 같은 자리에서 또 잘리고, 호출 실패(429·5xx·연결·시간 초과·스트림 끊김)는
+app/llm/client.complete 가 지수 백오프로 이미 다시 보낸다(래퍼 llm_retries. 429 는 retry_rate_limited=True 로 맡긴다).
 
 ## 판단하지 않는 층에 원인을 달면 한 번 다시 부른다
 
@@ -49,7 +50,6 @@ from app.core.config import settings
 from app.llm.client import (
     PROMPT_DIR,
     LLMError,
-    LLMTimeout,
     StreamInterrupted,
     complete,
     cost_currency,
@@ -71,6 +71,7 @@ from app.services.stock_analysis.verify import (
     check_schema,
     common_move,
     group_mention,
+    is_mixed_peer,
     judge_layers,
     main_cause_sentences,
     market_led,
@@ -99,9 +100,9 @@ _UNSAFE = re.compile(r'[<>:"/\\|?*\s]+')
 _HHMM = re.compile(r"(\d{1,2}):(\d{2})")
 # check_input 의 target_date 형식. cutoff 도 이 꼴로 시작해야 한다(날짜만 있거나 시각만 있는 값을 막는다).
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
-# 스트림이 중간에 끊기거나 시간 제한에 걸렸을 때 다시 보내는 횟수(둘을 합쳐 센다). 대개 일시적인 연결·
-# 서버 지연이라 한 번은 다시 보내 볼 만하지만, 같은 입력이 거듭 그러면 입력이나 프록시 쪽 문제라 더 보내도 돈만 쓴다.
-STREAM_RETRIES = 1
+# 스트림 끊김·시간 초과·429·5xx 재시도는 app/llm/client.complete 한 곳에서 한다(settings.llm_max_retries).
+# 429 는 complete 가 기본으로 다시 보내지 않으므로 retry_rate_limited=True 를 넘겨 같은 예산에 넣는다.
+# 여기서 또 감싸면 횟수가 곱해지므로 이 모듈은 complete 를 한 번만 부르고, 시도 기록만 래퍼로 옮긴다.
 
 
 def prompt_sha256() -> str:
@@ -361,19 +362,95 @@ def _ex_self_clause(relation: str, base: str, base_pct: Decimal, topic: str, cha
     return f"{head} {went} {topic} 시장 흐름과 {'비슷하게' if relation == 'follows' else '다르게'} 움직였"
 
 
+def _split_members(peer: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]] | None:
+    """(문장에 쓸 비교 종목, 따로 쓸 비교 종목). 입력 members_used[].in_sentence(market_compare.sentence_members)로 가른다.
+    빠지는 종목이 없거나 종목별 등락률이 없는 입력(예전 형식)이면 None — 그룹 등락률("대체로 X% 안팎")로 쓴다."""
+    members = [m for m in peer.get("members_used") or [] if isinstance(m, dict)]
+    shown = [m for m in members if m.get("in_sentence") is not False]
+    rest = [m for m in members if m.get("in_sentence") is False]
+    if not shown or not rest or any(_decimal(m.get("change_rate_pct")) is None for m in members):
+        return None
+    return shown, rest
+
+
+def _names(members: list[dict[str, Any]]) -> str:
+    return "·".join(str(m.get("name")) for m in members)
+
+
 def _group_who(peer: dict[str, Any]) -> str:
     """"같은 은행지주 그룹의 신한지주·하나금융지주", 연동 그룹은 "SK하이닉스 지분으로 이어진 SK스퀘어·SK".
-    그룹을 가리키는 말은 verify.group_mention 을 그대로 쓴다 — 경고 COMPARE_OPPOSITE_WORDING 이 같은 말을 찾는다."""
+    그룹을 가리키는 말은 verify.group_mention 을 그대로 쓴다 — 경고 COMPARE_OPPOSITE_WORDING 이 같은 말을 찾는다.
+    문장에서 빠지는 비교 종목이 있으면(_split_members) 문장에 쓸 종목만 적는다."""
     group = str(peer.get("group"))
-    names = "·".join(str(m.get("name")) for m in peer.get("members_used") or [] if isinstance(m, dict))
+    split = _split_members(peer)
+    names = _names(split[0]) if split else _names([m for m in peer.get("members_used") or [] if isinstance(m, dict)])
     if group.endswith(LINKED_GROUP_SUFFIX):
         return f"{group_mention(group)} {names}"
     return f"같은 {group_mention(group)}의 {names}"
 
 
+def _rest_sentence(peer: dict[str, Any]) -> str:
+    """문장에서 빠진 비교 종목을 따로 쓴 한 문장(앞에 빈칸). 그룹이 문장에 쓴 종목뿐인 것처럼 읽히지 않게 한다.
+    "같은 그룹의 현대차는 보합이었습니다.", "같은 그룹의 현대차는 보합이었고, 현대위아는 1.37% 내렸습니다." 빠진 종목이 없으면 ""."""
+    split = _split_members(peer)
+    if split is None:
+        return ""
+    rest = [(m, _decimal(m.get("change_rate_pct"))) for m in split[1]]
+    flat = [m for m, r in rest if not r]
+    clauses = [f"{_names(flat)}{_topic_josa(_names(flat))} 보합이었"] if flat else []
+    clauses += [f"{m.get('name')}{_topic_josa(str(m.get('name')))} {_pct(r)} {_verb(r)}" for m, r in rest if r]
+    group = str(peer.get("group"))
+    head = f"{group_mention(group)} " if group.endswith(LINKED_GROUP_SUFFIX) else "같은 그룹의 "
+    return f" {head}{'고, '.join(clauses)}습니다."
+
+
+MIXED_TAIL = "방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."
+
+
+def _mixed_sentence(peer: dict[str, Any], who: str) -> str:
+    """비교 종목 방향이 엇갈린 그룹(inconclusive, 비교 종목 둘 이상)의 문장. 비교 종목 각자의 등락률을 쓰고 엇갈렸다고 덧붙인다.
+
+    "같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내려, 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."
+    같은 방향 종목은 묶는다(방향이 처음 나온 순서, 묶음 안은 입력 순서):
+    "… 현대차는 0.40%, 기아는 1.20% 올랐고 현대위아는 0.50% 내려, …", 보합은 "현대차·기아는 보합이었고".
+    종목별 등락률이 없는 입력(예전 형식)이면 수치 없이 "같은 자동차 그룹의 현대차·기아는 방향이 엇갈려 …".
+    """
+    members = [m for m in peer.get("members_used") or [] if isinstance(m, dict)]
+    rates = [_decimal(m.get("change_rate_pct")) for m in members]
+    if len(members) < 2 or any(r is None for r in rates):
+        return f"{who}{_topic_josa(who)} {MIXED_TAIL}"
+    group = str(peer.get("group"))
+    head = f"{group_mention(group)} " if group.endswith(LINKED_GROUP_SUFFIX) else f"같은 {group_mention(group)}의 "
+    by_direction: dict[int, list[tuple[str, Decimal]]] = {}
+    for m, rate in zip(members, rates, strict=True):
+        by_direction.setdefault((rate > 0) - (rate < 0), []).append((str(m.get("name")), rate))
+    clauses = []
+    for i, (direction, items) in enumerate(by_direction.items()):
+        last = i == len(by_direction) - 1
+        if direction == 0:
+            names = "·".join(name for name, _ in items)
+            clauses.append(f"{names}{_topic_josa(names)} {'보합이라' if last else '보합이었고'}")
+            continue
+        amounts = ", ".join(f"{name}{_topic_josa(name)} {_pct(rate)}" for name, rate in items)
+        rate = items[0][1]
+        clauses.append(f"{amounts} {_went(rate) if last else _verb(rate) + '고'}")
+    return f"{head}{' '.join(clauses)}, {MIXED_TAIL}"
+
+
 def _group_amount(peer: dict[str, Any], *, noun: bool) -> str:
     """그룹 등락률. 두 종목 이상이면 "대체로 X% 안팎"(통계 용어를 쓰지 않는다), 한 종목이면 그 종목 등락률.
-    noun 이면 "대체로 3.01% 안팎 오른"(뒤에 종목이 온다), 아니면 "대체로 3.01% 안팎 올랐"."""
+    noun 이면 "대체로 3.01% 안팎 오른"(뒤에 종목이 온다), 아니면 "대체로 3.01% 안팎 올랐".
+
+    문장에서 빠지는 비교 종목이 있으면(_split_members) 그룹 등락률 대신 문장에 쓸 종목 각자의 등락률이다. 한 종목이면
+    "1.00% 오른", 둘 이상이면 "0.35~0.80% 오른"(작은 값~큰 값), 모두 보합이면 "보합인"."""
+    split = _split_members(peer)
+    if split:
+        rates = [_decimal(m.get("change_rate_pct")) for m in split[0]]
+        low, high = min(rates, key=abs), max(rates, key=abs)
+        if not high:
+            return "보합인" if noun else "보합이었"
+        amount = _pct(low) if abs(low) == abs(high) else f"{abs(low):.2f}~{_pct(high)}"
+        return f"{amount} {_verb(high, '날' if noun else '')}"
     rate = _decimal(peer.get("median_change_rate_pct"))
     many = len(peer.get("members_used") or []) >= 2
     if not rate:
@@ -384,8 +461,14 @@ def _group_amount(peer: dict[str, Any], *, noun: bool) -> str:
 def _canned_relative(payload: dict[str, Any]) -> str | None:
     """summary.relative 의 코스피·그룹 비교 문장(프롬프트 4부 relative 첫 문장 표). 그룹마다 한 문장이다.
 
-    코스피는 수치 없이 말로만, 첫 번째 follows 그룹 문장에만 넣는다. 그룹 비교를 쓸 수 없으면(market_compare 가 ok 가
+    코스피는 수치 없이 말로만, 첫 번째 follows 그룹 문장에만 넣는다. 그보다 먼저 비교 종목 방향이 엇갈린 그룹(inconclusive,
+    비교 종목 둘 이상)이 나오고 코스피 판정이 follows 면 그 그룹 문장 앞에 "<종목>은 코스피와 비슷하게 움직여 시장 전체 흐름을
+    따라갔습니다." 를 한 번 쓴다. 그룹 비교를 쓸 수 없으면(market_compare 가 ok 가
     아니거나 그룹 판정이 모두 null) None 이다. 그룹이 없는 종목의 코스피 비교는 summary.move 에 있다(_canned_kospi).
+
+    보합이거나 그룹 등락률과 방향이 다른 비교 종목이 섞인 그룹은 문장에 쓸 종목만 각자의 등락률로 쓰고, 빠진 종목은 뒤에
+    한 문장으로 따로 쓴다(_rest_sentence). 그 종목들로 다시 판정하면 판정이 달라지는 그룹(입력 judge_in_sentence: false)은
+    follows·diverges 여도 판정하는 말 없이 opposite 처럼 등락만 쓴다 — 문장에 보이는 숫자와 판정이 어긋나지 않게.
     """
     compare = _compare_ok(payload)
     if compare is None:
@@ -404,7 +487,15 @@ def _canned_relative(payload: dict[str, Any]) -> str | None:
         who = _group_who(peer)
         noun = f"{_group_amount(peer, noun=True)} {who}"  # "대체로 3.01% 안팎 오른 같은 은행지주 그룹의 …"
         with_group = f"{noun}{_with_josa(who)}"
-        if relation == "follows":
+        if relation in ("follows", "diverges") and peer.get("judge_in_sentence") is False:
+            # 문장에 쓸 종목만으로는 판정이 달라진다. 판정하는 말 없이 등락만(opposite 와 같은 꼴)
+            moved = f"{_pct(change)} {_verb(change)}" if change else "보합이었"
+            sentence = f"{who}{_topic_josa(who)} {_group_amount(peer, noun=False)}고, {topic} {moved}습니다."
+            if kospi_relation == "follows":
+                # 그룹으로는 판정을 쓰지 못해도 코스피는 따라갔다. 종목 자신의 결론을 먼저 쓴다(코스피는 한 번만)
+                sentence = f"{topic} {base}{_with_josa(base)} 비슷하게 움직여 시장 전체 흐름을 따라갔습니다. {sentence}"
+                kospi_relation = None
+        elif relation == "follows":
             if kospi_relation == "follows":
                 sentence = f"{topic} {base}, 그리고 {with_group} 비슷하게 움직여 시장 전체 흐름을 따라갔습니다."
             elif kospi_relation == "opposite":
@@ -421,9 +512,18 @@ def _canned_relative(payload: dict[str, Any]) -> str | None:
         elif relation == "opposite":
             moved = f"{_pct(change)} {_verb(change)}" if change else "보합이었"
             sentence = f"{who}{_topic_josa(who)} {_group_amount(peer, noun=False)}고, {topic} {moved}습니다."
-        else:  # inconclusive — 판정하는 말 없이 비교 종목 등락률만
+        elif is_mixed_peer(peer):
+            # 비교 종목 방향이 엇갈려 inconclusive 가 된 그룹(입력 mixed, PeerComparison.mixed).
+            # 중앙값 하나("대체로 X% 안팎")로 쓰면 오른 종목과 내린 종목이 같은 방향으로 움직인 것처럼 읽혀 그룹 등락률은 쓰지
+            # 않는다. 비교 종목 각자의 등락률로 쓰고 방향이 엇갈렸다고 덧붙인다(_mixed_sentence)
+            sentence = _mixed_sentence(peer, who)
+            if kospi_relation == "follows":
+                # 그룹으로는 흐름을 말할 수 없어도 코스피는 따라갔다. 종목 자신의 결론을 먼저 쓴다(코스피는 한 번만)
+                sentence = f"{topic} {base}{_with_josa(base)} 비슷하게 움직여 시장 전체 흐름을 따라갔습니다. {sentence}"
+                kospi_relation = None
+        else:  # inconclusive(비교 종목 하나) — 판정하는 말 없이 비교 종목 등락률만
             sentence = f"{who}{_topic_josa(who)} {_group_amount(peer, noun=False)}습니다."
-        sentences.append(sentence)
+        sentences.append(sentence + _rest_sentence(peer))
     return " ".join(sentences) or None
 
 
@@ -537,6 +637,7 @@ def _merge_retry_costs(wrapper: dict[str, Any], first: dict[str, Any]) -> None:
     wrapper["duration_ms"] += first["duration_ms"]
     wrapper["stream_interruptions"] = first["stream_interruptions"] + wrapper["stream_interruptions"]
     wrapper["timeouts"] = first.get("timeouts", []) + wrapper["timeouts"]
+    wrapper["llm_retries"] = first.get("llm_retries", []) + wrapper["llm_retries"]
 
 
 async def generate(
@@ -621,6 +722,8 @@ def _base_wrapper(payload: dict[str, Any], *, prompt_hash: str, run_id: str) -> 
         "stream_interruptions": [],
         # 시간 제한에 걸린 시도마다 {"error", "seconds"}. 받은 부분이 없고 usage 도 없어 비용에 들어가지 않는다.
         "timeouts": [],
+        # complete 가 다시 보낸 시도 전부(429·5xx·연결 오류 포함). {attempt, kind, error, elapsed_sec, wait_sec, partial_chars}
+        "llm_retries": [],
         "usage": {},
         # 입력 토큰 내역(client.input_tokens). usage.prompt_tokens 는 캐시 쓰기 할증이 섞여
         # 첫 호출이 부풀어 보이므로 실제 입력 수는 여기 total 을 본다.
@@ -654,6 +757,15 @@ def _base_wrapper(payload: dict[str, Any], *, prompt_hash: str, run_id: str) -> 
     }
 
 
+def _record_attempts(wrapper: dict[str, Any], attempts: list[dict[str, Any]]) -> None:
+    """complete 가 남긴 실패한 시도를 래퍼에 옮긴다. stream_interruptions·timeouts 는 예전 칸 그대로 둔다."""
+    wrapper["llm_retries"] += attempts
+    wrapper["stream_interruptions"] += [
+        {"partial_chars": a["partial_chars"], "error": a["error"]} for a in attempts if a["kind"] == "stream"]
+    wrapper["timeouts"] += [
+        {"error": a["error"], "seconds": a["elapsed_sec"]} for a in attempts if a["kind"] == "timeout"]
+
+
 async def _generate_once(
     payload: dict[str, Any], *, system: str, prompt_hash: str, run_id: str
 ) -> dict[str, Any]:
@@ -667,30 +779,19 @@ async def _generate_once(
     wrapper = _base_wrapper(payload, prompt_hash=prompt_hash, run_id=run_id)
     stream, max_tokens = wrapper["stream"], wrapper["max_completion_tokens"]
     user = json.dumps(model_input(payload), ensure_ascii=False, indent=2)
-    for attempt in range(STREAM_RETRIES + 1):
-        try:
-            text, usage = await complete(system, user, max_tokens=max_tokens, stream=stream)
-            break
-        except StreamInterrupted as exc:
-            logger.warning("%s: %s (시도 %d)", run_id, exc, attempt + 1)
-            wrapper["stream_interruptions"].append(
-                {"partial_chars": exc.partial_chars, "error": str(exc)})
-            if attempt < STREAM_RETRIES:
-                continue
-            # 부분 응답은 열어 보지도 저장하지도 않는다. 길이만 stream_interruptions 에 있다.
-            wrapper.update(is_error=True, error_code=STREAM_INTERRUPTED, error=str(exc))
-        except LLMTimeout as exc:
-            logger.warning("%s: %s (시도 %d)", run_id, exc, attempt + 1)
-            wrapper["timeouts"].append({"error": str(exc),
-                                        "seconds": round(time.monotonic() - started, 1)})
-            if attempt < STREAM_RETRIES:
-                continue
-            wrapper.update(is_error=True, error_code=LLM_ERROR, error=str(exc))
-        except LLMError as exc:
-            logger.warning("%s: %s", run_id, exc)
-            wrapper.update(is_error=True, error_code=LLM_ERROR, error=str(exc))
+    attempts: list[dict[str, Any]] = []
+    try:
+        text, usage = await complete(system, user, max_tokens=max_tokens, stream=stream,
+                                     attempts=attempts, retry_rate_limited=True)
+    except LLMError as exc:
+        # 재시도는 complete 가 이미 했다. 부분 응답은 열어 보지도 저장하지도 않는다(길이만 기록).
+        logger.warning("%s: %s", run_id, exc)
+        code = STREAM_INTERRUPTED if isinstance(exc, StreamInterrupted) else LLM_ERROR
+        wrapper.update(is_error=True, error_code=code, error=str(exc))
+        _record_attempts(wrapper, attempts)
         wrapper["duration_ms"] = round((time.monotonic() - started) * 1000)
         return wrapper
+    _record_attempts(wrapper, attempts)
 
     wrapper["usage"] = usage
     wrapper["cost"], wrapper["cost_basis"] = cost_detail(usage)

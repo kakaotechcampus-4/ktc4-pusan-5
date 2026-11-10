@@ -59,6 +59,14 @@ def single_quarter(rows, period, field, annual_periods):
     return value - Decimal(str(before)) if before is not None else None
 
 
+def trailing_net_income(rows, period, annual_periods):
+    """최근 4개 단일 분기 순이익 합. 하나라도 비면 추정하지 않고 None."""
+    quarters = [
+        single_quarter(rows, shift(period, -3 * i), "net_income", annual_periods) for i in range(4)
+    ]
+    return None if any(q is None for q in quarters) else sum(quarters)
+
+
 def investment_summary(
     income: Resource, ratios: Resource, annual: Resource
 ) -> Resource[list[InvestmentPoint]]:
@@ -87,6 +95,7 @@ def investment_summary(
                 net_income_growth=growth(current["net_income"], previous["net_income"]),
                 operating_profit=current["operating_profit"],
                 net_income=current["net_income"],
+                net_income_ttm=trailing_net_income(incomes, period, annual_periods),
                 eps_cumulative=ratio.eps if ratio else None,
                 bps=ratio.bps if ratio else None,
                 roe=ratio.roe if ratio else None,

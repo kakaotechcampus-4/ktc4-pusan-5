@@ -14,6 +14,12 @@ function choiceLabel(picked: boolean): string {
   return picked ? CHOICE_LABEL.true : CHOICE_LABEL.false;
 }
 
+/** 아직 안 풀었으면 기본 회색, 풀었으면 정답 청록 / 오답 빨강 */
+function quizCardTone(answered: boolean, isCorrect: boolean): 'surface' | 'correct' | 'wrong' {
+  if (!answered) return 'surface';
+  return isCorrect ? 'correct' : 'wrong';
+}
+
 export function ConceptQuiz({
   items,
   answers,
@@ -33,7 +39,7 @@ export function ConceptQuiz({
           const correct = answered && picked === item.answer;
 
           return (
-            <Card key={item.question}>
+            <Card key={item.question} tone={quizCardTone(answered, correct)}>
               <div className="flex gap-3">
                 <span className="num flex-none text-sm font-semibold text-neutral-600">
                   Q{index + 1}
@@ -62,7 +68,7 @@ export function ConceptQuiz({
                 <div className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm text-neutral-600">선택</span>
-                    <Tag tone="brand">{choiceLabel(picked)}</Tag>
+                    <Tag tone={correct ? 'ai' : 'up'}>{choiceLabel(picked)}</Tag>
                     <span className="text-sm font-semibold">
                       {correct ? '맞았습니다' : `정답은 ${choiceLabel(item.answer)} 입니다`}
                     </span>

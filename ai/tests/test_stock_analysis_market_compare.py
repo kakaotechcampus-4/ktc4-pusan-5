@@ -52,9 +52,13 @@ def test_kb_follows_prompt_input_format() -> None:
 
     [peer] = compare["peers"]
     assert peer["group"] == "은행지주" and peer["relation"] == "follows"
+    # 오른 둘·내린 하나라 과반 예외로 follows. 그룹 등락률(0.35)과 방향이 다른 우리금융지주는 문장에서 빼고 따로 쓴다.
+    # 신한지주·하나금융지주(중앙값 0.58)로 다시 판정해도 follows 라 판정하는 말을 쓴다
+    assert peer["judge_in_sentence"] is True
     assert peer["members_used"] == [
-        {"code": "055550", "name": "신한지주"}, {"code": "086790", "name": "하나금융지주"},
-        {"code": "316140", "name": "우리금융지주"}]
+        {"code": "055550", "name": "신한지주", "change_rate_pct": 0.35, "in_sentence": True},
+        {"code": "086790", "name": "하나금융지주", "change_rate_pct": 0.8, "in_sentence": True},
+        {"code": "316140", "name": "우리금융지주", "change_rate_pct": -1.37, "in_sentence": False}]
     assert peer["members_excluded"] == [{"code": "105560", "name": "KB금융", "reason": "self"}]
     json.dumps(compare, ensure_ascii=False)  # 모델 입력에 그대로 들어간다
 
@@ -63,7 +67,9 @@ def test_samsung_compares_with_kospi_ex_self() -> None:
     compare = mc.to_input(build_market_context("005930", DAY, KOSPI, STOCKS))
     assert compare["kospi"]["kospi_basis"] == "kospi_ex_self"
     assert compare["kospi"]["excess_vs_kospi_ex_self_pp"] == 2.23
-    assert compare["peers"][0]["members_used"] == [{"code": "000660", "name": "SK하이닉스"}]
+    assert compare["peers"][0]["members_used"] == [
+        {"code": "000660", "name": "SK하이닉스", "change_rate_pct": 5.18, "in_sentence": True}]
+    assert compare["peers"][0]["judge_in_sentence"] is True
 
 
 def test_status_only_context_has_no_kospi() -> None:
@@ -310,21 +316,79 @@ async def test_after_close_ok_overrides_change_pct_and_excess(krx) -> None:
     assert original["market"]["peer_median_pct"] == -0.6
 
 
-@pytest.mark.parametrize("market", [
-    None,  # market 칸이 null
-    {"index": "코스피", "change_pct": 3.09, "peer_median_pct": None, "excess_pct": None},  # 중간값이 없다
-])
-async def test_override_without_peer_median_leaves_peers(krx, market) -> None:
-    """입력에 중간값이 없으면 대형주 비교 수치를 건드리지 않는다. 없던 대형주 비교를 KRX 로 새로 켜지 않는다.
-    지수 등락률은 있으면 KRX 로 바꾼다. market 이 null 이면 그대로 null 이다."""
+async def test_override_without_peer_median_leaves_peers(krx) -> None:
+    """입력 market 에 중간값이 없으면 대형주 비교 수치를 건드리지 않는다. 없던 대형주 비교를 KRX 로 새로 켜지 않는다.
+    지수 등락률은 있으면 KRX 로 바꾼다. market 이 null 인 입력은 아래 「market 이 null 이면」."""
+    market = {"index": "코스피", "change_pct": 3.09, "peer_median_pct": None, "excess_pct": None}
     original = {**report_input(), "market": market}
 
     sent, fields = await mc.MarketCompare(object()).apply(original)
 
     assert sent["change_pct"] == 0.27
-    assert sent["market"] == (None if market is None else {**market, "change_pct": 3.09, "as_of": "15:30"})
+    assert sent["market"] == {**market, "change_pct": 3.09, "as_of": "15:30"}
+    assert fields["change_pct_override"]["market_created"] is False
     assert fields["change_pct_override"]["peers"] is None
     assert fields["change_pct_override"]["excess_pct"] is None
+
+
+# --- market 이 null 이면 KRX 로 만든다 -----------------------------------------------------------
+
+
+async def test_after_close_ok_creates_null_market_from_krx(krx) -> None:
+    """분류 어댑터 입력은 market 이 null 이다. 장 마감 이후 ok 면 지수·대형주 비교 칸을 KRX 로 새로 만들어
+    상대 층과 summary.move 비교 문장이 켜진다. 원래 null 이었다는 건 래퍼 market_created 에 남는다."""
+    from app.services.stock_analysis.generate import canned_report
+    from app.services.stock_analysis.verify import judge_layers, move_comparison
+
+    original = {**report_input(), "market": None}
+
+    sent, fields = await mc.MarketCompare(object()).apply(original)
+
+    krx_peers = {"peer_median_pct": 3.84, "peer_up": 8, "peer_down": 0, "peer_total": 8}
+    assert sent["change_pct"] == 0.27
+    assert sent["market"] == {"index": "코스피", "change_pct": 3.09, "as_of": "15:30", "url": "", **krx_peers,
+                              "excess_pct": -3.57}  # 0.27 − 3.84
+    override = fields["change_pct_override"]
+    assert override["market_created"] is True
+    assert override["index"]["input"] == {"change_pct": None, "as_of": None}
+    assert override["peers"]["input"] == dict.fromkeys(mc.PEER_KEYS)
+    assert override["peers"]["krx"] == krx_peers
+    assert override["excess_pct"] == {"input": None, "recomputed": -3.57}
+    assert judge_layers(sent)["relative"] is True and move_comparison(sent) == "덜"
+    move = canned_report({**sent, "stock": "KB금융"})["summary"]["move"]
+    assert "코스피는 3.09% 올랐" in move and "대형주 전반보다 덜 올랐습니다" in move
+    assert original["market"] is None  # 받은 입력은 바꾸지 않는다
+
+
+def test_created_market_without_usable_universe_leaves_peers_null() -> None:
+    """새로 만든 market 에 쓸 대형주가 없으면 대형주 비교 칸·excess_pct 는 null 이다. 지수 칸은 채운다."""
+    compare = mc.to_input(build_market_context("105560", DAY, KOSPI, STOCKS))
+
+    sent, record = mc.override_change_pct({**report_input(), "market": None}, compare, STOCKS, universe=("999990",))
+
+    assert sent["market"] == {"index": "코스피", "change_pct": 3.09, "as_of": "15:30", "url": "",
+                              **dict.fromkeys(mc.PEER_KEYS), "excess_pct": None}
+    assert record["market_created"] is True and record["peers"]["krx"] is None
+    assert record["excess_pct"] == {"input": None, "recomputed": None}
+
+
+@pytest.mark.parametrize("setup", ["before_close", "no_data", "failed", "no_trades"])
+async def test_null_market_stays_null_without_ok_after_close(krx, setup) -> None:
+    """장 마감 전이거나 KRX 가 ok 가 아니면 market 은 null 그대로다."""
+    kospi, stocks = krx
+    cutoff = f"{TARGET_DATE}T15:29:00+09:00" if setup == "before_close" else f"{TARGET_DATE}T15:30:00+09:00"
+    if setup == "no_data":
+        kospi.return_value = None
+    elif setup == "failed":
+        kospi.side_effect = KrxError("KRX kospi_dd_trd 20261027 요청 실패: ReadTimeout: ")
+    elif setup == "no_trades":
+        halted = STOCKS[6].model_copy(update={"volume": 0, "change_rate": 0.0})  # KB금융을 거래정지로
+        stocks.return_value = [halted if s.code == "105560" else s for s in STOCKS]
+
+    sent, fields = await mc.MarketCompare(object()).apply({**report_input(cutoff), "market": None})
+
+    assert sent["market"] is None and sent["change_pct"] == -4.2
+    assert fields["change_pct_override"] is None
 
 
 def universe_stock(code: str, rate: float | None, *, volume: int = 1000):
@@ -362,18 +426,40 @@ def test_universe_peers_none_when_nothing_usable() -> None:
     assert peers is None and excluded == [{"code": "000020", "reason": "missing"}]
 
 
-def test_override_falls_back_to_input_median_when_universe_is_empty() -> None:
-    """쓸 유니버스 종목이 하나도 없으면 입력 중간값·종목 수를 두고 excess_pct 만 새 change_pct 로 다시 낸다."""
+NULL_PEERS = {"peer_median_pct": None, "peer_up": None, "peer_down": None, "peer_total": None, "excess_pct": None}
+
+
+def test_override_nulls_peers_and_excess_when_universe_is_empty() -> None:
+    """쓸 유니버스 종목이 하나도 없으면 입력 대형주 비교 수치와 excess_pct 를 null 로 둔다. 입력 중간값(−0.6)으로
+    excess_pct 를 다시 내면(0.27 − (−0.6) = 0.87) 종목은 KRX, 대형주는 입력 시세라 두 출처가 섞인다.
+    키는 남긴다(프롬프트 스키마 "없으면 null"). 지수 칸은 그대로 KRX 로 바꾸고, 원래 값은 래퍼 기록에 남는다."""
     original = report_input()
     compare = mc.to_input(build_market_context("105560", DAY, KOSPI, STOCKS))
 
     sent, record = mc.override_change_pct(original, compare, STOCKS, universe=("999990",))
 
-    assert sent["market"] == {**original["market"], "excess_pct": 0.87,  # 0.27 − (−0.6)
-                              "change_pct": 3.09, "as_of": "15:30"}
+    assert sent["market"] == {"index": "코스피", "change_pct": 3.09, "as_of": "15:30", **NULL_PEERS}
     assert record["peers"] == {"input": {"peer_median_pct": -0.6, "peer_up": 5, "peer_down": 13, "peer_total": 19},
                                "krx": None, "excluded": [{"code": "999990", "reason": "missing"}]}
-    assert record["excess_pct"] == {"input": -3.6, "recomputed": 0.87}
+    assert record["excess_pct"] == {"input": -3.6, "recomputed": None}
+    # 받은 입력은 바꾸지 않는다
+    assert original["market"]["peer_median_pct"] == -0.6 and original["market"]["excess_pct"] == -3.6
+
+
+async def test_after_close_ok_nulls_stale_peers_when_universe_peers_is_none(krx, monkeypatch) -> None:
+    """apply 경로에서 universe_peers 가 None 이면 모델에 보낼 입력에 이전 입력의 peer_median_pct·excess_pct 가 남지 않고
+    키는 null 로 있다. change_pct 는 KRX 로 바뀌고 시장 맥락은 실패로 돌리지 않는다."""
+    monkeypatch.setattr(mc, "universe_peers", lambda stocks, code, universe: (None, []))
+    original = report_input()
+
+    sent, fields = await mc.MarketCompare(object()).apply(original)
+
+    assert fields["market_compare"]["status"] == "ok" and fields["market_compare_error"] is None
+    assert sent["change_pct"] == 0.27
+    assert sent["market"] == {"index": "코스피", "change_pct": 3.09, "as_of": "15:30", **NULL_PEERS}
+    override = fields["change_pct_override"]
+    assert override["peers"]["krx"] is None
+    assert override["excess_pct"] == {"input": -3.6, "recomputed": None}
 
 
 @pytest.mark.parametrize(("setup", "status"), [

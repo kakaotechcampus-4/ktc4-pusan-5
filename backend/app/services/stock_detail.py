@@ -14,6 +14,7 @@ from app.models.stock import (
     StockCollectionState,
     StockDailyPrice,
     StockDataCoverage,
+    StockInvestorSnapshot,
     StockMetricSnapshot,
     StockQuoteSnapshot,
 )
@@ -22,6 +23,7 @@ from app.repositories.stock import enqueue, touch
 from app.schemas.stock import (
     Candle,
     Coverage,
+    InvestorFlowData,
     MetricsData,
     QuoteData,
     Resource,
@@ -29,7 +31,7 @@ from app.schemas.stock import (
     StockOverview,
     StockPrices,
 )
-from app.services.quote_freshness import is_quote_stale
+from app.services.quote_freshness import is_investor_stale, is_quote_stale
 
 PRICE_TTL = 86400
 EPOCH = date(1970, 1, 1)
@@ -76,6 +78,13 @@ async def overview(session: AsyncSession, code: str) -> StockOverview:
     now = datetime.now(UTC)
     quote = await session.get(StockQuoteSnapshot, code)
     metrics = await session.get(StockMetricSnapshot, code)
+    investor = await session.get(StockInvestorSnapshot, code)
+    investor_state = await session.get(StockCollectionState, (code, "investor"))
+    investor_job = await session.scalar(
+        select(StockCollectionJob).where(
+            StockCollectionJob.stock_code == code, StockCollectionJob.resource == "investor"
+        )
+    )
     state = await session.get(StockCollectionState, (code, "snapshot"))
     quote_state = await session.get(StockCollectionState, (code, "quote")) or state
     metric_state = await session.get(StockCollectionState, (code, "metrics")) or state
@@ -111,6 +120,17 @@ async def overview(session: AsyncSession, code: str) -> StockOverview:
                 metrics_expired,
                 now,
                 metrics.source_as_of if metrics else None,
+            )
+        ),
+        investor_flow=Resource[InvestorFlowData](
+            **resource_state(
+                InvestorFlowData.model_validate(investor) if investor else None,
+                investor.collected_at if investor else None,
+                investor_state,
+                bool(investor_job and investor_job.status in ("queued", "running")),
+                not investor or is_investor_stale(investor.collected_at, now, calendar),
+                now,
+                investor.source_as_of if investor else None,
             )
         ),
     )

@@ -1,8 +1,11 @@
 from app.models.analyst_report import AnalystReport
 from app.models.channel import Channel
 from app.models.classification import (
+    ClassificationClusterCall,
     ClassificationEvent,
     ClassificationEventApplicability,
+    ClassificationEventCluster,
+    ClassificationEventClusterMember,
     ClassificationEventEntity,
     ClassificationRun,
     CompanyRelation,
@@ -24,8 +27,11 @@ from app.models.telegram_message import TelegramMessage, TelegramMessageLink
 __all__ = [
     "AnalystReport",
     "Channel",
+    "ClassificationClusterCall",
     "ClassificationEvent",
     "ClassificationEventApplicability",
+    "ClassificationEventCluster",
+    "ClassificationEventClusterMember",
     "ClassificationEventEntity",
     "ClassificationRun",
     "CompanyRelation",
