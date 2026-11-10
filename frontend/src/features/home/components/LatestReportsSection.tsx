@@ -4,6 +4,7 @@ import { SectionHead } from '@/components/layout/PageShell';
 import { formatAsOf } from '@/lib/format';
 import type { ReportListItem } from '@/lib/types';
 import { VERDICT_LABEL } from '@/features/stock/components/reportLabels';
+import { REPORT_HASH } from '@/features/stock/components/StockInsightSection';
 import type { LatestReportsStatus } from '../useLatestReports';
 
 const GRID_CLASS = 'grid list-none grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3';
@@ -60,7 +61,7 @@ export function LatestReportsSection({
               <Card tone="plain">
                 <div className="flex items-center gap-2">
                   <Link
-                    to={`/stock/${item.code}`}
+                    to={`/stock/${item.code}${REPORT_HASH}`}
                     className="text-ink min-w-0 truncate font-semibold no-underline after:absolute after:inset-0"
                   >
                     {item.name ?? item.code}
