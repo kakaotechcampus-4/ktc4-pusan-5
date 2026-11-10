@@ -226,6 +226,7 @@ class ClassificationRun(Base):
     judge_fixes: Mapped[dict] = mapped_column(JSONB, server_default=sql_text("'{}'::jsonb"))
     error: Mapped[str | None] = mapped_column(Text)
     # 단계(extract·link·judge)별 토큰·비용·모델. ② 코드 선택의 응답 원문도 link.raw_response 에 남긴다
+    # ③ 홍보성 Jev 를 켰으면 promo 칸에 사건별 확률·오류·원화 비용이 함께 남는다(promo.py)
     usage: Mapped[dict] = mapped_column(JSONB, server_default=sql_text("'{}'::jsonb"))
     is_current: Mapped[bool] = mapped_column(Boolean, server_default=sql_text("false"))
     classified_at: Mapped[datetime] = mapped_column(

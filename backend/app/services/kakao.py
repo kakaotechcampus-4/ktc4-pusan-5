@@ -11,6 +11,15 @@ class KakaoAuthError(Exception):
     """카카오 인증 실패. 원인 예외는 __cause__ 에 남는다."""
 
 
+def _kakao_error_code(resp: httpx.Response) -> str:
+    # 카카오 오류 본문의 error_code(예: KOE320)만 꺼낸다. 없거나 JSON 이 아니면 빈 문자열
+    try:
+        error_code = resp.json().get("error_code")
+    except (ValueError, AttributeError):  # JSON 이 아니거나 객체가 아닌 본문
+        return ""
+    return f" {error_code}" if isinstance(error_code, str) and error_code else ""
+
+
 class KakaoUserInfo(BaseModel):
     kakao_id: str
     nickname: str
@@ -32,7 +41,9 @@ async def exchange_code_for_token(code: str) -> str:
             resp = await client.post(KAKAO_TOKEN_URL, data=data)
             resp.raise_for_status()
     except httpx.HTTPStatusError as e:
-        raise KakaoAuthError(f"token exchange failed: HTTP {e.response.status_code}") from e
+        raise KakaoAuthError(
+            f"token exchange failed: HTTP {e.response.status_code}{_kakao_error_code(e.response)}"
+        ) from e
     except httpx.HTTPError as e:
         raise KakaoAuthError(f"token exchange failed: {type(e).__name__}") from e
 
@@ -50,7 +61,9 @@ async def fetch_user_info(access_token: str) -> KakaoUserInfo:
             resp = await client.get(KAKAO_USER_URL, headers=headers)
             resp.raise_for_status()
     except httpx.HTTPStatusError as e:
-        raise KakaoAuthError(f"user info fetch failed: HTTP {e.response.status_code}") from e
+        raise KakaoAuthError(
+            f"user info fetch failed: HTTP {e.response.status_code}{_kakao_error_code(e.response)}"
+        ) from e
     except httpx.HTTPError as e:
         raise KakaoAuthError(f"user info fetch failed: {type(e).__name__}") from e
 

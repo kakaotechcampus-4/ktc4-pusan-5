@@ -25,7 +25,9 @@ from app.services.market_data.context import (
     common_base,
     group_relation,
     is_common,
+    is_mixed,
     kospi_relation,
+    mixed_still_follows,
     prev_market_cap,
 )
 from app.services.market_data.krx import _index_row, _stock_row
@@ -391,11 +393,14 @@ def test_group_uses_median_against_outlier(
 @pytest.mark.parametrize(("target_rate", "peer_rates", "excess", "relation"), [
     (-0.30, [0.40, 0.50], -0.75, "opposite"),  # 기준 안인데 그룹은 오르고 종목은 내렸다
     (-0.30, [0.45], -0.75, "opposite"),  # 비교 종목이 하나여도 기준 안이면 같은 규칙
-    (0.40, [-0.50, -0.30, 9.00], 0.70, "opposite"),  # 중앙값(−0.30)의 방향으로 본다
+    (0.40, [-0.50, -0.30, -0.10], 0.70, "opposite"),  # 중앙값(−0.30)의 방향으로 본다
+    # 평균(2.73)이 아니라 중앙값(−0.30) 방향이면 opposite 지만, 9.00 이 섞여 비교 종목 방향이 엇갈려 inconclusive 가 먼저다
+    (0.40, [-0.50, -0.30, 9.00], 0.70, "inconclusive"),
     (-0.60, [0.40, 0.50], -1.05, "diverges"),  # 기준을 넘으면 방향과 상관없이 지금처럼
     (-0.60, [0.45], -1.05, "inconclusive"),
     (0.00, [0.40, 0.50], -0.45, "follows"),  # 보합(0.00)은 방향이 없다
-    (0.50, [-0.50, 0.00, 0.50], 0.50, "follows"),  # 그룹 중앙값이 보합
+    # 그룹 중앙값이 보합. 비교 종목이 오른 것 하나·내린 것 하나·보합 하나로 반반 엇갈려 follows 가 아니다(group_relation)
+    (0.50, [-0.50, 0.00, 0.50], 0.50, "inconclusive"),
 ])
 def test_group_relation_opposite_direction(
     target_rate: float, peer_rates: list[float], excess: float, relation: str,
@@ -403,6 +408,69 @@ def test_group_relation_opposite_direction(
     peer = _group_ctx(target_rate, peer_rates)
     assert peer.excess_vs_group_pp == excess
     assert peer.relation == relation
+
+
+@pytest.mark.parametrize(("target_rate", "peer_rates", "excess", "relation"), [
+    # 비교 종목 둘: 방향이 엇갈리면 기준 안이어도 inconclusive (2026-11-04 현대모비스: 현대차 +2.16, 기아 −0.83)
+    (1.28, [2.16, -0.83], 0.61, "inconclusive"),
+    (-1.21, [0.55, -2.78], -0.10, "inconclusive"),
+    # 0.00(보합)은 방향이 없어 엇갈림으로 치지 않는다
+    (0.50, [0.00, 0.80], 0.10, "follows"),
+    (-0.20, [0.00, -0.60], 0.10, "follows"),
+    # 셋 이상: 한 방향이 과반이고 대상도 그 방향이면 follows 유지
+    (0.27, [0.35, 0.80, -1.37], -0.08, "follows"),  # 2026-10-27 KB금융(오른 둘·내린 하나, KB 상승)
+    (-1.39, [-1.86, 1.04, -1.56], 0.17, "follows"),  # 2026-11-04 HD현대중공업(내린 둘·오른 하나, 대상 하락)
+    # 셋 이상: 과반 방향이고 대상이 보합(0.00)이면 반대 방향으로 치지 않아 follows 유지
+    (0.00, [-0.83, 1.24, 0.67], -0.67, "follows"),  # 2026-10-30 우리금융지주
+    # 셋 이상: 오른 수 = 내린 수(반반)면 inconclusive. 보합은 어느 쪽에도 세지 않는다
+    (0.67, [-0.83, 1.24, 0.00], 0.67, "inconclusive"),  # 2026-10-30 하나금융지주
+    (0.30, [0.40, -0.20, 0.50, -0.10], 0.15, "inconclusive"),
+    # 넷 이상에서 과반이 없으면(오른 둘·내린 하나·보합 하나) inconclusive
+    (0.30, [0.50, 0.20, -0.40, 0.00], 0.20, "inconclusive"),
+    # 엇갈림이 차이 크기보다 먼저다. 기준을 넘어도 diverges, 중앙값과 방향이 반대여도 opposite 가 아니다
+    (2.50, [2.16, -0.83], 1.83, "inconclusive"),  # 리뷰 예시: 현대모비스 +2.50 vs 현대차 +2.16·기아 −0.83
+    (3.00, [-0.50, 1.00], 2.75, "inconclusive"),
+    (-3.00, [-0.50, 1.00], -3.25, "inconclusive"),
+    (-0.30, [0.90, -0.10], -0.70, "inconclusive"),
+    # 셋 이상에서 과반 방향이고 대상도 그 방향이어도, 기준을 넘으면 follows 예외가 아니라 inconclusive
+    (4.00, [1.00, 1.20, -0.30], 3.00, "inconclusive"),
+    (-1.50, [1.00, 1.20, -0.30], -2.50, "inconclusive"),
+    # 보합(0.00)은 방향이 없어 엇갈림이 아니다. 기준 초과면 diverges 그대로
+    (3.00, [0.00, 1.00], 2.50, "diverges"),
+    (-2.00, [0.00, 0.00], -2.00, "diverges"),
+    (2.01, [1.00], 1.01, "inconclusive"),  # 비교 종목 하나: 지금처럼
+    (-0.30, [0.45], -0.75, "opposite"),  # 비교 종목 하나는 엇갈릴 수 없다
+])
+def test_group_relation_mixed_direction(
+    target_rate: float, peer_rates: list[float], excess: float, relation: str,
+) -> None:
+    peer = _group_ctx(target_rate, peer_rates)
+    assert peer.excess_vs_group_pp == excess
+    assert peer.relation == relation
+
+
+def test_is_mixed_ignores_flat() -> None:
+    assert is_mixed([2.16, -0.83])
+    assert not is_mixed([0.00, 0.80]) and not is_mixed([0.00, -0.80]) and not is_mixed([0.00, 0.00])
+    assert not is_mixed([]) and not is_mixed([1.0])
+
+
+@pytest.mark.parametrize(("stock_rate", "member_rates", "kept"), [
+    (1.28, [2.16, -0.83], False),  # 비교 종목 둘이면 유지하지 않는다
+    (0.27, [0.35, 0.80, -1.37], True),
+    (0.00, [-0.83, 1.24, 0.67], True),  # 대상 보합
+    (-0.10, [0.35, 0.80, -1.37], False),  # 대상이 과반 반대 방향(group_relation 은 inconclusive)
+    (0.67, [-0.83, 1.24, 0.00], False),  # 반반
+    (None, [0.35, 0.80, -1.37], False),
+])
+def test_mixed_still_follows(stock_rate: float | None, member_rates: list[float], kept: bool) -> None:
+    assert mixed_still_follows(stock_rate, member_rates) is kept
+
+
+def test_group_relation_without_member_rates_is_unchanged() -> None:
+    """비교 종목 등락률을 넘기지 않는 호출은 지금과 같다(엇갈림을 보지 않는다)."""
+    assert group_relation(0.61, 2, 1.28, 0.67) == "follows"
+    assert group_relation(0.61, 2, 1.28, 0.67, [2.16, -0.83]) == "inconclusive"
 
 
 def test_group_relation_none_without_median() -> None:

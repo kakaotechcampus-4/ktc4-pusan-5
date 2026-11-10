@@ -11,12 +11,16 @@ import type {
   StockOverview,
   StockPriceResource,
   StockFinancials,
+  StockReport,
+  ReportList,
+  Resource,
   PricePeriod,
   SearchResponse,
   User,
   WatchlistResponse,
 } from './types';
 import type { Concept, ConceptListResponse } from '@/features/concepts/types';
+import type { MyScrapList } from '@/features/mypage/types';
 
 /** 베이스 URL 은 .env 로만 읽는다. 코드에 URL 을 박지 않는다. */
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -165,4 +169,31 @@ export function getStockPrices(
 
 export function getStockFinancials(code: string, signal?: AbortSignal): Promise<StockFinancials> {
   return request<StockFinancials>(`/api/stocks/${encodeURIComponent(code)}/financials`, { signal });
+}
+
+/** 장 마감 기준으로 미리 만들어 둔 변동 요인 보고서. 없으면 status 가 pending */
+export function getStockReport(code: string, signal?: AbortSignal): Promise<Resource<StockReport>> {
+  return request<Resource<StockReport>>(`/api/stocks/${encodeURIComponent(code)}/report`, {
+    signal,
+  });
+}
+
+/** 종목마다 가장 최근 보고서 하나씩, 최근 순. 홈의 보고서 목록에 쓴다. */
+export function getReports(limit: number, signal?: AbortSignal): Promise<ReportList> {
+  return request<ReportList>(`/api/reports?limit=${limit}`, { signal });
+}
+
+/** 로그인한 사용자가 스크랩한 보고서. 비로그인이면 401 UNAUTHORIZED ApiError */
+export function getMyScraps(signal?: AbortSignal): Promise<MyScrapList> {
+  return request<MyScrapList>('/api/scraps', { signal });
+}
+
+/** 이미 스크랩한 보고서를 다시 눌러도 성공한다. 없는 보고서면 404 REPORT_NOT_FOUND */
+export function addScrap(reportId: number): Promise<void> {
+  return request<void>(`/api/scraps/${reportId}`, { method: 'PUT' });
+}
+
+/** 스크랩하지 않은 보고서를 빼도 에러 없이 성공한다. */
+export function removeScrap(reportId: number): Promise<void> {
+  return request<void>(`/api/scraps/${reportId}`, { method: 'DELETE' });
 }

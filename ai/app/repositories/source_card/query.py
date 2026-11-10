@@ -64,10 +64,11 @@ def available_within(until: datetime, since: datetime | None = None):
 
 async def stock_card_ids(
     session: AsyncSession, stock_code: str, *, until: datetime, since: datetime | None = None,
+    card_type: str | None = None,
 ) -> list[int]:
     """종목 하나의 자료 중 기준 시각(until) 이전에 공개된 것의 공통 ID. 오래된 순서다.
 
-    시각 조건은 available_within 이다. 이 색인(source_card_stocks)에는 종목에 직접 해당하는 자료만
+    card_type 을 주면 그 종류(message·news·pdf·disclosure)의 카드만 고른다. 시각 조건은 available_within 이다. 이 색인(source_card_stocks)에는 종목에 직접 해당하는 자료만
     있다 — 분류 판정의 INDIRECT_CONTEXT·공통 배경까지 보려면 classification.classified_sources.
     """
     # (카드, 종목)이 고유하므로 종목 하나로 조인하면 카드가 겹치지 않는다.
@@ -77,6 +78,8 @@ async def stock_card_ids(
         .where(SourceCardStock.stock_code == stock_code, available_within(until, since))
         .order_by(SourceCard.event_date, SourceCard.available_at.nulls_first(), SourceCard.id)
     )
+    if card_type is not None:
+        query = query.where(SourceCard.card_type == card_type)
     return list((await session.execute(query)).scalars().all())
 
 

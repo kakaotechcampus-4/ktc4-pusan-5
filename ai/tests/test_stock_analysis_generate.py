@@ -189,9 +189,10 @@ async def test_wrapper_records_request_settings(fake_complete, monkeypatch):
     monkeypatch.setattr(gen.settings, "summary_max_tokens", 8000)
     monkeypatch.setattr(gen.settings, "summary_reasoning_effort", "low")
     w = await run(fake_complete, REPORT_TEXT)
-    assert fake_complete.await_args.kwargs == {"max_tokens": 8000, "stream": True}
+    kwargs = fake_complete.await_args.kwargs
+    assert (kwargs["max_tokens"], kwargs["stream"]) == (8000, True)
     assert (w["stream"], w["max_completion_tokens"], w["reasoning_effort"]) == (True, 8000, "low")
-    assert w["stream_interruptions"] == []
+    assert w["stream_interruptions"] == [] and w["llm_retries"] == []
 
 
 async def test_openrouter_does_not_stream_by_default(fake_complete):
@@ -199,22 +200,42 @@ async def test_openrouter_does_not_stream_by_default(fake_complete):
     assert fake_complete.await_args.kwargs["stream"] is False and w["stream"] is False
 
 
-async def test_stream_interruption_is_retried_once(fake_complete):
-    fake_complete.side_effect = [StreamInterrupted("스트림이 끊겼다: ReadError", 120),
-                                 (REPORT_TEXT, USAGE)]
+def _attempt(n, kind, error, partial=None, elapsed=1.0):
+    """client.complete 가 attempts 에 남기는 실패한 시도 하나."""
+    return {"attempt": n, "kind": kind, "error": error, "elapsed_sec": elapsed, "wait_sec": 2.0,
+            "partial_chars": partial}
+
+
+def _complete_after(records, outcome):
+    """client.complete 흉내. 재시도는 complete 안에서 끝났고, 그 기록을 attempts 에 남긴 뒤 결과를 낸다."""
+    async def fake(*args, attempts=None, **kwargs):
+        attempts.extend(records)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+    return fake
+
+
+async def test_retries_recorded_by_client_move_into_wrapper(fake_complete):
+    """재시도는 complete 가 한다. generate 는 한 번만 부르고 그 시도 기록을 래퍼로 옮긴다."""
+    fake_complete.side_effect = _complete_after(
+        [_attempt(1, "stream", "스트림이 끊겼다: ReadError", 120)], (REPORT_TEXT, USAGE))
     w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
-    assert fake_complete.await_count == 2
+    assert fake_complete.await_count == 1
     assert not w["is_error"] and w["json_status"] == "clean"
     # 끊긴 시도는 길이만 남는다
     assert w["stream_interruptions"] == [{"partial_chars": 120,
                                           "error": "스트림이 끊겼다: ReadError"}]
+    assert [a["kind"] for a in w["llm_retries"]] == ["stream"]
 
 
 async def test_stream_interrupted_twice_is_error_without_partial_body(fake_complete):
-    fake_complete.side_effect = [StreamInterrupted("스트림이 끊겼다: ReadError", 120),
-                                 StreamInterrupted("스트림이 finish_reason 없이 끝났다", 340)]
+    fake_complete.side_effect = _complete_after(
+        [_attempt(1, "stream", "스트림이 끊겼다: ReadError", 120),
+         _attempt(2, "stream", "스트림이 finish_reason 없이 끝났다", 340)],
+        StreamInterrupted("스트림이 finish_reason 없이 끝났다", 340))
     w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
-    assert fake_complete.await_count == 2  # 재시도는 1회까지
+    assert fake_complete.await_count == 1  # 다시 보내는 건 complete 의 몫이다
     assert w["is_error"] is True and w["error_code"] == "STREAM_INTERRUPTED"
     assert [i["partial_chars"] for i in w["stream_interruptions"]] == [120, 340]
     # 부분 응답을 열거나 저장하지 않는다
@@ -461,6 +482,20 @@ WHO = "같은 은행지주 그룹의 신한지주·하나금융지주·우리금
     (_with_compare("follows", [_peer("inconclusive", -5.49, "메모리반도체", [{"code": "000660", "name": "SK하이닉스"}])]),
      "KB금융은 코스피와 비슷하게 움직였습니다.",
      "같은 메모리반도체 그룹의 SK하이닉스는 5.49% 내렸습니다."),
+    # 비교 종목이 둘 이상인데 inconclusive 면 방향이 엇갈린 그룹이다. 그룹 등락률(대체로 X% 안팎)을 쓰지 않는다.
+    # 코스피 판정이 follows 면 종목 자신의 결론(코스피를 따라갔다)을 앞에 남긴다
+    (_with_compare("follows", [_peer("inconclusive", 0.0)]),
+     "KB금융은 코스피와 비슷하게 움직였습니다.",
+     f"KB금융은 코스피와 비슷하게 움직여 시장 전체 흐름을 따라갔습니다. {WHO}는 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."),
+    # 코스피 판정이 follows 가 아니면 엇갈림 문장만(코스피 비교는 summary.move 에 있다)
+    (_with_compare("opposite", [_peer("inconclusive", 0.0)], change=-0.5, kospi=0.4),
+     "코스피는 올랐고 KB금융은 내렸습니다.",
+     f"{WHO}는 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."),
+    (_with_compare("diverges", [_peer("inconclusive", 1.11, "SK하이닉스 연동",
+                                     [{"code": "000660", "name": "SK하이닉스"}, {"code": "034730", "name": "SK"}])],
+                   change=-2.5, kospi=1.2),
+     "코스피는 올랐지만 KB금융은 내렸습니다.",
+     "SK하이닉스 지분으로 이어진 SK하이닉스·SK는 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다."),
     # 연동 그룹은 지분으로 이어진 관계로 쓴다
     (_with_compare("follows", [_peer("follows", 1.2, "SK하이닉스 연동",
                                      [{"code": "000660", "name": "SK하이닉스"}, {"code": "034730", "name": "SK"}])],
@@ -643,18 +678,31 @@ def test_needs_llm_counts_only_messages_column(msgs, llm):
     assert gen.needs_llm(_kb(-3.1, -1.57, -1.53, messages=msgs)) is llm
 
 
-async def test_timeout_is_retried_once_and_recorded(fake_complete):
-    fake_complete.side_effect = [LLMTimeout("LLM 호출 실패: TimeoutError (180초 제한)"), (REPORT_TEXT, USAGE)]
+async def test_timeout_retry_by_client_is_recorded(fake_complete):
+    fake_complete.side_effect = _complete_after(
+        [_attempt(1, "timeout", "LLM 호출 실패: TimeoutError (420초 제한)", elapsed=420.0)],
+        (REPORT_TEXT, USAGE))
     w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
-    assert fake_complete.await_count == 2 and not w["is_error"]
-    assert len(w["timeouts"]) == 1 and "TimeoutError" in w["timeouts"][0]["error"]
+    assert fake_complete.await_count == 1 and not w["is_error"]
+    assert w["timeouts"] == [{"error": "LLM 호출 실패: TimeoutError (420초 제한)", "seconds": 420.0}]
 
 
-async def test_timeout_twice_is_llm_error(fake_complete):
-    fake_complete.side_effect = LLMTimeout("LLM 호출 실패: TimeoutError (180초 제한)")
+async def test_timeout_after_client_retries_is_llm_error(fake_complete):
+    error = "LLM 호출 실패: TimeoutError (420초 제한)"
+    fake_complete.side_effect = _complete_after(
+        [_attempt(n, "timeout", error) for n in (1, 2, 3)], LLMTimeout(error))
     w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
-    assert fake_complete.await_count == 2
-    assert w["is_error"] and w["error_code"] == "LLM_ERROR" and len(w["timeouts"]) == 2
+    assert fake_complete.await_count == 1
+    assert w["is_error"] and w["error_code"] == "LLM_ERROR" and len(w["timeouts"]) == 3
+
+
+async def test_http_429_after_client_retries_is_llm_error(fake_complete):
+    fake_complete.side_effect = _complete_after(
+        [_attempt(n, "http_429", "LLM 호출 실패: HTTP 429 rate limited") for n in (1, 2, 3)],
+        LLMError("LLM 호출 실패: HTTP 429 rate limited"))
+    w = await gen.generate(CAUSE, system="SYS", prompt_hash="abc", run_id="r1")
+    assert w["is_error"] and w["error_code"] == "LLM_ERROR"
+    assert [a["kind"] for a in w["llm_retries"]] == ["http_429"] * 3 and w["timeouts"] == []
 
 
 

@@ -71,7 +71,7 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
   "target_date": "2026-09-18",                // 필수. YYYY-MM-DD
   "cutoff": "2026-09-18T15:30:00+09:00",      // 필수. 기준 시각. 이 시각까지의 메시지만 넣는다
   "change_pct": -4.2,                         // 필수. 숫자. 기준 시각의 등락률, 하락은 음수
-  "market": {                                 // 없으면 null
+  "market": {                                 // 없으면 null. 장 마감 이후 KRX ok 면 러너가 KRX 로 만든다(아래)
     "index": "코스피",
     "change_pct": -0.5,                       // 지수 등락률
     "as_of": "15:30",                         // 지수 수치의 시각 HH:MM. cutoff 와 같으면 종가
@@ -122,6 +122,7 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
 
 - `kind`·`after_prev_close`·`first_seen_kst` 는 입력 생성 단계가 붙인다. 러너 `check_input()` 은 보지 않는다.
   그날 시장 시황·테마 동향 메시지가 종목과 상관없이 `mention: not_mentioned` 로 최대 3건 함께 들어온다.
+- 뉴스 기사도 메시지 하나로 넣는다(`kind: "news"`). `channel` 은 언론사, `url` 은 기사 주소, `text` 는 제목 + 빈 줄 + 본문이다.
 
 ### 러너가 모델에 보내는 입력 — `generate.model_input()`
 
@@ -153,9 +154,38 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
 (`market_compare.MarketCompare` → `market_data.build_market_context`). 형식은 프롬프트 1부 그대로다 — 비교 판정
 `kospi.kospi_basis`(`kospi` | `kospi_ex_self`, 코스피 비중 10% 이상이면 자기 제외 코스피)·`kospi.kospi_relation`
 (`follows` | `opposite` | `diverges` | null)과 그룹마다 `peers[].relation`(`follows` | `opposite` | `diverges` | `inconclusive` | null).
-`opposite` 는 차이가 기준 안이지만 오르내린 방향이 반대인 날이다(보합 0.00 은 방향 없음). 판정 기준은
+`opposite` 는 차이가 기준 안이지만 오르내린 방향이 반대인 날이다(보합 0.00 은 방향 없음). `diverges` 인데 이 종목과
+기준 시장의 방향이 같으면 "코스피와는 다르게" 로 쓰고 "코스피는 올랐지만" 같은 반대를 잇는 말은 쓰지 않는다(경고
+`COMPARE_KOSPI_CONTRAST`, summary.move·relative). 코스피 수치는 summary.move 에만 쓰고 relative 에는 쓰지 않는다(경고
+`COMPARE_KOSPI_RATE_IN_RELATIVE`). 판정 기준은
 `market_data/context.py` 상수(`KOSPI_EX_SELF_WEIGHT_PCT`, `KOSPI_FOLLOW_THRESHOLD_PP`, `GROUP_FOLLOW_THRESHOLD_PP`)다.
-프롬프트에 없는 계산 칸(비중 분모, 재계산 코스피, `weight_basis`)은 보내지 않고, `members_used` 는 `{code, name}` 으로 바꾼다.
+프롬프트에 없는 계산 칸(비중 분모, 재계산 코스피, `weight_basis`)은 보내지 않고, `members_used` 는
+`{code, name, change_rate_pct, in_sentence}` 로 바꾼다.
+
+**그룹 문장에 쓸 종목**(`market_compare.sentence_members`). 판정은 그대로 두고 문장만 정한다.
+
+- `members_used[].change_rate_pct` — 그 비교 종목의 등락률(반올림한 보이는 값).
+- `members_used[].in_sentence` — `summary.relative` 그룹 문장에 이름과 등락률로 쓸 종목. 그룹 등락률(중앙값)과 방향이 같은
+  종목만 `true` 다(그룹 등락률이 보합이면 보합인 종목). 보합이거나 방향이 다른 종목이 섞인 그룹을 "대체로 X% 안팎" 으로 쓰면
+  그 종목도 같은 방향으로 움직인 것처럼 읽히기 때문이다. `false` 인 종목은 따로 한 문장("같은 그룹의 현대차는 보합이었습니다.")으로
+  쓴다. `follows`·`diverges`·`opposite` 만 나눈다. `inconclusive`·`null` 은 모두 `true`.
+- `mixed` — 비교 종목 방향이 엇갈린 그룹(`inconclusive`, 비교 종목 둘 이상)이면 `true`. 그 그룹은 그룹 등락률 없이 모든
+  비교 종목을 각자의 등락률로 쓰고 엇갈렸다고 덧붙인다
+  ("같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내려, 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다.").
+- `judge_in_sentence` — 그룹 문장에 판정하는 말("비슷하게"·"크게 달랐다")을 써도 되는가. `in_sentence: true` 종목만으로
+  다시 판정해(그 종목들의 중앙값, `group_relation`, 비교 종목 수는 원래 수) 원래 판정과 같으면 `true`. 다르면 독자가 보는
+  숫자와 판정이 어긋나 등락만 쓴다(예: 현대차 0.00·기아 +1.00 에 대상 +1.80 은 중앙값 0.50 기준 `diverges` 지만 기아와는
+  0.80%p 차이). `follows`·`diverges` 에만 값이 있고 `opposite`·`inconclusive`·`null` 은 `null` 이다 — 원래 판정하는 말을
+  쓰지 않는 판정이라 칸이 필요 없고, `false` 로 보내면 모델이 엇갈린 그룹에 아래 `false` 규칙을 가져다 써 "방향이 엇갈려" 를
+  빠뜨렸다.
+  `follows`·`diverges` 인데 `false` 면 relative 그룹 문장에 이 종목 등락률을 반드시 쓰고(독자가 두 숫자를 나란히 보게),
+  `summary.unexplained` 에도 그 그룹과의 차이를 판정하는 말("같은 자동차 그룹과 다르게 오른 이유")을 쓰지 않는다. 재료를 찾는
+  규칙은 판정대로라 그대로다.
+- 검증: 경고 `COMPARE_MEMBER_RATE`(relative 의 비교 종목 등락률·방향이 입력과 다름, 빠지는 종목이 있는 그룹에 그룹 등락률),
+  `COMPARE_OPPOSITE_WORDING`(`judge_in_sentence: false` 그룹에 판정하는 말. relative 와 unexplained),
+  `COMPARE_TARGET_RATE_MISSING`(`judge_in_sentence: false` 인 `follows`·`diverges` 그룹을 relative 에 쓰면서 이 종목 등락률이 없음),
+  `COMPARE_MIXED_NOT_STATED`(엇갈린 그룹을 쓰면서 "방향이 엇갈려" 같은 말이 없음). `COMPARE_MEMBER_RATE` 는 엇갈린 그룹의 종목별
+  등락률도 보고, 엇갈린 그룹에 그룹 등락률을 쓰면 잡는다.
 
 ```jsonc
 // KB금융 2026-10-29 (실제 KRX 응답으로 계산)
@@ -167,8 +197,8 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
              "excess_vs_kospi_ex_self_pp": 3.1, "kospi_basis": "kospi", "kospi_relation": "diverges" },
   // 그룹 등락률은 신한지주 0.80·우리금융지주 3.01·하나금융지주 3.82 의 중앙값. 평균(2.54)이었으면 초과분 −0.72%p 로 follows 였다
   "peers": [ { "group": "은행지주", "median_change_rate_pct": 3.01, "excess_vs_group_pp": -1.19, "peer_count": 3,
-               "relation": "diverges",
-               "members_used": [ { "code": "055550", "name": "신한지주" }, … ],
+               "relation": "diverges", "mixed": false, "judge_in_sentence": true,
+               "members_used": [ { "code": "055550", "name": "신한지주", "change_rate_pct": 0.8, "in_sentence": true }, … ],
                "members_excluded": [ { "code": "105560", "name": "KB금융", "reason": "self" } ] } ]
 }
 ```
@@ -196,7 +226,7 @@ KRX 는 장 마감 확정 데이터뿐이다. 기준 시각(`cutoff`)이 장 마
 | 경우 | `market_compare` | `change_pct`·`market.excess_pct` | 래퍼 |
 | --- | --- | --- | --- |
 | `cutoff` < 15:30 (15:29 포함) | `null`. KRX 를 부르지 않는다 | 입력 그대로 | `market_compare_skipped: "BEFORE_CLOSE"` |
-| `cutoff` ≥ 15:30, status `ok` | 계산한 칸 | `change_pct` ← `kospi.stock_change_rate_pct`(KRX 등락률). 입력 `market.change_pct`(지수)가 있으면 그 값과 `as_of` 도 KRX 로 바꾼다. 입력 `market.peer_median_pct` 가 있으면 대형주 비교 수치와 `excess_pct` 도 KRX 로 다시 낸다(아래) | `change_pct_override` 에 원래 값·다시 계산한 값·출처 |
+| `cutoff` ≥ 15:30, status `ok` | 계산한 칸 | `change_pct` ← `kospi.stock_change_rate_pct`(KRX 등락률). 입력 `market.change_pct`(지수)가 있으면 그 값과 `as_of` 도 KRX 로 바꾼다. 입력 `market.peer_median_pct` 가 있으면 대형주 비교 수치와 `excess_pct` 도 KRX 로 다시 낸다. 입력 `market` 이 null 이면 KRX 로 새로 만든다(아래) | `change_pct_override` 에 원래 값·다시 계산한 값·출처, `market` 을 새로 만들었으면 `market_created: true` |
 | `cutoff` ≥ 15:30, `no_data`·`no_trades`·`stock_not_found` | status 만 있는 칸 | 입력 그대로 | — |
 | `cutoff` ≥ 15:30, KRX 실패 | `null` | 입력 그대로 | `market_compare_error` 에 사유 |
 
@@ -210,8 +240,15 @@ KRX 는 장 마감 확정 데이터뿐이다. 기준 시각(`cutoff`)이 장 마
   - 대상 종목 자신, 응답에 없는 종목(`missing`), 거래정지(`no_trades`), 등락률 빈 칸(`no_rate`)은 뺀다.
   - 중간값은 소수 둘째 자리. 보합(0.00)은 `peer_total` 에만 들고 `peer_up`·`peer_down` 에는 들지 않는다.
   - `excess_pct` ← 새 `change_pct` − 새 `peer_median_pct`.
-  - 쓸 종목이 하나도 없으면 입력 중간값·종목 수를 그대로 두고 `excess_pct` 만 새 `change_pct` 로 다시 낸다.
-  - 입력에 `peer_median_pct` 가 없으면(`market` 이 null 포함) `market` 을 건드리지 않는다. 없던 비교를 새로 켜지 않는다.
+  - 쓸 종목이 하나도 없으면 `peer_median_pct`·`peer_up`·`peer_down`·`peer_total`·`excess_pct` 를 모두 null 로 둔다.
+    입력 중간값으로 `excess_pct` 를 다시 내면 종목은 KRX, 대형주는 입력 시세라 두 출처가 섞인다. 키는 지우지 않는다
+    (프롬프트 1부 스키마 "없으면 null"). 래퍼 `change_pct_override` 에는 `peers.krx`·`excess_pct.recomputed` 가 null 로 남는다.
+  - 입력 `market` 이 있는데 `peer_median_pct` 가 없으면 대형주 비교 수치를 건드리지 않는다. 없던 비교를 새로 켜지 않는다.
+- **입력 `market` 이 null 이면 KRX 로 만든다.** 분류 어댑터 입력은 `market` 이 null 이라, 안 만들면 `excess_pct` 로 판단하는
+  상대 층과 `summary.move` 의 비교 문장이 꺼진다. `index` `"코스피"`, `change_pct` ← `kospi.kospi_change_rate_pct`, `as_of` ← 그날
+  장 마감 시각, `url` `""`, 대형주 비교 수치는 위와 같이 유니버스로 세고 `excess_pct` ← 새 `change_pct` − 새 `peer_median_pct`.
+  쓸 종목이 하나도 없으면 `peer_*`·`excess_pct` 는 null 이다(위와 같다). 래퍼 `change_pct_override.market_created` 가 `true` 다.
+  장 마감 전·KRX 실패·`ok` 가 아닌 status 면 null 그대로다.
 - **지수 등락률도 KRX 로 맞춘다.** 입력 `market.change_pct` 가 숫자면 `kospi.kospi_change_rate_pct`(KRX 코스피 등락률)로,
   `market.as_of` 는 그날 장 마감 시각(`"15:30"`, 늦춰지는 날은 그 시각)으로 바꾼다. 안 바꾸면 모델 입력에 출처·시각이 다른
   코스피 등락률이 둘 있고, 정형 보고서 `summary.move` 도 입력 값을 쓴다. 입력 지수 등락률이 null 이거나 없으면 건드리지 않는다.
@@ -455,7 +492,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `market_compare` / `market_compare_error` | 모델에 보낸 `market_compare` 칸과, KRX 호출·계산·입력 덮어쓰기가 실패해 칸이 null 일 때 그 사유(`"KrxError: …"` 처럼 `<예외 이름>: <메시지>`). 성공·`no_data`·장 마감 전이면 사유는 null. `inputs/` 사본에는 이 칸이 없고 `inputs_used/` 사본에는 있다 |
 | `market_compare_error_type` / `market_compare_unexpected` | 실패한 예외 이름(`"KrxError"`, `"AttributeError"` …, 실패가 아니면 null)과 그것이 예상 밖 예외(`RuntimeError`·`ValueError` 계열이 아님)인지(`true`/`false`) |
 | `market_compare_skipped` | 기준 시각이 장 마감(평소 15:30, `LATE_CLOSE` 날은 그 시각) 전이라 시장 맥락을 넣지 않았으면 `"BEFORE_CLOSE"`, 그 밖 null |
-| `change_pct_override` | 장 마감 이후 시장 맥락이 ok 라 입력 등락률을 바꿨을 때 `{input, krx, source, index, peers, excess_pct}`, 그 밖 null. `source` 는 `"KRX /sto/stk_bydd_trd <target_date> FLUC_RT"`. `index` 는 `{input: {change_pct, as_of}, krx: {change_pct, as_of}, source: "KRX /idx/kospi_dd_trd <target_date> 코스피 FLUC_RT"}`, 입력 지수 등락률이 없어 바꾸지 않았으면 null. `peers` 는 `{input: {peer_median_pct, peer_up, peer_down, peer_total}, krx: 같은 모양 \| null(쓸 종목 없음), excluded: [{code, reason}]}`, `excess_pct` 는 `{input, recomputed}`. 입력에 `peer_median_pct` 가 없어 다시 계산하지 않았으면 둘 다 null |
+| `change_pct_override` | 장 마감 이후 시장 맥락이 ok 라 입력 등락률을 바꿨을 때 `{input, krx, source, market_created, index, peers, excess_pct}`, 그 밖 null. `market_created` 는 입력 `market` 이 null 이라 KRX 로 새로 만들었으면 `true`(그때 `index`·`peers`·`excess_pct` 의 `input` 안 값은 모두 null). `source` 는 `"KRX /sto/stk_bydd_trd <target_date> FLUC_RT"`. `index` 는 `{input: {change_pct, as_of}, krx: {change_pct, as_of}, source: "KRX /idx/kospi_dd_trd <target_date> 코스피 FLUC_RT"}`, 입력 지수 등락률이 없어 바꾸지 않았으면 null. `peers` 는 `{input: {peer_median_pct, peer_up, peer_down, peer_total}, krx: 같은 모양 \| null(쓸 종목 없음), excluded: [{code, reason}]}`, `excess_pct` 는 `{input, recomputed}`. 입력에 `peer_median_pct` 가 없어 다시 계산하지 않았으면 둘 다 null |
 
 ### 검증 결과
 
@@ -473,8 +510,9 @@ LLM 을 부른다(`generate.needs_llm`).
 | --- | --- |
 | `json_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {json_status, asked_question, raw_text, usage, cost, duration_ms}}`. 정상 종료인데 JSON 이 깨졌을 때만 1회 재호출 |
 | `judge_retry` | `{"retried": false}` 또는 `{"retried": true, "first": {problems, final_text, json_retry, usage, cost, duration_ms}}`. 열린 보고서가 `judge_layers` 가 false 인 층에 link·판정을 달았거나(`FLAT_*`) `move_strength_cap` 을 어겼을 때(`MOVE_SUFFICIENT_STOCK_ONLY`) 같은 입력으로 1회 재호출. 비용은 `cost` 에 합친다 |
-| `timeouts` | 시간 제한(`SUMMARY_TIMEOUT_SEC`, 기본 420초)에 걸린 시도마다 `{error, seconds}`. 스트림 끊김과 합쳐 1회 재시도하고, 다시 걸리면 `LLM_ERROR` |
-| `stream_interruptions` | 끊긴 시도마다 `{partial_chars, error}`. 끊김은 1회 재전송 |
+| `llm_retries` | LLM 클라이언트(`app/llm/client.complete`)가 실패해 다시 보낸 시도마다 `{attempt, kind, error, elapsed_sec, wait_sec, partial_chars}`. `kind` 는 `http_429`·`http_5xx`·`connect`·`timeout`·`stream`. 처음 1번에 `LLM_MAX_RETRIES`(기본 2)번까지 다시 보내고, 대기는 `LLM_RETRY_BACKOFF_SEC`×2^(n-1)초(기본 2초, 4초, 상한 `LLM_RETRY_BACKOFF_MAX_SEC`). 429 를 뺀 4xx 와 응답 형식 오류는 다시 보내지 않는다. 끝내 실패하면 `LLM_ERROR`(스트림 끊김이면 `STREAM_INTERRUPTED`) |
+| `timeouts` | 시간 제한(`SUMMARY_TIMEOUT_SEC`, 기본 420초)에 걸린 시도마다 `{error, seconds}`. `llm_retries` 중 `kind: timeout` 만 옮긴 칸이다 |
+| `stream_interruptions` | 끊긴 시도마다 `{partial_chars, error}`. `llm_retries` 중 `kind: stream` 만 옮긴 칸이다. 끊긴 시도는 usage 를 받지 못해 `cost` 에 들어가지 않는다 |
 | `repair_limit` | `{hit, factors, background, max_items}`. factor 가 4개를, background 전체가 6개를 넘으면 `hit: true` 이고 quote 고쳐 쓰기를 하지 않는다(비용 상한). 틀린 quote 는 남아 검증에서 실패하고 경고 `REPAIR_SKIPPED_OVER_CAP` 이 붙는다. 상한 안이면 repair 대상은 많아야 `max_items`(10)개 |
 | `quote_repair` | quote 가 원문에 없던 factor·background 항목마다 `{kind, result: fixed\|dropped, failed, retry_failed, quotes, rejected, ...}`(background 는 `slot` 도). repair 는 quote(sources)만 고친다. 다시 쓴 event(background 는 text)가 원래와 한 글자라도 다르면 `rejected: "event_changed"` 로 받지 않고 뺀다. 다시 써도 없으면 항목을 빼고 그 항목을 가리키던 `events` 사건을 `dropped`/`quote_verify_fail` 로 바꾼다(뒤 항목의 순번은 당긴다). counter 가 요약하는 칸(하락일 `bullish`, 상승일 `bearish`) 항목을 빼거나 background 가 모두 비면 `summary.counter` 를 null 로 두고 `counter_cleared: true` 를 남긴다(다시 쓰지 않는다) |
 | `main_cause_rewrite` | 뺀 factor 에 `move` link 가 있었을 때 `{result: rewritten\|failed, dropped, before, after, cost, error}`. 남은 등락 층 근거만으로 `main_cause_sentences` 문장 이하로 1회 다시 쓴다. 다시 쓴 문장에도 finalize 가 고정 문장을 붙인다. failed 면 경고 `MAIN_CAUSE_STALE` |

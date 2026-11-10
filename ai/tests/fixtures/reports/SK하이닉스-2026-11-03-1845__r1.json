@@ -1,0 +1,496 @@
+{
+  "run_id": "SK하이닉스-2026-11-03-1845__r1",
+  "final_text": "{\"ticker\": \"000660\", \"name\": \"SK하이닉스\", \"date\": \"2026-11-03\", \"as_of\": \"2026-11-03T18:45:00+09:00\", \"change_pct\": -5.03, \"verdict\": \"explained\", \"relative_verdict\": \"no_clear_cause\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 SK하이닉스는 5.03% 하락했습니다. 시장 지수와 대형주 비교 수치가 제공되지 않아 전체 시장 흐름과의 관계는 판단할 수 없습니다.\", \"main_cause\": \"가상의 경쟁사 가온메모리가 증설 계획을 밝히며 공급 증가 우려가 커져 하락에 영향을 줬을 수 있습니다.\", \"relative\": null, \"counter\": \"가상의 고객사 누리전자가 부품 원가 상승을 언급해, 가격 상승 신호가 될 수 있는 반대 재료도 있었습니다.\", \"unexplained\": \"가온메모리 증설 소식은 하락과 맞는 재료지만, 대형주 전반과의 비교 자료가 없어 이 소식이 차지한 영향은 가늠하기 어렵습니다.\"}, \"factors\": [{\"event\": \"가온메모리가 내년 생산량을 두 배로 늘린다고 밝혔습니다.\", \"detail\": \"가온메모리는 신규 공장을 내년 하반기에 가동할 계획이라고 전했습니다.\", \"stance\": \"bearish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"example\", \"url\": \"https://t.me/example/1\", \"datetime_kst\": \"2026-11-03T07:36:45+09:00\", \"quote\": \"내년 생산량 2배 확대 계획\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"경쟁사의 대규모 증설이 공급 증가 우려를 키워 하락에 영향을 줬을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"한 번에 많이 만들어 단가를 낮추는 일\", \"term\": \"규모의 경제\"}], \"background\": {\"bullish\": [{\"text\": \"가상의 고객사 누리전자는 다음 분기 부품 원가가 오를 것으로 보며, 주된 이유로 메모리 가격을 들었습니다.\", \"sources\": [{\"channel\": \"example\", \"url\": \"https://t.me/example/2\", \"datetime_kst\": \"2026-11-03T08:27:08+09:00\", \"quote\": \"원가 상승은 대부분 메모리 가격 때문\", \"mention\": \"not_mentioned\", \"is_market_recap\": false}]}, {\"text\": \"전일 SK하이닉스는 가상의 협력사와 장기 공급 계약을 맺었다고 전해졌습니다.\", \"sources\": [{\"channel\": \"example\", \"url\": \"https://t.me/example/3\", \"datetime_kst\": \"2026-11-03T07:57:39+09:00\", \"quote\": \"3년 장기 공급 계약 체결\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"가상의 조사기관 한빛리서치는 내년에도 저장장치 공급 부족이 이어질 것으로 전망했습니다.\", \"sources\": [{\"channel\": \"example\", \"url\": \"https://t.me/example/4\", \"datetime_kst\": \"2026-11-03T07:26:55+09:00\", \"quote\": \"내년 내내 공급 부족 지속 전망\", \"mention\": \"not_mentioned\", \"is_market_recap\": false}]}], \"bearish\": [], \"neutral\": [{\"text\": \"가상의 지수 정기변경으로 이달 말 지수 펀드 매수 수요가 생길 것으로 전망됐습니다.\", \"sources\": [{\"channel\": \"example\", \"url\": \"https://t.me/example/5\", \"datetime_kst\": \"2026-11-03T09:21:49+09:00\", \"quote\": \"약 1조원의 매수 수요가 예상됩니다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"watch\": true}]}, \"not_found\": [\"market 입력이 null이고 market_compare 상태가 no_data여서 대형주 대비 움직임과 상대 요인을 판단할 수 없습니다.\"], \"events\": [{\"event\": \"가온메모리가 내년 생산량을 두 배로 늘린다고 밝혔습니다.\", \"issue_ids\": [\"i16\"], \"factor\": 0, \"dup_channels\": 1, \"placed\": \"factors\"}, {\"event\": \"누리전자는 메모리 가격 상승이 부품 원가에 부담이라고 밝혔습니다.\", \"issue_ids\": [\"i21\", \"i41\", \"i43\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"전일 SK하이닉스가 장기 공급 계약을 맺었습니다.\", \"issue_ids\": [\"i30\"], \"background\": {\"slot\": \"bullish\", \"index\": 1}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"한빛리서치는 내년 저장장치 공급 부족이 이어질 것으로 전망했습니다.\", \"issue_ids\": [\"i1\"], \"background\": {\"slot\": \"bullish\", \"index\": 2}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"지수 정기변경에 따른 지수 펀드 매수 수요가 전망됐습니다.\", \"issue_ids\": [\"i50\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}], \"display_as_of\": \"2026-11-03T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "usage": {
+    "prompt_tokens": 32534,
+    "completion_tokens": 11377,
+    "total_tokens": 43911,
+    "prompt_tokens_details": {
+      "cached_tokens": 32531,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 7593,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 32534,
+    "output_tokens": 11377,
+    "cached_prompt_tokens": 32531,
+    "cache_write_tokens": 0,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 32534,
+    "total": 32534,
+    "cache_read": 32531,
+    "cache_write": 0,
+    "uncached": 3
+  },
+  "cost": 8.510773,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 114798,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "56455d081497365a5aeff0698f9b25789e60aea83da0d151a697f18dfa0e1f77",
+  "generated_at": "2026-11-03T20:23:01+09:00",
+  "move_case": null,
+  "judge_layers": null,
+  "common_move": null,
+  "move_strength_cap": null,
+  "market_led": null,
+  "move_comparison": null,
+  "main_cause_sentences": 3,
+  "sector": [
+    "반도체"
+  ],
+  "universe_weight": 0.2988,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [],
+      "none_count": 9
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "가상 이슈 1 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i2",
+          "issue": "가상 이슈 2 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i3",
+          "issue": "가상 이슈 3 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i4",
+          "issue": "가상 이슈 4 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i5",
+          "issue": "가상 이슈 5 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i6",
+          "issue": "가상 이슈 6 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i7",
+          "issue": "가상 이슈 7 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i8",
+          "issue": "가상 이슈 8 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i9",
+          "issue": "가상 이슈 9 (sector)",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 2
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i10",
+          "issue": "가상 이슈 10 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i11",
+          "issue": "가상 이슈 11 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i12",
+          "issue": "가상 이슈 12 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i13",
+          "issue": "가상 이슈 13 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i14",
+          "issue": "가상 이슈 14 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i15",
+          "issue": "가상 이슈 15 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i16",
+          "issue": "가상 이슈 16 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i17",
+          "issue": "가상 이슈 17 (direct)",
+          "relation": "direct"
+        },
+        {
+          "id": "i18",
+          "issue": "가상 이슈 18 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i19",
+          "issue": "가상 이슈 19 (none)",
+          "relation": "none"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i20",
+          "issue": "가상 이슈 20 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i21",
+          "issue": "가상 이슈 21 (sector)",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 1
+    },
+    {
+      "id": "m5",
+      "issues": [
+        {
+          "id": "i22",
+          "issue": "가상 이슈 22 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i23",
+          "issue": "가상 이슈 23 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i24",
+          "issue": "가상 이슈 24 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i25",
+          "issue": "가상 이슈 25 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i26",
+          "issue": "가상 이슈 26 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i27",
+          "issue": "가상 이슈 27 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i28",
+          "issue": "가상 이슈 28 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i29",
+          "issue": "가상 이슈 29 (none)",
+          "relation": "none"
+        }
+      ],
+      "none_count": 6
+    },
+    {
+      "id": "m6",
+      "issues": [
+        {
+          "id": "i30",
+          "issue": "가상 이슈 30 (direct)",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m7",
+      "issues": [
+        {
+          "id": "i31",
+          "issue": "가상 이슈 31 (market)",
+          "relation": "market"
+        },
+        {
+          "id": "i32",
+          "issue": "가상 이슈 32 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i33",
+          "issue": "가상 이슈 33 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i34",
+          "issue": "가상 이슈 34 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i35",
+          "issue": "가상 이슈 35 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i36",
+          "issue": "가상 이슈 36 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i37",
+          "issue": "가상 이슈 37 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i38",
+          "issue": "가상 이슈 38 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i39",
+          "issue": "가상 이슈 39 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i40",
+          "issue": "가상 이슈 40 (none)",
+          "relation": "none"
+        }
+      ],
+      "none_count": 9
+    },
+    {
+      "id": "m8",
+      "issues": [
+        {
+          "id": "i41",
+          "issue": "가상 이슈 41 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i42",
+          "issue": "가상 이슈 42 (sector)",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 18
+    },
+    {
+      "id": "m9",
+      "issues": [
+        {
+          "id": "i43",
+          "issue": "가상 이슈 43 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i44",
+          "issue": "가상 이슈 44 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i45",
+          "issue": "가상 이슈 45 (none)",
+          "relation": "none"
+        }
+      ],
+      "none_count": 1
+    },
+    {
+      "id": "m10",
+      "issues": [
+        {
+          "id": "i46",
+          "issue": "가상 이슈 46 (sector)",
+          "relation": "sector"
+        },
+        {
+          "id": "i47",
+          "issue": "가상 이슈 47 (sector)",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m11",
+      "issues": [
+        {
+          "id": "i48",
+          "issue": "가상 이슈 48 (sector)",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m12",
+      "issues": [
+        {
+          "id": "i49",
+          "issue": "가상 이슈 49 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i50",
+          "issue": "가상 이슈 50 (direct)",
+          "relation": "direct"
+        },
+        {
+          "id": "i51",
+          "issue": "가상 이슈 51 (direct)",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m13",
+      "issues": [
+        {
+          "id": "i52",
+          "issue": "가상 이슈 52 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i53",
+          "issue": "가상 이슈 53 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i54",
+          "issue": "가상 이슈 54 (none)",
+          "relation": "none"
+        },
+        {
+          "id": "i55",
+          "issue": "가상 이슈 55 (none)",
+          "relation": "none"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "no_data",
+    "status_reason": "기준일 KRX 데이터가 없다(당일·휴장일이거나 아직 확정 전)",
+    "kospi": null,
+    "peers": []
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": null,
+  "repair_limit": {
+    "hit": false,
+    "factors": 1,
+    "background": 4,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "partial",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "partially_explained",
+      "final": "explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "no_clear_cause",
+      "final": "no_clear_cause"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/SK하이닉스-2026-11-03-1845__r1.json",
+  "input_used_path": "inputs_used/SK하이닉스-2026-11-03-1845__r1.json",
+  "input_original_path": "runs/classified_input4_evening/000660-2026-11-03-1845.json",
+  "input_sha256": "665f986c0774ef85208d95d734dd270cec9271c1aefb225aec0ae1b3b2a4c714",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [
+    "STRENGTH_MISMATCH: factors[0].links[0] layer=move 이슈가 나온 메시지에 mentioned 가 있는데 partial",
+    "QUOTE_MISSING_SUBJECT: factors[0] 첫 출처 quote 에 가온메모리 가 없다"
+  ],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 13,
+    "messages_total": 13,
+    "relations": {
+      "sector": 22,
+      "none": 74,
+      "direct": 4,
+      "market": 1
+    },
+    "issues_used": 7
+  }
+}

@@ -22,8 +22,15 @@ BEFORE_CLOSE). 입력 change_pct 는 기준 시각의 값이라 그대로 쓴다
 않으면 excess_pct(= change_pct − peer_median_pct)가 두 출처를 섞는다. 입력에 peer_median_pct 가 있으면 이미 받아 둔
 KRX 전 종목 응답으로 대형주 유니버스(stock_meta.universe_codes) 중간값과 상승·하락·전체 수를 다시 계산하고
 excess_pct 도 다시 계산한다(universe_peers). 대상 종목 자신과 응답에 없는·거래정지·등락률 빈 칸 종목은 뺀다.
-쓸 종목이 하나도 없으면 입력 중간값으로 excess_pct 만 다시 계산한다. 원래 값·다시 계산한 값·뺀 종목은 래퍼
-change_pct_override 에 남는다. 입력에 peer_median_pct 가 없으면 대형주 비교 수치는 건드리지 않는다(없던 비교를 켜지 않는다).
+쓸 종목이 하나도 없으면 대형주 비교 수치와 excess_pct 를 null 로 둔다 — 입력 중간값으로 excess_pct 를 내면
+종목은 KRX, 대형주는 입력 시세라 다시 두 출처가 섞인다. 키는 남겨 프롬프트 1부 스키마("없으면 null")와 맞추고,
+생성·검증은 null 이면 대형주 비교를 하지 않는다. 원래 값·다시 계산한 값(null 로 뒀으면 krx·recomputed 가 null)·뺀
+종목은 래퍼 change_pct_override 에 남는다. 입력에 peer_median_pct 가 없으면 대형주 비교 수치는 건드리지 않는다(없던 비교를 켜지 않는다).
+
+입력 market 이 null 이면(분류 어댑터 입력) 위 칸을 모두 KRX 로 새로 만든다 — 지수 "코스피"·KRX 코스피 등락률·장 마감
+시각, 대형주 비교 수치(universe_peers)와 excess_pct, url 은 "". 안 만들면 market.excess_pct 로 판단하는 상대 층과
+summary.move 의 비교 문장이 꺼진다. 원래 null 이었다는 건 래퍼 change_pct_override.market_created 에 남는다. 장 마감
+전·실패·ok 가 아닌 status 면 null 그대로다.
 
 입력 market 의 지수 등락률(change_pct)·as_of 도 같은 이유로 KRX 코스피 등락률(market_compare.kospi.kospi_change_rate_pct)과
 그날 장 마감 시각으로 바꾼다. 안 바꾸면 모델 입력에 출처·시각이 다른 코스피 등락률이 둘 있고, 정형 보고서 move 문장도 입력
@@ -77,7 +84,9 @@ from app.services.market_data import (
     fetch_kospi,
     fetch_stock_daily,
 )
+from app.services.market_data.context import group_relation
 from app.services.market_data.krx import KOSPI_INDEX_NAME, KOSPI_INDEX_PATH, KOSPI_STOCK_PATH
+from app.services.market_data.schema import PeerComparison
 from app.services.stock_analysis.stock_meta import universe_codes
 
 logger = logging.getLogger(__name__)
@@ -252,32 +261,47 @@ def override_change_pct(
 
     입력 market 에 지수 등락률(change_pct)이 있으면 KRX 코스피 등락률과 그날 장 마감 시각(as_of)으로 바꾼다.
     peer_median_pct 가 있으면 대형주 비교 수치를 stocks(같은 날 KRX 전 종목)로 다시 계산하고 excess_pct 도 다시
-    계산한다. universe 를 안 주면 stock_meta 의 대형주 유니버스다.
+    계산한다. 쓸 유니버스 종목이 없으면(universe_peers 가 None) 대형주 비교 수치와 excess_pct 를 null 로 둔다.
+    universe 를 안 주면 stock_meta 의 대형주 유니버스다.
+
+    입력 market 이 null 이면(분류 어댑터 입력) 지수·대형주 비교 칸을 모두 KRX 로 새로 만든다. 래퍼
+    market_created 가 true 다. 쓸 대형주가 없으면 peer_*·excess_pct 는 null 이다(위와 같다).
     """
     krx = compare["kospi"]["stock_change_rate_pct"]
     out = {**payload, "change_pct": krx}
     record: dict[str, Any] = {
         "input": payload["change_pct"], "krx": krx,
         "source": f"KRX {KOSPI_STOCK_PATH} {payload['target_date']} FLUC_RT",
-        "index": None, "peers": None, "excess_pct": None,
+        "market_created": False, "index": None, "peers": None, "excess_pct": None,
     }
     market = payload.get("market")
+    created = market is None
+    if created:
+        market = {"index": KOSPI_INDEX_NAME, "change_pct": None, "as_of": None, "url": "",
+                  **dict.fromkeys(PEER_KEYS), "excess_pct": None}
+        record["market_created"] = True
     if not isinstance(market, dict):
         return out, record
     new_market = dict(market)
-    if _is_rate(market.get("change_pct")):
+    if created or _is_rate(market.get("change_pct")):
         index = {"change_pct": compare["kospi"]["kospi_change_rate_pct"],
                  "as_of": market_close(date.fromisoformat(payload["target_date"])).strftime("%H:%M")}
         new_market.update(index)
         record["index"] = {"input": {"change_pct": market["change_pct"], "as_of": market.get("as_of")}, "krx": index,
                            "source": f"KRX {KOSPI_INDEX_PATH} {payload['target_date']} {KOSPI_INDEX_NAME} FLUC_RT"}
-    if _is_rate(market.get("peer_median_pct")):
+    if created or _is_rate(market.get("peer_median_pct")):
         peers, excluded = universe_peers(stocks, str(payload["code"]),
                                          universe_codes() if universe is None else universe)
         record["peers"] = {"input": {key: market.get(key) for key in PEER_KEYS}, "krx": peers, "excluded": excluded}
-        new_market.update(peers or {})
-        excess = round(krx - new_market["peer_median_pct"], RATE_DECIMALS)
-        new_market["excess_pct"] = excess
+        if peers is None:
+            # 입력 중간값으로 excess_pct 를 내면 종목은 KRX, 대형주는 입력 시세라 두 출처가 섞인다. 비교를 null 로 둔다.
+            # 키는 지우지 않는다 — 프롬프트 1부 스키마가 "없으면 null" 이라 모델이 늘 같은 칸을 본다
+            new_market.update(dict.fromkeys((*PEER_KEYS, "excess_pct")))
+            excess = None
+        else:
+            new_market.update(peers)
+            excess = round(krx - peers["peer_median_pct"], RATE_DECIMALS)
+            new_market["excess_pct"] = excess
         record["excess_pct"] = {"input": market.get("excess_pct"), "recomputed": excess}
     out["market"] = new_market
     return out, record
@@ -328,13 +352,70 @@ def to_input(ctx: MarketContext, groups: Mapping[str, Mapping[str, str]] = GROUP
         "status": ctx.status,
         "status_reason": ctx.status_reason,
         "kospi": {key: getattr(ctx.kospi, key) for key in KOSPI_KEYS} if ctx.kospi else None,
-        "peers": [{
-            "group": p.group,
-            "median_change_rate_pct": p.median_change_rate_pct,
-            "excess_vs_group_pp": p.excess_vs_group_pp,
-            "peer_count": p.peer_count,
-            "relation": p.relation,
-            "members_used": [{"code": c, "name": groups[p.group][c]} for c in p.members_used],
-            "members_excluded": [e.model_dump() for e in p.members_excluded],
-        } for p in ctx.peers],
+        "peers": [_peer_input(p, groups) for p in ctx.peers],
     }
+
+
+def _peer_input(p: PeerComparison, groups: Mapping[str, Mapping[str, str]]) -> dict[str, Any]:
+    """그룹 하나의 모델 입력.
+
+    judge_in_sentence 는 판정하는 말을 쓰는 판정(follows·diverges)에만 true/false 를 넣고 그 밖은 null 이다. opposite·
+    inconclusive 는 원래 판정하는 말을 쓰지 않아 칸이 필요 없고, false 로 보내면 모델이 follows·diverges 용 규칙(등락만
+    쓰고 이 종목 등락률을 붙인다)을 가져다 써 엇갈린 그룹의 "방향이 엇갈려" 를 빠뜨렸다(2026-11-09 실제 LLM 실행).
+    mixed 는 비교 종목 방향이 엇갈려 inconclusive 가 된 그룹이다(PeerComparison.mixed).
+    """
+    shown, judge = sentence_members(p)
+    rates = p.member_rates_pct if len(p.member_rates_pct) == len(p.members_used) else [None] * len(p.members_used)
+    return {
+        "group": p.group,
+        "median_change_rate_pct": p.median_change_rate_pct,
+        "excess_vs_group_pp": p.excess_vs_group_pp,
+        "peer_count": p.peer_count,
+        "relation": p.relation,
+        "mixed": p.mixed,
+        "judge_in_sentence": judge if p.relation in ("follows", "diverges") else None,
+        "members_used": [{"code": c, "name": groups[p.group][c], "change_rate_pct": r, "in_sentence": c in shown}
+                         for c, r in zip(p.members_used, rates)],
+        "members_excluded": [e.model_dump() for e in p.members_excluded],
+    }
+
+
+def _sign(value: float) -> int:
+    return (value > 0) - (value < 0)
+
+
+def sentence_members(peer: PeerComparison) -> tuple[list[str], bool]:
+    """summary.relative 의 그룹 문장에 쓸 비교 종목(코드)과, 판정하는 말("비슷하게"·"크게 달랐다")을 써도 되는가.
+
+    그룹 등락률(중앙값)은 보합이나 다른 방향 종목까지 넣어 낸 값이다. "대체로 0.50% 안팎 오른 현대차·기아" 라고 쓰면 보합인
+    현대차도 오른 것처럼 읽힌다. 그래서 그룹 등락률과 방향이 같은(그룹 등락률이 보합이면 보합인) 종목만 문장에 쓰고 각자의
+    등락률로 적는다. 나머지 종목은 따로 한 문장으로 쓴다(generate._rest_sentence). 판정(relation)은 바꾸지 않는다.
+
+    문장에 쓴 종목만으로 다시 판정해(그 종목들의 중앙값으로 group_relation) 원래 판정과 같을 때만 판정하는 말을 쓴다. 다르면
+    독자가 보는 숫자와 판정이 어긋난다 — 0.00·+1.00 에 대상 +1.80 은 중앙값 0.50 기준 diverges 지만, 문장에 보이는 +1.00 과는
+    0.80%p 차이라 "크게 달랐다" 가 맞지 않는다. 그날은 등락을 사실로만 쓴다. 다시 판정할 때 비교 종목 수는 원래 수다 —
+    비교 종목이 하나뿐이면 단정하지 않는다는 규칙은 그룹 전체로 이미 넘었고, 문장에서 빠진 종목도 판정에는 들어 있다.
+
+    나눌 게 없으면(모든 종목이 그룹 등락률과 같은 방향) 모든 종목이고 판정하는 말은 follows·diverges 일 때 쓴다.
+    opposite 는 나누되 판정하는 말을 쓰지 않는다. inconclusive·None 은 나누지 않는다(엇갈린 그룹은 모든 종목을 각자의 등락률로 쓰고 엇갈렸다고 덧붙인다).
+    """
+    codes = list(peer.members_used)
+    judged = peer.relation in ("follows", "diverges")
+    rates = peer.member_rates_pct
+    center = peer.median_change_rate_pct
+    if (peer.relation not in ("follows", "diverges", "opposite") or center is None or peer.excess_vs_group_pp is None
+            or len(codes) < 2 or len(rates) != len(codes)):
+        return codes, judged
+    shown = [(c, r) for c, r in zip(codes, rates) if _sign(r) == _sign(center)]
+    if not shown or len(shown) == len(codes):
+        return codes, judged
+    shown_codes = [c for c, _ in shown]
+    if not judged:
+        return shown_codes, False
+    # excess 는 대상 등락률 − 보이는 중앙값이라 둘을 더하면 대상 등락률이다(소수 둘째 자리)
+    stock_rate = round(center + peer.excess_vs_group_pp, RATE_DECIMALS)
+    shown_rates = [r for _, r in shown]
+    shown_center = round(statistics.median(shown_rates), RATE_DECIMALS)
+    again = group_relation(round(stock_rate - shown_center, RATE_DECIMALS), peer.peer_count, stock_rate, shown_center,
+                           shown_rates)
+    return shown_codes, again == peer.relation

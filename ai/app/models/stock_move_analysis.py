@@ -84,8 +84,13 @@ class StockMoveAnalysis(Base):
     # 메시지를 자른 시각(cutoff). 보고서 as_of 는 ISO 8601 이라 그대로, 옛 보고서의 "HH:MM" 은
     # target_date 와 합쳐 KST aware datetime 으로 저장한다 — 루트 CLAUDE.md 가 naive datetime 을
     # 금지하고 응답은 ISO 8601 이어야 한다. 원본은 raw_json 에 그대로 남아 진실의 출처가 둘로 갈리지 않는다.
-    # 화면 기준 시각(장 마감 뒤면 그날 장 마감)은 칼럼이 없다 — raw_json 의 display_as_of·display_is_close 다.
+    # 화면 기준 시각(장 마감 뒤면 그날 장 마감)은 아래 display_as_of 다.
     as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 화면 기준 시각. 보고서 display_as_of(ISO 8601)이고 장 마감 뒤 cutoff 면 그날 장 마감 시각이다.
+    # 러너가 정하지 못하면 null 이다. 화면은 as_of(cutoff) 가 아니라 이 값을 띄운다.
+    display_as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # display_as_of 가 장 마감 기준이면 true("장 마감 기준" 문구), 장중이면 false. 옛 보고서는 null.
+    display_is_close: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     # float 로 받으면 -2.01 이 -2.0100000000000002 로 굳는다. 루트 CLAUDE.md 가
     # "가공하지 않은 값" 을 요구하므로 DB 가 값을 흔들면 안 된다.
     # 정밀도는 analyst_reports.upside_pct 와 같게 맞췄다.
@@ -102,13 +107,16 @@ class StockMoveAnalysis(Base):
     # String 을 유지한다 — 값을 거절하지 않는 것이 이 표의 존재 이유와 직결된다.
     # analyst_reports 의 category/source/body_status 도 String 이라 관례도 맞다.
     verdict: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    # 코스피·대형주 대비 움직임(상대 층)의 판정. 값 목록은 verdict 와 같다. 옛 보고서는 null.
+    relative_verdict: Mapped[str | None] = mapped_column(String(24), nullable=True)
 
-    # --- summary 네 칸 ------------------------------------------------
-    # counter 만 NULL 이 **정상값**이다(방향이 어긋나는 재료가 없는 날, 그리고
-    # no_clear_cause 인 날). 나머지 셋의 NULL 은 파싱이 깨졌다는 뜻이다.
-    # 둘을 칼럼만 보고 구분할 수 없어서 parse_status 를 따로 둔다.
+    # --- summary 다섯 칸 ----------------------------------------------
+    # relative 와 counter 만 NULL 이 **정상값**이다(counter 는 방향이 어긋나는 재료가 없는 날과
+    # no_clear_cause 인 날, relative 는 상대 층을 판단하지 않는 날과 옛 보고서). 나머지 셋의 NULL 은
+    # 파싱이 깨졌다는 뜻이다. 둘을 칼럼만 보고 구분할 수 없어서 parse_status 를 따로 둔다.
     summary_move: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary_main_cause: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary_relative: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary_counter: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary_unexplained: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -116,9 +124,9 @@ class StockMoveAnalysis(Base):
     # 화면이 통째로 받아 쓰는 덩어리라 행으로 쪼갤 이유가 없다.
     terms: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # [{plain, term}]
     # {bullish: [...], bearish: [...], neutral: [...]}
-    # 프롬프트는 항목을 문자열로도 {"text": ..., "watch": true} 객체로도 낸다.
-    # 둘 다 정상이므로 파서가 흡수해 여기서는 객체 형태로 통일해 둔다
-    # (정규화 규칙은 repositories/stock_move_analysis.py 참고). 원본 혼용은 raw_json 에 남는다.
+    # 옛 프롬프트는 항목을 문자열로도 {"text": ..., "watch": true} 객체로도 냈고, 지금 프롬프트는
+    # {"text", "sources", "watch"?} 객체로 낸다. 파서가 흡수해 여기서는 {text, watch, sources} 로
+    # 통일해 둔다 (정규화 규칙은 repositories/stock_move_analysis.py 참고). 원본 혼용은 raw_json 에 남는다.
     background: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # 검수용. 화면에 나가지 않지만 사후 환각 추적 수단이 이것뿐이라 반드시 넣는다.
     # 노출 제어는 backend 응답 단계에서 한다.
@@ -138,6 +146,10 @@ class StockMoveAnalysis(Base):
     # ok | schema_violation | parse_failed
     parse_status: Mapped[str] = mapped_column(String(20), default="ok")
     parse_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 러너가 LLM 을 부르지 않고 정형 보고서를 냈으면 그 사유(NO_DIRECT_MESSAGES), LLM 보고서면 null.
+    # 화면이 "수집된 소식 없음" 으로 보여 줄지 가른다. 보고서가 아니라 래퍼의 칸이라 raw_json 에 없다 —
+    # 이 칼럼이 생기기 전에 적재된 행은 정형 보고서여도 null 이다.
+    skipped_llm: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     # --- 근거 검증 판정 -----------------------------------------------
     # **적재 모듈이 판정하지 않는다.** 검증기(실험 레포에 있다)의 결과를 인자로 받아
@@ -198,6 +210,10 @@ class StockMoveAnalysisFactor(Base):
     # sufficient | partial | insufficient
     size_fit: Mapped[str | None] = mapped_column(String(16), nullable=True)
     unconfirmed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # [{layer, note, strength, direction_match}] — 이 사건이 어느 층(move 등락 · relative 시장 대비)에
+    # 어떻게 닿는지. 지금 보고서는 direction_match·size_fit 을 factor 가 아니라 여기 층마다 단다.
+    # 화면이 통째로 받아 쓰는 덩어리라 표로 펴지 않는다. 옛 보고서는 null.
+    links: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     analysis: Mapped["StockMoveAnalysis"] = relationship(back_populates="factors")
     sources: Mapped[list["StockMoveAnalysisFactorSource"]] = relationship(

@@ -2,19 +2,29 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
 type Props = {
-  /** 'surface' 회색 면 | 'plain' 흰 면 + 테두리. 이 둘 외의 카드는 만들지 않는다. */
-  tone?: 'surface' | 'plain';
+  /**
+   * 'surface' 회색 면 | 'plain' 흰 면 + 테두리.
+   * 'correct' 청록 면 | 'wrong' 빨강 면은 퀴즈 채점 결과 전용이다.
+   */
+  tone?: 'surface' | 'plain' | 'correct' | 'wrong';
   elevated?: boolean;
   className?: string;
   children: ReactNode;
 };
+
+const TONE_CLASS = {
+  surface: 'bg-surface',
+  plain: 'bg-canvas border border-divider',
+  correct: 'bg-ai-100',
+  wrong: 'bg-up-100',
+} as const;
 
 export function Card({ tone = 'surface', elevated = false, className, children }: Props) {
   return (
     <div
       className={cn(
         'flex flex-col gap-2 rounded-lg p-4',
-        tone === 'plain' ? 'bg-canvas border border-divider' : 'bg-surface',
+        TONE_CLASS[tone],
         elevated && 'shadow-sm',
         className,
       )}
