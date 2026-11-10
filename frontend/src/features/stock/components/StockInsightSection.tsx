@@ -8,6 +8,7 @@ import type {
   StockQuoteData,
   StockReport,
 } from '@/lib/types';
+import type { ReportScrapState } from '../useReportScrap';
 import { AiReportSection } from './AiReportSection';
 import { DetailInfoTab } from './DetailInfoTab';
 
@@ -26,6 +27,7 @@ export function StockInsightSection({
   report,
   reportError,
   onRetryReport,
+  reportScrap,
 }: {
   quote: Resource<StockQuoteData> | null;
   metrics: Resource<StockMetricsData> | null;
@@ -35,6 +37,7 @@ export function StockInsightSection({
   report: Resource<StockReport> | null;
   reportError: Error | null;
   onRetryReport: () => void;
+  reportScrap: ReportScrapState;
 }) {
   const [tab, setTab] = useState<InsightTab>('ai');
   return (
@@ -42,7 +45,12 @@ export function StockInsightSection({
       <SectionHead title="AI 보고서 및 상세 정보" />
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
       {tab === 'ai' ? (
-        <AiReportSection resource={report} error={reportError} onRetry={onRetryReport} />
+        <AiReportSection
+          resource={report}
+          error={reportError}
+          onRetry={onRetryReport}
+          scrap={reportScrap}
+        />
       ) : (
         <DetailInfoTab
           quote={quote}

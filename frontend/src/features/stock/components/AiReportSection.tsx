@@ -2,8 +2,10 @@ import { Card, Empty, ErrorBox, Kicker, SkeletonText, Tag } from '@/components/u
 import { GuardrailNote } from '@/components/layout/GuardrailNote';
 import { formatAsOf, formatDate } from '@/lib/format';
 import type { Resource, StockReport } from '@/lib/types';
+import type { ReportScrapState } from '../useReportScrap';
 import { ReportBackgroundList } from './ReportBackgroundList';
 import { ReportFactorList } from './ReportFactorList';
+import { ReportScrapButton } from './ReportScrapButton';
 import { ReportSummaryBlock } from './ReportSummaryBlock';
 import { ReportTermList } from './ReportTermList';
 
@@ -15,10 +17,12 @@ export function AiReportSection({
   resource,
   error,
   onRetry,
+  scrap,
 }: {
   resource: Resource<StockReport> | null;
   error: Error | null;
   onRetry: () => void;
+  scrap: ReportScrapState;
 }) {
   const report = resource?.data ?? null;
   const failed = error !== null || resource?.status === 'unavailable';
@@ -45,18 +49,21 @@ export function AiReportSection({
         />
       )}
 
-      {report && <ReportBody report={report} />}
+      {report && <ReportBody report={report} scrap={scrap} />}
     </Card>
   );
 }
 
-function ReportBody({ report }: { report: StockReport }) {
+function ReportBody({ report, scrap }: { report: StockReport; scrap: ReportScrapState }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-600">
         <Tag tone="ai">AI 생성</Tag>
         <span>{formatAsOf(new Date(report.asOf), '보고서 기준')}</span>
         {report.generatedAt && <span>· {formatDate(new Date(report.generatedAt))} 생성</span>}
+        <span className="ml-auto">
+          <ReportScrapButton scrap={scrap} />
+        </span>
       </div>
 
       <ReportSummaryBlock

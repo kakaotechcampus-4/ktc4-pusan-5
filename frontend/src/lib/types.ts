@@ -273,7 +273,8 @@ export type ReportFactor = {
   sources: ReportSource[];
 };
 
-export type ReportTerm = { plain: string; term: string };
+/** conceptSlug 가 있으면 같은 용어의 개념 글이 있다. `/concepts/{slug}` 로 연결한다. */
+export type ReportTerm = { plain: string; term: string; conceptSlug: string | null };
 
 export type ReportBackgroundItem = {
   text: string;
@@ -310,3 +311,17 @@ export type StockReport = {
   terms: ReportTerm[];
   background: ReportBackground;
 };
+
+/** 홈의 보고서 목록 한 줄. 눌러서 종목 상세로 간다. headline 은 LLM 생성물이다. */
+export type ReportListItem = {
+  id: number;
+  code: string;
+  name: string | null;
+  asOf: string;
+  changePct: number | null;
+  generatedAt: string | null;
+  verdict: ReportVerdict;
+  headline: string | null;
+};
+
+export type ReportList = { items: ReportListItem[] };

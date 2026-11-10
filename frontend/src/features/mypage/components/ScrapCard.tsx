@@ -38,26 +38,29 @@ export function ScrapCard({
     <li className={cn('relative grid', removed && 'opacity-50')}>
       <Card tone="plain">
         <div className="flex items-center gap-2">
-          <StockAvatar initial={scrap.stockName.slice(0, 1)} />
+          <StockAvatar initial={(scrap.stockName ?? scrap.stockCode).slice(0, 1)} />
           <Link
-            to={`/stock/${scrap.stockCode}?date=${scrap.targetDate}`}
-            aria-label={`${scrap.stockName} ${formatDate(reportDate)} AI 보고서`}
+            to={`/stock/${scrap.stockCode}`}
+            aria-label={`${scrap.stockName ?? scrap.stockCode} ${formatDate(reportDate)} AI 보고서`}
             className="text-ink min-w-0 truncate font-semibold no-underline after:absolute after:inset-0"
           >
-            {scrap.stockName}
+            {scrap.stockName ?? scrap.stockCode}
           </Link>
           <Tag tone="neutral">{scrap.stockCode}</Tag>
-          <span className="ml-auto flex-none">
-            <Change value={scrap.changePct} display="arrow" />
-          </span>
+          {scrap.changePct !== null && (
+            <span className="ml-auto flex-none">
+              <Change value={scrap.changePct} display="arrow" />
+            </span>
+          )}
         </div>
 
         <p className="text-xs text-neutral-600">{formatAsOf(reportDate, '장 마감 기준 보고서')}</p>
-        <p className="flex-1 text-sm text-neutral-700">{scrap.headline}</p>
+        <p className="flex-1 text-sm text-neutral-700">{scrap.headline ?? ''}</p>
 
         <div className="flex items-end gap-2">
           <p className="min-w-0 flex-1 text-xs text-neutral-600">
-            {formatDate(new Date(scrap.generatedAt))} 생성 · 출처 {scrap.sources.join(', ')}
+            {scrap.generatedAt && `${formatDate(new Date(scrap.generatedAt))} 생성`}
+            {scrap.sources.length > 0 && ` · 출처 ${scrap.sources.join(', ')}`}
           </p>
           <span className="flex flex-none items-center gap-1 text-xs text-neutral-600">
             {formatDate(new Date(scrap.scrappedAt))} 스크랩

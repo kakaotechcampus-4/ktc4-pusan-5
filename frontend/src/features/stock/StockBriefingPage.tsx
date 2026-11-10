@@ -7,6 +7,7 @@ import type { PricePeriod } from '@/lib/types';
 import { useStockDetail } from './useStockDetail';
 import { useStockFinancials } from './useStockFinancials';
 import { useStockReport } from './useStockReport';
+import { useReportScrap } from './useReportScrap';
 import { useWatchlistToggle } from './useWatchlistToggle';
 import { LoginModal } from '@/features/auth/LoginModal';
 import { StockHeader, StockHeaderSkeleton } from './components/StockHeader';
@@ -37,6 +38,7 @@ export function StockBriefingPage() {
   const { resource: report, error: reportError, retry: retryReport } = useStockReport(code);
   const [loginOpen, setLoginOpen] = useState(false);
   const watchlistToggle = useWatchlistToggle(code, () => setLoginOpen(true));
+  const reportScrap = useReportScrap(report?.data?.id, () => setLoginOpen(true));
 
   if (overviewError instanceof ApiError && overviewError.code === 'STOCK_NOT_FOUND')
     return (
@@ -114,6 +116,7 @@ export function StockBriefingPage() {
         report={report}
         reportError={reportError}
         onRetryReport={retryReport}
+        reportScrap={reportScrap}
       />
     </>
   );
