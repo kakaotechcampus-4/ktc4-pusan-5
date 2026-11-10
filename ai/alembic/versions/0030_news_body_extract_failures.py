@@ -20,12 +20,12 @@ news.body_extract_failures 를 더한다. 본문을 열었다가 추출 실패·
 downgrade 는 칼럼만 지운다. 횟수가 사라지면 추출 실패 기사를 처음부터 다시 세어 몇 번 더 열 뿐,
 본문·인용에는 영향이 없다.
 
-번호는 다른 브랜치가 쓰는 0028·0029 와 겹치지 않게 0030 으로 했다. 지금 develop 의 마지막
-리비전(0027)을 잇는다. 0028·0029 가 먼저 develop 에 들어가면 Revises 를 그 마지막 리비전으로
-바꿔야 한다(머리가 둘이면 `alembic upgrade head` 가 멈춘다).
+번호는 다른 브랜치가 쓰는 0028·0029 와 겹치지 않게 0030 으로 했다. 0028(#96)·0029(#99) 가
+먼저 develop 에 들어가므로 그 마지막 리비전(0029)을 잇는다(머리가 둘이면
+`alembic upgrade head` 가 멈춘다).
 
 Revision ID: 0030_news_body_extract_failures
-Revises: 0027_classification
+Revises: 0029_classification_same_event
 Create Date: 2026-11-06
 """
 
@@ -36,7 +36,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0030_news_body_extract_failures"
-down_revision: str | None = "0027_classification"
+down_revision: str | None = "0029_classification_same_event"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
