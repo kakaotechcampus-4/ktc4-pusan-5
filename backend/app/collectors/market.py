@@ -31,16 +31,38 @@ LOCK_ID = 4927105
 FETCH_TIMEOUT = 25
 Result = Quote | list[RankingItem] | list[FlowItem] | krx.MarketBatch
 SECTOR_CODES = {"kospi": "sectorKospi", "kosdaq": "sectorKosdaq"}
-# 수집 반복이 예외 없이 끝날 때마다 이 파일의 수정 시각을 갱신한다. docker compose 헬스체크가 이 시각을 본다.
+# 루프가 DB 오류 없이 한 바퀴 돌 때마다 이 파일의 수정 시각을 갱신한다. docker compose 헬스체크가 이 시각을 본다.
+# "수집기 프로세스와 루프가 살아 있음"(liveness)만 뜻한다. KIS/KRX/FRED 오류는 fetch_result 가 결과값으로
+# 흡수하므로, 외부 소스가 계속 실패해도 이 파일은 갱신된다. 실제 수집 성공 여부는 아래 LAST_SUCCESS_PATH 를 본다.
 HEARTBEAT_PATH = Path("/tmp/collector-heartbeat")
+# 홈 시장 데이터가 한 건이라도 오류 없이 수집·저장됐을 때 갱신한다. 헬스체크는 보지 않고, 사람이 확인하는 용도다.
+#   docker compose exec collector stat -c '%y' /tmp/collector-last-success
+# 수집할 만기가 없던 반복에서는 갱신하지 않으므로, 오래됐다는 것만으로 이상이라고 단정하지 않는다.
+LAST_SUCCESS_PATH = Path("/tmp/collector-last-success")
+
+
+def _touch(path: Path, label: str) -> None:
+    try:
+        path.touch()
+    except OSError:
+        logger.warning("%s: cannot write %s", label, path)
 
 
 def touch_heartbeat(path: Path = HEARTBEAT_PATH) -> None:
     """루프가 한 바퀴 끝까지 돌았다는 표시. 쓰지 못해도 수집을 멈추지 않는다(헬스체크만 실패한다)."""
-    try:
-        path.touch()
-    except OSError:
-        logger.warning("heartbeat: cannot write %s", path)
+    _touch(path, "heartbeat")
+
+
+def touch_last_success(path: Path = LAST_SUCCESS_PATH) -> None:
+    """마지막으로 수집에 성공한 시각 표시. 쓰지 못해도 수집을 멈추지 않는다."""
+    _touch(path, "last-success")
+
+
+def is_success(value: object, error: str | None) -> bool:
+    """fetch_result 의 결과가 성공인지. KRX 묶음은 지수나 업종 중 하나만 얻어도 성공으로 본다."""
+    if isinstance(value, krx.MarketBatch):
+        return value.quote_error is None or value.sectors_error is None
+    return value is not None and error is None
 
 
 async def fetch_result(code: str, fetch: Callable[[], Awaitable[Result]]):
@@ -118,9 +140,11 @@ async def collect(client: httpx.AsyncClient, kis: KisClient) -> float:
                     jobs.append((kind, fetch, 60))
 
             tasks = [asyncio.create_task(fetch_result(code, fetch)) for code, fetch, _ in jobs]
+            any_success = False
             # 느린 출처와 관계없이 완료된 항목부터 짧은 트랜잭션으로 저장한다.
             for completed in asyncio.as_completed(tasks):
                 code, value, error = await completed
+                any_success = any_success or is_success(value, error)
                 async with SessionLocal() as session:
                     if code in SECTOR_CODES:
                         await save_result(
@@ -151,6 +175,10 @@ async def collect(client: httpx.AsyncClient, kis: KisClient) -> float:
                     )
                 else:
                     logger.info("%s: %s", code, error or "saved")
+
+            # 저장까지 끝난 뒤 한 번만 갱신한다. 한 건도 성공하지 못했거나 수집할 항목이 없었으면 건드리지 않는다.
+            if any_success:
+                touch_last_success()
 
             # 처리 시간을 더해 주기가 계속 밀리지 않게 다음 만기까지 기다린다.
             due = [remaining for remaining in next_due if remaining > 0]
@@ -197,7 +225,8 @@ async def run(loop: bool) -> None:
                                 await asyncio.sleep(
                                     min(1, max(0.1, next_market - time.monotonic()))
                                 )
-                            # 오류 없이 한 바퀴를 돌았을 때만 갱신한다. 멈추거나 계속 오류가 나면 갱신이 끊겨 헬스체크가 실패한다.
+                            # DB 오류 없이 한 바퀴를 돌았을 때만 갱신한다. 루프가 멈추거나 DB 오류가 계속 나면 갱신이 끊겨
+                            # 헬스체크가 실패한다. 외부 소스(KIS 등) 오류는 흡수돼 여기에 영향이 없다(LAST_SUCCESS_PATH 참고).
                             touch_heartbeat()
                         except (SQLAlchemyError, OSError) as exc:
                             logger.error("Market collection failed: %s", type(exc).__name__)

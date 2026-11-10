@@ -249,8 +249,12 @@ API 서버는 외부를 호출하지 않고 DB 를 읽기만 하므로, **수집
 
 - `docker-compose.yml` 의 `collector`: backend 와 같은 이미지(`ktc4-backend:latest`)를 쓰고 명령만 다르다. `init: true`, `restart: unless-stopped`.
 - 한 번에 하나만 돈다(DB advisory lock). 두 번째가 뜨면 "Another market worker is already running" 을 남기고 바로 종료한다.
-- 하트비트 헬스체크: 수집 루프가 한 바퀴 끝까지 돌 때마다 `/tmp/collector-heartbeat` 를 갱신하고, 헬스체크는 5분 안에 갱신됐는지 본다.
+- 하트비트 헬스체크: 수집 루프가 DB 오류 없이 한 바퀴 돌 때마다 `/tmp/collector-heartbeat` 를 갱신하고, 헬스체크는 5분 안에 갱신됐는지 본다.
+  **수집기가 살아 있는지(liveness)만 본다.** KIS/KRX/FRED 같은 외부 소스가 계속 실패해도 오류는 결과값으로 흡수되므로 healthy 로 남을 수 있다.
   **unhealthy 가 되어도 도커는 재시작하지 않는다.** 멈춘 것을 알려 줄 뿐이라 직접 `docker compose restart collector` 를 해야 한다.
+- 마지막 수집 성공 시각: 홈 시장 데이터가 한 건이라도 오류 없이 저장되면 `/tmp/collector-last-success` 를 갱신한다(헬스체크는 보지 않는다).
+  `docker compose exec collector stat -c '%y' /tmp/collector-last-success` 로 확인한다. 수집할 만기가 없는 반복(장외 등)에서는 갱신하지 않으므로,
+  오래됐다고 곧바로 이상은 아니다. 그 시각이 오래됐는데 `docker compose logs collector` 에 같은 오류가 반복되면 외부 소스 문제다.
 - 로그는 파일당 10MB, 3개까지만 남긴다(collector·backend).
 - 배포(`scripts/deploy.sh`): 마이그레이션이 적용되기 전에 수집기를 멈추고, backend 가 healthy 가 된 뒤 다시 띄운다.
   수집기 이상은 배포 실패로 치지 않고 로그에 `collector-unhealthy` 만 남긴다. 마이그레이션이 적용된 뒤 실패해서 자동 롤백을 하지 않는 경우에는 수집기도 멈춘 채로 남는다.
