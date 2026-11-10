@@ -42,8 +42,9 @@ deploy_core() {
   stop_collector
   echo "up-wait-start: $(date +%T)"
   local rc=0
+  # 2026-11-10 배포에서 up --wait 가 18초 걸렸다(캐시된 빌드, 마이그레이션 없음). 마이그레이션이 있는 배포는 더 걸리므로 여유를 둔다.
   # shellcheck disable=SC2086
-  docker compose up -d --wait $CORE_SERVICES || rc=$?
+  docker compose up -d --wait --wait-timeout 120 $CORE_SERVICES || rc=$?
   echo "up-wait-end: $(date +%T) rc=$rc"
   [ "$rc" -eq 0 ] || return 1
 }

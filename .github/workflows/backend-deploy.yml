@@ -39,9 +39,9 @@ jobs:
           DEPLOY_SHA: ${{ github.sha }}
         run: |
           # 트리거된 커밋(SHA)을 그대로 서버에 올린다. git pull은 그 사이 들어온 최신 커밋을 끌어올 수 있다.
-          # --wait-timeout 은 아직 정하지 않았다. 서버에서 up --wait 소요 시간을 측정한 뒤 그 값을 근거로 추가한다.
-          # 측정용으로 scripts/deploy.sh 가 up --wait 의 시작/종료 시각(up-wait-start/end)을 stdout 에 남긴다.
-          # 그 전까지는 아래 폴링 루프의 상한(10분)이 전체 대기 시간을 제한한다.
+          # up --wait 에는 scripts/deploy-lib.sh 에서 --wait-timeout 120 을 둔다. 2026-11-10 배포에서 18초 걸린 것을 근거로 여유를 둔 값이다.
+          # scripts/deploy.sh 가 up --wait 의 시작/종료 시각(up-wait-start/end)을 stdout 에 남기므로, 이후 배포에서도 소요 시간을 볼 수 있다.
+          # 아래 폴링 루프의 상한(10분)은 백업·빌드까지 포함한 전체 대기 시간을 제한한다.
           # SSM은 root로 실행되어 ubuntu 소유 저장소에서 git이 'dubious ownership'으로 거부한다(HOME도 비어 있어 전역 safe.directory가 안 먹는다).
           # 저장소 소유자인 ubuntu로 실행해 소유권 불일치 자체를 없앤다.
           # 서버에서 할 일은 scripts/deploy.sh 가 한다(백업 → 빌드 → 기동 → 실패 시 롤백). 여기서는 코드를 맞춰 호출만 한다.
