@@ -115,7 +115,7 @@ source_card (뉴스 · PDF · 메시지)
  │        company    사건에 직접 언급된 종목
  │        industry   scope = industry 사건 → 그 산업(과 그 아래 단계)에 속한 종목   ◀ stock_industries
  │        relation   직접 언급된 종목·외부 기업에서 1-hop 관계인 종목               ◀ company_relations
- │                   (role = price_move 사건은 이 경로로 넘기지 않음)
+ │                   (role = price_move 사건과 수상·캠페인 같은 홍보성 사건은 이 경로로 넘기지 않음)
  │        macro·market 사건은 후보를 만들지 않음 (조회 때 모든 종목에 공통 배경)
  │
  ④ LLM   (사건, 후보 종목)마다 해당 여부 판정
@@ -472,7 +472,7 @@ company_relations.industry_code → industries.code
 | --- | --- | --- |
 | `company` | 사건의 대상(4-5)에 종목이 있다 (scope 무관) | — |
 | `industry` | `scope = 'industry'` 이고, 대상 산업이 종목의 산업 **자신이거나 그 상위** | `stock_industries`, `industries` |
-| `relation` | `company` 경로 종목 또는 사건 대상의 외부 기업(4-5 `external_code`)과 1-hop 관계인 30종목 (양방향). `role = 'price_move'` 사건은 넘기지 않는다 | `company_relations` |
+| `relation` | `company` 경로 종목 또는 사건 대상의 외부 기업(4-5 `external_code`)과 1-hop 관계인 30종목 (양방향). `role = 'price_move'` 사건과 홍보성 사건은 넘기지 않는다 | `company_relations` |
 
 - `industry` 경로는 `scope = 'industry'` 인 사건만 탄다. "삼성전자, 메모리 가격 상승에 실적 개선" 처럼 회사 사건에 산업 표기가 섞였다고 다른 메모리 회사에 퍼지지 않게 한다.
 - 상위 산업 매칭: 종목의 산업과 그 조상 산업 목록을 먼저 구한다(산업 표가 수십 행이라 코드에서 계산하거나 `WITH RECURSIVE` 한 번). "반도체 업황" 기사(`semiconductor`)는 그 아래 `memory`·`foundry` 종목에 모두 붙고, "D램" 기사(`memory`)는 메모리 종목에만 붙는다.
@@ -482,6 +482,7 @@ company_relations.industry_code → industries.code
 - **자회사 표기로 들어온 출발점은, 공급·경쟁 관계는 그 자회사 사업 범위의 것만 탄다.** 대상의 `via_subsidiary`(4-5)가 있으면, `supplier`·`competitor` 관계는 다음 둘 중 하나를 만족해야 탄다. (1) 관계의 그 쪽 실제 당사자가 그 자회사다 — **10-30: 실제 당사자가 `note` 로 옮겨져 코드가 볼 수 없다. 지금은 (2)만 본다.** 외부 기업의 자회사 표기(삼성바이오에피스)는 외부 기업에 산업 연결이 없어 (2)로 거를 수 없으므로 제한하지 않는다. (2) 관계의 `industry_code` 가 그 자회사를 거친 산업 연결(4-2 `exposure = 'subsidiary'`, `via_company` = 그 자회사)의 산업이다. 예: "삼성디스플레이" 기사 → 삼성전자 → 애플 OLED 공급(실제 당사자 삼성디스플레이)은 타고, 삼성전자–LG전자 가전 경쟁은 타지 않는다. "하만" 기사 → 삼성전자 → 엔비디아 HBM 공급은 타지 않는다. **`ownership` 관계는 이 제한을 받지 않는다.** 지분 관계는 사업 범위가 아니라 보유자를 찾는 것이라 산업이 비어 있어, 제한하면 항상 걸러진다. 예: "삼성바이오에피스" 기사 → 삼성에피스홀딩스(외부 기업) → 삼성물산·삼성전자 지분. 판정 상한(relation 경로, INDIRECT_CONTEXT)은 그대로다. 기준은 [RELATION_REVIEW.md](RELATION_REVIEW.md) 2-1.
 - 한 종목이 relation 경로로 여러 번 걸리면(예: 애플 생산 차질 → 삼성전자는 OLED·메모리 공급사이자 스마트폰 경쟁사) **후보는 하나로 합치고, 찾은 관계는 모두 `relation_refs` 에 담아 판정에 넘긴다.** 영향 경로가 서로 다르기 때문이다. 대표 관계(`via_*`·`relation_type`)는 출발점이 종목인 관계를 먼저, 그 안에서는 기준 JSON 순서로 고른다. (10-30: 근거 수준·단계가 `note` 로 옮겨져 순서 기준에서 빠졌다. 기준 JSON 에 공식·공급 확인 관계를 먼저 적는다)
 - `role = 'price_move'` 사건("B사 주가 3% 하락")은 관계 회사에 대한 정보가 아니라서 `relation` 경로로 넘기지 않는다.
+- **수상·캠페인·사회공헌 같은 홍보성 사건도 `relation` 경로로 넘기지 않는다(11-06, PR #103 리뷰).** "LG전자 올해의 브랜드상 수상" 이 경쟁사 삼성전자의 후보가 되어 판정에서 붙던 일을 막는다. 사건 종류 칸이 없어서 근거 문장의 표현(`candidates.py` 의 `NO_RELATION_PATTERN`)으로 가리는 임시 규칙이다. 낱말 하나가 아니라 뒤에 붙는 말까지 본다("4분기부터" 의 "기부" 는 걸리지 않게). 잘못 붙는 조합이 더 나오면 표현을 더하고, 표현으로 못 가릴 만큼 많아지면 ① 추출에 사건 종류를 더해 `관계 종류 × 사건 종류` 로 바꾼다. 그 회사 자신(`company` 경로)은 그대로 후보다.
 - 한 종목이 여러 경로에 걸리면 위쪽 경로 하나를 대표로 고른다(`company` > `industry` > `relation`). **관계 경로로도 걸렸다면 그 관계는 버리지 않고 `relation_refs` 에 남긴다.** 대표 경로는 `direct_allowed` 와 저장 칸을 정할 뿐이고, 판정에 넘기는 근거는 줄이지 않는다.
 - `industry` 경로에서 한 종목이 여러 연결에 걸리면(예: "반도체 업황" → 삼성전자의 메모리반도체·파운드리) `direct_allowed = true` 인 연결을 먼저, 그 안에서는 기준 JSON 순서로 하나를 고른다. 고른 연결의 `industry_code` 를 판정에 적는다.
 - `stake`·`planned` 연결도 후보는 만든다. 후보에서 빼지 않고 `direct_allowed = false` 로 판정 상한만 둔다. 산업 기사에서 SK스퀘어 같은 지분 노출 종목을 놓치지 않기 위해서다(INDUSTRY_REVIEW 2-5).
@@ -862,7 +863,7 @@ develop 의 `docs/stock_analysis_io.md`(PR #36, 10-27 병합) 입력 기준이�
 | --- | --- |
 | 멘토: 관계는 근거가 아니라 후보 생성기로 쓰고, 관련성은 기사에서 다시 판정 | 전제 P11 추가, P4 수정. ③ 후보 모으기 → ④ 판정 단계(3-2, 5-1) |
 | 멘토: 소속(belongs_to)과 적용(affects)을 분리, DIRECT / INDIRECT_CONTEXT / NOT_APPLICABLE / UNKNOWN | `classification_event_applicability` 추가(4-8). 2절의 "관련성은 저장하지 않고 경로로 대신한다" 를 뒤집음 |
-| 멘토: 관계에 종류·방향·근거, 1-hop 까지, 관계 종류별 전달 조건 | `company_relations` 추가(4-7), 전제 P12. 종류별 기준은 ④ 프롬프트에, 코드 규칙은 두 개(price_move 는 관계로 안 넘김, relation 경로는 DIRECT 불가) |
+| 멘토: 관계에 종류·방향·근거, 1-hop 까지, 관계 종류별 전달 조건 | `company_relations` 추가(4-7), 전제 P12. 종류별 기준은 ④ 프롬프트에, 코드 규칙은 세 개(price_move 는 관계로 안 넘김, 홍보성 사건은 관계로 안 넘김(11-06 추가), relation 경로는 DIRECT 불가) |
 | 멘토: 산업 → 세부 산업 → 제품으로 노출 정보 구체화 | 산업 계층에 세부 산업 단계 추가(9절). 판정 입력에 넣어 LLM 이 회사 사업을 짐작하지 않게 함 |
 | 멘토: 사전 → 임베딩 → 의미 판정 | 사전 → LLM 코드 선택 → 미연결 기록. 임베딩은 종목·산업 수가 작아 뺌(6절) |
 | PR #36: 생성 입력은 메시지 단위 `match`(direct / indirect) | 조회 결과에 자료 단위 `card_label` 추가, 대응표(5-2, 5-3). 연결은 생성 담당(전제 P13) |

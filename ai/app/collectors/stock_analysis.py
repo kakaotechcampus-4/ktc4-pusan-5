@@ -23,7 +23,11 @@ KRX 는 실행 하나 안에서 기준일마다 한 번만 부르고(실패도 �
 실패 사유, 건너뛴 이유, 덮어쓴 원래 값은 래퍼 market_compare·market_compare_error·market_compare_skipped·
 change_pct_override 에 남긴다. KRX 가 실패해도 보고서는 만들고 비교 문장만 빠진다.
 
-`--load` 가 없으면 파일만 쓴다. 적재는 같은 파일을 두 번 넣지 않으므로(sha256)
+보고서 하나에서 러너 코드가 예상 밖 예외를 내면(시장 맥락·고쳐 쓰기·finalize·검증) 그 보고서만 is_error 래퍼
+(error_code RUNNER_ERROR, error 에 단계와 예외)로 남기고 나머지 보고서·실행 요약·적재는 계속한다.
+
+`--load` 가 없으면 파일만 쓴다. `--load` 여도 verify_status 가 failed 인 보고서는 넣지 않고, 그 수를
+실행 요약(load_skipped_failed)에 남긴다. 적재는 같은 파일을 두 번 넣지 않으므로(sha256)
 파일만 먼저 쓰고 나중에 적재 모듈로 넣어도 된다.
 """
 
@@ -47,6 +51,7 @@ from app.repositories.stock_move_analysis import KST, insert_analysis_files
 from app.services.stock_analysis.finalize import finalize
 from app.services.stock_analysis.generate import (
     PROMPT_NAME,
+    _base_wrapper,
     check_input,
     generate,
     make_run_id,
@@ -84,6 +89,9 @@ CONCURRENCY = 2
 PROMPT_VERSION_CHARS = 12
 # 판정과 따로 남기는 경고 목록. 건수를 보고서마다·실행마다 찍는다.
 WARNING_KEYS = ("issue_trace_warnings", "events_problems", "verify_warnings")
+# 러너 코드(시장 맥락·고쳐 쓰기·finalize·검증·파일 쓰기)에서 예상 밖 예외가 난 보고서의 실패 코드.
+# 그 보고서만 is_error 로 남기고 나머지는 계속 만든다(run.work).
+RUNNER_ERROR = "RUNNER_ERROR"
 
 
 def collect_inputs(path: Path) -> list[Path]:
@@ -168,6 +176,44 @@ def _assign_run_ids(payloads: list[dict[str, Any]]) -> list[str]:
     return ids
 
 
+def runner_error_wrapper(
+    progress: dict[str, Any], exc: Exception, *, run_id: str, prompt_hash: str, run_dir: Path,
+    source: Path, data: bytes,
+) -> dict[str, Any]:
+    """러너 코드에서 예상 밖 예외가 난 보고서 하나의 래퍼. 생성까지 마쳤으면 그 래퍼(비용·사용량)를 살린다.
+
+    보고서는 반쯤 고쳐졌을 수 있어 믿지 않는다. final_text 를 비워 적재 때 parse_failed 가 되고, 판정은
+    RUNNER_ERROR 로 failed 다. 예외의 원인이 검증 함수일 수도 있으므로 여기서는 검증·점검 함수를 다시 부르지 않는다.
+
+    생성 래퍼가 없으면 _base_wrapper 로 새로 만든다. 그 함수도 입력에서 판정 칸(move_case·judge_layers 등)을 계산하므로
+    예외의 원인이 그것이었다면 여기서 또 난다 — 이 함수는 except 안에서 불리니 그대로 올리면 실행 전체가 멈춘다. 그때는
+    빈 입력으로 칸만 채운다(입력에서 계산하는 칸은 null). input_path·input_used_path 는 파일을 쓴 뒤에만 채운다.
+    """
+    wrapper = progress["wrapper"]
+    if wrapper is None:
+        try:
+            wrapper = _base_wrapper(progress["payload"], prompt_hash=prompt_hash, run_id=run_id)
+        except Exception:  # 원래 예외(exc)를 error 에 남기는 게 먼저다. 이 예외는 로그에만 남긴다
+            logger.exception("%s: 실행 오류 래퍼도 입력으로 만들지 못해 빈 입력으로 만든다", run_id)
+            wrapper = _base_wrapper({}, prompt_hash=prompt_hash, run_id=run_id)
+    error = f"{progress['stage']}: {type(exc).__name__}: {str(exc)[:300]}"
+
+    def written(folder: str) -> str | None:
+        path = Path(folder) / f"{run_id}.json"
+        return path.as_posix() if (run_dir / path).is_file() else None
+
+    wrapper.update(
+        is_error=True, error_code=RUNNER_ERROR, error=error, final_text="",
+        input_path=written("inputs"),
+        input_used_path=written("inputs_used"),
+        input_original_path=source.as_posix(), input_sha256=hashlib.sha256(data).hexdigest(),
+        verify_status="failed", verify_problems=[f"{RUNNER_ERROR}: {error}"],
+        events_status="missing", events_problems=[], verify_warnings=[], issue_trace_warnings=[],
+        issue_trace_stats=None,
+    )
+    return wrapper
+
+
 async def run(
     input_path: Path, *, out_root: Path = Path("runs"), concurrency: int = CONCURRENCY,
     load: bool = False,
@@ -191,20 +237,49 @@ async def run(
     gate = asyncio.Semaphore(concurrency)
 
     async def work(run_id: str, source: Path, data: bytes, payload: dict[str, Any]) -> dict:
+        """보고서 하나. 어느 단계에서 예외가 나도 이 보고서만 실행 오류 래퍼로 남기고 돌아온다 —
+        asyncio.gather 로 함께 도는 다른 보고서·실행 요약·--load 가 멈추면 안 된다."""
+        progress: dict[str, Any] = {"stage": "입력 복사", "payload": payload, "wrapper": None}
+        try:
+            wrapper = await _work(run_id, source, data, payload, progress)
+        except Exception as exc:  # 종류와 단계는 래퍼 error 에 남긴다
+            logger.error("%s: %s 단계에서 예상 밖 예외, 이 보고서만 실행 오류로 남긴다", run_id,
+                         progress["stage"], exc_info=exc)
+            wrapper = runner_error_wrapper(progress, exc, run_id=run_id, prompt_hash=prompt_hash,
+                                           run_dir=run_dir, source=source, data=data)
+        out = run_dir / "parsed" / f"{run_id}.json"
+        try:
+            out.write_text(json.dumps(wrapper, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError as exc:
+            # 파일이 없으면 --load 도 이 보고서를 건너뛴다(아래 paths)
+            logger.error("%s: parsed 파일을 쓰지 못했다: %s", run_id, exc)
+            wrapper["parsed_write_error"] = f"{type(exc).__name__}: {exc}"
+        counts = " ".join(f"{key}={len(wrapper[key])}" for key in WARNING_KEYS)
+        print(f"  {wrapper['verify_status']:6} {run_id} ({wrapper['json_status']}, "
+              f"{format_cost(wrapper['cost'], wrapper['cost_currency'])}) {counts}", flush=True)
+        return wrapper
+
+    async def _work(run_id: str, source: Path, data: bytes, payload: dict[str, Any],
+                    progress: dict[str, Any]) -> dict:
         copied = run_dir / "inputs" / f"{run_id}.json"
         copied.write_bytes(data)
         used = run_dir / "inputs_used" / f"{run_id}.json"
         async with gate:
             # 장 마감 전이거나 실패하면 칸이 null 이고 보고서는 그대로 만든다. 장 마감 이후 ok 면 change_pct 가 KRX
             # 등락률로 바뀐다. 받은 입력 dict 는 바꾸지 않고, 이후 생성·검증은 바뀐 입력으로 한다.
+            progress["stage"] = "시장 맥락"
             payload, compare_fields = await compare_for.apply(payload)
+            progress["payload"] = payload
             used.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            progress["stage"] = "보고서 생성"
             wrapper = await generate(payload, system=system, prompt_hash=prompt_hash, run_id=run_id)
             wrapper.update(compare_fields)
+            progress["wrapper"] = wrapper
             report = report_of(wrapper)
             # quote 가 원문에 없는 factor 는 검증 전에 한 번 고쳐 쓰게 하고, 그래도 없으면 뺀다.
             # 개수 상한을 넘은 보고서는 고쳐 쓰지 않는다(repair.repair_limit, 비용 상한).
             if report is not None:
+                progress["stage"] = "quote 고쳐 쓰기"
                 wrapper["repair_limit"] = repair_limit(report)
                 repairs = await repair_quotes(report, payload, stream=wrapper["stream"], run_id=run_id)
                 # 등락 층·상대 층 근거가 빠졌으면 남은 근거로 main_cause·relative 를 한 번 다시 쓰게 한다.
@@ -223,12 +298,14 @@ async def run(
                     wrapper["cost"] += sum(r["cost"] for r in repairs)
                 # strength·판정·main_cause 고정 문장은 러너가 정한다. 정형 보고서는 이미 러너가 정했다.
                 if not wrapper.get("skipped_llm"):
+                    progress["stage"] = "finalize"
                     wrapper.update(finalize(report, payload, wrapper.get("issue_trace")))
                 wrapper["final_text"] = json.dumps(report, ensure_ascii=False)
         wrapper["input_path"] = copied.relative_to(run_dir).as_posix()
         wrapper["input_used_path"] = used.relative_to(run_dir).as_posix()
         wrapper["input_original_path"] = source.as_posix()
         wrapper["input_sha256"] = hashlib.sha256(data).hexdigest()
+        progress["stage"] = "검증"
         status, problems = verify_wrapper(wrapper, report, payload)
         wrapper["verify_status"] = status
         wrapper["verify_problems"] = problems
@@ -251,11 +328,6 @@ async def run(
         # 가리키면(ISSUE_ID_UNKNOWN) 경고만 남긴다. 판정과 섞지 않는다. 관련 유형별 수는 stats 에서만 센다.
         wrapper["issue_trace_warnings"] = check_issue_trace(trace, report, payload)
         wrapper["issue_trace_stats"] = issue_trace_stats(trace, report, payload)
-        out = run_dir / "parsed" / f"{run_id}.json"
-        out.write_text(json.dumps(wrapper, ensure_ascii=False, indent=2), encoding="utf-8")
-        counts = " ".join(f"{key}={len(wrapper[key])}" for key in WARNING_KEYS)
-        print(f"  {status:6} {run_id} ({wrapper['json_status']}, "
-              f"{format_cost(wrapper['cost'], wrapper['cost_currency'])}) {counts}", flush=True)
         return wrapper
 
     async with httpx.AsyncClient(timeout=settings.http_timeout_sec) as client:
@@ -311,24 +383,40 @@ async def run(
             k: sum(w["issue_trace_stats"][f"messages_{k}"] for w in wrappers if w["issue_trace_stats"])
             for k in ("traced", "total")},
         "loaded": None,
+        # --load 때 verify_status 가 failed 라 적재하지 않은 보고서 수(실행 오류 포함). --load 가 없으면 None.
+        "load_skipped_failed": None,
+        # --load 때 검증은 통과했지만 parsed 파일을 쓰지 못해 적재하지 않은 보고서 수. --load 가 없으면 None.
+        "load_skipped_write_error": None,
     }
 
     if load:
+        # 검증에 떨어진 보고서는 DB 에 넣지 않는다. 화면 조회가 passed 만 고른다는 약속에 기대지 않는다.
+        # 판정과 사유는 parsed 파일에 그대로 있다.
+        to_load = [w for w in wrappers
+                   if w["verify_status"] != "failed" and not w.get("parsed_write_error")]
+        result["load_skipped_failed"] = sum(w["verify_status"] == "failed" for w in wrappers)
+        result["load_skipped_write_error"] = sum(
+            w["verify_status"] != "failed" and bool(w.get("parsed_write_error")) for w in wrappers)
         verdicts = {
             w["run_id"]: (w["verify_status"], "\n".join(w["verify_problems"]) or None)
-            for w in wrappers
+            for w in to_load
         }
-        paths = [run_dir / "parsed" / f"{w['run_id']}.json" for w in wrappers]
-        async with SessionLocal() as session:
-            inserted = await insert_analysis_files(
-                session, paths, verdicts=verdicts, generated_at=started,
-                prompt_version=prompt_hash[:PROMPT_VERSION_CHARS],
-            )
-            # 실행 하나를 한 트랜잭션으로 본다. 반만 들어간 실행은 검수 때 헷갈린다.
-            await session.commit()
+        paths = [run_dir / "parsed" / f"{w['run_id']}.json" for w in to_load]
+        inserted = []
+        if paths:
+            async with SessionLocal() as session:
+                inserted = await insert_analysis_files(
+                    session, paths, verdicts=verdicts, generated_at=started,
+                    prompt_version=prompt_hash[:PROMPT_VERSION_CHARS],
+                )
+                # 실행 하나를 한 트랜잭션으로 본다. 반만 들어간 실행은 검수 때 헷갈린다.
+                await session.commit()
         result["loaded"] = len(inserted)
 
-    loaded = "" if result["loaded"] is None else f" · 적재 {result['loaded']}"
+    loaded = "" if result["loaded"] is None else (
+        f" · 적재 {result['loaded']} (검증 실패라 적재 안 함 {result['load_skipped_failed']}"
+        + (f", parsed 파일을 못 써 적재 안 함 {result['load_skipped_write_error']}"
+           if result["load_skipped_write_error"] else "") + ")")
     print(f"완료: 보고서 {result['total']}건 · 검증 통과 {result['passed']}건"
           f" · 검증 실패 보고서 {result['failed']}건 (그중 실행 오류 {result['errors']}건)"
           f" · {format_cost(result['cost'], result['currency'])}{loaded} · {run_dir}")

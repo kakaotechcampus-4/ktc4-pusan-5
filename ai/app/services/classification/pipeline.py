@@ -129,9 +129,11 @@ async def classify(title: str | None, body: str | None, basis: Basis, *,
         item.links += links
         item.unresolved = [m for m in item.unresolved if m not in {link.mention for link in links}]
 
-    # ③ 후보
+    # ③ 후보. 근거 문장은 홍보성 사건을 관계로 넘기지 않을 때 본다
     for item in classified:
-        item.candidates = collect_candidates(item.event, item.links, basis)
+        text = " ".join(sentences[i - 1] for i in item.event.sentence_indices
+                        if 1 <= i <= len(sentences))
+        item.candidates = collect_candidates(item.event, item.links, basis, text)
 
     # ④ 판정
     judging = await judge(title, sentences, [(i.event, i.links, i.candidates) for i in classified],
