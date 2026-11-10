@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 
-from app.models.stock import Stock, StockCollectionJob, StockDailyPrice
+from app.models.stock import Stock, StockCollectionJob
 from app.repositories.stock import enqueue
 from app.repositories.stock_history import HISTORY_TTL, history_for
 
@@ -40,21 +40,6 @@ async def enrich_history(session, code, investment):
             )
         ).all()
     }
-    cap_dates = {row.cap_as_of for row in saved.values() if row.cap_as_of is not None}
-    closes = {}
-    if cap_dates:
-        closes = {
-            price.trade_date: price.close
-            for price in (
-                await session.scalars(
-                    select(StockDailyPrice).where(
-                        StockDailyPrice.stock_code == code,
-                        StockDailyPrice.adjustment_type == "raw",
-                        StockDailyPrice.trade_date.in_(cap_dates),
-                    )
-                )
-            ).all()
-        }
     pending = False
     failure = False
     retries = []
@@ -69,8 +54,7 @@ async def enrich_history(session, code, investment):
             point.rs_as_of = row.rs_as_of
             point.rs_base_date = row.rs_base_date
             point.per = per(point.market_cap, point.net_income_ttm)
-            close = closes.get(row.cap_as_of)
-            point.pbr = pbr(float(close) if close is not None else None, point.bps)
+            point.pbr = pbr(float(row.cap_close) if row.cap_close is not None else None, point.bps)
         for kind, attr in (("history_cap", "cap_collected_at"), ("history_rs", "rs_collected_at")):
             collected = getattr(row, attr) if row else None
             expired = not collected or now - collected >= HISTORY_TTL
