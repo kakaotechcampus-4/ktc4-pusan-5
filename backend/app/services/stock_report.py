@@ -16,9 +16,10 @@ from zoneinfo import ZoneInfo
 
 from pydantic import ValidationError
 
+from app.repositories.concept import normalize_term
 from app.repositories.stock_report import ReportRow, ReportStoreUnavailable, StockReportRepository
 from app.schemas.stock import Resource
-from app.schemas.stock_report import StockReport
+from app.schemas.stock_report import ReportList, ReportListItem, StockReport
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,55 @@ def to_report(row: ReportRow) -> StockReport | None:
         return None
 
 
-async def get_report(repository: StockReportRepository, code: str) -> Resource[StockReport]:
+def link_concepts(report: StockReport, term_index: dict[str, str]) -> StockReport:
+    """용어 풀이의 각 용어를 개념 글(이름·별칭이 같은 것)에 연결한다."""
+    for item in report.terms:
+        item.concept_slug = term_index.get(normalize_term(item.term))
+    return report
+
+
+def headline(report: StockReport) -> str | None:
+    return report.summary.main_cause or report.summary.move
+
+
+def source_channels(report: StockReport) -> list[str]:
+    """보고서 사건들의 출처 채널. 중복은 처음 나온 순서로 한 번만."""
+    channels: dict[str, None] = {}
+    for factor in report.factors:
+        for source in factor.sources:
+            if source.channel:
+                channels.setdefault(source.channel)
+    return list(channels)
+
+
+async def list_reports(repository: StockReportRepository, limit: int) -> ReportList:
+    try:
+        rows = await repository.latest_per_stock(limit)
+    except ReportStoreUnavailable:
+        return ReportList(items=[])
+    items = []
+    for row in rows:
+        report = to_report(row)
+        if report is None:
+            continue
+        items.append(
+            ReportListItem(
+                id=report.id,
+                code=report.code,
+                name=report.name,
+                as_of=report.as_of,
+                change_pct=report.change_pct,
+                generated_at=report.generated_at,
+                verdict=report.verdict,
+                headline=headline(report),
+            )
+        )
+    return ReportList(items=items)
+
+
+async def get_report(
+    repository: StockReportRepository, code: str, term_index: dict[str, str] | None = None
+) -> Resource[StockReport]:
     try:
         row = await repository.latest_passed(code)
     except ReportStoreUnavailable:
@@ -104,6 +153,7 @@ async def get_report(repository: StockReportRepository, code: str) -> Resource[S
     report = to_report(row)
     if report is None:
         return Resource[StockReport](status="unavailable")
+    link_concepts(report, term_index or {})
     return Resource[StockReport](
         status="ready",
         data=report,

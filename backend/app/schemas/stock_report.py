@@ -48,6 +48,8 @@ class ReportFactor(CamelModel):
 class ReportTerm(CamelModel):
     plain: str
     term: str
+    # 개념 글에 같은 용어가 있으면 그 slug. 화면이 `/concepts/{slug}` 로 연결한다.
+    concept_slug: str | None = None
 
 
 class BackgroundItem(CamelModel):
@@ -84,3 +86,21 @@ class StockReport(CamelModel):
     factors: list[ReportFactor] = Field(default_factory=list)
     terms: list[ReportTerm] = Field(default_factory=list)
     background: ReportBackground
+
+
+class ReportListItem(CamelModel):
+    """보고서 목록(홈) 한 줄. 눌러서 종목 상세로 가므로 본문은 싣지 않는다."""
+
+    id: int
+    code: str
+    name: str | None = None
+    as_of: datetime
+    change_pct: float | None = None
+    generated_at: datetime | None = None
+    verdict: Verdict
+    # 한 줄 요약. LLM 생성물이다.
+    headline: str | None = None
+
+
+class ReportList(CamelModel):
+    items: list[ReportListItem]
