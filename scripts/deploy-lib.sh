@@ -43,8 +43,11 @@ deploy_core() {
   echo "up-wait-start: $(date +%T)"
   local rc=0
   # 2026-11-10 배포에서 up --wait 가 18초 걸렸다(캐시된 빌드, 마이그레이션 없음). 마이그레이션이 있는 배포는 더 걸리므로 여유를 둔다.
+  # 기본 120초이고 DEPLOY_WAIT_TIMEOUT(초)으로 바꿀 수 있다. 120초는 docker-compose.yml 의 backend healthcheck(start_period 60s + interval 10s × retries 5 ≈ 110초)와 거의 같은 시점이다.
+  # 마이그레이션이 60초를 넘기는 배포를 허용하려면 이 값을 올릴 때 backend 의 start_period 도 함께 올려야 한다.
+  # 마이그레이션이 있는 배포의 up-wait-start/end 로그가 쌓이면 이 값을 실측으로 다시 확인한다.
   # shellcheck disable=SC2086
-  docker compose up -d --wait --wait-timeout 120 $CORE_SERVICES || rc=$?
+  docker compose up -d --wait --wait-timeout "${DEPLOY_WAIT_TIMEOUT:-120}" $CORE_SERVICES || rc=$?
   echo "up-wait-end: $(date +%T) rc=$rc"
   [ "$rc" -eq 0 ] || return 1
 }
@@ -59,6 +62,8 @@ stop_collector() {
   fi
 }
 
+# 수집기는 첫 수집 한 바퀴가 끝나 heartbeat 가 생겨야 healthy 가 되어 핵심 서비스(120초)보다 길게 기다린다.
+# 기다리다 실패해도 배포 실패로 치지 않고 로그만 남긴다.
 start_collector() {
   if has_service collector; then
     docker compose up -d --wait --wait-timeout 180 collector || echo "collector-unhealthy"
