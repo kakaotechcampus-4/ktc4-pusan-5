@@ -1,0 +1,33 @@
+# ai 수집·분류 cron 정의. 서버의 ubuntu 사용자 crontab 용이다. (아직 서버에 적용하지 않았다)
+#
+# 시각은 UTC 로 적었다. 서버 시간대는 UTC 로 보이고(확인 필요: timedatectl), 한국은 서머타임이 없어 +9시간 고정이다.
+# 그래서 모든 줄이 "매일" 돌고, 평일·주말·휴장일 판단은 app.schedule 이 한국 시간으로 한다(runner.py).
+# 시각이 잘못 적혔으면 예정 시각과 30분 넘게 어긋나는 순간 회차가 스스로 멈추고 로그에 남긴다.
+#
+# 회차표와 cron 시각은 `bash ai/run.sh -m app.schedule list` 로 다시 뽑을 수 있다. 이 파일과 어긋나면
+# tests/test_schedule.py 가 실패한다.
+#
+# 적용 전에:
+#   1) crontab -l 로 기존 항목이 없는지 본다. `crontab 파일` 은 사용자의 crontab 전체를 덮어쓴다.
+#   2) mkdir -p ~/ai-logs
+#   3) ai/.env 에 키가 있고 collection_scope.toml 이 채워져 있는지, ai 이미지를 다시 빌드했는지 본다.
+#   4) bash ai/run.sh -m app.schedule round r0900 --dry-run 으로 무엇이 돌지 먼저 본다.
+# 적용: crontab ai/schedule/crontab
+# 중지: crontab -r   (또는 crontab -e 에서 줄 앞에 # )
+#
+# 로그는 ~/ai-logs/schedule.log 에 쌓인다. 컨테이너는 끝나면 지워지므로(--rm) 이 파일이 유일한 기록이다.
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=""
+
+# 분 시(UTC)  일 월 요일   명령                                                  KST
+0  0 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r0900 >> /home/ubuntu/ai-logs/schedule.log 2>&1
+0  2 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r1100 >> /home/ubuntu/ai-logs/schedule.log 2>&1
+0  4 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r1300 >> /home/ubuntu/ai-logs/schedule.log 2>&1
+20 6 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r1520 >> /home/ubuntu/ai-logs/schedule.log 2>&1
+25 6 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r1525 >> /home/ubuntu/ai-logs/schedule.log 2>&1
+0  9 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r1800 >> /home/ubuntu/ai-logs/schedule.log 2>&1
+
+# 보고서 일괄 생성(08:30·16:00 KST = 23:30·07:00 UTC)은 일괄 생성 명령이 만들어진 뒤 추가한다.
+# 23:30 UTC 는 한국 시간으로 다음 날 08:30 이다. 날짜 판단은 app.schedule 이 하므로 요일을 적지 않는다.

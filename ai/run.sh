@@ -58,4 +58,8 @@ if [ "${1:-}" = "/app/.venv/bin/alembic" ]; then
   esac
 fi
 
-exec docker compose -f docker-compose.yml -f docker-compose.ai.yml run --rm --no-deps ai "$@"
+# cron 처럼 터미널이 없는 곳에서는 의사 터미널을 만들지 않는다(-T). 터미널이 있으면 그대로 둔다.
+tty_flag=()
+[ -t 0 ] || tty_flag=(-T)
+
+exec docker compose -f docker-compose.yml -f docker-compose.ai.yml run --rm --no-deps ${tty_flag[@]+"${tty_flag[@]}"} ai "$@"
