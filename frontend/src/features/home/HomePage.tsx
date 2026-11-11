@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { SplitLayout } from '@/components/layout/PageShell';
 import { LoginModal } from '@/features/auth/LoginModal';
-import { mockSignalBoard } from './mock';
 import { focusHomeSearch } from './focusHomeSearch';
 import { useMarketOverview } from './useMarketOverview';
 import { useHomeSections } from './useHomeSections';
@@ -37,7 +36,7 @@ export function HomePage() {
 
       <SignalSection
         status={sections.signal.status}
-        board={mockSignalBoard}
+        board={sections.signal.board}
         onRetry={sections.signal.retry}
       />
 
