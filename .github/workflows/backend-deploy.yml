@@ -37,16 +37,23 @@ jobs:
         env:
           INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
           DEPLOY_SHA: ${{ github.sha }}
+          # 비어 있으면 서버에서 기본값(120초)을 쓴다. 값은 Settings > Variables 에서 바꾼다.
+          DEPLOY_WAIT_TIMEOUT: ${{ vars.DEPLOY_WAIT_TIMEOUT }}
         run: |
+          # 서버 명령에 그대로 끼워 넣으므로 숫자(초)만 허용한다. 서버를 건드리기 전에 여기서 막는다.
+          case "$DEPLOY_WAIT_TIMEOUT" in
+            *[!0-9]*) echo "::error::DEPLOY_WAIT_TIMEOUT 은 숫자(초)여야 합니다: $DEPLOY_WAIT_TIMEOUT"; exit 1 ;;
+          esac
           # 트리거된 커밋(SHA)을 그대로 서버에 올린다. git pull은 그 사이 들어온 최신 커밋을 끌어올 수 있다.
-          # up --wait 에는 scripts/deploy-lib.sh 에서 --wait-timeout 120 을 둔다. 2026-11-10 배포에서 18초 걸린 것을 근거로 여유를 둔 값이다.
+          # up --wait 의 대기 시간은 기본 120초이고 DEPLOY_WAIT_TIMEOUT 변수로 바꾼다(scripts/deploy-lib.sh). 2026-11-10 배포에서 18초 걸린 것을 근거로 여유를 둔 기본값이다.
+          # 올릴 때는 docker-compose.yml 의 backend healthcheck start_period 도 함께 올린다. 아래 폴링 상한(10분)을 넘기면 이 워크플로우가 먼저 포기한다.
           # scripts/deploy.sh 가 up --wait 의 시작/종료 시각(up-wait-start/end)을 stdout 에 남기므로, 이후 배포에서도 소요 시간을 볼 수 있다.
           # 아래 폴링 루프의 상한(10분)은 백업·빌드까지 포함한 전체 대기 시간을 제한한다.
           # SSM은 root로 실행되어 ubuntu 소유 저장소에서 git이 'dubious ownership'으로 거부한다(HOME도 비어 있어 전역 safe.directory가 안 먹는다).
           # 저장소 소유자인 ubuntu로 실행해 소유권 불일치 자체를 없앤다.
           # 서버에서 할 일은 scripts/deploy.sh 가 한다(백업 → 빌드 → 기동 → 실패 시 롤백). 여기서는 코드를 맞춰 호출만 한다.
           # PREV 는 reset 전 서버 HEAD 로, 마지막 성공 기록이 없을 때 백업 파일 이름에만 쓴다. (\$ 는 ubuntu 셸에서 평가)
-          COMMAND="sudo -H -u ubuntu bash -c 'cd /home/ubuntu/ktc4-pusan-5 && PREV=\$(git rev-parse HEAD) && git fetch origin ${DEPLOY_SHA} && git reset --hard ${DEPLOY_SHA} && bash scripts/deploy.sh ${DEPLOY_SHA} \$PREV'"
+          COMMAND="sudo -H -u ubuntu bash -c 'cd /home/ubuntu/ktc4-pusan-5 && PREV=\$(git rev-parse HEAD) && git fetch origin ${DEPLOY_SHA} && git reset --hard ${DEPLOY_SHA} && DEPLOY_WAIT_TIMEOUT=${DEPLOY_WAIT_TIMEOUT} bash scripts/deploy.sh ${DEPLOY_SHA} \$PREV'"
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \

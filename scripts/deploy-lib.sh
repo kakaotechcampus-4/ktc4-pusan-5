@@ -62,7 +62,8 @@ stop_collector() {
   fi
 }
 
-# 수집기는 첫 수집 한 바퀴가 끝나 heartbeat 가 생겨야 healthy 가 되어 핵심 서비스(120초)보다 길게 기다린다.
+# 수집기는 첫 수집 한 바퀴가 끝나 heartbeat 가 생겨야 healthy 가 된다. 180초는 collector healthcheck 가 포기하는 시점
+# (start_period 60s + interval 30s × retries 3 ≈ 150초)보다 조금 길게 잡은 값이다. 핵심 서비스도 같은 규칙(110초 → 120초)이다.
 # 기다리다 실패해도 배포 실패로 치지 않고 로그만 남긴다.
 start_collector() {
   if has_service collector; then
