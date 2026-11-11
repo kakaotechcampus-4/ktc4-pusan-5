@@ -21,12 +21,17 @@ def web(**values):
     return {"enabled": True, "channels": ["skitteam"], "max_items": 100, "terms": TERMS, **values}
 
 
-def test_committed_scope_file_collects_nothing_until_the_team_fills_it():
-    """저장소의 기본 범위 파일은 모든 출처가 꺼져 있다. 그대로 두면 어떤 수집기도 돌지 않는다."""
+def test_committed_scope_file_loads_and_has_enabled_sources():
+    """저장소의 범위 파일은 올바르게 읽히고, 켜진 출처가 하나 이상 있다.
+
+    켜진 출처에 기간·목록·상한·이용 조건이 빠졌으면 load_scope 에서 실패한다.
+    """
     committed = load_scope(DEFAULT_PATH)
-    assert committed.sources and not any(s.enabled for s in committed.sources.values())
-    with pytest.raises(ScopeError, match="꺼져 있다"):
-        committed.require("telegram_web")
+    assert committed.start is not None and committed.end is not None
+    enabled = [name for name, source in committed.sources.items() if source.enabled]
+    assert enabled
+    for name in enabled:
+        assert committed.require(name).enabled
 
 
 def test_missing_file_is_an_error_not_an_empty_scope(tmp_path):
