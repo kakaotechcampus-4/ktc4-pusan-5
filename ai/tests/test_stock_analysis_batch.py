@@ -124,8 +124,8 @@ class Fake:
                 raise fake.fail[code]
             fake.loaded.append({"code": code, "cutoff": cutoff, "change_pct": change_pct,
                                 "target_date": target_date})
-            payload = {"code": code, "target_date": target_date.isoformat(), "cutoff": cutoff.isoformat(),
-                       "change_pct": change_pct}
+            payload = {"stock": code, "code": code, "target_date": target_date.isoformat(),
+                       "cutoff": cutoff.isoformat(), "change_pct": change_pct, "messages": []}
             return payload, {"code": code}
 
         async def run(input_dir, *, out_root, concurrency, load):
@@ -142,9 +142,10 @@ class Fake:
         monkeypatch.setattr(batch.adapter, "load_input", load_input)
         monkeypatch.setattr(batch.runner, "run", run)
 
-    async def go(self, mode: str, now: datetime, codes, *, load=True, dry_run=False, concurrency=2) -> int:
+    async def go(self, mode: str, now: datetime, codes, *, load=True, dry_run=False, concurrency=2,
+                 chunk_size=batch.CHUNK_SIZE) -> int:
         return await batch.run_batch(mode, now=now, out_root=self.tmp, codes=codes, load=load,
-                                     dry_run=dry_run, concurrency=concurrency)
+                                     dry_run=dry_run, concurrency=concurrency, chunk_size=chunk_size)
 
 
 def good_quote(day: date, change: float = -1.5) -> tuple[float, datetime]:
@@ -159,7 +160,8 @@ async def test_16시_회차는_대상일_오늘로_입력을_만들고_러너에
     (call,) = f.run_calls
     assert call["load"] is True and call["concurrency"] == 2 and call["out_root"] == tmp_path
     assert call["files"] == ["000660-2026-11-10-1600.json", "005930-2026-11-10-1600.json"]
-    assert call["input_dir"].parent == tmp_path / "classified_inputs"
+    assert call["input_dir"].name == "run-01"
+    assert call["input_dir"].parent.parent == tmp_path / "classified_inputs"
     assert "입력 2건 만듦" in capsys.readouterr().out
 
 
@@ -281,3 +283,78 @@ def test_입력_파일_이름은_러너가_읽는_모양():
         assert [p.name for p in out.glob("*.json")] == ["005930-2026-11-10-1600.json"]
         assert (out / "meta" / "005930-2026-11-10-1600.json").exists()
         assert json.loads((out / "005930-2026-11-10-1600.json").read_text(encoding="utf-8"))["code"] == "005930"
+
+
+# ---------------------------------------------------------------- 묶음 나누기와 입력 검사
+
+def many_quotes(n: int) -> tuple[list[str], dict]:
+    codes = [f"{i:06d}" for i in range(n)]
+    return codes, {c: good_quote(TUE) for c in codes}
+
+
+def test_묶음_나누기():
+    assert batch.chunked(list("abcdefg"), 3) == [["a", "b", "c"], ["d", "e", "f"], ["g"]]
+    assert batch.chunked([], 3) == []
+    assert batch.CHUNK_SIZE == 10
+
+
+async def test_종목이_많으면_묶음마다_러너를_따로_부른다(monkeypatch, tmp_path, capsys):
+    codes, quotes = many_quotes(25)
+    f = Fake(monkeypatch, tmp_path, quotes=quotes)
+    monkeypatch.setattr(batch.stock_meta, "name", lambda code: f"종목{code}")
+    assert await f.go("close", kst(TUE, 16, 0), codes) == 0
+    assert [len(c["files"]) for c in f.run_calls] == [10, 10, 5]
+    # 묶음마다 그 묶음의 입력만 들어 있다(러너는 폴더 안 *.json 을 전부 읽는다)
+    all_files = [name for c in f.run_calls for name in c["files"]]
+    assert len(all_files) == len(set(all_files)) == 25
+    assert [c["input_dir"].name for c in f.run_calls] == ["run-01", "run-02", "run-03"]
+    assert "묶음 3/3" in capsys.readouterr().out
+
+
+async def test_묶음_크기를_줄_수_있다(monkeypatch, tmp_path):
+    codes, quotes = many_quotes(5)
+    f = Fake(monkeypatch, tmp_path, quotes=quotes)
+    assert await f.go("close", kst(TUE, 16, 0), codes, chunk_size=2) == 0
+    assert [len(c["files"]) for c in f.run_calls] == [2, 2, 1]
+
+
+async def test_한_묶음이_멈추면_뒤_묶음은_부르지_않고_앞_묶음은_남는다(monkeypatch, tmp_path, capsys):
+    codes, quotes = many_quotes(25)
+    f = Fake(monkeypatch, tmp_path, quotes=quotes)
+    calls = {"n": 0}
+    original = batch.runner.run
+
+    async def run(input_dir, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise RuntimeError("LLM 호출이 계속 실패한다")
+        return await original(input_dir, **kwargs)
+
+    monkeypatch.setattr(batch.runner, "run", run)
+    assert await f.go("close", kst(TUE, 16, 0), codes) == 1
+    assert len(f.run_calls) == 1  # 첫 묶음만 러너에 닿았다. 둘째는 예외, 셋째는 부르지 않음
+    out = capsys.readouterr().out
+    assert "묶음 2 에서 멈춤" in out and "앞 묶음 1개의 결과는 적재돼 있다" in out
+
+
+async def test_한_묶음의_실행_오류는_표시하되_다음_묶음은_계속한다(monkeypatch, tmp_path):
+    codes, quotes = many_quotes(12)
+    f = Fake(monkeypatch, tmp_path, quotes=quotes, run_result={"errors": 1})
+    assert await f.go("close", kst(TUE, 16, 0), codes) == 1
+    assert len(f.run_calls) == 2  # 오류가 있어도 둘째 묶음은 돈다
+
+
+async def test_러너_입력_검사에_걸리는_종목은_미리_빼고_나머지만_넘긴다(monkeypatch, tmp_path, capsys):
+    f = Fake(monkeypatch, tmp_path, quotes={"005930": good_quote(TUE), "000660": good_quote(TUE)})
+    real = batch.check_input
+    monkeypatch.setattr(batch, "check_input",
+                        lambda payload: ["messages 가 배열이 아니다"] if payload["code"] == "005930" else real(payload))
+    assert await f.go("close", kst(TUE, 16, 0), ["005930", "000660"]) == 1  # 건너뜀이 있어 1
+    assert f.run_calls[0]["files"] == ["000660-2026-11-10-1600.json"]  # 러너가 전체를 멈추지 않게 미리 뺐다
+    assert "러너 입력 검사 실패" in capsys.readouterr().out
+
+
+def test_묶음_크기는_1_이상(capsys):
+    with pytest.raises(SystemExit) as exc:
+        batch.main(["--mode", "close", "--chunk-size", "0"])
+    assert exc.value.code == 2

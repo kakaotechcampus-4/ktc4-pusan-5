@@ -24,7 +24,17 @@ from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from app.core.scope import CollectionScope, ScopeError
-from app.schedule.plan import COLLECT, REPORT, ROUNDS, WEEKDAY, WEEKEND, Round, Step, python_argv
+from app.schedule.plan import (
+    COLLECT,
+    REPORT,
+    RESEARCH_ONLY,
+    ROUNDS,
+    WEEKDAY,
+    WEEKEND,
+    Round,
+    Step,
+    python_argv,
+)
 
 KST = ZoneInfo("Asia/Seoul")
 
@@ -37,7 +47,9 @@ DEADLINE_BEFORE_CLOSE = timedelta(seconds=30)
 MAX_WAIT = timedelta(hours=3)
 # 회차끼리 겹치지 않게 하는 advisory lock. backend 수집기는 4927105·4927106 을 쓴다.
 # 수집·분류 회차끼리, 보고서 회차끼리 겹치지 않는다. 둘은 서로 막지 않는다 — 보고서가 오래 걸려도 수집을 막지 않는다.
-LOCK_IDS = {COLLECT: 4927107, REPORT: 4927108}
+# 15:20 리서치 회차는 따로 둔다. 리서치가 10분 걸려 15:25 를 넘겨도 DART 를 먼저 받는 15:25 회차를 막지 않게(막히면 장중 공시가
+# 다음 거래일 보고서로 넘어간다).
+LOCK_IDS = {COLLECT: 4927107, REPORT: 4927108, RESEARCH_ONLY: 4927109}
 # 보고서 회차는 시작 전에 돌고 있는 수집·분류가 끝나기를 이만큼까지 기다린다. 넘으면 경고를 남기고 그대로 만든다
 # (그 시점까지 분류된 자료로). 16:00 보고서가 15:25 수집의 분류를 기다리는 경우가 이것이다.
 REPORT_WAIT = timedelta(minutes=30)
@@ -144,7 +156,7 @@ async def run_round(
 
     async with env.lock(rnd.lock) as got:
         if not got:
-            kinds = "보고서" if rnd.lock == REPORT else "수집·분류"
+            kinds = {REPORT: "보고서", RESEARCH_ONLY: "15:20 리서치"}.get(rnd.lock, "수집·분류")
             _say(env, f"다른 {kinds} 회차가 아직 실행 중이라 건너뜀(DB lock). 앞 회차가 오래 걸린 것이니 로그를 확인하세요")
             return 1
         if rnd.lock == REPORT:

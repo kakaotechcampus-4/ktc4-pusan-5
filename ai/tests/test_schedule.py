@@ -7,6 +7,7 @@ import time as clock
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -468,3 +469,39 @@ async def test_보고서_dry_run은_계획만_보인다():
     assert await go("r0830", h, dry_run=True) == 0
     assert h.ran == []
     assert "report:morning" in h.text
+
+
+# ---------------------------------------------------------------- 15:20 리서치와 15:25 DART 가 서로 막지 않는다
+
+async def test_15시20분_리서치는_수집_잠금과_다른_잠금을_쓴다():
+    h = Harness(at(TUE, 15, 20))
+    assert await go("r1520", h) == 0
+    assert set(h.lock_log) == {"research"}
+    assert h.ran == ["research"]
+
+
+async def test_수집_회차가_돌고_있어도_15시20분_리서치는_건너뛰지_않는다():
+    h = Harness(at(TUE, 15, 20), busy={"collect"})
+    assert await go("r1520", h) == 0
+    assert h.ran == ["research"]
+
+
+async def test_리서치가_15시25분을_넘겨도_15시25분_수집은_막히지_않는다():
+    # 15:20 리서치가 10분 걸려 아직 도는 상황: 리서치 잠금이 잡혀 있어도 수집 잠금은 비어 있다
+    h = Harness(at(TUE, 15, 25), busy={"research"})
+    assert await go("r1525", h) == 0
+    assert h.ran[0] == "dart"  # 장 마감 전 DART 수집이 빠지지 않는다
+
+
+def test_같은_잠금을_쓰는_인접_회차는_앞_회차가_길어져도_다음_회차를_막지_않는다():
+    """앞 회차의 가장 긴 단계 제한이 간격보다 길면, 앞 회차가 길어졌을 때 다음 회차가 건너뛰어진다.
+    보고서 회차는 수집을 기다리고(최대 30분) 따로 센다."""
+    from app.schedule.plan import REPORT
+
+    rounds = sorted(ROUNDS.values(), key=lambda r: r.at)
+    for before, after in pairwise(rounds):
+        if before.lock != after.lock or after.lock == REPORT:
+            continue
+        gap = (datetime.combine(TUE.date(), after.at) - datetime.combine(TUE.date(), before.at)).total_seconds()
+        longest = max((s.timeout for s in before.plan("weekday", ["검색어"])), default=0)
+        assert longest <= gap, f"{before.name} 가 {after.name} 를 막을 수 있다(최대 {longest}초 > 간격 {gap}초)"

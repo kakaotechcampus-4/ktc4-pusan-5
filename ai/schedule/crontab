@@ -9,7 +9,7 @@
 #
 # 적용 전에:
 #   1) crontab -l 로 기존 항목이 없는지 본다. `crontab 파일` 은 사용자의 crontab 전체를 덮어쓴다.
-#   2) mkdir -p ~/ai-logs
+#   2) mkdir -p -m 700 ~/ai-logs   (로그에 외부 API 요청 주소가 남을 수 있어 소유자만 읽게 한다)
 #   3) ai/.env 에 키가 있고 collection_scope.toml 이 채워져 있는지, ai 이미지를 다시 빌드했는지 본다.
 #   4) bash ai/run.sh -m app.schedule round r0900 --dry-run 으로 무엇이 돌지 먼저 본다.
 # 적용: crontab ai/schedule/crontab

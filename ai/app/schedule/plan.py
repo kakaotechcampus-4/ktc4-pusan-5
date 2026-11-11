@@ -135,7 +135,8 @@ def _report_close(kind: str, queries: Sequence[str]) -> list[Step]:
     return [report_step("close")]
 
 
-COLLECT, REPORT = "collect", "report"  # 회차가 쓰는 잠금 이름
+# 회차가 쓰는 잠금 이름. 15:20 리서치 회차는 5분 뒤 15:25 회차(DART 마감 전 수집)를 막으면 안 되어 따로 둔다.
+COLLECT, REPORT, RESEARCH_ONLY = "collect", "report", "research"
 
 
 @dataclass(frozen=True)
@@ -155,7 +156,7 @@ ROUNDS: dict[str, Round] = {
         Round("r0900", time(9, 0), (WEEKDAY,), _morning),
         Round("r1100", time(11, 0), (WEEKDAY,), _intraday),
         Round("r1300", time(13, 0), (WEEKDAY,), _intraday),
-        Round("r1520", time(15, 20), (WEEKDAY,), _research_only),
+        Round("r1520", time(15, 20), (WEEKDAY,), _research_only, lock=RESEARCH_ONLY),
         Round("r1525", time(15, 25), (WEEKDAY,), _intraday, align_to_close=True),
         Round("r1600", time(16, 0), (WEEKDAY,), _report_close, lock=REPORT),
         Round("r1800", time(18, 0), (WEEKDAY, WEEKEND), _evening),

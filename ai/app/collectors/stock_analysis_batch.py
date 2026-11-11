@@ -45,6 +45,14 @@ QUOTE_WINDOW 는 시험으로 정한 값이 아니라 가정이다. 마감 직�
 실패를 걸러 러너에는 만들어진 입력만 넘긴다. 단 target_date·cutoff 가 서로 맞지 않는 오류(InputRangeError)는 종목 하나의
 문제가 아니라 실행 전체의 문제라 멈춘다.
 
+## 5. 묶음으로 나눠 돌린다 — 중간에 죽어도 앞 묶음은 남는다
+
+러너는 한 번의 실행을 **마지막에 한 트랜잭션**으로 적재한다(stock_analysis.run). 30종목을 한 번에 넘기면 120분 제한에 걸리거나
+컨테이너가 죽을 때 **이미 쓴 LLM 비용까지 전부 사라진다.** 그래서 CHUNK_SIZE 종목씩 묶어 러너를 여러 번 부른다. 묶음마다 따로
+적재되므로 앞 묶음은 남는다. 러너는 입력 하나라도 검사(check_input)에 걸리면 그 실행의 **한 건도 호출하지 않고 멈추므로**, 입력을
+만든 직후 같은 검사를 미리 돌려 걸리는 종목만 건너뛴다. CHUNK_SIZE 는 시험으로 정한 값이 아니라 가정이다.
+묶음마다 KRX 를 한 번씩 부른다(러너가 실행 하나 안에서 기준일마다 한 번만 부르므로). 호출 수가 묶음 수만큼 늘 뿐 비용은 거의 없다.
+
 ## 결과가 남는 곳
 
 --load 를 주면 러너가 한 트랜잭션으로 stock_move_analyses 에 넣는다(검증에 떨어진 보고서는 넣지 않는다). 입력과 meta 는
@@ -58,6 +66,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import shutil
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime, time, timedelta
@@ -71,6 +80,7 @@ from app.core.database import SessionLocal
 from app.core.scope import KST
 from app.services.stock_analysis import classified_input as adapter
 from app.services.stock_analysis import stock_meta
+from app.services.stock_analysis.generate import check_input
 from app.services.stock_analysis.market_compare import market_close
 
 logger = logging.getLogger(__name__)
@@ -79,6 +89,8 @@ logger = logging.getLogger(__name__)
 MODE_TIMES: dict[str, time] = {"morning": time(8, 30), "close": time(16, 0)}
 # 입력 등락률로 쓰는 시세를 받은 시각이 장 마감 뒤 이 안이어야 한다. 시험으로 정한 값이 아닌 가정이다(맨 위 2번).
 QUOTE_WINDOW = timedelta(hours=1)
+# 러너를 한 번 부를 때 넘기는 종목 수(맨 위 5번). 묶음마다 따로 적재된다. 시험으로 정한 값이 아닌 가정이다.
+CHUNK_SIZE = 10
 
 QUOTES = text(
     "SELECT stock_code, change, collected_at FROM stock_quote_snapshot WHERE stock_code IN :codes"
@@ -145,9 +157,23 @@ async def generate_inputs(
             skipped[code] = f"입력 생성 실패: {type(exc).__name__}: {str(exc)[:200]}"
             await session.rollback()  # 실패한 쿼리가 세션을 망가뜨리지 않게
             continue
+        issues = check_input(payload)  # 러너가 쓰는 검사. 하나라도 걸리면 러너는 그 실행 전체를 멈추므로 미리 거른다
+        if issues:
+            skipped[code] = "러너 입력 검사 실패: " + "; ".join(issues)[:200]
+            continue
         adapter.write(out_dir, payload, meta)
         done.append(code)
     return done, skipped
+
+
+def chunked(codes: Sequence[str], size: int) -> list[list[str]]:
+    return [list(codes[i:i + size]) for i in range(0, len(codes), size)]
+
+
+def input_name(code: str, out_dir: Path) -> Path:
+    """어댑터가 만든 입력 파일(`<코드>-<대상일>-<HHMM>.json`). out_dir 바로 아래에 종목마다 하나다."""
+    (path,) = sorted(out_dir.glob(f"{code}-*.json"))
+    return path
 
 
 def _label(code: str) -> str:
@@ -156,7 +182,7 @@ def _label(code: str) -> str:
 
 async def run_batch(
     mode: str, *, now: datetime, out_root: Path, codes: Sequence[str], load: bool, dry_run: bool,
-    concurrency: int,
+    concurrency: int, chunk_size: int = CHUNK_SIZE,
 ) -> int:
     """종료 코드: 0 정상(또는 늦춰진 마감일 건너뜀), 1 건너뛴 종목이 있거나 러너 오류·입력 없음."""
     today = now.astimezone(KST).date()
@@ -187,12 +213,23 @@ async def run_batch(
     if dry_run:
         print("dry-run: 보고서는 만들지 않았다(LLM 호출 없음)")
         return 1 if skipped else 0
-    try:
-        result = await runner.run(out_dir, out_root=out_root, concurrency=concurrency, load=load)
-    except (ValueError, RuntimeError) as exc:  # 입력 검사 실패·LLM 키 없음. 러너 main 과 같이 알리고 끝낸다
-        print(exc)
-        return 1
-    return 1 if (result["errors"] or skipped) else 0
+    problems = bool(skipped)
+    groups = chunked(done, chunk_size)
+    for number, group in enumerate(groups, 1):
+        # 러너는 폴더 바로 아래 *.json 을 모두 입력으로 읽는다. 묶음마다 폴더를 따로 만들어 그 묶음의 입력만 둔다
+        group_dir = out_dir / f"run-{number:02d}"
+        group_dir.mkdir()
+        for code in group:
+            shutil.copy2(input_name(code, out_dir), group_dir)
+        print(f"묶음 {number}/{len(groups)}: {len(group)}종목 생성 시작")
+        try:
+            result = await runner.run(group_dir, out_root=out_root, concurrency=concurrency, load=load)
+        except (ValueError, RuntimeError) as exc:  # 입력 검사 실패·LLM 키 없음. 같은 원인이 다음 묶음에도 있으니 멈춘다
+            print(exc)
+            print(f"묶음 {number} 에서 멈춤. 앞 묶음 {number - 1}개의 결과는 적재돼 있다")
+            return 1
+        problems |= bool(result["errors"])
+    return 1 if problems else 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -204,8 +241,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="입력만 만들고 보고서는 만들지 않는다(LLM 호출 없음)")
     parser.add_argument("--concurrency", type=int, default=runner.CONCURRENCY,
                         help=f"러너 동시 호출 수 (기본 {runner.CONCURRENCY})")
+    parser.add_argument("--chunk-size", type=int, default=CHUNK_SIZE,
+                        help=f"러너를 한 번 부를 때 넘길 종목 수(묶음마다 따로 적재). 기본 {CHUNK_SIZE}")
     parser.add_argument("--out", type=Path, default=Path("runs"), help="실행 결과를 둘 부모 폴더")
     args = parser.parse_args(argv)
+    if args.chunk_size < 1:
+        parser.error("--chunk-size 는 1 이상이어야 한다")
     if args.dry_run and args.load:
         parser.error("--dry-run 은 보고서를 만들지 않으므로 --load 와 같이 줄 수 없다")
     if args.concurrency < 1:
@@ -222,7 +263,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             return await run_batch(
                 args.mode, now=datetime.now(KST), out_root=args.out, codes=codes, load=args.load,
-                dry_run=args.dry_run, concurrency=args.concurrency,
+                dry_run=args.dry_run, concurrency=args.concurrency, chunk_size=args.chunk_size,
             )
         except adapter.InputRangeError as exc:
             print(f"대상일·기준 시각이 맞지 않는다: {exc}")
