@@ -22,12 +22,18 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 MAILTO=""
 
 # 분 시(UTC)  일 월 요일   명령                                                  KST
+# 30 23 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r0830 >> /home/ubuntu/ai-logs/schedule.log 2>&1
 0  0 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r0900 >> /home/ubuntu/ai-logs/schedule.log 2>&1
 0  2 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r1100 >> /home/ubuntu/ai-logs/schedule.log 2>&1
 0  4 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r1300 >> /home/ubuntu/ai-logs/schedule.log 2>&1
 20 6 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r1520 >> /home/ubuntu/ai-logs/schedule.log 2>&1
 25 6 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r1525 >> /home/ubuntu/ai-logs/schedule.log 2>&1
+# 0  7 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r1600 >> /home/ubuntu/ai-logs/schedule.log 2>&1
 0  9 * * *  cd /home/ubuntu/ktc4-pusan-5 && bash ai/run.sh -m app.schedule round r1800 >> /home/ubuntu/ai-logs/schedule.log 2>&1
 
-# 보고서 일괄 생성(08:30·16:00 KST = 23:30·07:00 UTC)은 일괄 생성 명령이 만들어진 뒤 추가한다.
-# 23:30 UTC 는 한국 시간으로 다음 날 08:30 이다. 날짜 판단은 app.schedule 이 하므로 요일을 적지 않는다.
+# 위의 r0830·r1600 은 보고서 일괄 생성이다(08:30·16:00 KST). **주석 처리해 두었다** — LLM 비용이 드는 회차라 첫 실행으로
+# 시간과 비용을 재 본 뒤에 주석을 푼다(아래). 23:30 UTC 는 한국 시간으로 다음 날 08:30 이다.
+# 날짜·요일·휴장일 판단은 app.schedule 이 한국 시간으로 하므로 요일을 적지 않는다.
+# 보고서는 LLM 을 호출한다(비용). 수집 범위가 꺼져 있으면 돌지 않는다. LLM 키는 ai/.env 에 있어야 한다.
+# 주석을 풀기 전에 `bash ai/run.sh -m app.collectors.stock_analysis_batch --mode close --codes 005930 --dry-run` 으로
+# 입력이 만들어지는지(LLM 호출 없음), 한 종목을 --load 없이 만들어 비용과 시간을 먼저 재 본다.

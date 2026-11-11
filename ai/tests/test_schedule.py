@@ -44,7 +44,8 @@ class Harness:
     queries: tuple[str, ...] = ("삼성전자", "SK하이닉스")
     open_day: bool | None = True
     missing_keys: tuple[str, ...] = ()
-    lock_free: bool = True
+    busy: set[str] = field(default_factory=set)  # 잡을 수 없는 잠금 이름
+    collect_busy_polls: int = 0  # 수집 잠금이 이만큼 잡히지 않다가 풀린다(보고서 회차의 기다림 시험)
     close: time = time(15, 30)
     durations: dict[str, float] = field(default_factory=dict)
     codes: dict[str, int] = field(default_factory=dict)
@@ -53,6 +54,7 @@ class Harness:
     ran: list[str] = field(default_factory=list)
     timeouts: dict[str, float] = field(default_factory=dict)
     slept: list[float] = field(default_factory=list)
+    lock_log: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.t = self.start
@@ -79,10 +81,17 @@ class Harness:
         self.t += timedelta(seconds=wanted)
         return self.codes.get(step.name, 0)
 
-    def _lock(self):
+    def _lock(self, name: str):
         @asynccontextmanager
         async def lock():
-            yield self.lock_free
+            self.lock_log.append(name)
+            if name in self.busy:
+                yield False
+            elif name == "collect" and self.collect_busy_polls > 0:
+                self.collect_busy_polls -= 1
+                yield False
+            else:
+                yield True
 
         return lock()
 
@@ -111,9 +120,10 @@ async def go(name: str, h: Harness, **kwargs) -> int:
 # ---------------------------------------------------------------- 회차표
 
 def test_회차표_시각과_cron_UTC():
-    assert list(ROUNDS) == ["r0900", "r1100", "r1300", "r1520", "r1525", "r1800"]
+    assert list(ROUNDS) == ["r0830", "r0900", "r1100", "r1300", "r1520", "r1525", "r1600", "r1800"]
     assert {n: _cron_utc(r) for n, r in ROUNDS.items()} == {
-        "r0900": "0 0", "r1100": "0 2", "r1300": "0 4", "r1520": "20 6", "r1525": "25 6", "r1800": "0 9",
+        "r0830": "30 23", "r0900": "0 0", "r1100": "0 2", "r1300": "0 4", "r1520": "20 6", "r1525": "25 6",
+        "r1600": "0 7", "r1800": "0 9",
     }
 
 
@@ -254,7 +264,7 @@ async def test_범위_파일을_못_읽으면_멈춘다():
 # ---------------------------------------------------------------- 겹침·시각 어긋남
 
 async def test_다른_회차가_돌고_있으면_건너뛴다():
-    h = Harness(at(TUE, 9, 0), lock_free=False)
+    h = Harness(at(TUE, 9, 0), busy={"collect"})
     assert await go("r0900", h) == 1
     assert h.ran == []
     assert "lock" in h.text
@@ -350,7 +360,7 @@ def test_crontab_파일이_회차표와_같다():
     path = Path(__file__).resolve().parents[1] / "schedule" / "crontab"
     found = {}
     for line in path.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^(\d+)\s+(\d+)\s+\*\s+\*\s+\*\s+.*round (r\d{4})( |$)", line)
+        m = re.match(r"^(?:# )?(\d+)\s+(\d+)\s+\*\s+\*\s+\*\s+.*round (r\d{4})( |$)", line)  # 주석 처리한 보고서 줄도 대조한다
         if m:
             found[m.group(3)] = f"{m.group(1)} {m.group(2)}"
     assert found == {name: _cron_utc(rnd) for name, rnd in ROUNDS.items()}
@@ -367,3 +377,94 @@ async def test_진짜_실행기는_시간이_넘으면_프로세스를_죽인다
     began = clock.monotonic()
     assert await execute(Step("slow", ("-c", "import time; time.sleep(60)")), 1) is None
     assert clock.monotonic() - began < 15  # 60초를 기다리지 않는다
+
+
+# ---------------------------------------------------------------- 보고서 회차 (r0830·r1600)
+
+async def test_8시30분은_직전_거래일_보고서를_만든다():
+    h = Harness(at(TUE, 8, 30))
+    assert await go("r0830", h) == 0
+    assert h.ran == ["report:morning"]
+
+
+async def test_16시는_오늘_보고서를_만든다():
+    h = Harness(at(TUE, 16, 0))
+    assert await go("r1600", h) == 0
+    assert h.ran == ["report:close"]
+
+
+async def test_보고서_단계의_명령은_일괄_생성_명령에_load를_준다():
+    from app.schedule.plan import report_step
+
+    assert report_step("morning").argv == ("-m", "app.collectors.stock_analysis_batch", "--mode", "morning", "--load")
+    assert report_step("close").argv == ("-m", "app.collectors.stock_analysis_batch", "--mode", "close", "--load")
+
+
+async def test_보고서_회차는_평일만_돌고_휴장일은_건너뛴다():
+    for name, hh, mm in (("r0830", 8, 30), ("r1600", 16, 0)):
+        weekend = Harness(at(SAT, hh, mm))
+        assert await go(name, weekend) == 0 and weekend.ran == []
+        holiday = Harness(at(TUE, hh, mm), open_day=False)
+        assert await go(name, holiday) == 0 and holiday.ran == []
+        assert "휴장일" in holiday.text
+
+
+async def test_보고서_회차는_수집_회차와_다른_잠금을_쓴다():
+    collect = Harness(at(TUE, 9, 0))
+    await go("r0900", collect)
+    assert set(collect.lock_log) == {"collect"}
+
+    report = Harness(at(TUE, 16, 0))
+    await go("r1600", report)
+    assert report.lock_log[0] == "report"  # 먼저 보고서 잠금을 잡고, 그 뒤 수집 잠금은 기다림 확인용으로만 본다
+    assert report.lock_log.count("collect") == 1
+
+
+async def test_보고서가_돌고_있으면_다음_보고서_회차는_건너뛴다():
+    h = Harness(at(TUE, 16, 0), busy={"report"})
+    assert await go("r1600", h) == 1
+    assert h.ran == []
+    assert "보고서 회차가 아직 실행 중" in h.text
+
+
+async def test_보고서가_돌고_있어도_수집_회차는_막히지_않는다():
+    h = Harness(at(TUE, 9, 0), busy={"report"})
+    assert await go("r0900", h) == 0
+    assert h.ran[0] == "dart"
+
+
+async def test_보고서_회차는_수집_분류가_끝나기를_기다렸다_시작한다():
+    h = Harness(at(TUE, 16, 0), collect_busy_polls=3)  # 15:25 회차의 분류가 아직 도는 경우
+    assert await go("r1600", h) == 0
+    assert h.slept == [30.0, 30.0, 30.0]
+    assert h.ran == ["report:close"]
+    assert "끝나기를 기다림" in h.text and "기다린 뒤 시작" in h.text
+
+
+async def test_수집_분류가_30분_넘게_안_끝나면_경고하고_그대로_만든다():
+    h = Harness(at(TUE, 16, 0), busy={"collect"})
+    assert await go("r1600", h) == 0
+    assert sum(h.slept) == 1800  # 30분
+    assert h.ran == ["report:close"]
+    assert "지금까지 분류된 자료로" in h.text
+
+
+async def test_켜진_수집_출처가_없으면_보고서도_만들지_않는다():
+    h = Harness(at(TUE, 16, 0), enabled=())
+    assert await go("r1600", h) == 0
+    assert h.ran == []
+    assert "켜진 수집 출처가 없음" in h.text
+
+
+async def test_보고서_단계_제한_시간():
+    h = Harness(at(TUE, 8, 30), durations={"report:morning": 100_000})
+    assert await go("r0830", h) == 1
+    assert h.timeouts["report:morning"] == 120 * 60
+    assert "timeout" in h.text
+
+
+async def test_보고서_dry_run은_계획만_보인다():
+    h = Harness(at(TUE, 8, 30))
+    assert await go("r0830", h, dry_run=True) == 0
+    assert h.ran == []
+    assert "report:morning" in h.text

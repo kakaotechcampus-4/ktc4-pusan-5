@@ -10,6 +10,11 @@
            18:00  DART · 텔레그램 · 뉴스 → 분류
     주말   18:00  텔레그램 · 뉴스 → 분류   (DART·리서치는 평일만)
 
+보고서(평일만): 08:30(대상일 = 직전 거래일)·16:00(대상일 = 오늘). hakyeoung 이 PR #119 에서 "보고서 생성은 08:30, 16:00" 이라고
+했고 어댑터 문서(classified_input.py 「대상일」)가 같은 두 시각을 쓴다. 대상 종목 전부를 한 번에 만드는 명령은
+app.collectors.stock_analysis_batch 다. 보고서 회차는 수집 회차와 **다른 잠금**을 써서 오래 걸려도 수집을 막지 않고,
+시작 전에 돌고 있는 수집·분류가 끝나기를 기다린다(runner.py).
+
 휴장일(평일이어도)은 통째로 건너뛴다. 주말 18:00 회차만 휴장 여부와 상관없이 돈다.
 
 왜 15:25 인가: DART 목록은 접수일만 주고 접수 시각을 주지 않아, 수집기가 처음 본 시각을 공개 시각으로 쓴다.
@@ -79,6 +84,19 @@ CLASSIFY = Step(
 )
 
 
+# 보고서 일괄 생성. 30종목을 러너 동시 호출 2건으로 만들고 한 트랜잭션으로 적재한다. 한 건이 길고(추론 모델,
+# 정상 호출도 3분 가까이) 시간 초과로 죽으면 적재 전이라 전부 사라지므로 넉넉히 둔다. **실제로 재 본 값이 아니다.**
+# 첫 실행의 소요 시간을 보고 정한다. 켜진 출처가 없으면 입력이 비어 정형 보고서만 쌓이므로 돌지 않는다.
+REPORT_TIMEOUT = 120 * MINUTE
+
+
+def report_step(mode: str) -> Step:
+    return Step(
+        f"report:{mode}", _py("app.collectors.stock_analysis_batch", "--mode", mode, "--load"),
+        None, (), REPORT_TIMEOUT, collect=False, any_scope=True,
+    )
+
+
 def news_steps(queries: Sequence[str]) -> list[Step]:
     """네이버 뉴스는 검색어(종목명)마다 한 번씩. 검색어는 collection_scope.toml 의 naver_news.queries 다."""
     return [
@@ -109,6 +127,17 @@ def _evening(kind: str, queries: Sequence[str]) -> list[Step]:
     return _intraday(kind, queries)
 
 
+def _report_morning(kind: str, queries: Sequence[str]) -> list[Step]:
+    return [report_step("morning")]
+
+
+def _report_close(kind: str, queries: Sequence[str]) -> list[Step]:
+    return [report_step("close")]
+
+
+COLLECT, REPORT = "collect", "report"  # 회차가 쓰는 잠금 이름
+
+
 @dataclass(frozen=True)
 class Round:
     name: str
@@ -116,16 +145,19 @@ class Round:
     days: tuple[str, ...]  # 이 회차가 도는 날 종류
     plan: Plan
     align_to_close: bool = False  # True 면 그날 장 마감 5분 전까지 기다렸다 시작하고, 마감 직전을 시한으로 둔다
+    lock: str = COLLECT  # 보고서 회차는 다른 잠금을 쓰고, 시작 전에 수집·분류가 끝나기를 기다린다
 
 
 ROUNDS: dict[str, Round] = {
     r.name: r
     for r in (
+        Round("r0830", time(8, 30), (WEEKDAY,), _report_morning, lock=REPORT),
         Round("r0900", time(9, 0), (WEEKDAY,), _morning),
         Round("r1100", time(11, 0), (WEEKDAY,), _intraday),
         Round("r1300", time(13, 0), (WEEKDAY,), _intraday),
         Round("r1520", time(15, 20), (WEEKDAY,), _research_only),
         Round("r1525", time(15, 25), (WEEKDAY,), _intraday, align_to_close=True),
+        Round("r1600", time(16, 0), (WEEKDAY,), _report_close, lock=REPORT),
         Round("r1800", time(18, 0), (WEEKDAY, WEEKEND), _evening),
     )
 }

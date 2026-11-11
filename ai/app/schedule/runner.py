@@ -6,7 +6,8 @@ cron 은 UTC 고정 시각에 매일 이 회차를 부르고, 오늘이 돌릴 �
     1. 이 회차가 도는 날(평일/주말)인가
     2. 예정 시각과 크게 어긋나지 않았나(cron 시간대를 잘못 적은 실수 방어)
     3. 평일인데 휴장일이면 건너뛴다(market_calendar, 오늘 행이 없으면 평일 규칙)
-    4. 이미 다른 회차가 돌고 있으면 건너뛴다(DB advisory lock. 메모리가 모자라 동시에 돌리지 않는다)
+    4. 이미 같은 종류 회차가 돌고 있으면 건너뛴다(DB advisory lock. 수집·분류 회차끼리, 보고서 회차끼리. 메모리가 모자라
+       동시에 돌리지 않는다). 보고서 회차는 시작 전에 돌고 있는 수집·분류가 끝나기를 최대 30분 기다린다
     5. 장 마감에 맞추는 회차는 그날 마감 5분 전까지 기다린다(수능일 등 마감이 늦춰지는 날)
     6. 단계를 순서대로 돌린다. 한 단계가 실패하거나 시간을 넘겨도 다음 단계는 계속한다
 
@@ -23,7 +24,7 @@ from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from app.core.scope import CollectionScope, ScopeError
-from app.schedule.plan import ROUNDS, WEEKDAY, WEEKEND, Round, Step, python_argv
+from app.schedule.plan import COLLECT, REPORT, ROUNDS, WEEKDAY, WEEKEND, Round, Step, python_argv
 
 KST = ZoneInfo("Asia/Seoul")
 
@@ -35,7 +36,12 @@ DEADLINE_BEFORE_CLOSE = timedelta(seconds=30)
 # 마감을 기다리는 최대 시간. 이보다 길게 기다려야 하면 날짜·마감 시각이 이상한 것이다.
 MAX_WAIT = timedelta(hours=3)
 # 회차끼리 겹치지 않게 하는 advisory lock. backend 수집기는 4927105·4927106 을 쓴다.
-LOCK_ID = 4927107
+# 수집·분류 회차끼리, 보고서 회차끼리 겹치지 않는다. 둘은 서로 막지 않는다 — 보고서가 오래 걸려도 수집을 막지 않는다.
+LOCK_IDS = {COLLECT: 4927107, REPORT: 4927108}
+# 보고서 회차는 시작 전에 돌고 있는 수집·분류가 끝나기를 이만큼까지 기다린다. 넘으면 경고를 남기고 그대로 만든다
+# (그 시점까지 분류된 자료로). 16:00 보고서가 15:25 수집의 분류를 기다리는 경우가 이것이다.
+REPORT_WAIT = timedelta(minutes=30)
+REPORT_POLL = timedelta(seconds=30)
 
 OK, FAILED, TIMEOUT, MISSING_KEY = "ok", "failed", "timeout", "missing_key"
 SKIP_SCOPE, SKIP_DEADLINE = "skipped_scope", "skipped_deadline"
@@ -60,7 +66,7 @@ class Env:
     load_scope: Callable[[], CollectionScope]
     missing: Callable[[tuple[str, ...]], list[str]]  # 비어 있는 설정 이름
     execute: Callable[[Step, float], Awaitable[int | None]]  # 종료 코드. 시간 초과면 None
-    lock: Callable[[], AbstractAsyncContextManager[bool]]
+    lock: Callable[[str], AbstractAsyncContextManager[bool]]  # 잠금 이름(COLLECT·REPORT). 못 잡으면 False
     close_of: Callable[[date], time]  # 그날 장 마감 시각(KST)
     out: Callable[[str], None] = print
 
@@ -136,11 +142,32 @@ async def run_round(
             _say(env, f"  장 마감 {close:%H:%M} → {datetime.combine(day, close, KST) - ALIGN_BEFORE_CLOSE:%H:%M} 에 시작")
         return 0
 
-    async with env.lock() as got:
+    async with env.lock(rnd.lock) as got:
         if not got:
-            _say(env, "다른 회차가 아직 실행 중이라 건너뜀(DB lock). 앞 회차가 오래 걸린 것이니 로그를 확인하세요")
+            kinds = "보고서" if rnd.lock == REPORT else "수집·분류"
+            _say(env, f"다른 {kinds} 회차가 아직 실행 중이라 건너뜀(DB lock). 앞 회차가 오래 걸린 것이니 로그를 확인하세요")
             return 1
+        if rnd.lock == REPORT:
+            await _wait_collect_idle(env)
         return await _run_steps(rnd, steps, scope, env, day, wait)
+
+
+async def _wait_collect_idle(env: Env) -> None:
+    """돌고 있는 수집·분류 회차가 끝날 때까지 기다린다. 잠금을 잡았다가 바로 놓는 것이 신호다."""
+    waited = timedelta(0)
+    while True:
+        async with env.lock(COLLECT) as free:
+            if free:
+                if waited:
+                    _say(env, f"수집·분류가 끝나 {waited} 기다린 뒤 시작")
+                return
+        if waited >= REPORT_WAIT:
+            _say(env, f"수집·분류가 {REPORT_WAIT} 넘게 끝나지 않았다. 지금까지 분류된 자료로 보고서를 만든다")
+            return
+        if not waited:
+            _say(env, "수집·분류가 돌고 있어 끝나기를 기다림")
+        await env.sleep(REPORT_POLL.total_seconds())
+        waited += REPORT_POLL
 
 
 async def _run_steps(
@@ -216,17 +243,18 @@ def real_env(*, dry_run: bool) -> Env:
         return None if row is None else bool(row[0])
 
     @asynccontextmanager
-    async def lock():
+    async def lock(name: str):
         if dry_run:  # 실행하지 않으니 DB 를 쓰지 않는다
             yield True
             return
+        lock_id = LOCK_IDS[name]
         async with engine.connect() as conn:
-            got = bool(await conn.scalar(text(f"SELECT pg_try_advisory_lock({LOCK_ID})")))
+            got = bool(await conn.scalar(text(f"SELECT pg_try_advisory_lock({lock_id})")))
             try:
                 yield got
             finally:
                 if got:
-                    await conn.execute(text(f"SELECT pg_advisory_unlock({LOCK_ID})"))
+                    await conn.execute(text(f"SELECT pg_advisory_unlock({lock_id})"))
 
     async def execute(step: Step, timeout: float) -> int | None:
         proc = await asyncio.create_subprocess_exec(*python_argv(step))
