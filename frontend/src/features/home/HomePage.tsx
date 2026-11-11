@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { SplitLayout } from '@/components/layout/PageShell';
 import { LoginModal } from '@/features/auth/LoginModal';
-import { mockMarketInsights, mockSignalBoard } from './mock';
+import { mockSignalBoard } from './mock';
 import { focusHomeSearch } from './focusHomeSearch';
 import { useMarketOverview } from './useMarketOverview';
 import { useHomeSections } from './useHomeSections';
@@ -13,7 +13,6 @@ import { WatchlistCard } from './components/WatchlistCard';
 import { RankingSection } from './components/RankingSection';
 import { LatestReportsSection } from './components/LatestReportsSection';
 import { MarketFlowSection } from './components/MarketFlowSection';
-import { MarketInsightSection } from './components/MarketInsightSection';
 
 /**
  * 홈 화면. 화면 조립만 담당한다.
@@ -70,12 +69,6 @@ export function HomePage() {
         flows={market.data?.flows ?? []}
         sectors={market.data?.sectors ?? []}
         onRetry={market.retry}
-      />
-
-      <MarketInsightSection
-        status={sections.insight.status}
-        insights={mockMarketInsights}
-        onRetry={sections.insight.retry}
       />
 
       <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />

@@ -55,12 +55,11 @@ function useMockLoad(delayMs: number, result: LoadState = 'success'): [LoadState
  * HomePage는 여기서 돌려주는 status/retry만 받아 조립하면 되고,
  * "섹션마다 상태를 따로 두는" 정책이 바뀌어도 이 파일만 고치면 된다.
  *
- * 관심 종목은 실제 API(useWatchlist)를 쓴다. 시그널·인사이트는 아직 목업이다.
+ * 관심 종목은 실제 API(useWatchlist)를 쓴다. 시그널은 아직 목업이다.
  * 시그널 빈 상태는 mockSignalBoard를 mockEmptySignalBoard로 바꿔서 확인한다.
  */
 export function useHomeSections() {
   const [signalState, retrySignal] = useMockLoad(900, 'success');
-  const [insightState, retryInsight] = useMockLoad(1100, 'success');
 
   const { status: authStatus } = useAuth();
   const watchlist = useWatchlist(authStatus === 'authenticated');
@@ -76,6 +75,5 @@ export function useHomeSections() {
   return {
     signal: { status: signalStatus, retry: retrySignal },
     watchlist: { status: watchlistStatus, items: watchlist.items, retry: watchlist.retry },
-    insight: { status: insightState, retry: retryInsight },
   };
 }
