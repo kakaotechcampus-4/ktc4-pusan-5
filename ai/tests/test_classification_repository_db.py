@@ -17,7 +17,9 @@ import pytest
 
 from app.repositories.classification import (
     cards_to_classify,
+    classification_cost_since,
     classified_sources,
+    naver_news_days,
     save_run,
     stored_basis_versions,
     sync_basis,
@@ -120,6 +122,53 @@ def test_cards_to_classify_since_compares_unknown_time_by_kst_date(database):
     assert in_session(database, lambda s: cards_to_classify(s, since=kst_1027)) == [card_id]
 
 
+def add_news(database: str, url: str, title: str, source: str, published: datetime) -> int:
+    in_session(database, lambda s: save_news(s, [{
+        "url": url, "title": title, "publisher": "news.example.com", "source": source,
+        "published_at": published, "summary": "", "cleaned_text": "본문", "body_status": "ok",
+        "body_error": None, "body_fetched_at": published, "body_extractor": "naver",
+    }]))
+    in_session(database, register_missing_sources)
+    return query(database, "SELECT sc.id FROM source_card sc JOIN news n ON n.id = sc.news_id"
+                           " WHERE n.url = $1", url)[0]["id"]
+
+
+def test_naver_news_days_gives_same_day_naver_news_only(database):
+    """종목당 상한 순위는 후보와 같은 날(KST)의 네이버 뉴스 전부로 매긴다. 텔레그램 링크 기사는 뺀다."""
+    first = setup(database)  # 네이버, KST 10-28 09:00
+    same_day = add_news(database, "https://news.example.com/a/2", "삼성전자 노조",
+                        "naver", datetime(2026, 10, 28, 14, 0, tzinfo=UTC))  # KST 10-28 23:00
+    add_news(database, "https://news.example.com/a/3", "텔레그램 링크 기사",
+             "telegram", datetime(2026, 10, 28, 1, 0, tzinfo=UTC))
+    add_news(database, "https://news.example.com/a/4", "다음 날 기사",
+             "naver", datetime(2026, 10, 28, 16, 0, tzinfo=UTC))  # KST 10-29 01:00
+    found = in_session(database, lambda s: naver_news_days(s, [first]))
+    assert {(n.card_id, n.day.isoformat()) for n in found} == {
+        (first, "2026-10-28"), (same_day, "2026-10-28")}
+    assert {n.title for n in found} == {TITLE, "삼성전자 노조"}
+    assert in_session(database, lambda s: naver_news_days(s, [])) == []
+
+
+def test_classification_cost_since_sums_stage_costs(database):
+    card_id = setup(database)
+
+    def add_run(usage: dict, at: str) -> None:
+        query(database, "INSERT INTO classification_runs (source_card_id, status, basis_version, usage,"
+                        " is_current, classified_at) VALUES ($1, 'failed', 'v', $2::jsonb, false, $3)",
+              card_id, json.dumps(usage), datetime.fromisoformat(at))
+
+    add_run({"extract": {"cost": 0.5}, "link": {"cost": 0.25}, "judge": {"cost": 1.0}},
+            "2026-11-06T10:00:00+09:00")
+    add_run({"extract": {"cost": 2.0}}, "2026-11-06T18:00:00+09:00")  # 표기 연결·판정 없음
+    add_run({}, "2026-11-06T19:00:00+09:00")  # 비용 없음(본문 없음 등)
+    add_run({"extract": {"cost": 9.0}}, "2026-11-05T23:59:00+09:00")  # 전날
+    # Jev 단계(관계 후보 판정·홍보성 거르기)도 하루 비용에 들어간다
+    add_run({"extract": {"cost": 1.0}, "judge": {"cost": 0.5}, "judge_relation": {"cost": 0.2},
+             "promo": {"cost": 0.05}}, "2026-11-06T20:00:00+09:00")
+    since = datetime.fromisoformat("2026-11-06T00:00:00+09:00")
+    assert in_session(database, lambda s: classification_cost_since(s, since)) == pytest.approx(5.5)
+
+
 def test_save_run_makes_current_and_indexes_direct(database, monkeypatch):
     card_id = setup(database)
     assert in_session(database, lambda s: cards_to_classify(s)) == [card_id]
@@ -167,6 +216,10 @@ def test_classified_sources_leaves_out_body_not_observed_by_until(database, monk
     else:
         assert [s["source_card_id"] for s in shown["sources"]] == [card_id]
         assert shown["not_observed"] == 0
+
+    # 공개 끝(until)은 그대로 두고 본문 끝(observed_by)만 늦추면 공개 범위는 같고 늦게 받은 본문이 살아난다
+    split = in_session(database, lambda s: classified_sources(s, "000660", until=UNTIL, observed_by=later))
+    assert split["sources"] == shown["sources"] and split["not_observed"] == shown["not_observed"]
 
 
 def test_failed_and_experiment_runs_keep_the_current_one(database, monkeypatch):

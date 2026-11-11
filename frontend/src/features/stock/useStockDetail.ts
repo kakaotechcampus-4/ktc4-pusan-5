@@ -30,9 +30,12 @@ function requestWithTimeout<T>(request: (signal: AbortSignal) => Promise<T>): {
   return { promise, abort: () => controller.abort() };
 }
 
+function fastBackoff(fastAttempts: number): number {
+  return fastAttempts <= 3 ? 3 : Math.min(60, 15 * 2 ** Math.min(fastAttempts - 4, 2));
+}
+
 function retryDelay(resource: Resource<unknown>, fastAttempts: number): number {
-  const backoff = fastAttempts <= 3 ? 3 : Math.min(60, 15 * 2 ** Math.min(fastAttempts - 4, 2));
-  return Math.max(backoff, resource.retryAfterSeconds ?? 0);
+  return Math.max(fastBackoff(fastAttempts), resource.retryAfterSeconds ?? 0);
 }
 
 function shouldPoll(resource: Resource<unknown>): boolean {
@@ -86,14 +89,18 @@ export function useStockDetail(code: string | undefined, period: PricePeriod) {
           if (cancelled || requestId !== generation) return;
           activeRequest = undefined;
           setOverviewState({ key: overviewKey, data, error: null });
-          if (shouldPoll(data.quote) || shouldPoll(data.metrics)) {
+          // 현재가·지표의 간격은 기관 순매수와 무관하게 정한다.
+          const core = [data.quote, data.metrics];
+          const corePolling = core.some(shouldPoll);
+          // 기관 순매수는 서버 갱신 주기가 길어 처음 수집 중(pending)일 때만 빠르게 다시 불러온다.
+          // 실패·지연 상태의 retryAfterSeconds 는 무시한다. 간격을 줄이기만 하고 늘리지는 못한다.
+          const flowPolling = data.investorFlow?.status === 'pending';
+          if (corePolling || flowPolling) {
             fastAttempts += 1;
-            schedule(
-              Math.max(
-                retryDelay(data.quote, fastAttempts),
-                retryDelay(data.metrics, fastAttempts),
-              ),
-            );
+            const coreDelay = corePolling
+              ? Math.max(...core.map((resource) => retryDelay(resource, fastAttempts)))
+              : 60;
+            schedule(flowPolling ? Math.min(coreDelay, fastBackoff(fastAttempts)) : coreDelay);
           } else schedule(60);
         })
         .catch((error: unknown) => {
@@ -216,7 +223,7 @@ export function useStockDetail(code: string | undefined, period: PricePeriod) {
   }, [canLoadEarlier, prices, priceState.error, fromDate, period, priceKey, earliestDate]);
   return useMemo(
     () => ({
-      overview: overview ?? { stock: null, quote: null, metrics: null },
+      overview: overview ?? { stock: null, quote: null, metrics: null, investorFlow: null },
       overviewError: overviewState.key === overviewKey ? overviewState.error : null,
       prices,
       priceError: priceState.key === priceKey ? priceState.error : null,

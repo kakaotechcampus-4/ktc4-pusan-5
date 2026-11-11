@@ -68,6 +68,7 @@ def run_args(concurrency: int) -> argparse.Namespace:
     return argparse.Namespace(
         basis=None, since=None, ids=None, limit=None, retry=False, experiment=False,
         extract_model=None, link_model=None, judge_model=None, concurrency=concurrency,
+        per_stock_cap=None, daily_budget=None,
     )
 
 
@@ -96,24 +97,27 @@ async def test_failed_card_does_not_stop_the_others(monkeypatch, capsys):
     assert "ok 3" in out and "failed 1" in out
 
 
-async def test_unexpected_error_skips_that_card_and_is_reported_at_the_end(monkeypatch, capsys):
+async def test_save_failure_becomes_failed_run_and_the_others_continue(monkeypatch, capsys):
+    """저장(save_run)이 실패하면 그 카드를 failed 회차로 남기고(현재 회차 아님) 나머지는 그대로 저장한다.
+    failed 카드 수를 돌려준다(main 이 exit 1). 저장 밖의 예상 밖 예외만 error 다(아래 읽기 오류)."""
     seen = fake_run(monkeypatch, [1, 2, 3, 4])
     real_save = cli.save_run
+    attempts: list[tuple[int, str, bool]] = []
 
     async def save_run(session, card_id, result, *, make_current):
-        if card_id == 2:
+        attempts.append((card_id, result.status, make_current))
+        if card_id == 2 and result.status == "ok":  # 첫 저장만 실패, failed 회차 기록은 된다
             raise RuntimeError("연결 끊김")
         return await real_save(session, card_id, result, make_current=make_current)
 
     monkeypatch.setattr(cli, "save_run", save_run)
-    with pytest.raises(SystemExit) as stopped:
-        await cli.run_classify(run_args(2))
-    # 문자열로 끝나면 종료 코드가 1 이다. 0 이면 오류가 있어도 성공처럼 보인다
-    assert "오류 1건" in stopped.value.code
-    assert set(seen.saved) == {1, 3, 4}
+    assert await cli.run_classify(run_args(2)) == 1
+    assert set(seen.saved) == {1, 2, 3, 4}
+    assert (2, "failed", False) in attempts
     out = capsys.readouterr().out
-    assert "자료 2" in out and "RuntimeError: 연결 끊김" in out
-    assert "ok 3" in out and "error 1" in out
+    assert "자료 2" in out and "save_failed: RuntimeError: 연결 끊김" in out
+    assert "ok 3" in out and "failed 1" in out and "error" not in out
+    assert "실패 1건 (그중 저장 실패 1건) — 종료 코드 1" in out
 
 
 async def test_read_error_skips_the_llm_call(monkeypatch, capsys):
@@ -131,9 +135,10 @@ async def test_cost_of_a_card_that_failed_to_save_stays_in_the_total(monkeypatch
     monkeypatch.setattr(cli, "classify", AsyncMock(return_value=ClassificationResult(
         status="ok", basis_version=BASIS.version, calls={"extract": call})))
     monkeypatch.setattr(cli, "save_run", AsyncMock(side_effect=RuntimeError("연결 끊김")))
-    with pytest.raises(SystemExit):
-        await cli.run_classify(run_args(1))
-    assert f"비용 {cli.format_cost(1.5)}" in capsys.readouterr().out
+    # 저장도 failed 회차 기록도 실패하면 회차 없이 failed 로 센다. 쓴 비용은 합계에 남는다
+    assert await cli.run_classify(run_args(1)) == 1
+    out = capsys.readouterr().out
+    assert f"비용 {cli.format_cost(1.5)}" in out and "failed 회차도 남기지 못함" in out
 
 
 async def test_summary_adds_up_rate_limit_retries_across_cards_and_steps(monkeypatch, capsys):
@@ -218,3 +223,29 @@ async def test_other_errors_are_not_sent_again(monkeypatch, waits):
     assert complete.await_count == 1
     assert result.rate_limit_retries == 0
     waits.assert_not_awaited()
+
+
+async def test_daily_budget_stops_starting_new_cards(monkeypatch, capsys):
+    seen = fake_run(monkeypatch, [1, 2, 3])
+    monkeypatch.setattr(cli, "classification_cost_since", AsyncMock(return_value=8.0))
+    monkeypatch.setattr(ClassificationResult, "cost", property(lambda self: 1.5))
+    args = run_args(1)
+    args.daily_budget = 10.0
+    # 상한으로 시작하지 않은 자료는 실패가 아니라 종료 코드 0 이다
+    assert await cli.run_classify(args) == 0
+    # 8 → 9.5 → 11. 셋째는 상한을 넘은 뒤라 시작하지 않고 회차도 만들지 않는다
+    assert seen.started == [1, 2]
+    assert set(seen.saved) == {1, 2}
+    out = capsys.readouterr().out
+    assert "budget 1" in out and "하루 비용 상한에 닿아 1건" in out
+
+
+async def test_explicit_ids_ignore_the_daily_budget(monkeypatch):
+    seen = fake_run(monkeypatch, [1, 2])
+    spent = AsyncMock(return_value=1e9)
+    monkeypatch.setattr(cli, "classification_cost_since", spent)
+    args = run_args(1)
+    args.ids, args.daily_budget = [1, 2], 10.0
+    await cli.run_classify(args)
+    assert set(seen.saved) == {1, 2}
+    spent.assert_not_called()

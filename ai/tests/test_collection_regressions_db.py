@@ -268,7 +268,8 @@ def test_permanent_failure_is_recorded_as_such_not_out_of_scope(
         text="gone", links=[mock_url], link_bodies=[],
     )
     mock_article = KnownArticle(id=news_id, url=mock_url, canonical_url=mock_url,
-                                status="failed", fetched_at=NOW, error=mock_error)
+                                status="failed", fetched_at=NOW, error=mock_error,
+                                failures=0)
     run_db(database, lambda factory: save_to_db(
         [mock_message], (SKITTEAM,), now=NOW, per_message=3,
         existing={mock_url: mock_article}, session_factory=factory,

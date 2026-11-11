@@ -494,10 +494,26 @@ async def test_load_passes_verdicts_and_prompt_version(fake_llm, tmp_path, monke
     assert kwargs["prompt_version"] == gen.prompt_sha256()[:12]
     verdicts = kwargs["verdicts"]
     assert verdicts["솔마루전자-2026-09-18-1530__r1"] == ("passed", None)
-    status, error = verdicts["하늬결화학-2026-09-18-1100__r1"]
-    assert status == "failed" and "FLAT_MOVE_VERDICT" in error
+    # 검증에 떨어진 보고서는 넘기지 않고 건수만 남긴다
+    assert "하늬결화학-2026-09-18-1100__r1" not in verdicts
+    assert all(status == "passed" for status, _ in verdicts.values())
+    assert result["load_skipped_failed"] == result["failed"] > 0
     paths = insert.await_args.args[1]
+    assert len(paths) == result["passed"]
     assert all(p.exists() and p.parent.name == "parsed" for p in paths)
+
+
+async def test_load_skips_db_when_every_report_failed(monkeypatch, tmp_path, capsys):
+    from app.llm.client import LLMError
+
+    monkeypatch.setattr(collector, "endpoint", MagicMock(return_value=("url", "key")))
+    monkeypatch.setattr(gen, "complete", AsyncMock(side_effect=LLMError("LLM 호출 실패: HTTP 500")))
+    opened = MagicMock()
+    monkeypatch.setattr(collector, "SessionLocal", opened)
+    result = await collector.run(FIXTURES / "sample_cause.json", out_root=tmp_path, load=True)
+    assert (result["loaded"], result["load_skipped_failed"]) == (0, 1)
+    opened.assert_not_called()
+    assert "적재 0 (검증 실패라 적재 안 함 1)" in capsys.readouterr().out
 
 
 async def test_bearish_relative_factor_on_opposite_day_fails(monkeypatch, tmp_path):
@@ -729,3 +745,122 @@ async def test_used_input_copy_reproduces_verification(fake_llm, krx, tmp_path):
     used = json.loads((run_dir / wrapper["input_used_path"]).read_text(encoding="utf-8"))
     assert used["change_pct"] == 0.27 and used["market_compare"] == wrapper["market_compare"]
     assert verify_wrapper(wrapper, report, used) == expected
+
+
+async def test_unexpected_error_in_one_report_does_not_stop_the_run(fake_llm, tmp_path, monkeypatch, capsys):
+    """러너 코드의 예상 밖 예외는 그 보고서만 실행 오류로 남긴다. 나머지 보고서·요약·--load 는 계속한다."""
+    real_finalize = collector.finalize
+    crashed_once = []
+
+    def finalize_or_crash(report, payload, trace):
+        if not crashed_once:  # 처음 finalize 에 들어온 보고서 하나만 죽는다
+            crashed_once.append(payload["code"])
+            raise KeyError("strength")
+        return real_finalize(report, payload, trace)
+
+    monkeypatch.setattr(collector, "finalize", finalize_or_crash)
+    session = MagicMock(commit=AsyncMock())
+
+    @asynccontextmanager
+    async def fake_session():
+        yield session
+
+    insert = AsyncMock(return_value=[])
+    monkeypatch.setattr(collector, "SessionLocal", fake_session)
+    monkeypatch.setattr(collector, "insert_analysis_files", insert)
+
+    total = len(list(FIXTURES.glob("*.json")))
+    result = await collector.run(FIXTURES, out_root=tmp_path, load=True)
+    assert result["total"] == total and result["errors"] == 1
+    assert result["reasons"]["RUNNER_ERROR"] == 1
+    wrappers = parsed(only_run_dir(tmp_path))
+    assert len(wrappers) == total
+    crashed = [w for w in wrappers.values() if w["is_error"]]
+    assert len(crashed) == 1
+    w = crashed[0]
+    assert w["error_code"] == "RUNNER_ERROR" and w["error"].startswith("finalize: KeyError")
+    assert w["verify_status"] == "failed" and w["final_text"] == ""
+    # 생성은 마쳤으므로 그 비용이 남는다
+    assert w["cost"] == pytest.approx(0.01)
+    # 요약이 끝까지 나오고 --load 도 불렸다
+    assert "완료: 보고서" in capsys.readouterr().out
+    insert.assert_awaited_once()
+
+
+def test_runner_error_wrapper_without_generated_wrapper(tmp_path):
+    """생성 전에 실패하면 빈 래퍼로 시작한다. 입력 경로는 실제로 쓴 파일만 남고, 해시는 늘 남는다."""
+    payload = json.loads((FIXTURES / "sample_cause.json").read_text(encoding="utf-8"))
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / "r1.json").write_text("{}", encoding="utf-8")  # 시장 맥락 전이라 inputs_used 는 아직 없다
+    progress = {"stage": "시장 맥락", "payload": payload, "wrapper": None}
+    w = collector.runner_error_wrapper(progress, ValueError("bad"), run_id="r1", prompt_hash="abc",
+                                       run_dir=tmp_path, source=Path("in/x.json"), data=b"{}")
+    assert w["is_error"] and w["error"] == "시장 맥락: ValueError: bad"
+    assert w["verify_problems"] == ["RUNNER_ERROR: 시장 맥락: ValueError: bad"]
+    assert w["input_path"] == "inputs/r1.json" and w["cost"] == 0.0
+    # 쓰지 않은 inputs_used 사본을 가리키면 검증을 다시 돌릴 때 없는 파일을 연다
+    assert w["input_used_path"] is None
+    assert w["input_sha256"] == hashlib.sha256(b"{}").hexdigest()
+    assert all(w[key] == [] for key in collector.WARNING_KEYS)
+
+
+def test_runner_error_wrapper_before_input_copy_has_no_paths(tmp_path):
+    progress = {"stage": "입력 복사", "payload": {}, "wrapper": None}
+    w = collector.runner_error_wrapper(progress, OSError("disk"), run_id="r1", prompt_hash="abc",
+                                       run_dir=tmp_path, source=Path("in/x.json"), data=b"{}")
+    assert (w["input_path"], w["input_used_path"]) == (None, None)
+    assert w["input_original_path"] == "in/x.json"
+
+
+async def test_runner_error_survives_base_wrapper_failing_again(fake_llm, tmp_path, monkeypatch, capsys):
+    """판정 칸 계산(move_case)이 이 입력에서 터지면 생성의 _base_wrapper 도, 실행 오류 래퍼의 _base_wrapper 도 같은
+    입력으로 다시 터진다. 실행 오류 래퍼가 except 안에서 또 터지면 gather 가 실행 전체를 멈춘다(요약·적재·다른 보고서)."""
+    real_move_case = gen.move_case
+
+    def move_case_or_crash(payload):
+        if (payload.get("code"), payload.get("target_date")) == ("999990", "2026-09-18"):  # sample_cause 하나만
+            raise TypeError("market 모양이 이상하다")
+        return real_move_case(payload)
+
+    monkeypatch.setattr(gen, "move_case", move_case_or_crash)
+    total = len(list(FIXTURES.glob("*.json")))
+    result = await collector.run(FIXTURES, out_root=tmp_path)
+    assert result["total"] == total and result["errors"] == 1
+    wrappers = parsed(only_run_dir(tmp_path))
+    assert len(wrappers) == total
+    w = wrappers["sample_cause.json"]
+    assert w["error_code"] == "RUNNER_ERROR" and w["error"].startswith("보고서 생성: TypeError")
+    # 입력에서 계산하는 칸은 비어 있고, 실제로 쓴 입력 사본 경로는 남는다
+    assert w["move_case"] is None and w["run_id"].endswith("__r1")
+    assert w["input_path"].startswith("inputs/") and w["input_used_path"].startswith("inputs_used/")
+    assert "완료: 보고서" in capsys.readouterr().out
+
+
+async def test_parsed_write_error_is_counted_apart_from_failed(fake_llm, tmp_path, monkeypatch, capsys):
+    """검증은 통과했지만 parsed 파일을 못 쓴 보고서는 적재하지 않는다. 그 수를 따로 세야 요약에서 사라지지 않는다."""
+    session = MagicMock(commit=AsyncMock())
+
+    @asynccontextmanager
+    async def fake_session():
+        yield session
+
+    insert = AsyncMock(return_value=[])
+    monkeypatch.setattr(collector, "SessionLocal", fake_session)
+    monkeypatch.setattr(collector, "insert_analysis_files", insert)
+    real_write = Path.write_text
+    passed_id = "솔마루전자-2026-09-18-1530__r1"
+
+    def write_or_fail(self, *args, **kwargs):
+        if self.parent.name == "parsed" and self.stem == passed_id:
+            raise OSError("디스크가 가득 찼다")
+        return real_write(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", write_or_fail)
+    result = await collector.run(FIXTURES, out_root=tmp_path, load=True)
+    assert result["load_skipped_write_error"] == 1
+    assert result["load_skipped_failed"] == result["failed"] > 0
+    paths = insert.await_args.args[1]
+    assert len(paths) == result["passed"] - 1
+    assert passed_id not in insert.await_args.kwargs["verdicts"]
+    out = capsys.readouterr().out
+    assert f"검증 실패라 적재 안 함 {result['failed']}, parsed 파일을 못 써 적재 안 함 1)" in out

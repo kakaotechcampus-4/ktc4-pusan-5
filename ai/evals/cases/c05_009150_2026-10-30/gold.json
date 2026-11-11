@@ -1,0 +1,173 @@
+{
+  "case_id": "c05_009150_2026-10-30",
+  "status": "labeled",
+  "label_source": "human",
+  "trap_ids": [
+    17
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": -7.5,
+    "kospi_change_pct": -3.48,
+    "kospi_basis": "kospi",
+    "excess_vs_basis_pp": -4.02,
+    "kospi_relation": "diverges",
+    "peer_relations": {
+      "전자부품": "inconclusive"
+    },
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "더",
+    "peer_median_pct": -2.9,
+    "excess_vs_peers_pp": -4.6,
+    "judge_layers": {
+      "move": true,
+      "relative": true
+    },
+    "move_strength_cap": null,
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-10-30T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-10-30T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "no_clear_cause",
+    "relative": "no_clear_cause"
+  },
+  "confidence_level": "none",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "MLCC 공급계약 8,793억원(매출 대비 7.8%, 2026.12~2027.12, 계약상대 글로벌 대형기업)",
+      "importance": "should",
+      "layer": [
+        "move",
+        "relative"
+      ],
+      "expected_mention": "either",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19267",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/skitteam/4875",
+          "tier": "primary"
+        }
+      ],
+      "key_facts": [
+        "MLCC 공급계약",
+        "8,793억원"
+      ],
+      "rationale": "직접 호재 공시인데 -7.50% 급락해 방향 반대. 판정은 no_clear_cause 이고 none 이라 must 를 두지 않음. 상한 coincident, 하락 원인으로 쓰면 방향 뒤집기"
+    },
+    {
+      "id": "e2",
+      "summary": "MLCC 업황 호조: TrendForce 고용량(AI용) MLCC 부족 1H27까지 지속, Yageo 3Q 영업이익 컨센 상회",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19247",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/merITz_tech/19257",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "MLCC"
+      ],
+      "rationale": "간접 재료이고 방향 반대. 같은 두 메시지의 하락 방향 대목은 e3 로 나눔"
+    },
+    {
+      "id": "e3",
+      "summary": "같은 업황 자료 속 약세 신호: 소비자용 MLCC 현물가 10월 초 약 5% 하락, 노트북 ODM 4Q 주문 -10~15% YoY, 범용 MLCC 가격 인상 기대 약화, 공급처 전환 유도 가격 경쟁 사례, Yageo BB Ratio 2.2→2.0",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19247",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/merITz_tech/19257",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "소비자용"
+      ],
+      "rationale": "방향은 하락과 맞지만 간접 재료(업황)이고 두 자료 모두 결론은 AI용 공급 부족·업사이클 지속이라 곁가지 대목. 10월 초 현물가 하락은 며칠 전 정보. -7.50% 를 설명하기에 약해 상한 coincident"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "direction_flip",
+      "subject": "MLCC 공급계약 공시",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "down",
+      "example": "공급계약 공시의 영향으로 주가가 하락했다"
+    },
+    {
+      "id": "f2",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "down",
+      "example": "외국인·기관 순매도가 하락 원인이다"
+    },
+    {
+      "id": "f3",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "up",
+      "example": "대형주보다 덜 내렸다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "공급계약 호재 공시에도 주가가 -7.5% 하락한 이유",
+    "대형주 중간값보다 더 내린 이유"
+  ],
+  "beginner_terms": [
+    "MLCC",
+    "공급계약",
+    "컨센서스",
+    "매출 대비 비중"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

@@ -1,8 +1,15 @@
 import type { ReactNode } from 'react';
 import { Change, Skeleton } from '@/components/ui';
 import { formatMultiple, formatRatio } from '@/lib/format';
-import type { StockFinancials, StockMetricsData, StockQuoteData } from '@/lib/types';
+import type {
+  Resource,
+  StockFinancials,
+  StockInvestorFlowData,
+  StockMetricsData,
+  StockQuoteData,
+} from '@/lib/types';
 import { FinancialsErrorTag } from './components/FinancialsErrorTag';
+import { InstitutionNetBuyValue } from './components/InstitutionNetBuyValue';
 import {
   NO_VALUE,
   distanceFromWeek52High,
@@ -27,12 +34,14 @@ function latestInvestmentPoint(financials: StockFinancials | null) {
 export function buildAtAGlanceRows({
   quote,
   metrics,
+  investorFlow,
   financials,
   financialsError,
   onRetryFinancials,
 }: {
   quote: StockQuoteData | null | undefined;
   metrics: StockMetricsData | null | undefined;
+  investorFlow?: Resource<StockInvestorFlowData> | null;
   financials: StockFinancials | null;
   financialsError: Error | null;
   onRetryFinancials: () => void;
@@ -77,7 +86,7 @@ export function buildAtAGlanceRows({
           <span className="text-neutral-600">외인</span>{' '}
           {renderValue(metrics?.foreignOwnership ?? null, formatRatio)}
           {' / 기관 '}
-          <span className="text-neutral-600">준비중</span>
+          <InstitutionNetBuyValue investorFlow={investorFlow} compact />
         </span>
       ),
     },

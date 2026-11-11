@@ -190,11 +190,16 @@ async def fetch_quarterly_income(kis: _Getter, code: str) -> list[QuarterlyIncom
     if isinstance(output, dict):
         raw = str(output.get("setl_mmdd", "")).strip()
         if re.fullmatch(r"\d{2}(?:\d{2})?", raw):
-            try:
-                date(2000, int(raw[:2]), int(raw[2:]) if len(raw) == 4 else 1)
-            except ValueError:
-                raise MarketDataError("INVALID_RESPONSE") from None
-            fiscal_month = int(raw[:2])
+            month = int(raw[:2])
+            # KIS 는 일을 00 으로 주는 경우가 흔하다(예: 1200 = 12월 결산). 월만 의미가 있다.
+            # 월이 00 이면(0000, 00) 결산월 정보가 없다는 뜻이라 값 없음으로 둔다.
+            if month:
+                day = int(raw[2:]) if len(raw) == 4 else 0
+                try:
+                    date(2000, month, day or 1)
+                except ValueError:
+                    raise MarketDataError("INVALID_RESPONSE") from None
+                fiscal_month = month
     return [
         QuarterlyIncome(r.period_end, r.revenue, r.operating_profit, r.net_income, fiscal_month)
         for r in rows

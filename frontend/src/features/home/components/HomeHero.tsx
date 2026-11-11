@@ -16,9 +16,9 @@ export function HomeHero({ asOf, loading = false }: { asOf?: string; loading?: b
 
       {/* text-display 는 DESIGN.md 상 이 히어로 한 곳에만 쓴다. */}
       <h1 className="text-display">
-        내 종목이 왜 움직였는지
+        오늘 내 주식이 움직인 이유를
         <br />
-        오늘 안에 이해합니다
+        주가 분석 리포트 하나로
       </h1>
 
       <StockSearchBox />

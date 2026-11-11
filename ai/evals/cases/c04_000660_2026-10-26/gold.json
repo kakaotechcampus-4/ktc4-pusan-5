@@ -1,0 +1,146 @@
+{
+  "case_id": "c04_000660_2026-10-26",
+  "status": "labeled",
+  "label_source": "human",
+  "trap_ids": [
+    7,
+    5
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": -0.16,
+    "kospi_change_pct": -1.46,
+    "kospi_basis": "kospi_ex_self",
+    "excess_vs_basis_pp": 1.65,
+    "kospi_relation": "diverges",
+    "peer_relations": {
+      "메모리반도체": "follows"
+    },
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "덜",
+    "peer_median_pct": -1.68,
+    "excess_vs_peers_pp": 1.52,
+    "judge_layers": {
+      "move": false,
+      "relative": true
+    },
+    "move_strength_cap": null,
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-10-26T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-10-26T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "no_clear_cause",
+    "relative": "partially_explained"
+  },
+  "confidence_level": "partial",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "키옥시아 지분 매각 차익 약 16조원 특별배당 추진 보도(동아일보, 25일 IB·재계 전언, 28일 실적발표에서 발표 예정)",
+      "importance": "should",
+      "layer": [
+        "relative"
+      ],
+      "expected_mention": "either",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4778",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://t.me/skitteam/4781",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "특별배당"
+      ],
+      "rationale": "풍문·미확인 보도. 해명(미확정) 공시가 있어 확정 전 단계. unconfirmed_items 에도 적을 것"
+    },
+    {
+      "id": "e2",
+      "summary": "삼성·SK 엔비디아향 HBM4 8단 양산 출하 시점 내년 2분기(일정 다소 지연)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bearish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4783",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "HBM4"
+      ],
+      "rationale": "16:28 장 마감 후 공개라 그날 움직임의 원인이 될 수 없음"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "false_cause",
+      "subject": "엔비디아향 HBM4 출하 시점 지연",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "down",
+      "example": "HBM4 출하 지연이 주가 하락 요인이다"
+    },
+    {
+      "id": "f2",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": null,
+      "example": "외국인·기관 수급이 주가 등락을 좌우했다"
+    },
+    {
+      "id": "f3",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "down",
+      "example": "대형주보다 더 내렸다"
+    }
+  ],
+  "unconfirmed_items": [
+    "SK하이닉스 키옥시아 지분 차익 약 16조원 특별배당 추진(동아일보 보도, IB·재계 전언, 해명(미확정) 공시 단계)"
+  ],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "등락률 -0.16%의 원인(변동폭이 작아 원인을 판단하지 않음)",
+    "특별배당 추진 보도가 대형주보다 덜 내린 것의 원인인지, 그 기여 정도"
+  ],
+  "beginner_terms": [
+    "특별배당",
+    "지분 매각 차익",
+    "HBM4"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

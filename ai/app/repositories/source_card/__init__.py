@@ -15,12 +15,14 @@
     stock_card_ids             종목 하나의 자료 중 기준 시각 이전에 나온 것의 공통 ID
     available_within           카드가 기준 시각 이전에(since 를 주면 그 이후에) 공개됐다는 조회 조건
     available_since            카드가 since 이후에 공개됐다는 조회 조건
+    untimed_disclosures_left_out  available_within 이 경계 날짜라 뺀 시각 없는 공시(사유를 남길 때)
     replace_stock_tags         자료 하나에서 한 방식(tagged_by)이 정한 종목을 바꾼다
     card_ids_for_urls          출처 주소 → 공통 ID (보고서 출처를 원문에 이을 때)
 
 시각 이름. 자료마다 남은 시각이 달라 무엇을 무엇과 비교하는지 섞이기 쉽다.
-    cutoff           보고서가 몇 시 시점을 기준으로 만들어지는가(기준 시각). stock_card_ids 의
-                     until 과 같은 값이다. 이 시각에 알 수 없던 것은 보고서에 쓰지 않는다
+    cutoff           보고서가 몇 시 시점을 기준으로 만들어지는가(기준 시각). 보통 stock_card_ids 의
+                     until 과 같다. 대상일을 주면 until 은 대상일 장 마감까지로 줄고 cutoff 는 본문 쪽에만
+                     쓴다(get_sources). 이 시각에 알 수 없던 것은 보고서에 쓰지 않는다
     available_at     자료가 공개돼 있었다고 확인된 가장 이른 시각(source_card). 자료를 고를 때
                      cutoff 와 비교한다(stock_card_ids)
     published_at     원문이 밝힌 발행 시각(기사)·게시 시각(메시지). 모르면 비어 있다
@@ -39,6 +41,7 @@ from app.repositories.source_card.query import (
     available_within,
     get_sources,
     stock_card_ids,
+    untimed_disclosures_left_out,
 )
 from app.repositories.source_card.read_model import Discovery, SourceRecord, body_observed_by
 from app.repositories.source_card.registration import (
@@ -62,4 +65,5 @@ __all__ = [
     "register_missing_sources",
     "replace_stock_tags",
     "stock_card_ids",
+    "untimed_disclosures_left_out",
 ]

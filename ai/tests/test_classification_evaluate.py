@@ -7,10 +7,21 @@ from unittest.mock import AsyncMock
 
 from app.services.classification import __main__ as cli
 from app.services.classification import llm
-from app.services.classification.evaluate import Label, Tokens, load_labels, score, tokens_of
+from app.services.classification.basis import load_basis
+from app.services.classification.evaluate import (
+    Label,
+    Tokens,
+    load_labels,
+    sentence_recall,
+    stock_linked,
+    tokens_of,
+)
 from app.services.classification.events import Event
+from app.services.classification.judge import Judgment
+from app.services.classification.pipeline import ClassifiedEvent
 
 MOCK_BASIS = Path(__file__).parent / "fixtures" / "mock_classification_basis.json"
+SAMSUNG, HYNIX = "005930", "000660"
 
 
 def event(sentences, context=(), role="cause", mentions=("삼성전자",)) -> Event:
@@ -34,26 +45,70 @@ def test_load_labels_reads_bom_and_no_cause(tmp_path: Path) -> None:
 
 
 def test_all_some_none() -> None:
-    assert score([event([1, 3])], label({1, 3})) == "all"
-    assert score([event([1])], label({1, 3})) == "some"
-    assert score([event([5])], label({1, 3})) == "none"
+    assert sentence_recall([event([1, 3])], label({1, 3})) == "all"
+    assert sentence_recall([event([1])], label({1, 3})) == "some"
+    assert sentence_recall([event([5])], label({1, 3})) == "none"
 
 
 def test_context_sentences_count_as_covered() -> None:
     """정답에 '주어가 있는 앞 문장' 이 들어간 경우가 있다(107c21 메모). 문맥으로 내도 맞다."""
-    assert score([event([2], context=[1])], label({1, 2})) == "all"
+    assert sentence_recall([event([2], context=[1])], label({1, 2})) == "all"
 
 
 def test_price_move_does_not_count() -> None:
-    assert score([event([1, 3], role="price_move")], label({1, 3})) == "none"
+    assert sentence_recall([event([1, 3], role="price_move")], label({1, 3})) == "none"
 
 
 def test_no_cause_article() -> None:
     """원인 없는 기사에 다른 회사 사건이 있는 건 괜찮다. 그 종목 근거만 없으면 된다."""
-    assert score([], label()) == "pass"
-    assert score([event([1], mentions=["SK하이닉스"])], label()) == "pass"
-    assert score([event([1], mentions=["삼성전자"])], label()) == "fail"
-    assert score([event([1], role="price_move")], label()) == "pass"
+    assert sentence_recall([], label()) == "pass"
+    assert sentence_recall([event([1], mentions=["SK하이닉스"])], label()) == "pass"
+    assert sentence_recall([event([1], mentions=["삼성전자"])], label()) == "fail"
+    assert sentence_recall([event([1], role="price_move")], label()) == "pass"
+
+
+def judged(sentences, *judgments: tuple[str, str], role="cause", mentions=("삼성전자",)):
+    """판정까지 마친 사건. judgments 는 (종목 코드, 판정) 목록."""
+    return ClassifiedEvent(
+        event=event(sentences, role=role, mentions=mentions),
+        judgments=[Judgment(1, code, value, None) for code, value in judgments])
+
+
+def test_stock_linked_needs_the_label_stock_judgment() -> None:
+    """문장을 찾았어도 정답 종목에 붙지 않았으면 맞은 게 아니다. 문장 재현율과 여기서 갈린다."""
+    basis = load_basis(MOCK_BASIS)
+    wrong_stock = [judged([1, 3], (HYNIX, "DIRECT"), (SAMSUNG, "NOT_APPLICABLE"))]
+    assert sentence_recall([i.event for i in wrong_stock], label({1, 3})) == "all"
+    assert stock_linked(wrong_stock, label({1, 3}), basis) == "none"
+
+    assert stock_linked([judged([1, 3], (SAMSUNG, "DIRECT"))], label({1, 3}), basis) == "all"
+    # 배경으로 붙은 것도 그 종목에 이어진 것이다
+    assert stock_linked([judged([1, 3], (SAMSUNG, "INDIRECT_CONTEXT"))], label({1, 3}),
+                        basis) == "all"
+    assert stock_linked([judged([1], (SAMSUNG, "DIRECT")), judged([3], (SAMSUNG, "UNKNOWN"))],
+                        label({1, 3}), basis) == "some"
+    assert stock_linked([judged([1, 3], (SAMSUNG, "DIRECT"), role="price_move")],
+                        label({1, 3}), basis) == "none"
+
+
+def test_stock_linked_no_cause_article() -> None:
+    """원인 없는 기사는 그 종목을 DIRECT 로 판정했을 때만 실패다. 배경으로 붙은 건 괜찮다."""
+    basis = load_basis(MOCK_BASIS)
+    assert stock_linked([], label(), basis) == "pass"
+    assert stock_linked([judged([1], (SAMSUNG, "INDIRECT_CONTEXT"))], label(), basis) == "pass"
+    assert stock_linked([judged([1], (HYNIX, "DIRECT"))], label(), basis) == "pass"
+    assert stock_linked([judged([1], (SAMSUNG, "DIRECT"))], label(), basis) == "fail"
+    # 표기가 종목 이름과 같아도 판정이 붙지 않았으면 통과다. 문장 재현율과 반대로 갈린다
+    not_applied = [judged([1], (SAMSUNG, "NOT_APPLICABLE"))]
+    assert sentence_recall([i.event for i in not_applied], label()) == "fail"
+    assert stock_linked(not_applied, label(), basis) == "pass"
+
+
+def test_stock_linked_matches_alias_and_skips_stock_outside_basis() -> None:
+    basis = load_basis(MOCK_BASIS)
+    assert stock_linked([judged([1], (SAMSUNG, "DIRECT"))], label({1}, stock="삼전"), basis) == "all"
+    assert stock_linked([judged([1], (SAMSUNG, "DIRECT"))], label({1}, stock="KSS해운"),
+                        basis) is None
 
 
 def test_tokens_include_reasoning() -> None:
@@ -91,10 +146,12 @@ async def test_eval_writes_result_file_with_judgments(tmp_path: Path, monkeypatc
         extract_model=None, link_model=None, judge_model=None))
 
     printed = capsys.readouterr().out
-    assert "정답 all" in printed and "DIRECT 삼성전자" in printed
+    assert "문장 all · 연결 all" in printed and "DIRECT 삼성전자" in printed
+    assert "문장 재현율" in printed and "종목 연결" in printed
     saved = json.loads(out.read_text(encoding="utf-8"))
     run = saved["results"][0]["run"]
     assert saved["results"][0]["verdict"] == "all"
+    assert saved["results"][0]["verdict_linked"] == "all"
     assert run["raw_response"] == response
     assert run["events"][0]["judgments"][0]["label"] == "DIRECT"
     assert set(saved["models"]) == {"extract", "judge"}
@@ -111,11 +168,13 @@ def test_review_sheet_shows_sentences_and_failed_raw_events(tmp_path: Path) -> N
     raw = json.dumps({"events": [{"scope": "analyst_view", "role": "cause", "tense": "past",
                                   "sentences": [1], "mentions": ["D램"]}]}, ensure_ascii=False)
     result = {"results": [
-        {"id": "a", "title": "t", "verdict": "all",
+        {"id": "a", "title": "t", "verdict": "all", "verdict_linked": "none",
          "label": {"kind": "단일종목", "stock": "삼성전자", "gold": [1]},
          "run": {"status": "ok", "splitter_version": "v1", "events": [
              {"order_index": 1, "scope": "company", "role": "cause", "tense": "past",
-              "sentence_indices": [1], "context_indices": [], "mentions": ["삼성전자"]}]}},
+              "sentence_indices": [1], "context_indices": [], "mentions": ["삼성전자"],
+              "judgments": [{"event_order": 1, "stock_code": "000660", "label": "DIRECT",
+                             "reason": None}]}]}},
         {"id": "b", "title": "t", "verdict": None, "label": None,
          "run": {"status": "failed", "error": "scope 오류", "splitter_version": "v1",
                  "events": [], "raw_response": raw}},
@@ -130,13 +189,20 @@ def test_review_sheet_shows_sentences_and_failed_raw_events(tmp_path: Path) -> N
     assert rows[0]["정답 이유"] == "실적 증가"
     assert "1. 삼성전자 실적이 늘었다." in rows[0]["뽑힌 사건"]
     assert rows[0]["사람: 추출 판정 (all/some/none/pass/fail)"] == ""
+    # 자동 채점이 둘이니 사람이 적는 칸도 둘이다
+    assert rows[0]["사람: 종목 연결 판정 (all/some/none/pass/fail)"] == ""
+    assert rows[0]["자동 채점: 문장 재현율"] == "all"
+    assert rows[0]["자동 채점: 종목 연결"] == "none"
+    # 종목 연결이 왜 none 인지 사람이 보도록 판정을 함께 보여 준다
+    assert "→ 000660 DIRECT" in rows[0]["뽑힌 사건"]
+    assert rows[1]["자동 채점: 종목 연결"] == ""  # 예전 결과 파일처럼 값이 없어도 비워 둔다
     assert rows[1]["상태"].startswith("failed — scope 오류")
     assert "analyst_view" in rows[1]["뽑힌 사건"]
 
 
 def test_similar_company_name_is_not_target() -> None:
     """이름이 겹치는 다른 회사는 그 종목 근거가 아니다. 연결(link)도 표기 전체로 맞춘다."""
-    assert score([event([1], mentions=["삼성전자서비스"])], label()) == "pass"
+    assert sentence_recall([event([1], mentions=["삼성전자서비스"])], label()) == "pass"
 
 
 def test_review_handles_invalid_indices_and_formula_title(tmp_path: Path) -> None:

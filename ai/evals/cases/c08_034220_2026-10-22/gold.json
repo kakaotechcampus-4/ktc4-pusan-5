@@ -1,0 +1,147 @@
+{
+  "case_id": "c08_034220_2026-10-22",
+  "status": "labeled",
+  "label_source": "human",
+  "trap_ids": [],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": -1.63,
+    "kospi_change_pct": -3.52,
+    "kospi_basis": "kospi",
+    "excess_vs_basis_pp": 1.89,
+    "kospi_relation": "diverges",
+    "peer_relations": {},
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "덜",
+    "peer_median_pct": -2.79,
+    "excess_vs_peers_pp": 1.16,
+    "judge_layers": {
+      "move": true,
+      "relative": true
+    },
+    "move_strength_cap": "partial",
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-10-22T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-10-22T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "no_clear_cause",
+    "relative": "no_clear_cause"
+  },
+  "confidence_level": "none",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "3Q26 실적: 매출 6.28조원(컨센 6.64조원 하회), 영업이익 2,506억원(컨센 2,591억원 소폭 하회), 지배주주순이익 7,467억원(컨센 2,603억원 상회)",
+      "importance": "should",
+      "layer": [
+        "move",
+        "relative"
+      ],
+      "expected_mention": "factors",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/skitteam/4759",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/merITz_tech/19162",
+          "tier": "primary"
+        },
+        {
+          "url": "https://t.me/merITz_tech/19168",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "3Q26 실적",
+        "영업이익 2,506억원"
+      ],
+      "rationale": "영업이익·매출 하회와 순이익 상회가 섞여 방향이 혼재. 직접 공시이지만 판정은 no_clear_cause 이고 none 이라 must 를 두지 않음. 상한 coincident"
+    },
+    {
+      "id": "e2",
+      "summary": "실적 리뷰·설명회 Q&A: OLED 성수기 진입, 기술 경쟁력",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/merITz_tech/19168",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "OLED"
+      ],
+      "rationale": "17:22 장 마감 후 증권사 해석"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "false_cause",
+      "subject": "영업이익·매출 컨센서스 하회",
+      "relation_min": "likely_cause",
+      "object": "주가",
+      "direction": "down",
+      "example": "실적 부진이 하락의 주된 요인이다"
+    },
+    {
+      "id": "f2",
+      "type": "false_cause",
+      "subject": "지배주주순이익 컨센서스 상회",
+      "relation_min": "likely_cause",
+      "object": "relative",
+      "direction": "up",
+      "example": "순이익 호조 덕에 덜 내렸다"
+    },
+    {
+      "id": "f3",
+      "type": "fabricated_cause",
+      "subject": "외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": null,
+      "example": "외국인·기관 순매수가 낙폭을 방어했다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "외국인·기관 수급(순매수·순매도)",
+    "매출·영업이익 컨센 하회와 순이익 컨센 상회 중 어느 쪽이 주가를 움직였는지",
+    "순이익 상회가 일회성인지(입력에 근거 없음)",
+    "대형주 중간값보다 덜 내린 이유"
+  ],
+  "beginner_terms": [
+    "컨센서스",
+    "영업이익",
+    "지배주주순이익",
+    "OLED"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

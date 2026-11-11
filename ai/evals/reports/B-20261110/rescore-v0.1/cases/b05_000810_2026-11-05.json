@@ -1,0 +1,205 @@
+{
+  "case_id": "b05_000810_2026-11-05",
+  "summary": {
+    "n_runs": 3,
+    "expected_verdict": {
+      "move": "no_clear_cause",
+      "relative": "no_clear_cause"
+    },
+    "verdicts": [
+      {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      }
+    ],
+    "verdict_match_runs": {
+      "move": 3,
+      "relative": 3
+    },
+    "rule_a_violations": [
+      0,
+      0,
+      0
+    ],
+    "overclaim_candidates": [
+      0,
+      0,
+      0
+    ],
+    "omission_candidates": [
+      0,
+      0,
+      0
+    ],
+    "spurious_candidates": [
+      0,
+      0,
+      0
+    ],
+    "recap_msg_links": [
+      0,
+      0,
+      0
+    ],
+    "contrast_links": [
+      0,
+      0,
+      0
+    ],
+    "possible_contributor": [
+      {},
+      {},
+      {}
+    ],
+    "recap_cited": [
+      0,
+      0,
+      0
+    ],
+    "injected_cited": [
+      0,
+      0,
+      0
+    ],
+    "skipped_llm": [
+      "NO_DIRECT_MESSAGES",
+      "NO_DIRECT_MESSAGES",
+      "NO_DIRECT_MESSAGES"
+    ],
+    "verify_status": [
+      "passed",
+      "passed",
+      "passed"
+    ],
+    "same_conclusion_runs": 3,
+    "same_verdict_runs": 3,
+    "cost": 0.0
+  },
+  "reports": [
+    {
+      "run_id": "삼성화재-2026-11-05-1845__r1",
+      "verify_status": "passed",
+      "skipped_llm": "NO_DIRECT_MESSAGES",
+      "cost": 0.0,
+      "is_error": false,
+      "verdict": {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      "verdict_match": {
+        "move": true,
+        "relative": true
+      },
+      "events": [],
+      "rule_a_violations": [],
+      "rule_a_violation_count": 0,
+      "overclaim_candidates": 0,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_msg_links": [],
+      "recap_msg_link_count": 0,
+      "contrast_links": [],
+      "contrast_link_count": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {},
+      "conclusion": {
+        "verdict": {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        },
+        "linked_events": [],
+        "extra": 0,
+        "recap_msg": 0
+      }
+    },
+    {
+      "run_id": "삼성화재-2026-11-05-1845__r2",
+      "verify_status": "passed",
+      "skipped_llm": "NO_DIRECT_MESSAGES",
+      "cost": 0.0,
+      "is_error": false,
+      "verdict": {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      "verdict_match": {
+        "move": true,
+        "relative": true
+      },
+      "events": [],
+      "rule_a_violations": [],
+      "rule_a_violation_count": 0,
+      "overclaim_candidates": 0,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_msg_links": [],
+      "recap_msg_link_count": 0,
+      "contrast_links": [],
+      "contrast_link_count": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {},
+      "conclusion": {
+        "verdict": {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        },
+        "linked_events": [],
+        "extra": 0,
+        "recap_msg": 0
+      }
+    },
+    {
+      "run_id": "삼성화재-2026-11-05-1845__r3",
+      "verify_status": "passed",
+      "skipped_llm": "NO_DIRECT_MESSAGES",
+      "cost": 0.0,
+      "is_error": false,
+      "verdict": {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      "verdict_match": {
+        "move": true,
+        "relative": true
+      },
+      "events": [],
+      "rule_a_violations": [],
+      "rule_a_violation_count": 0,
+      "overclaim_candidates": 0,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_msg_links": [],
+      "recap_msg_link_count": 0,
+      "contrast_links": [],
+      "contrast_link_count": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {},
+      "conclusion": {
+        "verdict": {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        },
+        "linked_events": [],
+        "extra": 0,
+        "recap_msg": 0
+      }
+    }
+  ]
+}

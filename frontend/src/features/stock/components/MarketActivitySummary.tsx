@@ -1,8 +1,14 @@
 import type { ReactNode } from 'react';
 import { Change, InfoTip, SkeletonText, StatList, StatListItem } from '@/components/ui';
 import { formatCompactKRW, formatPrice, formatRatio } from '@/lib/format';
-import type { Resource, StockMetricsData, StockQuoteData } from '@/lib/types';
+import type {
+  Resource,
+  StockInvestorFlowData,
+  StockMetricsData,
+  StockQuoteData,
+} from '@/lib/types';
 import { NO_VALUE } from '../financialUtils';
+import { InstitutionNetBuyValue } from './InstitutionNetBuyValue';
 
 function renderValue(value: number | null | undefined, render: (value: number) => string) {
   return value === null || value === undefined ? NO_VALUE : render(value);
@@ -15,9 +21,11 @@ function num(value: ReactNode) {
 export function MarketActivitySummary({
   quote,
   metrics,
+  investorFlow,
 }: {
   quote: Resource<StockQuoteData> | null;
   metrics: Resource<StockMetricsData> | null;
+  investorFlow?: Resource<StockInvestorFlowData> | null;
 }) {
   if (!quote && !metrics) return <SkeletonText lines={5} />;
   const q = quote?.data;
@@ -48,10 +56,10 @@ export function MarketActivitySummary({
         label={
           <>
             기관 순매수{' '}
-            <InfoTip description="종목별 기관 순매수 데이터는 아직 연동되지 않았습니다." />
+            <InfoTip description="기관 투자자의 최근 거래일 순매수 수량입니다. 음수는 순매도이며, 장중 값은 달라질 수 있습니다." />
           </>
         }
-        value={<span className="text-sm font-semibold text-neutral-600">준비중</span>}
+        value={<InstitutionNetBuyValue investorFlow={investorFlow} />}
       />
     </StatList>
   );

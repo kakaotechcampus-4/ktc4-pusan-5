@@ -1,0 +1,31 @@
+{
+  "stock": "LG이노텍",
+  "code": "011070",
+  "target_date": "2026-10-27",
+  "cutoff": "2026-10-27T18:45:00+09:00",
+  "change_pct": 2.04,
+  "market": null,
+  "messages": [
+    {
+      "channel": "KISGregKim",
+      "url": "https://t.me/KISGregKim/18875",
+      "datetime_kst": "2026-10-27T08:20:48+09:00",
+      "text": "KOSPI to open higher after US markets gain led by hopes on Anthropic IPO (SPX +0.7%). TECH to lead the markets tracking SOX +2.8%, yet upside limited ahead of SK HYNIX 3Q earnings tmrw (eyes on shareholder return), and FOMC rate decision on Thur (cons unchd).\n\n* 3Q TODAY: ISC (10:30), HANWHA OCEAN, SHINHAN FIN, ST PHARM, HD HYUNDAI ELEC, LG INNOTEK (14:00), HANWHA SYSTEMS (15:30), POSCO ITNL, POSOC HLDG (16:00), HANMI PHARM (16:30), JB FIN (17:00)\n* TECH: 1) Anthropic files for IPO in global race to raise cash for AI, 2) Broadcom arranges $63bn deal to finance Anthropic's chips, 3) SpaceX agrees to $40bn chip-financing deal with Apollo, 3) SEC (005930) and SK HYNIX (000660) set to mass produce 8-layer HBM4 for Nvidia in 2Q27.\n* SK HYNIX (000660) reportedly plans to announce an add'l shareholder return package worth up to W60tn (c.$42bn) on 3Q earnings tmrw.\n* SEC (005930)'s avg HBM quote price is at $4.5 per Gb, 25% higher than Micron ($4) and SK HYNIX (000660) ($3.6-3.8), press.\n* HMC (005380) finalizes supply chain for humanoid robot \"Atlas\", including HD MOBIS (012330) for actuators, SDI (006400)/LG ES (373220) for batteries, and HD MOBIS (012330)/NAMUGA (190510)/MCNEX (097520))/CAMSYS (050110) for cameras.\n* JYP ENTER (035900) Japanese NEXROC Group and SVCV are reportedly reviewing procedures to acquire 25-50% stake in the co, aiming to launch a tender offer on Nov 20; co denied the news.\n* ROBOT: Toyota is driving an investment and restructuring to become global robot leader, planning to deploy 400k robots w/an annual budget of $6.4bn for plant automation.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19202",
+      "datetime_kst": "2026-10-27T15:35:56+09:00",
+      "text": "[메리츠증권 전기전자/IT부품 양승수]\n\nLG이노텍 3Q26 실적발표 안내드립니다.\n\n매출액: 6조 3,671억원 (vs 컨센서스 6조 970억원)\n영업이익: 948억원 (vs 컨센서스 1,973억원)\n순이익: 952억원 (vs 컨센서스 1,304억원)\n\nhttps://buly.kr/AF3IU5z (Dart)\n \n* 본 내용은 당사의 코멘트 없이 국내외 언론사 뉴스 및 전자공시자료 등을 인용한 것으로 별도의 승인 절차 없이 제공합니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4793",
+      "datetime_kst": "2026-10-27T15:38:26+09:00",
+      "text": "# LG이노텍 (시총: 8조 9,462억원)\n- 3Q26 실적공시 (잠정)\n\n[ SK증권 박형우, 정영환]\nIT 하드웨어 / 배터리\n\n▶️ 실적 공시:\n- 매출액: 6조 3,671억원 (YoY +19%)\n(컨센 매출: 6조 970억원, 컨센 대비 +4.4%)\n \n- 영업이익: 948억원 (YoY -53%)\n(컨센 OP: 1,973억원 / 컨센 대비 -51.9%)\n\n- OPM: +1.5%\n(컨센 OPM: +3.2%)\n\n▶️ URL: https://buly.kr/AF3IU5z\n\n* SK증권 리서치 IT팀 채널 :    \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    }
+  ]
+}

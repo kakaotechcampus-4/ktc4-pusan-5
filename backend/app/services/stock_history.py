@@ -44,6 +44,15 @@ def _row_date(row: dict[str, Any], key: str) -> date:
         raise MarketDataError("INVALID_RESPONSE") from None
 
 
+def _optional_close(row: dict[str, Any]) -> Decimal | None:
+    """종가는 PBR 에만 쓰므로 비어 있거나(거래정지 '-') 0 이하여도 시가총액 수집은 실패시키지 않는다."""
+    try:
+        close = _num(row.get("TDD_CLSPRC", row.get("tdd_clsprc")))
+    except MarketDataError:
+        return None
+    return close if close > 0 else None
+
+
 async def fetch_cap(
     client: Any, code: str, market: str, period_end: date, cache: Cache
 ) -> dict | None:
@@ -65,7 +74,11 @@ async def fetch_cap(
         actual = _row_date(row, "BAS_DD")
         if actual != day:
             raise MarketDataError("INVALID_RESPONSE")
-        return {"market_cap": _num(row.get("MKTCAP", row.get("mktcap"))), "cap_as_of": actual}
+        return {
+            "market_cap": _num(row.get("MKTCAP", row.get("mktcap"))),
+            "cap_as_of": actual,
+            "cap_close": _optional_close(row),
+        }
     return None
 
 
