@@ -1,29 +1,31 @@
 import { Link } from 'react-router-dom';
-import { Change, Empty, ErrorBox, Skeleton, StockAvatar, Tag } from '@/components/ui';
+import { Change, ErrorBox, Skeleton, StockAvatar, Tag } from '@/components/ui';
 import { SectionHead } from '@/components/layout/PageShell';
 import { formatAsOf, formatPrice } from '@/lib/format';
-import type { SignalBoard } from '../mock';
-
-export type SignalStatus = 'loading' | 'error' | 'empty' | 'success';
+import type { SignalBoard, SignalBoardStatus } from '../useSignalBoard';
 
 /**
- * 오늘 이야기가 몰린 종목 리스트.
- * WatchlistCard(HomePage.tsx의 watchlistStatus)와 같은 패턴
- * API 호출 성공과 결과 존재 여부는 분리
- * 요청 자체는 성공했지만 수집/필터링 결과가 0개일 수도 있음
+ * 고정 종목 다섯 개의 실제 시세와 보고서 한 줄 요약.
+ * 보고서가 아직 없는 종목은 "준비 중"으로 두고,
+ * AI 표시는 실제 한 줄 요약이 하나라도 있을 때만 붙인다.
  */
 export function SignalSection({
   status,
   board,
   onRetry,
 }: {
-  status: SignalStatus;
-  board: SignalBoard;
+  status: SignalBoardStatus;
+  board: SignalBoard | null;
   onRetry: () => void;
 }) {
+  const hasSummary = board?.signals.some((signal) => signal.summary) ?? false;
+
   return (
     <section>
-      <SectionHead title="개별 종목 시그널" right={<Tag tone="ai">AI 요약</Tag>} />
+      <SectionHead
+        title="개별 종목 시그널"
+        right={hasSummary ? <Tag tone="ai">AI 요약</Tag> : undefined}
+      />
 
       {status === 'loading' && <SignalListSkeleton />}
 
@@ -35,11 +37,7 @@ export function SignalSection({
         />
       )}
 
-      {status === 'empty' && (
-        <Empty title="오늘은 눈에 띄는 시그널이 없습니다" description="잠시 후 다시 확인해주세요" />
-      )}
-
-      {status === 'success' && (
+      {status === 'success' && board && (
         <>
           <ol className="flex list-none flex-col">
             {board.signals.map((signal, i) => (
@@ -54,12 +52,18 @@ export function SignalSection({
                   <StockAvatar initial={signal.initial} />
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="text-base font-semibold">{signal.name}</span>
-                    <span className="text-sm text-neutral-600">{signal.summary}</span>
+                    {signal.summary ? (
+                      <span className="text-sm text-neutral-600">{signal.summary}</span>
+                    ) : (
+                      <span className="text-sm text-neutral-500">분석 보고서 준비 중</span>
+                    )}
                   </span>
                   <span className="flex w-28 flex-none flex-col items-end gap-1">
-                    <span className="num text-base font-semibold">{formatPrice(signal.price)}</span>
+                    <span className="num text-base font-semibold">
+                      {signal.price === null ? '—' : formatPrice(signal.price)}
+                    </span>
                     {/* 리스트는 부호 표기. 화살표는 카드·지수 타일에만. (DESIGN.md 2절) */}
-                    <Change value={signal.change} size="sm" />
+                    {signal.change !== null && <Change value={signal.change} size="sm" />}
                   </span>
                 </Link>
               </li>
@@ -67,10 +71,14 @@ export function SignalSection({
           </ol>
 
           {/* LLM 생성 필드는 생성 기준 시각과 출처를 함께 노출한다. (루트 CLAUDE.md) */}
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-neutral-600">
-            <span>{formatAsOf(new Date(board.generatedAt), 'AI 생성')}</span>
-            <span>· 출처 {board.sources.join(', ')}</span>
-          </div>
+          {hasSummary && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-neutral-600">
+              {board.generatedAt && (
+                <span>{formatAsOf(new Date(board.generatedAt), 'AI 생성')}</span>
+              )}
+              {board.sources.length > 0 && <span>· 출처 {board.sources.join(', ')}</span>}
+            </div>
+          )}
         </>
       )}
     </section>
