@@ -38,6 +38,7 @@ const CHECKS = [
     hint: '등락 색은 <Change /> 안에서만 쓴다.',
     exceptFiles: [
       'components/ui/Change.tsx',
+      'components/ui/Card.tsx',
       'components/ui/Tag.tsx',
       'components/ui/State.tsx',
     ],

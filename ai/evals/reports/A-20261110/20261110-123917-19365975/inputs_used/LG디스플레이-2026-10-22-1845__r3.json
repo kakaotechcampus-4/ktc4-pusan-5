@@ -1,0 +1,57 @@
+{
+  "stock": "LG디스플레이",
+  "code": "034220",
+  "target_date": "2026-10-22",
+  "cutoff": "2026-10-22T18:45:00+09:00",
+  "change_pct": -1.63,
+  "market": {
+    "index": "코스피",
+    "change_pct": -3.52,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": -2.79,
+    "peer_up": 0,
+    "peer_down": 20,
+    "peer_total": 20,
+    "excess_pct": 1.16
+  },
+  "messages": [
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4759",
+      "datetime_kst": "2026-10-22T13:24:37+09:00",
+      "text": "# LG디스플레이 (시총: 3조 5,950억원)\n- 3Q26 실적공시\n\n[ SK증권 박형우, 정영환]\nIT 하드웨어 / 배터리\n\n▶️ 실적 공시:\n- 매출액: 6조 2,770억원 (-10% YoY)\n(컨센 매출: 6조 6,358억원)\n \n- 영업이익: 2,506억원 (-42% YoY)\n(컨센 OP: 2,591억원)\n\n- OPM: 4.0%\n(컨센 OPM: 3.9%)\n\n▶️ URL: https://buly.kr/Eoqy8sK\n\n* SK증권 리서치 IT팀 채널 :    \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19162",
+      "datetime_kst": "2026-10-22T13:26:00+09:00",
+      "text": "[메리츠증권 반도체/디스플레이 김선우]\n\nLG디스플레이 3Q26 실적발표 안내드립니다.\n\n매출액: 6조 2,770억원 (vs 컨센서스 6조 6,358억원) \n영업이익: 2,506억원 (vs 컨센서스 2,591억원) \n지배주주순이익: 7,467억원 (vs 컨센서스 2,603억원)\n\nhttps://buly.kr/Eoqy8sK (Dart)\n\n\n* 본 내용은 당사의 코멘트 없이 국내외 언론사 뉴스 및 전자공시자료 등을 인용한 것으로 별도의 승인 절차 없이 제공합니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19168",
+      "datetime_kst": "2026-10-22T17:22:19+09:00",
+      "text": "[메리츠증권 반도체/디스플레이 김선우]\n\nLG디스플레이(034220): 3Q26 실적 Review, 설명회 Q&A 정리\n\n[3Q26 수익성 개선에 더해지는 기술 경쟁력]\n\n- LG디스플레이는 3Q26 매출액 6.3조원(+11.8% QoQ) 영업이익 2,506억원(흑자전환 QoQ)을 기록하며 시장 예상치를 소폭 하회\n\n- 주력 OLED 제품군의 성수기 진입에 힘입어 외형 성장을 달성했으나, 1) 원화 강세와 원재료 가격 상승, 2) IT 세트 수요 부진이 수익성 개선을 제약한 것으로 판단\n\n- OLED 매출 비중은 67% (+2%p YoY), ASP는 1,250달러 (+4% QoQ)를 기록하며 기존 가이던스에 부합. 이는 LCD 출하량 감소에도 OLED 제품군의 출하가 견조하게 유지된 결과\n\n- 4Q26 출하면적은 10% QoQ 증가, ASP는 한자릿수 초반 % 상승을 제시\n\n- 동사는 실적 발표회를 통해, 1) 기존 금속마스크(FMM, Fine Metal Mask)을 대체하는 FLiPP (FMM-Less innovative Pixel Patterning)라는 새로운 공정을 설명함과 동시에 2) 유휴 Fab 활용 전략을 강조\n\n- 이는 기존 생산설비의 활용도를 높여 대외 불확실성에 대응하겠다는 방침\n\n- 핵심 고객사향 모바일 패널의 견조한 출하 확대와 역대 최대 OLED 매출 비중(67%)을 고려시 동사의 OLED 중심의 사업 체질 개선은 본격화된 것으로 평가\n\n- 다만 훼손된 재무 구조를 정상화하기 위해, 신규 투자에 여전히 보수적인 입장을 유지\n\n- 향후, 신기술 채택 및 유휴 Fab 가동률 개선이 동반될 시 동사의 사업 안정성과 이익 창출력은 한층 강화될 것으로 전망\n\n이 외에 내용 및 주요 Q&A는 아래 링크 참조 부탁드립니다\n\nhttps://vo.la/NPwffDS (링크)\n\n\n* 동 자료는 Compliance 규정을 준수하여 사전 공표된 자료이며, 고객의 증권투자결과에 대한 법적 책임소재의 증빙자료로 사용될 수 없습니다.",
+      "mention": "mentioned"
+    }
+  ],
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -1.63,
+      "kospi_change_rate_pct": -3.52,
+      "excess_vs_kospi_pp": 1.89,
+      "kospi_weight_pct": 0.08,
+      "kospi_contribution_pp": -0.001,
+      "kospi_ex_self_change_rate_pct": -3.52,
+      "excess_vs_kospi_ex_self_pp": 1.89,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": []
+  }
+}

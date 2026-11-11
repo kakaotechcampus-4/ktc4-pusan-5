@@ -172,7 +172,18 @@ async def test_quarterly_uses_selector_one_and_preserves_cumulative_values():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "setl_mmdd,expected", [("0331", 3), ("0229", 2), ("12", 12), ("03", 3), ("", None)]
+    "setl_mmdd,expected",
+    [
+        ("0331", 3),
+        ("0229", 2),
+        ("12", 12),
+        ("03", 3),
+        ("", None),
+        # 실제 KIS 값: 일이 00 이면 월만 쓰고, 월이 00 이면 결산월 없음
+        ("1200", 12),
+        ("0000", None),
+        ("00", None),
+    ],
 )
 async def test_quarterly_fiscal_metadata_validates_mmdd(setl_mmdd, expected):
     kis = SequenceKis(

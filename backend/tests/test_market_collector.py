@@ -202,3 +202,125 @@ async def test_sector_parse_failure_preserves_sector_but_updates_quote(monkeypat
                 assert sector.error_code == "INVALID_SECTORS"
         finally:
             await transaction.rollback()
+
+
+class _KisAllOk:
+    async def fetch_flow(self, kind):
+        return []
+
+    async def fetch_ranking(self, kind):
+        return []
+
+    async def fetch_quote(self):
+        return Quote(Decimal(100), Decimal(1), date(2026, 9, 18))
+
+    async def fetch_gold_quote(self, symbol):
+        return Quote(Decimal(100), Decimal(1), date(2026, 9, 18))
+
+
+class _KisAllDown:
+    async def fetch_flow(self, kind):
+        raise MarketDataError("UPSTREAM_DOWN")
+
+    async def fetch_ranking(self, kind):
+        raise MarketDataError("UPSTREAM_DOWN")
+
+    async def fetch_quote(self):
+        raise MarketDataError("UPSTREAM_DOWN")
+
+    async def fetch_gold_quote(self, symbol):
+        raise MarketDataError("UPSTREAM_DOWN")
+
+
+async def _run_collect(monkeypatch, kis, krx_batch, fred_fetch):
+    """DB 는 트랜잭션 안에서만 쓰고 되돌린다. last-success 갱신 횟수를 돌려준다."""
+
+    async def empty_snapshots(session):
+        return {}
+
+    async def fetch_krx(client, indicator):
+        if isinstance(krx_batch, Exception):
+            raise krx_batch
+        return krx_batch
+
+    touched = []
+    monkeypatch.setattr(market, "list_snapshots", empty_snapshots)
+    monkeypatch.setattr(market, "list_rankings", empty_snapshots)
+    monkeypatch.setattr(market.krx, "fetch_market", fetch_krx)
+    monkeypatch.setattr(market.fred, "fetch_quote", fred_fetch)
+    monkeypatch.setattr(market, "touch_last_success", lambda: touched.append(1))
+    async with engine.connect() as connection:
+        transaction = await connection.begin()
+        try:
+            factory = async_sessionmaker(
+                connection, expire_on_commit=False, join_transaction_mode="create_savepoint"
+            )
+            monkeypatch.setattr(market, "SessionLocal", factory)
+            async with httpx.AsyncClient() as client:
+                await market.collect(client, kis)
+        finally:
+            await transaction.rollback()
+    return len(touched)
+
+
+async def test_last_success_is_touched_once_when_sources_succeed(monkeypatch):
+    quote = Quote(Decimal(100), Decimal(1), date(2026, 9, 18))
+
+    async def fetch_fred(client, symbol):
+        return quote
+
+    count = await _run_collect(
+        monkeypatch, _KisAllOk(), market.krx.MarketBatch(quote, []), fetch_fred
+    )
+
+    assert count == 1
+
+
+async def test_last_success_is_touched_even_if_only_one_source_succeeds(monkeypatch):
+    quote = Quote(Decimal(100), Decimal(1), date(2026, 9, 18))
+
+    async def fetch_fred(client, symbol):
+        raise MarketDataError("NO_DATA")
+
+    count = await _run_collect(
+        monkeypatch, _KisAllDown(), market.krx.MarketBatch(quote, [], None, "X"), fetch_fred
+    )
+
+    assert count == 1
+
+
+async def test_last_success_is_not_touched_when_every_source_fails(monkeypatch):
+    async def fetch_fred(client, symbol):
+        raise MarketDataError("NO_DATA")
+
+    count = await _run_collect(monkeypatch, _KisAllDown(), MarketDataError("NO_DATA"), fetch_fred)
+
+    assert count == 0
+
+
+async def test_last_success_is_not_touched_when_nothing_is_due(monkeypatch):
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from app.schemas.ranking import ACTIVE_RANKINGS
+    from app.services.market_data import INDICATORS
+
+    now = datetime.now(UTC)
+    touched = []
+
+    async def snapshots(session):
+        return {item.code: SimpleNamespace(checked_at=now) for item in INDICATORS}
+
+    async def rankings(session):
+        return {
+            kind: SimpleNamespace(checked_at=now)
+            for kind in (*ACTIVE_RANKINGS, *market.FLOW_KINDS, *market.SECTOR_CODES.values())
+        }
+
+    monkeypatch.setattr(market, "list_snapshots", snapshots)
+    monkeypatch.setattr(market, "list_rankings", rankings)
+    monkeypatch.setattr(market, "touch_last_success", lambda: touched.append(1))
+
+    await market.collect(None, None)
+
+    assert touched == []

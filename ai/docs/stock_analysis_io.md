@@ -96,6 +96,7 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
       "after_prev_close": false,              // true 면 직전 거래일 장을 정리한 시황(오늘 원인이 아님)
       "first_seen_kst": null,                 // 직전 구간에 같은 내용이 처음 나온 시각. 없으면 null
       "dup_channels": 1,                      // 같은 내용으로 묶인 메시지들의 채널 수. 묶인 게 없으면 1
+      "is_correction": false,                 // kind disclosure 에만 있다. 정정 공시(제목이 [기재정정]·[첨부정정]·[첨부추가] 로 시작)면 true
       "link_bodies": [                        // 선택. 메시지 속 뉴스 링크를 cutoff 안에서 미리 연 것. 프롬프트는 설명하지 않는다(지금 입력에 없음), 검증은 excerpt 도 quote 원문으로 본다
         {
           "url": "https://example.com/s/a1b2c3",        // 메시지에 적힌 주소
@@ -123,6 +124,26 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
 - `kind`·`after_prev_close`·`first_seen_kst` 는 입력 생성 단계가 붙인다. 러너 `check_input()` 은 보지 않는다.
   그날 시장 시황·테마 동향 메시지가 종목과 상관없이 `mention: not_mentioned` 로 최대 3건 함께 들어온다.
 - 뉴스 기사도 메시지 하나로 넣는다(`kind: "news"`). `channel` 은 언론사, `url` 은 기사 주소, `text` 는 제목 + 빈 줄 + 본문이다.
+- 공시는 `kind: "disclosure"`, `text` 는 공시 제목이다. 정정 공시는 `is_correction: true` 이고 모델은 그 자체로 원인으로 쓰지 않는다(프롬프트 1부,
+  경고 `DISCLOSURE_CORRECTION_AS_CAUSE`). 입력 생성 단계(`classified_input`)가 붙인다.
+- 공시의 공개 시각은 수집기가 **접수일 당일에 처음 본 시각**(`first_seen_at`)이다. 접수일이 지나서 처음 봤으면 시각이 없고 접수일만 남는다.
+  DART 응답에는 접수 시각이 없어서, 장중 공시가 그날(대상일) 보고서에 들어가려면 수집이 장중에 돌아야 한다. 장중 공시라도 장 마감 뒤에
+  처음 수집했으면 공개 시각이 장 마감 뒤가 되어, 그날 보고서에서 빠지고 다음 거래일 보고서로 넘어간다.
+- 시각 없는 공시는 접수일이 두 경계 날짜면 빠진다. 접수 시각을 몰라 조회 기간 안인지 알 수 없어서다. 빠진 공시는 입력에 넣지 않고
+  `meta/` 의 `dropped` 에 사유를 남긴다.
+
+  | 접수일 | dropped 사유 | `counts` 키 |
+  | --- | --- | --- |
+  | 조회 시작일(직전 거래일) | `boundary_disclosure` | `disclosure_boundary` |
+  | 게시 끝 날짜(대상일 당일) | `close_day_disclosure` | `disclosure_close_day` |
+
+  두 경우 모두 대상일 보고서와 다음 거래일 보고서 어디에도 들어가지 않는다. 대상일 공시는 그날 보고서에서는 게시 끝 날짜라 빠지고,
+  다음 거래일 보고서에서는 조회 시작일이라 빠진다. 예외로, 조회 시작이 그날 07:00(DART 접수 시작) 이전이면 조회 시작일의 공시도 넣는다.
+  실행 끝 요약 줄에도 두 건수가 함께 나온다(`공시 N (경계일 뺌 N · 게시 끝 날짜 뺌 N)`).
+- 네이버 리포트는 공개 시각 없이 작성일만 있다. 작성일이 직전 거래일보다 뒤이고 대상일 이하인 리포트가 들어간다. 시각이 없으니
+  보고서를 만들 때 이미 수집돼 있어야 들어간다. 대상일 D 리포트가 D 16:00 보고서에 들어가려면 그 전에 수집돼야 하고,
+  D+1 08:30 재생성에 들어가려면 그 전에 수집돼야 한다. 그 뒤에 수집되면 D+1 보고서에서는 작성일이 직전 거래일이라 빠진다.
+  생성 시점에 DB 에 없던 자료라 `meta/` 에도 남지 않는다.
 
 ### 러너가 모델에 보내는 입력 — `generate.model_input()`
 
@@ -154,9 +175,38 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
 (`market_compare.MarketCompare` → `market_data.build_market_context`). 형식은 프롬프트 1부 그대로다 — 비교 판정
 `kospi.kospi_basis`(`kospi` | `kospi_ex_self`, 코스피 비중 10% 이상이면 자기 제외 코스피)·`kospi.kospi_relation`
 (`follows` | `opposite` | `diverges` | null)과 그룹마다 `peers[].relation`(`follows` | `opposite` | `diverges` | `inconclusive` | null).
-`opposite` 는 차이가 기준 안이지만 오르내린 방향이 반대인 날이다(보합 0.00 은 방향 없음). 판정 기준은
+`opposite` 는 차이가 기준 안이지만 오르내린 방향이 반대인 날이다(보합 0.00 은 방향 없음). `diverges` 인데 이 종목과
+기준 시장의 방향이 같으면 "코스피와는 다르게" 로 쓰고 "코스피는 올랐지만" 같은 반대를 잇는 말은 쓰지 않는다(경고
+`COMPARE_KOSPI_CONTRAST`, summary.move·relative). 코스피 수치는 summary.move 에만 쓰고 relative 에는 쓰지 않는다(경고
+`COMPARE_KOSPI_RATE_IN_RELATIVE`). 판정 기준은
 `market_data/context.py` 상수(`KOSPI_EX_SELF_WEIGHT_PCT`, `KOSPI_FOLLOW_THRESHOLD_PP`, `GROUP_FOLLOW_THRESHOLD_PP`)다.
-프롬프트에 없는 계산 칸(비중 분모, 재계산 코스피, `weight_basis`)은 보내지 않고, `members_used` 는 `{code, name}` 으로 바꾼다.
+프롬프트에 없는 계산 칸(비중 분모, 재계산 코스피, `weight_basis`)은 보내지 않고, `members_used` 는
+`{code, name, change_rate_pct, in_sentence}` 로 바꾼다.
+
+**그룹 문장에 쓸 종목**(`market_compare.sentence_members`). 판정은 그대로 두고 문장만 정한다.
+
+- `members_used[].change_rate_pct` — 그 비교 종목의 등락률(반올림한 보이는 값).
+- `members_used[].in_sentence` — `summary.relative` 그룹 문장에 이름과 등락률로 쓸 종목. 그룹 등락률(중앙값)과 방향이 같은
+  종목만 `true` 다(그룹 등락률이 보합이면 보합인 종목). 보합이거나 방향이 다른 종목이 섞인 그룹을 "대체로 X% 안팎" 으로 쓰면
+  그 종목도 같은 방향으로 움직인 것처럼 읽히기 때문이다. `false` 인 종목은 따로 한 문장("같은 그룹의 현대차는 보합이었습니다.")으로
+  쓴다. `follows`·`diverges`·`opposite` 만 나눈다. `inconclusive`·`null` 은 모두 `true`.
+- `mixed` — 비교 종목 방향이 엇갈린 그룹(`inconclusive`, 비교 종목 둘 이상)이면 `true`. 그 그룹은 그룹 등락률 없이 모든
+  비교 종목을 각자의 등락률로 쓰고 엇갈렸다고 덧붙인다
+  ("같은 자동차 그룹의 현대차는 2.16% 올랐고 기아는 0.83% 내려, 방향이 엇갈려 그룹 흐름과 비교하기 어렵습니다.").
+- `judge_in_sentence` — 그룹 문장에 판정하는 말("비슷하게"·"크게 달랐다")을 써도 되는가. `in_sentence: true` 종목만으로
+  다시 판정해(그 종목들의 중앙값, `group_relation`, 비교 종목 수는 원래 수) 원래 판정과 같으면 `true`. 다르면 독자가 보는
+  숫자와 판정이 어긋나 등락만 쓴다(예: 현대차 0.00·기아 +1.00 에 대상 +1.80 은 중앙값 0.50 기준 `diverges` 지만 기아와는
+  0.80%p 차이). `follows`·`diverges` 에만 값이 있고 `opposite`·`inconclusive`·`null` 은 `null` 이다 — 원래 판정하는 말을
+  쓰지 않는 판정이라 칸이 필요 없고, `false` 로 보내면 모델이 엇갈린 그룹에 아래 `false` 규칙을 가져다 써 "방향이 엇갈려" 를
+  빠뜨렸다.
+  `follows`·`diverges` 인데 `false` 면 relative 그룹 문장에 이 종목 등락률을 반드시 쓰고(독자가 두 숫자를 나란히 보게),
+  `summary.unexplained` 에도 그 그룹과의 차이를 판정하는 말("같은 자동차 그룹과 다르게 오른 이유")을 쓰지 않는다. 재료를 찾는
+  규칙은 판정대로라 그대로다.
+- 검증: 경고 `COMPARE_MEMBER_RATE`(relative 의 비교 종목 등락률·방향이 입력과 다름, 빠지는 종목이 있는 그룹에 그룹 등락률),
+  `COMPARE_OPPOSITE_WORDING`(`judge_in_sentence: false` 그룹에 판정하는 말. relative 와 unexplained),
+  `COMPARE_TARGET_RATE_MISSING`(`judge_in_sentence: false` 인 `follows`·`diverges` 그룹을 relative 에 쓰면서 이 종목 등락률이 없음),
+  `COMPARE_MIXED_NOT_STATED`(엇갈린 그룹을 쓰면서 "방향이 엇갈려" 같은 말이 없음). `COMPARE_MEMBER_RATE` 는 엇갈린 그룹의 종목별
+  등락률도 보고, 엇갈린 그룹에 그룹 등락률을 쓰면 잡는다.
 
 ```jsonc
 // KB금융 2026-10-29 (실제 KRX 응답으로 계산)
@@ -168,8 +218,8 @@ runs/<YYYYMMDD-HHMMSS>-<uuid 앞 8자>/   같은 초에 두 러너가 시작해�
              "excess_vs_kospi_ex_self_pp": 3.1, "kospi_basis": "kospi", "kospi_relation": "diverges" },
   // 그룹 등락률은 신한지주 0.80·우리금융지주 3.01·하나금융지주 3.82 의 중앙값. 평균(2.54)이었으면 초과분 −0.72%p 로 follows 였다
   "peers": [ { "group": "은행지주", "median_change_rate_pct": 3.01, "excess_vs_group_pp": -1.19, "peer_count": 3,
-               "relation": "diverges",
-               "members_used": [ { "code": "055550", "name": "신한지주" }, … ],
+               "relation": "diverges", "mixed": false, "judge_in_sentence": true,
+               "members_used": [ { "code": "055550", "name": "신한지주", "change_rate_pct": 0.8, "in_sentence": true }, … ],
                "members_excluded": [ { "code": "105560", "name": "KB금융", "reason": "self" } ] } ]
 }
 ```
@@ -472,7 +522,7 @@ LLM 을 부른다(`generate.needs_llm`).
 | `verify_status` | `passed` / `failed`. 스키마·규칙·근거 중 하나라도 걸리면 failed |
 | `verify_problems` | `"<코드>: <상세>"` 문자열 배열 (예: `QUOTE_NOT_IN_SOURCE: factors[0].sources[0] ...`) |
 | `events_status` / `events_problems` | `events` 칸 검사. `passed` / `failed` / `missing`. 판정과 별개. 형식(`SCHEMA_*`, `EVENT_REASON_MISMATCH`)과 실제 칸 대조: `EVENT_BACKGROUND_REF_MISSING`·`_REF_DUPLICATE`·`_UNREFERENCED`(background 항목과 사건이 하나씩 짝), `EVENT_FACTOR_COUNT`·`_REF_MISSING`·`_DUPLICATE`, `ISSUE_ID_DUPLICATE` |
-| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`·`RELATIVE_STALE`(근거를 뺐는데 그 칸을 다시 쓰지 못함), `REPAIR_SKIPPED_OVER_CAP`(개수 상한을 넘어 quote 고쳐 쓰기를 하지 않음), `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 mentioned 메시지에서 나왔는데 출처에 mentioned 가 없음), `MAIN_CAUSE_TOO_LONG`(최종 main_cause 가 러너 고정 문장 포함 3문장 초과. 자르지 않음), `STRENGTH_MISMATCH`(모델 strength 가 정의와 어긋남 — 사건 이슈가 mentioned(입력 mention) 메시지에서 나왔는데 partial, 아닌데 sufficient. issue_trace 가 없으면 출처로 봄. 미확인·대형주 몫 상한은 예외), `COMPARE_META_PHRASE`(독자가 읽는 칸 — summary, factor event·detail·links note, background text — 에 비교 판정의 안쪽 말 "판정하기 어렵"·"기준 시장"·"비교 종목이 하나뿐" 이 있음. quote 는 보지 않음) |
+| `verify_warnings` | 실패는 아니지만 볼 것. `DUPLICATE_SOURCES`, `MAIN_CAUSE_STALE`·`RELATIVE_STALE`(근거를 뺐는데 그 칸을 다시 쓰지 못함), `REPAIR_SKIPPED_OVER_CAP`(개수 상한을 넘어 quote 고쳐 쓰기를 하지 않음), `COUNT_OVER_CAP`(background 6·칸당 3, watch 3·칸당 1, factors 4, terms 8), `FACTOR_RESULT_SOURCES_ONLY`(출처가 모두 입력 kind `flow_rank`·`market_recap`), `DISCLOSURE_CORRECTION_AS_CAUSE`(link 를 단 factor 의 출처가 모두 입력 `is_correction: true` 공시), `THEME_RECAP_NOT_SECTOR`(theme_recap 출처인데 그 메시지에서 묶인 이슈에 sector 가 없음), `QUOTE_MISSING_SUBJECT`(첫 quote 에 event 의 매매 주체·영문 고유명이 없음, 이 종목명·직함 CEO·CFO·CTO·COO 제외), `COMMON_MOVE_WITH_MOVE_LINK`(common_move 날 등락 층 link 가 있음), `MOVE_COMPARISON_ON_FLAT`(judge_layers.relative 가 false 인 날 summary.move 에 "더/덜" 비교), `DIRECT_SOURCE_MISSING`(factor 로 묶인 이슈가 mentioned 메시지에서 나왔는데 출처에 mentioned 가 없음), `MAIN_CAUSE_TOO_LONG`(최종 main_cause 가 러너 고정 문장 포함 3문장 초과. 자르지 않음), `STRENGTH_MISMATCH`(모델 strength 가 정의와 어긋남 — 사건 이슈가 mentioned(입력 mention) 메시지에서 나왔는데 partial, 아닌데 sufficient. issue_trace 가 없으면 출처로 봄. 미확인·대형주 몫 상한은 예외), `COMPARE_META_PHRASE`(독자가 읽는 칸 — summary, factor event·detail·links note, background text — 에 비교 판정의 안쪽 말 "판정하기 어렵"·"기준 시장"·"비교 종목이 하나뿐" 이 있음. quote 는 보지 않음) |
 | `issue_trace_warnings` / `issue_trace_stats` | `ISSUE_TRACE_MISSING_URL`(messages 칸 누락)·`ISSUE_ID_UNKNOWN` 경고와 집계(`messages_traced`, `messages_total`, `relations`, `issues_used`) |
 
 ### 재시도·고쳐 쓰기 기록

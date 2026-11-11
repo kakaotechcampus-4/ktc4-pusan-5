@@ -16,6 +16,7 @@
   "LG전자 브랜드상 수상" 이 경쟁사 삼성전자의 후보가 되던 것을 막는다. 사건 문장(근거 문장)의
   표현으로 가린다. 사건 종류 칸이 아직 없어서 쓰는 임시 규칙이다(PR #103 리뷰). 너무 못 거르면
   ① 추출에 사건 종류를 더하고 관계 × 사건 종류 표로 바꾼다. 그 회사 자신(company 경로)은 그대로다.
+  설정으로 켜면 정규식이 못 잡은 사건을 Jev 에도 묻는다(promo.py). 둘 중 하나만 맞아도 거른다.
 - 자회사 표기로 들어온 종목은 공급·경쟁 관계를 그 자회사를 거친 산업 연결의 산업으로만 탄다.
   지분 관계는 제한하지 않는다. 10-29 에 관계의 실제 당사자를 note 로 옮겼으므로 "실제 당사자 일치"
   조건(5-1 의 (1))은 코드로 볼 수 없다. 외부 기업의 자회사 표기(삼성바이오에피스)는 그래서 제한하지 않는다.
@@ -113,8 +114,11 @@ def _origins(links: list[EntityLink], basis: Basis) -> dict[str, frozenset[str] 
 
 
 def collect_candidates(event: Event, links: list[EntityLink], basis: Basis,
-                       text: str = "") -> list[Candidate]:
-    """text 는 사건의 근거 문장. 홍보성 사건인지 볼 때만 쓴다(비우면 보지 않는다)."""
+                       text: str = "", *, promo: bool = False) -> list[Candidate]:
+    """text 는 사건의 근거 문장. 홍보성 사건인지 볼 때만 쓴다(비우면 보지 않는다).
+
+    promo 는 밖에서 이미 홍보성으로 본 사건이다(Jev, promo.py). 정규식과 둘 중 하나만 맞아도 거른다.
+    """
     if event.scope in NO_CANDIDATE_SCOPES:
         return []
     found: dict[str, Candidate] = {}
@@ -144,7 +148,7 @@ def collect_candidates(event: Event, links: list[EntityLink], basis: Basis,
                                          industry_code=stock_link.industry_code, link=stock_link)
 
     # relation — 직접 언급된 기업에서 1-hop. 등락·홍보성 사건은 넘기지 않는다
-    if event.role not in NO_RELATION_ROLES and not promotional(text):
+    if event.role not in NO_RELATION_ROLES and not promo and not promotional(text):
         origins = _origins(links, basis)
         refs: dict[str, list[tuple[tuple, dict, CompanyRelation, str]]] = {}
         for relation in basis.relations:

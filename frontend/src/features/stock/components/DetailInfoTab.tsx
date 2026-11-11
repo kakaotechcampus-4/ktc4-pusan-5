@@ -1,5 +1,11 @@
 import { Card, Kicker } from '@/components/ui';
-import type { Resource, StockFinancials, StockMetricsData, StockQuoteData } from '@/lib/types';
+import type {
+  Resource,
+  StockFinancials,
+  StockInvestorFlowData,
+  StockMetricsData,
+  StockQuoteData,
+} from '@/lib/types';
 import { AnnualFinancialTrend } from './AnnualFinancialTrend';
 import { FinancialHealthSummary } from './FinancialHealthSummary';
 import { MarketActivitySummary } from './MarketActivitySummary';
@@ -8,12 +14,14 @@ import { QuarterlyMetricsTable } from './QuarterlyMetricsTable';
 export function DetailInfoTab({
   quote,
   metrics,
+  investorFlow,
   financials,
   error,
   onRetry,
 }: {
   quote: Resource<StockQuoteData> | null;
   metrics: Resource<StockMetricsData> | null;
+  investorFlow?: Resource<StockInvestorFlowData> | null;
   financials: StockFinancials | null;
   error: Error | null;
   onRetry: () => void;
@@ -33,7 +41,7 @@ export function DetailInfoTab({
           </div>
           <div className="flex flex-col gap-2">
             <Kicker>시세 및 거래</Kicker>
-            <MarketActivitySummary quote={quote} metrics={metrics} />
+            <MarketActivitySummary quote={quote} metrics={metrics} investorFlow={investorFlow} />
           </div>
         </div>
       </Card>

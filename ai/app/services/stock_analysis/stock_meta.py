@@ -35,9 +35,14 @@ def universe_weight(code: Any) -> float | None:
     return info.get("universe_weight") if info else None
 
 
+def codes() -> tuple[str, ...]:
+    """보고서 대상 종목코드 전부(이 표의 종목). 일괄 생성이 순회한다."""
+    return tuple(sorted(_table()))
+
+
 def universe_codes() -> tuple[str, ...]:
     """대형주 유니버스 종목코드(universe_weight 가 있는 종목). 입력 peer_median_pct 의 비교 대상과 같은 묶음이다."""
     return tuple(sorted(code for code, info in _table().items() if info.get("universe_weight") is not None))
 
 
-__all__ = ["META_PATH", "name", "sector", "universe_codes", "universe_weight"]
+__all__ = ["META_PATH", "codes", "name", "sector", "universe_codes", "universe_weight"]

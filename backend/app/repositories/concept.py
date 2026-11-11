@@ -59,3 +59,16 @@ class ConceptRepository:
     async def count(self) -> int:
         result = await self.session.execute(select(func.count()).select_from(Concept))
         return result.scalar_one()
+
+    async def term_index(self) -> dict[str, str]:
+        """이름·별칭(공백 없앤 소문자) → slug. 보고서 용어를 개념 글에 연결할 때 쓴다."""
+        result = await self.session.execute(select(Concept.slug, Concept.name, Concept.aliases))
+        index: dict[str, str] = {}
+        for slug, name, aliases in result.all():
+            for label in [name, *(aliases or [])]:
+                index.setdefault(normalize_term(label), slug)
+        return index
+
+
+def normalize_term(value: str) -> str:
+    return "".join(value.split()).lower()

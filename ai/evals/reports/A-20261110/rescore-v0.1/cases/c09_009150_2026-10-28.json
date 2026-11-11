@@ -1,0 +1,429 @@
+{
+  "case_id": "c09_009150_2026-10-28",
+  "summary": {
+    "n_runs": 3,
+    "expected_verdict": {
+      "move": "explained",
+      "relative": "explained"
+    },
+    "verdicts": [
+      {
+        "move": "explained",
+        "relative": "explained"
+      },
+      {
+        "move": "explained",
+        "relative": "explained"
+      },
+      {
+        "move": "explained",
+        "relative": "explained"
+      }
+    ],
+    "verdict_match_runs": {
+      "move": 3,
+      "relative": 3
+    },
+    "rule_a_violations": [
+      0,
+      0,
+      0
+    ],
+    "overclaim_candidates": [
+      0,
+      0,
+      0
+    ],
+    "omission_candidates": [
+      0,
+      0,
+      0
+    ],
+    "spurious_candidates": [
+      0,
+      1,
+      0
+    ],
+    "recap_msg_links": [
+      1,
+      1,
+      1
+    ],
+    "contrast_links": [
+      0,
+      0,
+      0
+    ],
+    "possible_contributor": [
+      {
+        "linked": 1
+      },
+      {
+        "linked": 1
+      },
+      {
+        "linked": 1
+      }
+    ],
+    "recap_cited": [
+      0,
+      0,
+      0
+    ],
+    "injected_cited": [
+      0,
+      0,
+      0
+    ],
+    "skipped_llm": [
+      null,
+      null,
+      null
+    ],
+    "verify_status": [
+      "passed",
+      "passed",
+      "passed"
+    ],
+    "same_conclusion_runs": 2,
+    "same_verdict_runs": 3,
+    "cost": 36.86
+  },
+  "reports": [
+    {
+      "run_id": "삼성전기-2026-10-28-1845__r1",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 12.59325175,
+      "is_error": false,
+      "verdict": {
+        "move": "explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": true,
+        "relative": true
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "must",
+          "cap": "likely_cause",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 있음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e2",
+          "importance": "should",
+          "cap": "possible_contributor",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ],
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "둘 다 허용",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [],
+      "rule_a_violation_count": 0,
+      "overclaim_candidates": 0,
+      "omission_candidates": 0,
+      "possible_contributor": {
+        "linked": 1
+      },
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_msg_links": [
+        {
+          "factor": 3,
+          "event": "앤스로픽 IPO 관련 AI 낙관론에 미국 증시가 이틀째 상승했습니다.",
+          "urls": [
+            "https://t.me/KISGregKim/18879"
+          ],
+          "links": [
+            [
+              "move",
+              "sufficient"
+            ]
+          ]
+        }
+      ],
+      "recap_msg_link_count": 1,
+      "contrast_links": [],
+      "contrast_link_count": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "칸 없음(구형 입력)": 7
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e1",
+          "e2"
+        ],
+        "extra": 0,
+        "recap_msg": 1
+      }
+    },
+    {
+      "run_id": "삼성전기-2026-10-28-1845__r2",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 13.309969,
+      "is_error": false,
+      "verdict": {
+        "move": "explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": true,
+        "relative": true
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "must",
+          "cap": "likely_cause",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 있음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e2",
+          "importance": "should",
+          "cap": "possible_contributor",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "둘 다 허용",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [],
+      "rule_a_violation_count": 0,
+      "overclaim_candidates": 0,
+      "omission_candidates": 0,
+      "possible_contributor": {
+        "linked": 1
+      },
+      "extra_links": [
+        {
+          "factor": 2,
+          "event": "애플 폴더블 아이폰의 강한 수요로 출하 목표가 44% 상향될 전망입니다.",
+          "urls": [
+            "https://t.me/merITz_tech/19207"
+          ],
+          "links": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ]
+        }
+      ],
+      "spurious_candidates": 1,
+      "recap_msg_links": [
+        {
+          "factor": 1,
+          "event": "미국 증시는 인공지능 낙관론에 힘입어 이틀 연속 상승했습니다.",
+          "urls": [
+            "https://t.me/KISGregKim/18879"
+          ],
+          "links": [
+            [
+              "move",
+              "sufficient"
+            ]
+          ]
+        }
+      ],
+      "recap_msg_link_count": 1,
+      "contrast_links": [],
+      "contrast_link_count": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "칸 없음(구형 입력)": 5
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e1",
+          "e2"
+        ],
+        "extra": 1,
+        "recap_msg": 1
+      }
+    },
+    {
+      "run_id": "삼성전기-2026-10-28-1845__r3",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 10.960117,
+      "is_error": false,
+      "verdict": {
+        "move": "explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": true,
+        "relative": true
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "must",
+          "cap": "likely_cause",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 있음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e2",
+          "importance": "should",
+          "cap": "possible_contributor",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "sufficient"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "둘 다 허용",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [],
+      "rule_a_violation_count": 0,
+      "overclaim_candidates": 0,
+      "omission_candidates": 0,
+      "possible_contributor": {
+        "linked": 1
+      },
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_msg_links": [
+        {
+          "factor": 0,
+          "event": "미국 증시는 인공지능 낙관론에 힘입어 이틀 연속 상승했습니다.",
+          "urls": [
+            "https://t.me/KISGregKim/18879"
+          ],
+          "links": [
+            [
+              "move",
+              "sufficient"
+            ]
+          ]
+        }
+      ],
+      "recap_msg_link_count": 1,
+      "contrast_links": [],
+      "contrast_link_count": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "칸 없음(구형 입력)": 4
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e1",
+          "e2"
+        ],
+        "extra": 0,
+        "recap_msg": 1
+      }
+    }
+  ]
+}

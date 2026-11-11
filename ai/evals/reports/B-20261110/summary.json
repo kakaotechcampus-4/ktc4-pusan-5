@@ -1,0 +1,472 @@
+{
+  "cases_root": "cases_live",
+  "run_dir": "reports\\B-20261110\\20261110-124943-2d964d02",
+  "rule": "A",
+  "unmatched_parsed": [],
+  "cases": {
+    "b01_034730_2026-11-05": {
+      "n_runs": 3,
+      "expected_verdict": {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      "verdicts": [
+        {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        },
+        {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        },
+        {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        }
+      ],
+      "verdict_match_runs": {
+        "move": 3,
+        "relative": 3
+      },
+      "rule_a_violations": [
+        0,
+        0,
+        0
+      ],
+      "overclaim_candidates": [
+        0,
+        0,
+        0
+      ],
+      "omission_candidates": [
+        0,
+        0,
+        0
+      ],
+      "spurious_candidates": [
+        0,
+        0,
+        0
+      ],
+      "possible_contributor": [
+        {},
+        {},
+        {}
+      ],
+      "recap_cited": [
+        0,
+        0,
+        0
+      ],
+      "injected_cited": [
+        0,
+        0,
+        0
+      ],
+      "skipped_llm": [
+        null,
+        null,
+        null
+      ],
+      "verify_status": [
+        "passed",
+        "passed",
+        "passed"
+      ],
+      "same_conclusion_runs": 3,
+      "same_verdict_runs": 3,
+      "cost": 16.72
+    },
+    "b02_068270_2026-11-05": {
+      "n_runs": 3,
+      "expected_verdict": {
+        "move": "partially_explained",
+        "relative": "partially_explained"
+      },
+      "verdicts": [
+        {
+          "move": "explained",
+          "relative": "explained"
+        },
+        {
+          "move": "explained",
+          "relative": "explained"
+        },
+        {
+          "move": "explained",
+          "relative": "explained"
+        }
+      ],
+      "verdict_match_runs": {
+        "move": 0,
+        "relative": 0
+      },
+      "rule_a_violations": [
+        2,
+        2,
+        1
+      ],
+      "overclaim_candidates": [
+        2,
+        2,
+        1
+      ],
+      "omission_candidates": [
+        0,
+        0,
+        0
+      ],
+      "spurious_candidates": [
+        0,
+        0,
+        0
+      ],
+      "possible_contributor": [
+        {
+          "unlinked": 1
+        },
+        {
+          "unlinked": 1
+        },
+        {
+          "unlinked": 1
+        }
+      ],
+      "recap_cited": [
+        0,
+        0,
+        0
+      ],
+      "injected_cited": [
+        0,
+        0,
+        0
+      ],
+      "skipped_llm": [
+        null,
+        null,
+        null
+      ],
+      "verify_status": [
+        "passed",
+        "passed",
+        "passed"
+      ],
+      "same_conclusion_runs": 2,
+      "same_verdict_runs": 3,
+      "cost": 41.21
+    },
+    "b03_034020_2026-11-05": {
+      "n_runs": 3,
+      "expected_verdict": {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      "verdicts": [
+        {
+          "move": "partially_explained",
+          "relative": "explained"
+        },
+        {
+          "move": "partially_explained",
+          "relative": "explained"
+        },
+        {
+          "move": "partially_explained",
+          "relative": "explained"
+        }
+      ],
+      "verdict_match_runs": {
+        "move": 0,
+        "relative": 0
+      },
+      "rule_a_violations": [
+        1,
+        3,
+        2
+      ],
+      "overclaim_candidates": [
+        1,
+        3,
+        2
+      ],
+      "omission_candidates": [
+        0,
+        0,
+        0
+      ],
+      "spurious_candidates": [
+        0,
+        0,
+        0
+      ],
+      "possible_contributor": [
+        {},
+        {},
+        {}
+      ],
+      "recap_cited": [
+        0,
+        0,
+        0
+      ],
+      "injected_cited": [
+        0,
+        0,
+        0
+      ],
+      "skipped_llm": [
+        null,
+        null,
+        null
+      ],
+      "verify_status": [
+        "passed",
+        "passed",
+        "passed"
+      ],
+      "same_conclusion_runs": 1,
+      "same_verdict_runs": 3,
+      "cost": 33.69
+    },
+    "b04_086790_2026-11-05": {
+      "n_runs": 3,
+      "expected_verdict": {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      "verdicts": [
+        {
+          "move": "explained",
+          "relative": "no_clear_cause"
+        },
+        {
+          "move": "explained",
+          "relative": "explained"
+        },
+        {
+          "move": "explained",
+          "relative": "no_clear_cause"
+        }
+      ],
+      "verdict_match_runs": {
+        "move": 0,
+        "relative": 2
+      },
+      "rule_a_violations": [
+        0,
+        0,
+        0
+      ],
+      "overclaim_candidates": [
+        0,
+        0,
+        0
+      ],
+      "omission_candidates": [
+        0,
+        0,
+        0
+      ],
+      "spurious_candidates": [
+        1,
+        1,
+        1
+      ],
+      "possible_contributor": [
+        {},
+        {},
+        {}
+      ],
+      "recap_cited": [
+        0,
+        0,
+        0
+      ],
+      "injected_cited": [
+        0,
+        0,
+        0
+      ],
+      "skipped_llm": [
+        null,
+        null,
+        null
+      ],
+      "verify_status": [
+        "passed",
+        "passed",
+        "passed"
+      ],
+      "same_conclusion_runs": 2,
+      "same_verdict_runs": 2,
+      "cost": 8.97
+    },
+    "b05_000810_2026-11-05": {
+      "n_runs": 3,
+      "expected_verdict": {
+        "move": "no_clear_cause",
+        "relative": "no_clear_cause"
+      },
+      "verdicts": [
+        {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        },
+        {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        },
+        {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        }
+      ],
+      "verdict_match_runs": {
+        "move": 3,
+        "relative": 3
+      },
+      "rule_a_violations": [
+        0,
+        0,
+        0
+      ],
+      "overclaim_candidates": [
+        0,
+        0,
+        0
+      ],
+      "omission_candidates": [
+        0,
+        0,
+        0
+      ],
+      "spurious_candidates": [
+        0,
+        0,
+        0
+      ],
+      "possible_contributor": [
+        {},
+        {},
+        {}
+      ],
+      "recap_cited": [
+        0,
+        0,
+        0
+      ],
+      "injected_cited": [
+        0,
+        0,
+        0
+      ],
+      "skipped_llm": [
+        "NO_DIRECT_MESSAGES",
+        "NO_DIRECT_MESSAGES",
+        "NO_DIRECT_MESSAGES"
+      ],
+      "verify_status": [
+        "passed",
+        "passed",
+        "passed"
+      ],
+      "same_conclusion_runs": 3,
+      "same_verdict_runs": 3,
+      "cost": 0.0
+    },
+    "b06_035420_2026-11-05": {
+      "n_runs": 3,
+      "expected_verdict": {
+        "move": "partially_explained",
+        "relative": "partially_explained"
+      },
+      "verdicts": [
+        {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        },
+        {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        },
+        {
+          "move": "no_clear_cause",
+          "relative": "no_clear_cause"
+        }
+      ],
+      "verdict_match_runs": {
+        "move": 0,
+        "relative": 0
+      },
+      "rule_a_violations": [
+        0,
+        0,
+        0
+      ],
+      "overclaim_candidates": [
+        0,
+        0,
+        0
+      ],
+      "omission_candidates": [
+        0,
+        0,
+        0
+      ],
+      "spurious_candidates": [
+        0,
+        0,
+        0
+      ],
+      "possible_contributor": [
+        {
+          "unlinked": 1
+        },
+        {
+          "unlinked": 1
+        },
+        {
+          "unlinked": 1
+        }
+      ],
+      "recap_cited": [
+        0,
+        0,
+        0
+      ],
+      "injected_cited": [
+        0,
+        0,
+        0
+      ],
+      "skipped_llm": [
+        null,
+        null,
+        null
+      ],
+      "verify_status": [
+        "passed",
+        "passed",
+        "passed"
+      ],
+      "same_conclusion_runs": 3,
+      "same_verdict_runs": 3,
+      "cost": 10.4
+    }
+  },
+  "totals": {
+    "reports": 18,
+    "rule_a_violations": 11,
+    "overclaim_candidates": 11,
+    "omission_candidates": 0,
+    "spurious_candidates": 3,
+    "verdict_match_move": 6,
+    "verdict_match_relative": 8,
+    "cases_all_3_same_conclusion": 3,
+    "recap_cited": 0,
+    "injected_cited": 0,
+    "skipped_llm": 3,
+    "cost": 110.99
+  }
+}

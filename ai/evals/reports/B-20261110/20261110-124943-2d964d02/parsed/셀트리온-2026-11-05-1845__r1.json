@@ -1,0 +1,423 @@
+{
+  "run_id": "셀트리온-2026-11-05-1845__r1",
+  "final_text": "{\"ticker\": \"068270\", \"name\": \"셀트리온\", \"date\": \"2026-11-05\", \"as_of\": \"2026-11-05T18:45:00+09:00\", \"change_pct\": 7.5, \"verdict\": \"explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 셀트리온은 7.5% 올랐고 코스피는 5.28% 내렸습니다. 대형주 19개 중 6개가 오르고 13개가 내렸으며, 중간값은 5.96% 하락이어서 셀트리온은 대형주 전반과 반대로 움직였습니다. 코스피와도 다르게 움직였습니다.\", \"main_cause\": \"브라질에서 바이오의약품 복제약 3종을 출시해 판매 품목을 늘린 점이 상승에 긍정적으로 작용했을 수 있습니다. 비만치료 후보의 동물실험 결과도 긍정적인 사업 재료였습니다.\", \"relative\": \"같은 바이오 그룹의 삼성바이오로직스는 1.67% 올랐고 셀트리온은 7.5% 올랐습니다. 브라질 제품 출시와 비만치료 후보 연구 성과는 셀트리온 사업에 직접 닿는 재료여서 다른 대형주 전반과의 차이에 작용했을 수 있습니다.\", \"counter\": \"미국 중간선거 뒤 AI 규제 우려로 국내 증시 매도세가 커진 점은 셀트리온의 상승 방향과 반대였습니다. 제약산업 전문가는 셀트리온을 포함한 기업에 미국 투자를 신중히 하라고 제언했습니다.\", \"unexplained\": \"셀트리온은 대형주 전반과 반대로 움직였습니다. 브라질 신제품의 실제 처방·매출 성과가 제시되지 않아 각 재료가 주가에 반영된 크기는 가늠하기 어렵습니다.\"}, \"factors\": [{\"event\": \"셀트리온이 브라질에서 후속 제품 3종을 출시했습니다.\", \"detail\": \"이번 출시로 브라질 판매 품목은 10종으로 늘었습니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"medicaltimes.com\", \"url\": \"https://www.medicaltimes.com/Main/News/NewsView.html?ID=1171646&ref=naverpc\", \"datetime_kst\": \"2026-11-05T13:40:00+09:00\", \"quote\": \"현지 출시했다고 밝혔다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"pharmnews.com\", \"url\": \"https://www.pharmnews.com/news/articleView.html?idxno=307661\", \"datetime_kst\": \"2026-11-05T14:06:00+09:00\", \"quote\": \"현지 판매를 개시했다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"etoday.co.kr\", \"url\": \"https://www.etoday.co.kr/news/view/2644624\", \"datetime_kst\": \"2026-11-05T14:10:00+09:00\", \"quote\": \"현지에서 출시했다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"회사의 신규 제품 출시가 직접 보도돼 주가 상승에 긍정적으로 작용했을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"브라질 제품 출시는 다른 대형주 전반에 공통되지 않은 셀트리온 사업 재료여서 상대 강세에 작용했을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}, {\"event\": \"CT-G32/SCO-940은 동물실험에서 비교 약물보다 체중 감량 효과가 크게 나타났습니다.\", \"detail\": \"셀트리온은 2027년 2월까지 미국에 사람 대상 시험 계획서를 제출할 예정입니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"asiatime.co.kr\", \"url\": \"https://www.asiatime.co.kr/article/20261105500084\", \"datetime_kst\": \"2026-11-05T14:18:00+09:00\", \"quote\": \"더 큰 체중 감량 효과를 나타냈다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"후보물질의 동물실험 결과와 개발 계획이 직접 보도돼 상승에 긍정적으로 작용했을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}, {\"layer\": \"relative\", \"note\": \"초기 비만치료 후보의 연구 성과는 다른 대형주 전반과 구별되는 셀트리온 고유의 재료여서 상대 강세에 작용했을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"바이오의약품 복제약\", \"term\": \"바이오시밀러\"}], \"background\": {\"bullish\": [{\"text\": \"서 회장은 셀트리온의 일부 업무가 AI 활용으로 30분 만에 끝난다고 설명했습니다.\", \"sources\": [{\"channel\": \"bizhankook.com\", \"url\": \"https://bizhankook.com/articles/celltrion-chairman-ai-organ-research.html\", \"datetime_kst\": \"2026-11-05T13:28:00+09:00\", \"quote\": \"업무가 30분 만에 끝난다\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"브라질에서 안과질환·자가면역질환 치료제 2종을 연말 출시할 계획입니다.\", \"sources\": [{\"channel\": \"medicaltimes.com\", \"url\": \"https://www.medicaltimes.com/Main/News/NewsView.html?ID=1171646&ref=naverpc\", \"datetime_kst\": \"2026-11-05T13:40:00+09:00\", \"quote\": \"두 제품 모두 올해 말 브라질 출시를 목표로 준비 중이다.\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"watch\": true}], \"bearish\": [{\"text\": \"미국 중간선거 뒤 AI 데이터센터 규제 우려가 커지며 국내 증시에서 매도세가 확산했습니다.\", \"sources\": [{\"channel\": \"sedaily.com\", \"url\": \"https://www.sedaily.com/article/20110635?ref=naver\", \"datetime_kst\": \"2026-11-05T13:38:00+09:00\", \"quote\": \"AI 데이터센터 규제 강화 우려에\", \"mention\": \"not_mentioned\", \"is_market_recap\": false}]}, {\"text\": \"서 회장은 AI 활용에 따라 신입사원 채용을 줄이고 경력직을 뽑는다고 밝혔습니다.\", \"sources\": [{\"channel\": \"bizhankook.com\", \"url\": \"https://bizhankook.com/articles/celltrion-chairman-ai-organ-research.html\", \"datetime_kst\": \"2026-11-05T13:28:00+09:00\", \"quote\": \"신입사원 채용을 줄였고 뽑아야 하면 경력사원을 선발한다\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"제약산업 전문가가 셀트리온 등 국내 기업에 미국 투자를 신중히 하라고 제언했습니다.\", \"sources\": [{\"channel\": \"viva100.com\", \"url\": \"https://www.viva100.com/article/20261105500609\", \"datetime_kst\": \"2026-11-05T14:14:00+09:00\", \"quote\": \"국내 기업들도 향후 투자에 신중해야 한다\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"neutral\": [{\"text\": \"미국은 바이오의약품 복제약에 추가 수입 규제가 필요한지 내년 4월까지 검토합니다.\", \"sources\": [{\"channel\": \"viva100.com\", \"url\": \"https://www.viva100.com/article/20261105500609\", \"datetime_kst\": \"2026-11-05T14:14:00+09:00\", \"quote\": \"추가 관세 등 수입 규제 조치의 필요성 검토\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"watch\": true}]}, \"not_found\": [\"브라질 신제품의 실제 처방·매출 성과가 제공된 메시지에 없어 출시의 영향 크기를 판단하기 어렵습니다.\", \"셀트리온의 동물실험 결과는 보도됐지만 사람 대상 시험 결과는 제시되지 않았습니다.\", \"m3에 나온 셀트리온 6.75% 상승은 장중 수치이므로 원인 근거로 사용하지 않았습니다.\"], \"events\": [{\"event\": \"셀트리온의 브라질 후속 제품 3종 출시\", \"issue_ids\": [\"i12\", \"i14\", \"i16\", \"i18\"], \"factor\": 0, \"dup_channels\": 1, \"placed\": \"factors\"}, {\"event\": \"CT-G32/SCO-940 동물실험 결과와 사람 대상 시험 계획\", \"issue_ids\": [\"i25\"], \"factor\": 1, \"dup_channels\": 1, \"placed\": \"factors\"}, {\"event\": \"셀트리온 업무에 AI를 활용해 생산성을 높였다는 설명\", \"issue_ids\": [\"i5\"], \"background\": {\"slot\": \"bullish\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"브라질 후속 치료제 2종의 연말 출시 계획\", \"issue_ids\": [\"i13\", \"i15\", \"i17\", \"i19\"], \"background\": {\"slot\": \"bullish\", \"index\": 1}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"미국 중간선거 뒤 AI 규제 우려에 증시 매도세 확산\", \"issue_ids\": [\"i8\"], \"background\": {\"slot\": \"bearish\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"AI 활용에 따른 신입사원 채용 축소\", \"issue_ids\": [\"i6\"], \"background\": {\"slot\": \"bearish\", \"index\": 1}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"전문가의 미국 내 투자 신중론\", \"issue_ids\": [\"i22\"], \"background\": {\"slot\": \"bearish\", \"index\": 2}, \"dup_channels\": 1, \"placed\": \"background\"}, {\"event\": \"미국의 바이오의약품 복제약 추가 규제 검토\", \"issue_ids\": [\"i20\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": 1, \"placed\": \"background\"}], \"display_as_of\": \"2026-11-05T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 36572,
+    "completion_tokens": 18633,
+    "total_tokens": 55205,
+    "prompt_tokens_details": {
+      "cached_tokens": 19784,
+      "cache_write_tokens": 13428,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 14261,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 36572,
+    "output_tokens": 18633,
+    "cached_prompt_tokens": 19784,
+    "cache_write_tokens": 13428,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 36572,
+    "total": 33215,
+    "cache_read": 19784,
+    "cache_write": 13428,
+    "uncached": 3
+  },
+  "cost": 15.836248,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 138754,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:50:48+09:00",
+  "move_case": "normal",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": null,
+  "market_led": false,
+  "move_comparison": "반대로",
+  "main_cause_sentences": 3,
+  "sector": [
+    "바이오"
+  ],
+  "universe_weight": 0.0145,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "유가 하락에도 코스피 보합 출발 전망",
+          "relation": "market"
+        },
+        {
+          "id": "i2",
+          "issue": "AI 투자 둔화 우려가 기술주 약세 요인",
+          "relation": "market"
+        },
+        {
+          "id": "i3",
+          "issue": "민주당 승리 뒤 제약주 강세 기대",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 11
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i4",
+          "issue": "서 회장, 인공장기 상용화 장벽 지적",
+          "relation": "direct"
+        },
+        {
+          "id": "i5",
+          "issue": "AI 도입에 따른 업무 생산성 향상",
+          "relation": "direct"
+        },
+        {
+          "id": "i6",
+          "issue": "AI 활용에 맞춰 신입 채용 축소",
+          "relation": "direct"
+        },
+        {
+          "id": "i7",
+          "issue": "AI로 외부 기술을 발굴해 신약 개발",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 2
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i8",
+          "issue": "미국 선거 뒤 AI 규제 우려에 증시 급락",
+          "relation": "market"
+        },
+        {
+          "id": "i9",
+          "issue": "외국인이 유가증권시장에서 대규모 순매도",
+          "relation": "market"
+        },
+        {
+          "id": "i10",
+          "issue": "셀트리온 장중 상승",
+          "relation": "direct"
+        },
+        {
+          "id": "i11",
+          "issue": "금리·유가 하락 수혜 기대 속 바이오주 강세",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 2
+    },
+    {
+      "id": "m4",
+      "issues": [
+        {
+          "id": "i12",
+          "issue": "브라질에 후속 제품 3종 출시",
+          "relation": "direct"
+        },
+        {
+          "id": "i13",
+          "issue": "브라질에서 후속 제품 연말 출시 목표",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 1
+    },
+    {
+      "id": "m5",
+      "issues": [
+        {
+          "id": "i14",
+          "issue": "브라질에 후속 제품 3종 출시",
+          "relation": "direct"
+        },
+        {
+          "id": "i15",
+          "issue": "브라질에서 후속 제품 연말 출시 목표",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m6",
+      "issues": [
+        {
+          "id": "i16",
+          "issue": "브라질에 후속 제품 3종 출시",
+          "relation": "direct"
+        },
+        {
+          "id": "i17",
+          "issue": "브라질 후속 제품 현지 행정 절차 진행",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m7",
+      "issues": [
+        {
+          "id": "i18",
+          "issue": "브라질에 후속 제품 3종 출시",
+          "relation": "direct"
+        },
+        {
+          "id": "i19",
+          "issue": "브라질에서 후속 제품 연말 출시 목표",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m8",
+      "issues": [
+        {
+          "id": "i20",
+          "issue": "미국, 바이오의약품 복제약 추가 규제 필요성 검토",
+          "relation": "direct"
+        },
+        {
+          "id": "i21",
+          "issue": "셀트리온의 미국 생산 확대 계획",
+          "relation": "direct"
+        },
+        {
+          "id": "i22",
+          "issue": "전문가, 미국 내 투자에 신중론",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 1
+    },
+    {
+      "id": "m9",
+      "issues": [
+        {
+          "id": "i23",
+          "issue": "한미약품 비만치료제 출시",
+          "relation": "sector"
+        },
+        {
+          "id": "i24",
+          "issue": "한미약품의 후속 비만치료 후보 개발",
+          "relation": "sector"
+        },
+        {
+          "id": "i25",
+          "issue": "셀트리온 비만치료 후보의 동물실험 결과",
+          "relation": "direct"
+        },
+        {
+          "id": "i26",
+          "issue": "대웅제약의 비만치료제 투여 방식 개발",
+          "relation": "sector"
+        },
+        {
+          "id": "i27",
+          "issue": "아시아 기업의 비만치료제 개발 경쟁",
+          "relation": "sector"
+        }
+      ],
+      "none_count": 2
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": 7.5,
+      "kospi_change_rate_pct": -5.28,
+      "excess_vs_kospi_pp": 12.78,
+      "kospi_weight_pct": 1.02,
+      "kospi_contribution_pp": 0.077,
+      "kospi_ex_self_change_rate_pct": -5.41,
+      "excess_vs_kospi_ex_self_pp": 12.91,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "바이오",
+        "median_change_rate_pct": 1.67,
+        "excess_vs_group_pp": 5.83,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "members_used": [
+          {
+            "code": "207940",
+            "name": "삼성바이오로직스"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "068270",
+            "name": "셀트리온",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": 7.5,
+    "krx": 7.5,
+    "source": "KRX /sto/stk_bydd_trd 2026-11-05 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -5.28,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-11-05 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -5.96,
+        "peer_up": 6,
+        "peer_down": 13,
+        "peer_total": 19
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 13.46
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 2,
+    "background": 6,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 0,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 1,
+      "layer": "move",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    },
+    {
+      "factor": 1,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "explained",
+      "final": "explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/셀트리온-2026-11-05-1845__r1.json",
+  "input_used_path": "inputs_used/셀트리온-2026-11-05-1845__r1.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inB/b02__r1.json",
+  "input_sha256": "b11bac49b336768d29fe76aef33f732602ffdea5a854be07315e63183bdaaeba",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [
+    "QUOTE_MISSING_SUBJECT: factors[1] 첫 출처 quote 에 CT, G32, SCO 가 없다"
+  ],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 9,
+    "messages_total": 9,
+    "relations": {
+      "market": 4,
+      "sector": 6,
+      "direct": 17,
+      "none": 19
+    },
+    "issues_used": 14
+  }
+}

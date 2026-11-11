@@ -1,0 +1,285 @@
+{
+  "run_id": "LG디스플레이-2026-10-22-1845__r2",
+  "final_text": "{\"ticker\": \"034220\", \"name\": \"LG디스플레이\", \"date\": \"2026-10-22\", \"as_of\": \"2026-10-22T18:45:00+09:00\", \"change_pct\": -1.63, \"verdict\": \"partially_explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 LG디스플레이는 1.63% 하락했습니다. 코스피는 3.52% 내렸고, 비교 대형주 20개 모두 하락했으며 중간값은 2.79% 하락이었습니다. LG디스플레이는 코스피와는 다르게 움직였고, 대형주 전반보다 덜 내렸습니다.\", \"main_cause\": \"3분기 영업이익이 흑자 전환했지만 시장 예상에 못 미쳐 하락 부담이 됐을 수 있습니다.\", \"relative\": \"LG디스플레이는 코스피와는 다르게 움직였습니다. OLED 매출 비중과 다음 분기 출하 전망이 대형주 전반보다 덜 내리는 데 보탬이 됐을 수 있습니다.\", \"counter\": null, \"unexplained\": \"실적이 예상에 못 미친 점은 확인되지만, 주가 하락 폭 전체를 설명할 추가 요인은 제공된 메시지에서 확인되지 않습니다.\"}, \"factors\": [{\"event\": \"3분기 영업이익은 2,506억원으로 전분기 흑자 전환했지만 시장 예상에 못 미쳤습니다.\", \"detail\": \"지배주주 순이익은 7,467억원을 기록해 시장 예상치를 웃돌았습니다.\", \"stance\": \"bearish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19168\", \"datetime_kst\": \"2026-10-22T17:22:19+09:00\", \"quote\": \"시장 예상치를 소폭 하회\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4759\", \"datetime_kst\": \"2026-10-22T13:24:37+09:00\", \"quote\": \"영업이익: 2,506억원 (-42% YoY)\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19162\", \"datetime_kst\": \"2026-10-22T13:26:00+09:00\", \"quote\": \"7,467억원 (vs 컨센서스 2,603억원)\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"시장 예상에 못 미친 실적이 하락 부담이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"partial\"}]}, {\"event\": \"OLED 매출 비중은 67%로 전년보다 2%포인트 늘었습니다.\", \"detail\": \"4분기 패널 생산 면적은 전분기보다 10% 늘어날 것으로 제시됐습니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19168\", \"datetime_kst\": \"2026-10-22T17:22:19+09:00\", \"quote\": \"OLED 매출 비중은 67% (+2%p YoY)\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"relative\", \"note\": \"OLED 사업 비중이 커진 점은 대형주 전반과 다른 사업 노출로, 상대적인 낙폭 축소에 보탬이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"패널 생산 면적\", \"term\": \"출하면적\"}, {\"plain\": \"새 화소 형성 공정\", \"term\": \"FLiPP\"}], \"background\": {\"bullish\": [], \"bearish\": [{\"text\": \"메리츠증권은 IT 기기 수요 부진이 수익성 개선을 제한했다고 판단했습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19168\", \"datetime_kst\": \"2026-10-22T17:22:19+09:00\", \"quote\": \"IT 세트 수요 부진이 수익성 개선을 제약한 것으로 판단\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"메리츠증권은 재무구조 정상화를 위해 신규 투자에 보수적이라고 전했습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19168\", \"datetime_kst\": \"2026-10-22T17:22:19+09:00\", \"quote\": \"신규 투자에 여전히 보수적인 입장을 유지\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}], \"neutral\": [{\"text\": \"회사는 기존 금속 가림막을 대체하는 새 화소 형성 공정을 설명했습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19168\", \"datetime_kst\": \"2026-10-22T17:22:19+09:00\", \"quote\": \"FLiPP (FMM-Less innovative Pixel Patterning)\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"회사는 사용하지 않는 생산시설을 활용해 기존 설비의 효율을 높이는 전략을 강조했습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19168\", \"datetime_kst\": \"2026-10-22T17:22:19+09:00\", \"quote\": \"유휴 Fab 활용 전략을 강조\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}]}, \"not_found\": [\"실적이 주가에 어느 정도 반영됐는지는 제공된 메시지만으로 가늠하기 어렵습니다.\"], \"events\": [{\"event\": \"3분기 실적은 영업이익 흑자 전환에도 시장 예상에 못 미쳤습니다.\", \"issue_ids\": [\"i1\", \"i2\", \"i3\", \"i4\", \"i5\", \"i6\"], \"factor\": 0, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"OLED 매출 비중과 다음 분기 출하 전망이 개선됐습니다.\", \"issue_ids\": [\"i8\", \"i9\", \"i13\"], \"factor\": 1, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"IT 기기 수요 부진이 수익성 개선을 제한한다는 증권사 분석이 나왔습니다.\", \"issue_ids\": [\"i7\"], \"background\": {\"slot\": \"bearish\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"재무구조 정상화를 위해 신규 투자에 보수적이라는 분석이 나왔습니다.\", \"issue_ids\": [\"i14\"], \"background\": {\"slot\": \"bearish\", \"index\": 1}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"회사가 기존 금속마스크를 대체하는 새 공정을 설명했습니다.\", \"issue_ids\": [\"i10\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"회사가 유휴 생산시설 활용 전략을 강조했습니다.\", \"issue_ids\": [\"i11\", \"i12\"], \"background\": {\"slot\": \"neutral\", \"index\": 1}, \"dup_channels\": null, \"placed\": \"background\"}], \"display_as_of\": \"2026-10-22T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 23689,
+    "completion_tokens": 12375,
+    "total_tokens": 36064,
+    "prompt_tokens_details": {
+      "cached_tokens": 23686,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 9415,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 23689,
+    "output_tokens": 12375,
+    "cached_prompt_tokens": 23686,
+    "cache_write_tokens": 0,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 23689,
+    "total": 23689,
+    "cache_read": 23686,
+    "cache_write": 0,
+    "uncached": 3
+  },
+  "cost": 9.093527,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 115381,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "5125d7cc8ed746e0cf2e55689de0571f51c707e73bb64fdf097479930b42a51d",
+  "generated_at": "2026-11-10T18:46:10+09:00",
+  "move_case": "opposite",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": "partial",
+  "market_led": false,
+  "move_comparison": "덜",
+  "main_cause_sentences": 3,
+  "sector": null,
+  "universe_weight": null,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "3분기 매출이 전년보다 줄고 시장 예상에 못 미침",
+          "relation": "direct"
+        },
+        {
+          "id": "i2",
+          "issue": "3분기 영업이익이 전년보다 줄고 시장 예상에 못 미침",
+          "relation": "direct"
+        },
+        {
+          "id": "i3",
+          "issue": "영업이익률은 시장 예상보다 높음",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i4",
+          "issue": "3분기 매출·영업이익 실적을 다시 전함",
+          "relation": "direct"
+        },
+        {
+          "id": "i5",
+          "issue": "지배주주 순이익이 시장 예상치를 웃돎",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i6",
+          "issue": "영업이익이 전분기 흑자 전환했지만 예상에 소폭 못 미침",
+          "relation": "direct"
+        },
+        {
+          "id": "i7",
+          "issue": "원화 강세·원재료 가격·IT 수요가 수익성 개선을 제약",
+          "relation": "direct"
+        },
+        {
+          "id": "i8",
+          "issue": "OLED 매출 비중과 평균 판매가격이 상승",
+          "relation": "direct"
+        },
+        {
+          "id": "i9",
+          "issue": "4분기 출하면적과 평균 판매가격 전망을 제시",
+          "relation": "direct"
+        },
+        {
+          "id": "i10",
+          "issue": "기존 금속마스크를 대체할 새 공정을 설명",
+          "relation": "direct"
+        },
+        {
+          "id": "i11",
+          "issue": "유휴 생산시설 활용 전략을 강조",
+          "relation": "direct"
+        },
+        {
+          "id": "i12",
+          "issue": "기존 생산설비 활용도를 높여 불확실성에 대응할 방침",
+          "relation": "direct"
+        },
+        {
+          "id": "i13",
+          "issue": "핵심 고객사향 모바일 패널 출하와 OLED 비중이 견조",
+          "relation": "direct"
+        },
+        {
+          "id": "i14",
+          "issue": "재무구조 정상화를 위해 신규 투자에 보수적",
+          "relation": "direct"
+        },
+        {
+          "id": "i15",
+          "issue": "신기술 채택과 유휴 설비 가동이 향후 이익에 도움이 될 전망",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -1.63,
+      "kospi_change_rate_pct": -3.52,
+      "excess_vs_kospi_pp": 1.89,
+      "kospi_weight_pct": 0.08,
+      "kospi_contribution_pp": -0.001,
+      "kospi_ex_self_change_rate_pct": -3.52,
+      "excess_vs_kospi_ex_self_pp": 1.89,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": []
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": -1.63,
+    "krx": -1.63,
+    "source": "KRX /sto/stk_bydd_trd 2026-10-22 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -3.52,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-10-22 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -2.79,
+        "peer_up": 0,
+        "peer_down": 20,
+        "peer_total": 20
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 1.16
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 2,
+    "background": 4,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "partial",
+      "final": "partial",
+      "basis": "issues"
+    },
+    {
+      "factor": 1,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "partially_explained",
+      "final": "partially_explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/LG디스플레이-2026-10-22-1845__r2.json",
+  "input_used_path": "inputs_used/LG디스플레이-2026-10-22-1845__r2.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/in_A/LG디스플레이-2026-10-22-1845__r2.json",
+  "input_sha256": "a59bdaf0e02f0e872b12bd4d9158483facd5b19405b33c5e3d0b0da30431779a",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 3,
+    "messages_total": 3,
+    "relations": {
+      "direct": 15
+    },
+    "issues_used": 14
+  }
+}

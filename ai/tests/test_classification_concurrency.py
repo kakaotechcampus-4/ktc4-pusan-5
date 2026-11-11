@@ -68,6 +68,7 @@ def run_args(concurrency: int) -> argparse.Namespace:
     return argparse.Namespace(
         basis=None, since=None, ids=None, limit=None, retry=False, experiment=False,
         extract_model=None, link_model=None, judge_model=None, concurrency=concurrency,
+        per_stock_cap=None, daily_budget=None,
     )
 
 
@@ -222,3 +223,29 @@ async def test_other_errors_are_not_sent_again(monkeypatch, waits):
     assert complete.await_count == 1
     assert result.rate_limit_retries == 0
     waits.assert_not_awaited()
+
+
+async def test_daily_budget_stops_starting_new_cards(monkeypatch, capsys):
+    seen = fake_run(monkeypatch, [1, 2, 3])
+    monkeypatch.setattr(cli, "classification_cost_since", AsyncMock(return_value=8.0))
+    monkeypatch.setattr(ClassificationResult, "cost", property(lambda self: 1.5))
+    args = run_args(1)
+    args.daily_budget = 10.0
+    # 상한으로 시작하지 않은 자료는 실패가 아니라 종료 코드 0 이다
+    assert await cli.run_classify(args) == 0
+    # 8 → 9.5 → 11. 셋째는 상한을 넘은 뒤라 시작하지 않고 회차도 만들지 않는다
+    assert seen.started == [1, 2]
+    assert set(seen.saved) == {1, 2}
+    out = capsys.readouterr().out
+    assert "budget 1" in out and "하루 비용 상한에 닿아 1건" in out
+
+
+async def test_explicit_ids_ignore_the_daily_budget(monkeypatch):
+    seen = fake_run(monkeypatch, [1, 2])
+    spent = AsyncMock(return_value=1e9)
+    monkeypatch.setattr(cli, "classification_cost_since", spent)
+    args = run_args(1)
+    args.ids, args.daily_budget = [1, 2], 10.0
+    await cli.run_classify(args)
+    assert set(seen.saved) == {1, 2}
+    spent.assert_not_called()

@@ -40,6 +40,16 @@ def test_shipped_basis_file_passes_every_check() -> None:
     assert all(len(basis.links_of(code)) > 0 for code in basis.stocks)
 
 
+def test_shipped_competitor_scope_names_ess_and_ssd() -> None:
+    """경쟁사 질문은 범위 메모를 글자 그대로 읽는다. '배터리 셀'만 적으면 ESS 수주를 다른 제품으로 보고 뺐다(11-10)."""
+    basis = load_basis(latest_basis_file())
+    competitors = [r for r in basis.relations if r.relation_type == "competitor"]
+    battery = [r.note for r in competitors if r.industry_code == "battery"]
+    memory = [r.note for r in competitors if r.industry_code == "memory"]
+    assert len(battery) == 6 and all("ESS" in note and "로봇" in note for note in battery)
+    assert len(memory) == 3 and all("기업용 SSD" in note for note in memory)
+
+
 def test_version_is_file_sha256() -> None:
     basis = load_basis(MOCK_BASIS)
     assert basis.version == hashlib.sha256(MOCK_BASIS.read_bytes()).hexdigest()

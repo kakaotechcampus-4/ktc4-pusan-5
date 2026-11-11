@@ -38,6 +38,8 @@ services:
     expose:
       - "8000"
     # CMD 가 alembic upgrade head 를 먼저 돌리므로, /health 가 200 이면 마이그레이션까지 끝난 것이다.
+    # start_period 60s + interval 10s × retries 5 ≈ 110초 뒤에 unhealthy 가 된다. scripts/deploy-lib.sh 의 --wait-timeout 120 과
+    # 거의 같은 시점이므로, 긴 마이그레이션을 허용하려면 두 값을 함께 올린다.
     healthcheck:
       test:
         - CMD
@@ -69,7 +71,9 @@ services:
         condition: service_healthy
     mem_limit: 1g
     logging: *default-logging
-    # 수집 루프가 한 바퀴 끝까지 돌 때마다 갱신하는 /tmp/collector-heartbeat 가 5분 안에 갱신됐는지 본다.
+    # 수집 루프가 DB 오류 없이 한 바퀴 돌 때마다 갱신하는 /tmp/collector-heartbeat 가 5분 안에 갱신됐는지 본다.
+    # 수집기가 살아 있는지(liveness)만 본다. KIS 등 외부 소스가 계속 실패해도 healthy 일 수 있다.
+    # 실제 수집 성공 시각은 /tmp/collector-last-success 에 남지만 헬스체크는 보지 않는다.
     # unhealthy 가 되어도 도커는 재시작하지 않는다. 배포는 이 상태를 로그(collector-unhealthy)로만 알린다.
     healthcheck:
       test: ["CMD-SHELL", "find /tmp/collector-heartbeat -mmin -5 2>/dev/null | grep -q ."]

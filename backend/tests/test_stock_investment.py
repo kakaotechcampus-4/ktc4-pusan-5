@@ -168,3 +168,33 @@ async def test_quarterly_jobs_deduplicate_and_stored_contract_is_reused(stock_db
         assert result.investment.data[-1].operating_profit == 7
         assert result.investment.data[-1].eps_cumulative == 3
         assert result.investment.data[-1].bps == 1234
+
+
+def test_trailing_net_income_sums_four_single_quarters():
+    rows = [
+        income("2024-03", 0, 0, 1),
+        income("2024-06", 0, 0, 3),
+        income("2024-09", 0, 0, 6),
+        income("2024-12", 0, 0, 10),
+        income("2025-03", 0, 0, 2),
+    ]
+    annual = resource([AnnualIncome(fiscal_period="2023-12"), AnnualIncome(fiscal_period="2024-12")])
+    result = investment_summary(resource(rows), resource([]), annual)
+    by_period = {p.fiscal_period: p for p in result.data}
+    # 누적(1, 3, 6, 10, 2) → 단일 분기(1, 2, 3, 4, 2). 2024-12 = 1+2+3+4, 2025-03 = 2+3+4+2
+    assert by_period["2024-12"].net_income_ttm == 10
+    assert by_period["2025-03"].net_income_ttm == 11
+    assert by_period["2024-09"].net_income_ttm is None  # 직전 분기 부족 → 추정하지 않는다
+
+
+def test_per_pbr_are_none_when_not_meaningful():
+    from app.services.stock_history_detail import pbr, per
+
+    assert per(1000, 100) == 10
+    assert per(1000, 0) is None
+    assert per(1000, -5) is None
+    assert per(None, 100) is None
+    assert pbr(500, 250) == 2
+    assert pbr(500, 0) is None
+    assert pbr(500, -10) is None
+    assert pbr(None, 250) is None

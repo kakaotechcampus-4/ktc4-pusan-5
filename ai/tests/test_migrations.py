@@ -24,7 +24,7 @@ from tests.backend_schema import BACKEND_HEAD, backend_statements
 
 AI_DIR = Path(__file__).resolve().parents[1]
 # 체인 끝이 바뀌면 여기도 바꾼다. stamp·버전 확인이 전부 이 값을 쓴다.
-HEAD = "0027_classification"
+HEAD = "0030_news_body_extract_failures"
 # AI 가 backend 에게서 넘겨받기 직전 리비전
 BEFORE_TAKEOVER = "0019_stock_move_analysis"
 
@@ -141,6 +141,7 @@ def test_offline_sql_and_single_head():
     assert "CREATE TABLE source_card_stocks (" in sql
     assert "CREATE TABLE dart_disclosures (" in sql
     assert "ALTER TABLE source_card ADD COLUMN dart_disclosure_id" in sql
+    assert "ALTER TABLE news ADD COLUMN body_extract_failures" in sql
     assert alembic(url, "heads").strip() == f"{HEAD} (head)"
 
 
@@ -196,9 +197,51 @@ def test_news_takeover_keeps_rows_and_ids_and_backfills_body_state(database):
         (9, "failed", "unrecorded", None),
     ]
     assert all(r["body_fetched_at"] == r["collected_at"] for r in rows)
+    # 실패한 이관 전 행은 한 번 실패한 것으로 센다(0030). 몇 번 실패했는지는 남아 있지 않다
+    assert [r["body_extract_failures"] for r in rows] == [0, 1, 1]
     # 정규화 주소는 등록 처리가 채운다. 리비전이 앱 코드의 규칙을 쓰지 않는다
     assert all(r["canonical_url"] is None for r in rows)
     assert columns(database, "news")["published_at"] is True
+
+
+def test_failure_count_backfill_counts_only_extract_and_unknown_failures(database):
+    """0030 은 추출 실패·알 수 없는 실패만 한 번 센다. 일시·429·영구 실패는 횟수로 포기하지
+    않으므로 세지 않는다. 판별은 services/news/failure.py failure_kind 와 같아야 한다."""
+    alembic(database, "upgrade", "head")
+    alembic(database, "downgrade", "-1")  # body_extract_failures 가 생기기 직전
+    cases = {
+        "extract_empty": 1,
+        "no_body": 1,
+        "unrecorded": 1,
+        None: 1,
+        "something_new": 1,
+        "http_error: unknown": 1,
+        "request_failed: ReadTimeout": 0,
+        "request_failed: invalid_address": 0,
+        "error": 0,
+        "http_error: 503": 0,
+        "http_error: 429": 0,
+        "http_error: 404": 0,
+        "http_404": 0,
+        "not_html": 0,
+        "too_large": 0,
+    }
+    for n, body_error in enumerate(cases):
+        query(database, """
+            INSERT INTO news (url, title, publisher, source, published_at, summary, body_status,
+                              body_error, body_fetched_at)
+            VALUES ($1, '', 'example.com', 'telegram', now(), '', 'failed', $2, now())
+        """, f"https://example.com/{n}", body_error)
+    query(database, """
+        INSERT INTO news (url, title, publisher, source, published_at, summary, body_status,
+                          body_error, body_fetched_at)
+        VALUES ('https://example.com/unopened', '', 'example.com', 'telegram', now(), '',
+                'failed', 'extract_empty', NULL)
+    """)
+    alembic(database, "upgrade", "head")
+    rows = query(database, "SELECT url, body_error, body_extract_failures FROM news ORDER BY id")
+    assert {r["body_error"]: r["body_extract_failures"] for r in rows[:-1]} == cases
+    assert rows[-1]["body_extract_failures"] == 0, "열지 않은 행은 세지 않는다"
 
 
 def test_news_downgrade_refuses_rows_without_publish_time(database):

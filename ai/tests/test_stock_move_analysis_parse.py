@@ -40,8 +40,8 @@ def test_wrapper_is_opened_then_final_text_reparsed() -> None:
 
 
 def test_unknown_wrapper_fields_are_ignored() -> None:
-    """래퍼는 실험 환경 산출물이라 필드가 늘거나 준다. 우리가 보는 다섯 개
-    (final_text, json_status, schema_problems, is_error, asked_question) 밖은
+    """래퍼는 실험 환경 산출물이라 필드가 늘거나 준다. 우리가 보는 여섯 개
+    (final_text, json_status, schema_problems, is_error, asked_question, skipped_llm) 밖은
     흘려보낸다. 여기서 죽으면 적재가 통째로 멈춘다."""
     parsed = parse_wrapper(
         {
@@ -314,3 +314,44 @@ def test_broken_file_still_gets_a_hash(tmp_path: Path) -> None:
 def test_wrapper_without_file_has_no_hash() -> None:
     """파일 없이 래퍼 dict 로 넣는 경로는 키가 없다. NULL 은 UNIQUE 에서 충돌하지 않는다."""
     assert parse_wrapper(json.loads(SAMSUNG.read_text(encoding="utf-8"))).source_file_sha256 is None
+
+
+def test_current_report_fills_display_columns() -> None:
+    """지금 보고서의 화면 칸(상대 층 판정·문장, 화면 기준 시각, 층별 연결)이 칼럼에 들어간다."""
+    analysis = build_analysis(parse_analysis_file(CURRENT))
+    raw = analysis.raw_json
+    assert analysis.relative_verdict == raw["relative_verdict"] == "no_clear_cause"
+    assert analysis.summary_relative is None and raw["summary"]["relative"] is None  # 상대 층을 판단하지 않은 날
+    assert analysis.display_as_of == datetime(2026, 11, 3, 15, 30, tzinfo=KST)
+    assert analysis.display_is_close is True
+    assert analysis.as_of == datetime(2026, 11, 3, 18, 45, tzinfo=KST)  # cutoff 는 따로 남는다
+    assert [f.links for f in analysis.factors] == [f["links"] for f in raw["factors"]]
+    # 층별 판단은 links 에 있어 factor 칼럼은 비어 있다
+    assert all(f.size_fit is None and f.direction_match is None for f in analysis.factors)
+
+
+def test_legacy_report_leaves_display_columns_empty() -> None:
+    analysis = build_analysis(parse_analysis_file(SAMSUNG))
+    assert (analysis.relative_verdict, analysis.summary_relative, analysis.display_as_of,
+            analysis.display_is_close) == (None, None, None, None)
+    assert all(f.links is None and f.size_fit for f in analysis.factors)
+
+
+def test_links_drop_non_objects() -> None:
+    report = {"summary": {}, "factors": [{"event": "e", "links": [{"layer": "move"}, "x", 1]},
+                                         {"event": "f", "links": {"layer": "move"}}]}
+    analysis = build_analysis(parse_wrapper({"final_text": json.dumps(report)}))
+    assert [f.links for f in analysis.factors] == [[{"layer": "move"}], None]
+
+
+@pytest.mark.parametrize(("wrapper", "stored"), [
+    ({"final_text": "{}", "skipped_llm": "NO_DIRECT_MESSAGES"}, "NO_DIRECT_MESSAGES"),
+    ({"final_text": "{}"}, None),
+    ({"final_text": "{}", "skipped_llm": True}, None),  # 문자열만 받는다
+    ({"final_text": "{깨짐", "skipped_llm": "NO_DIRECT_MESSAGES"}, "NO_DIRECT_MESSAGES"),  # 파싱이 깨져도 래퍼 칸은 읽는다
+])
+def test_skipped_llm_is_read_from_the_wrapper(wrapper: dict, stored: str | None) -> None:
+    """정형 보고서 표시는 보고서가 아니라 래퍼의 칸이다. raw_json(보고서)에 남지 않으므로 칼럼이 유일한 자리다."""
+    parsed = parse_wrapper(wrapper)
+    assert build_analysis(parsed).skipped_llm == stored
+    assert "skipped_llm" not in parsed.raw_json or parsed.parse_status == "parse_failed"

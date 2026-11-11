@@ -31,6 +31,8 @@ class StockPeriodMarket(Base):
     period_end: Mapped[date] = mapped_column(Date, primary_key=True)
     market_cap: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
     cap_as_of: Mapped[date | None] = mapped_column(Date)
+    # cap_as_of 당일 종가(KRX TDD_CLSPRC). PBR 계산용이며 차트 일봉 수집과 무관하게 채워진다.
+    cap_close: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
     cap_collected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rs: Mapped[Decimal | None] = mapped_column(Numeric(24, 8))
     rs_as_of: Mapped[date | None] = mapped_column(Date)

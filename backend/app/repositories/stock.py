@@ -7,12 +7,14 @@ from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.retry_policy import MAX_ATTEMPTS, PERMANENT_ERROR_CODES, PERMANENT_MAX_ATTEMPTS
 from app.models.stock import (
     Stock,
     StockCollectionJob,
     StockCollectionState,
     StockDailyPrice,
     StockDataCoverage,
+    StockInvestorSnapshot,
     StockMetricSnapshot,
     StockQuoteSnapshot,
 )
@@ -66,6 +68,14 @@ async def enqueue(
     )
 
 
+def _retry_budget_left():
+    permanent = func.coalesce(StockCollectionJob.error_code, "").in_(PERMANENT_ERROR_CODES)
+    return or_(
+        and_(permanent, StockCollectionJob.attempts < PERMANENT_MAX_ATTEMPTS),
+        and_(~permanent, StockCollectionJob.attempts < MAX_ATTEMPTS),
+    )
+
+
 async def claim(session: AsyncSession, now: datetime) -> StockCollectionJob | None:
     job = await session.scalar(
         select(StockCollectionJob)
@@ -76,9 +86,7 @@ async def claim(session: AsyncSession, now: datetime) -> StockCollectionJob | No
                 and_(
                     or_(
                         StockCollectionJob.status == "queued",
-                        and_(
-                            StockCollectionJob.status == "failed", StockCollectionJob.attempts < 5
-                        ),
+                        and_(StockCollectionJob.status == "failed", _retry_budget_left()),
                     ),
                     StockCollectionJob.next_run_at <= now,
                 ),
@@ -164,6 +172,30 @@ async def save_snapshot(
         if result.rowcount == 0:
             rejected.add("quote" if model is StockQuoteSnapshot else "metrics")
     return rejected
+
+
+async def save_investor(
+    session: AsyncSession, code: str, flow, source_as_of: datetime, now: datetime
+) -> bool:
+    """오래된 거래일 값으로 최신 값을 되돌리지 않는다. 저장되지 않으면 False."""
+    values = {
+        "stock_code": code,
+        "trade_date": flow.trade_date,
+        "institution_net_qty": flow.institution_net_qty,
+        "institution_net_value": flow.institution_net_value,
+        "source": "KIS",
+        "source_as_of": source_as_of,
+        "collected_at": now,
+    }
+    statement = insert(StockInvestorSnapshot).values(**values)
+    result = await session.execute(
+        statement.on_conflict_do_update(
+            index_elements=["stock_code"],
+            set_={k: statement.excluded[k] for k in values if k != "stock_code"},
+            where=StockInvestorSnapshot.trade_date <= statement.excluded.trade_date,
+        )
+    )
+    return result.rowcount > 0
 
 
 async def save_prices(
