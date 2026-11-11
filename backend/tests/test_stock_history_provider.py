@@ -22,14 +22,34 @@ async def test_cap_uses_last_trading_day_and_does_not_backfill_unlisted_stock():
         return (
             []
             if day == date(2025, 12, 31)
-            else [{"ISU_CD": "005930", "BAS_DD": "20251230", "MKTCAP": "100"}]
+            else [
+                {"ISU_CD": "005930", "BAS_DD": "20251230", "MKTCAP": "100", "TDD_CLSPRC": "70,000"}
+            ]
         )
 
     assert await fetch_cap(None, "005930", "KOSPI", date(2025, 12, 31), cache) == {
         "market_cap": Decimal(100),
         "cap_as_of": date(2025, 12, 30),
+        "cap_close": Decimal(70000),
     }
     assert await fetch_cap(None, "000660", "KOSPI", date(2025, 12, 31), cache) is None
+
+
+@pytest.mark.parametrize("close", [None, "-", "", "0", "abc"])
+async def test_cap_keeps_market_cap_when_close_is_unusable(close):
+    row = {"ISU_CD": "005930", "BAS_DD": "20251230", "MKTCAP": "100"}
+    if close is not None:
+        row["TDD_CLSPRC"] = close
+
+    async def cache(market, kind, day):
+        return [row]
+
+    result = await fetch_cap(None, "005930", "KOSPI", date(2025, 12, 30), cache)
+    assert result == {
+        "market_cap": Decimal(100),
+        "cap_as_of": date(2025, 12, 30),
+        "cap_close": None,
+    }
 
 
 async def test_rs_fetches_two_bounded_adjusted_windows_with_matching_index_dates():

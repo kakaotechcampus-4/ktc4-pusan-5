@@ -1,0 +1,85 @@
+{
+  "stock": "삼성전기",
+  "code": "009150",
+  "target_date": "2026-10-30",
+  "cutoff": "2026-10-30T18:45:00+09:00",
+  "change_pct": -7.5,
+  "market": {
+    "index": "코스피",
+    "change_pct": -3.48,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": -2.9,
+    "peer_up": 7,
+    "peer_down": 12,
+    "peer_total": 19,
+    "excess_pct": -4.6
+  },
+  "messages": [
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19247",
+      "datetime_kst": "2026-10-29T15:58:50+09:00",
+      "text": "[메리츠증권 전기전자/IT부품 양승수] \n\n▶ AI Inference Drives CPU and DDR5 Demand, with High-Capacitance MLCC Shortages Expected to Persist Through 1H27, Says TrendForce\n\n- TrendForce, 최신 MLCC 산업 동향 업데이트. AI 수요 확대에 따른 고용량 MLCC 공급 부족이 심화되는 가운데, 2027년 상반기까지 공급사 우위의 수급 환경 지속 전망\n\n1. AI용 MLCC 수요 및 공급 동향\n\n- AI 수요가 학습에서 추론 및 AI 에이전트로 확산되면서 CPU 수요 급증. CPU에 수반되는 전원 모듈 및 DDR5 메모리 채택 확대가 메인보드와 메모리 모듈용 고용량 MLCC 수요 증가를 견인\n\n- NVIDIA Vera Rubin 플랫폼은 4Q26부터 월별 출하량 확대가 예상되며, AMD 역시 MI450 플랫폼향 특수 고용량 MLCC 조달 시작. ODM 업체들은 고사양 MLCC 공급 부족이 1Q27~2Q27에 가장 심화될 것으로 예상\n\n- AI용 MLCC의 공급 제약이 지속되는 가운데, 최근에는 광통신 모듈에 사용되는 통신용 MLCC까지 공급 부족 확산\n\n2. 공급사 증설 및 가격 동향\n\n- Murata 경영진, 현재 생산능력이 시장 수요를 크게 하회하고 있음을 인정하며 증설 일정 앞당길 계획. 다만 신규 생산능력의 실제 가동은 2028년 이후 가능해 단기 공급 부족 완화는 제한적\n\n- 원재료 및 물류비 상승도 공급사들의 원가 부담을 가중. 일본 9월 수입물가지수는 +24.5% YoY 상승했으며, MLCC 전극용 니켈·구리·은 등의 원가 상승 압력 확대\n\n- TrendForce는 고사양 MLCC 공급 부족이 1H27까지 지속되면서 공급사 우위의 가격 협상력 유지 전망. 2027년 1분기 판가 협상이 11월부터 시작될 예정인 가운데, 삼성전기에 이어 일본 MLCC 업체들의 가격 인상 동참 가능성 확대\n\n3. 소비자용 MLCC 시장 동향\n\n- AI 관련 부품의 생산능력 점유 확대 및 메모리 가격 상승으로 소비자 전자제품의 원가 부담 심화. 주요 노트북 ODM 업체들은 4Q26 주문량이 평균 -10~15% YoY 감소할 것으로 예상하며, 스마트폰 업체들도 중저가 모델 중심으로 출하량 축소\n\n- 소비자용 저·중용량 MLCC 현물가격은 10월 초 약 5% 하락한 이후 일시적 안정화. 고사양 제품의 가격 인상 모멘텀도 일부 둔화되고 있으나, AI용 MLCC의 구조적인 공급 부족은 지속\n\n- 대만 및 중국 MLCC 업체들은 소비자용 MLCC의 낙수 주문에 따른 반사 수혜 지속 전망\n\n https://buly.kr/6Bzseds (Trendforce) \n\n* 본 내용은 당사의 코멘트 없이 국내외 언론사 뉴스 및 전자공시자료 등을 인용한 것으로 별도의 승인 절차 없이 제공합니다",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19257",
+      "datetime_kst": "2026-10-30T07:50:56+09:00",
+      "text": "[메리츠증권 전기전자/IT부품 양승수]\n\nYageo (2327.TT): \n수동부품, 계절성이 사라지다 \n\n▶ 3Q26 Review \n\n- Yageo의 3Q26 매출액은 495억대만달러(+11.4% QoQ, +49.7% YoY)로 컨센서스에 부합. 영업이익은 146억대만달러(+24.3% QoQ, +93.1% YoY)로 컨센서스를 3.5% 상회\n\n- 제품별로는 MLCC와 Tantalum이 QoQ 각각 25.4%, 12.4% 성장했으며, AI서버가 포함된 Computing & Enterprise Systems의 매출 비중은 28.3%로 확대\n\n- 3Q26 기준 커머디티 제품과 특수제품 가동률 모두 95%에 근접했음을 언급 \n\n▶ 시장 동향 및 가이던스  \n\n[AI/LTA/증설] \n\n- Yageo의 3Q26 AI 관련 매출 비중은 19.8%로, 1Q26 14~15%, 2Q26 16%에 이어 상승세 지속\n\n- LTA과 관련해서는 주요 고객사들과 계약을 체결했으며, 향후 공급 물량 확대를 위한 협의도 이전보다 활발하게 진행 중임을 강조\n\n- 증가하는 수요에 대응하기 위해 MLCC와 Tantalum Capacitor 중심의 생산능력 확대를 계획 중이며, 전체 Capa는 현재 대비 10~15% 증가할 전망\n\n[유통재고 및 가격동향] \n\n- 시장에서 우려하는 재고 문제와 관련해 글로벌 유통업체들의 재고 보유 기간이 지난 3개월간 약 5개월에서 4개월로 오히려 감소했음을 강조\n\n- 특히 중화권 유통 재고는 2개월 미만의 매우 낮은 수준을 유지하고 있어 유통업체들의 재고 확보 움직임도 한층 강화\n\n- 한편 MLCC 공급 부족에 따른 단기적인 가격 변동이 발생하고 있으며, 실제로 일부 고객사들이 공급업체 전환을 유도하기 위해 가격 경쟁을 벌이는 사례도 있었음을 언급   \n\n[BB Ratio] \n\n- 업황의 대표적인 선행지표인 BB Ratio는 2Q26 말 2.2에서 3Q26 말 2.0으로 소폭 하락\n\n- 다만 Yageo는 3분기 매출 규모가 크게 확대된 점을 감안하면 BB Ratio의 소폭 하락을 수주 둔화로 해석하기 어려우며, 전반적인 수주 모멘텀은 여전히 높은 수준임을 강조\n\n- 특히 MLCC와 Tantalum Capacitor 등 AI 관련 제품의 BB Ratio는 전사 평균을 상회하고 있어, AI 중심의 견조한 수요 지속을 시사 \n\n[가이던스]\n\n- Yageo는 4Q26 범용 및 특수제품 모두 가동률이 95%를 상회하고, BB Ratio 역시 2.0 이상을 유지할 것으로 전망\n\n- 또한 통상적인 계절적 비수기와 달리 4분기 매출액은 전분기 대비 증가할 것으로 예상하며, 매출총이익률과 영업이익률 모두 소폭 개선될 것으로 제시 \n\n▶ Implication\n\n- Yageo의 높은 BB Ratio와 가동률(범용 및 특수제품 모두 95%에 근접)은 AI 중심의 수요 확대에 힘입어 수동부품 시장 전반으로 타이트한 수급 환경이 확산되고 있음을 시사\n\n-  특히 Yageo는 삼성전기와 마찬가지로 통상적인 계절적 비수기인 4분기에도 가동률이 95%를 상회하며 최고 수준에 도달할 것으로 전망\n\n- 구체적인 가격 인상 정책이 언급되지 않은 점은 다소 아쉬우나, 원자재 가격 변동을 적시에 판가에 반영하며 안정적인 수익성을 유지하고 있다는 점도 긍정적.\n\n- 당사는 여전히 이번 MLCC 사이클이 단순한 AI 수요 확대를 넘어, AI향 고부가 제품으로의 생산능력 재배분과 이에 따른 범용 제품의 공급 축소가 맞물리는 구조적 업사이클의 초입에 있다고 판단\n\n- 특히 AI향 고부가 MLCC와 범용 MLCC 간 생산능력 환산 비율이 높아, AI향 생산능력 확대가 범용 제품의 공급 축소로 이어지는 효과가 비선형적으로 확대될 수 있다는 점에 주목\n\n- 최근 소비자용 제품의 수요 부진으로 범용 MLCC의 가격 인상 기대감은 다소 약화되었으나, AI향 수요 확대에 따른 생산능력 재배분 효과가 이를 충분히 상쇄할 전망\n\n- 단기적으로는 삼성전기를 유통채널에서 시작된 가격 인상 흐름이 직거래 고객사로까지 확산될 것으로 기대. 중장기적으로는 AI향 고부가 제품을 넘어 범용 MLCC에서도 LTA 계약이 체결이 확대되며, 공급 부족의 구조적 성격이 한층 뚜렷해질 전망\n\n- 중장기 MLCC 밸류체인 전반의 실적 추정치 상향과 밸류에이션 리레이팅 지속 예상\n\n- 그 중심에 있는 삼성전기는 AI향 MLCC 비중 상승과 범용 MLCC 가격 인상의 동반 수혜로 지속적인 이익 추정치 상향이 가능할 것으로 판단\n\n- 특히 글로벌 시장에서 높은 밸류에이션을 인정받는 ABF 기판의 성장성까지 겸비했다는 점에서 MLCC 밸류체인 내 상대적인 투자 매력도가 높다는 기존 의견 유지  \n\nhttps://buly.kr/BeNNIK6 (링크)\n\n*동 자료는 Compliance 규정을 준수하여 사전 공표된 자료이며, 고객의 증권투자결과에 대한 법적 책임소재의 증빙자료로 사용될 수 없습니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19267",
+      "datetime_kst": "2026-10-30T14:17:47+09:00",
+      "text": "[메리츠증권 전기전자/IT부품 양승수]\n\n▶ 삼성전기, 단일판매ㆍ공급계약체결\n\n- 계약상대: 글로벌 대형기업\n\n- 계약내용: (기타 판매ㆍ공급계약) MLCC(Multilayer Ceramic Capacitor) 공급계약\n\n- 공급지역: -\n\n- 계약금액: 8,793억원 (매출대비: 7.8%)\n\n- 계약기간: 2026년 12월 21일 ~ 2027년 12월 21일 (1년)\n\nhttps://buly.kr/2UlyOPg (Dart)\n\n* 본 내용은 당사의 코멘트 없이 국내외 언론사 뉴스 및 전자공시자료 등을 인용한 것으로 별도의 승인 절차 없이 제공합니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4875",
+      "datetime_kst": "2026-10-30T14:31:58+09:00",
+      "text": "[SK증권 IT하드웨어/배터리 박형우, 정영환]\n\n삼성전기, 공급계약 체결 공시\n\n▶️ 계약 개요\n\n- 계약 내용: MLCC 공급계약\n\n- 계약 금액: 8,793억 원 \n\n- 계약 상대방: 글로벌 대형기업\n\n- 계약기간: 2026년 12월 21일 ~ 2027년 12월 21일 (1년)\n\n▶️ URL: https://buly.kr/2UlyOPg\n\n* SK증권 리서치 IT팀 채널 :\nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    }
+  ],
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -7.5,
+      "kospi_change_rate_pct": -3.48,
+      "excess_vs_kospi_pp": -4.02,
+      "kospi_weight_pct": 2.04,
+      "kospi_contribution_pp": -0.153,
+      "kospi_ex_self_change_rate_pct": -3.4,
+      "excess_vs_kospi_ex_self_pp": -4.1,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": [
+      {
+        "group": "전자부품",
+        "median_change_rate_pct": -6.19,
+        "excess_vs_group_pp": -1.31,
+        "peer_count": 1,
+        "relation": "inconclusive",
+        "members_used": [
+          {
+            "code": "011070",
+            "name": "LG이노텍"
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "009150",
+            "name": "삼성전기",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "stock": "삼성전자",
+  "code": "005930",
+  "target_date": "2026-10-26",
+  "cutoff": "2026-10-26T18:45:00+09:00",
+  "change_pct": -1.16,
+  "market": {
+    "index": "코스피",
+    "change_pct": -1.46,
+    "as_of": "15:30",
+    "url": "",
+    "peer_median_pct": -1.68,
+    "peer_up": 2,
+    "peer_down": 16,
+    "peer_total": 19,
+    "excess_pct": 0.52
+  },
+  "messages": [
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4777",
+      "datetime_kst": "2026-10-23T16:49:18+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n1. 메모리 4사 12MF P/E 업데이트 (10/23)\n삼성전자 3.5X\nSK하이닉스 2.9X\n* SK증권 추정치 기준\n\n마이크론 5.0X \nCXMT 10.9X\n* Bloomberg consensus 기준\n\n2. SK하이닉스 본주 & ADR 간 괴리율: 46.2%\n\nSK증권 리서치 IT팀 채널 : \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "merITz_tech",
+      "url": "https://t.me/merITz_tech/19185",
+      "datetime_kst": "2026-10-26T07:58:37+09:00",
+      "text": "Meritz Overnight Tech 2026. 10. 26 (월)\n\n[메리츠증권 반도체/디스플레이 김선우]\n\n★ 메모리 스팟가격\n DRAM(DDR4 8Gb: 1D +0.13%, 1W +0.26%, 1M +1.13%)\n         (DDR5 16Gb: 1D +0.27%, 1W +1.10%, 1M +6.24%)\n NAND(MLC 64Gb: 1D 0.00%, 1W +0.59%, 1M +6.07%)\n\n★ 반도체/디스플레이 주요 뉴스 플로우\n아마존 CEO “AWS 클라우드 용량, 2027년까지 예약 완료” (Reuters)\nhttps://buly.kr/9iJ13fi\n\n틱톡 미국 지부, 수 기가와트 규모 컴퓨팅 용량 확보 추진 (CNBC)\nhttps://buly.kr/AwiJvUL\n\n소프트뱅크, 말레이시아에 500억달러 규모 AI 투자 추진 (NIKKEI Asia)\nhttps://buly.kr/6XpNP7o\n\nSK하이닉스, 日 키옥시아 지분 차익 16조원 특별배당 추진 (동아일보)\nhttps://buly.kr/9BYk7GC\n\n中 양쯔메모리(YMTC), 9600MT/s LPDDR5X 개발 중...우한 Fab3서 양산 전망 (공상시보)\nhttps://buly.kr/4mfnar1\n\n'중국판 엔비디아' 캠브리콘, 매출 급등…\"국산화 노력 수혜\" (지디넷코리아)\nhttps://buly.kr/CsmeiPp\n\n삼성전자, 테일러 1공장 장비 발주 마무리 단계… 텍사스 2nm 생산능력 한계 임박 (Digitimes)\nhttps://buly.kr/FsLXOPG\n\n엔비디아, 2028년 이후 AI 수요 대응 위한 CPO 시제품 공개 (Digitimes)\nhttps://buly.kr/DEcAfbm\n\n“갤럭시A 20% 감산”…삼성, 칩플레이션 대응 (전자신문)\nhttps://buly.kr/4FvWeQE\n\n메모리값 치솟자 PC 출하량 21% 급감…ASUS/애플은 덜 줄었다 (이데일리)\nhttps://buly.kr/AF3I0Ae\n\n★ 전일 해외 관련업체 주요 주가등락 (2%p 이상)\nSK하이닉스(+4.4%), Micron(+2.5%), Western Digital(-3%), Nanya(-5.2%), Lenovo(-2.2%), Asus(-3.7%), ZTE(+3.2%), Marvell(+2.3%), Mediatek(-3.1%), UMC(-2%), AUO(-5%), 에스에프에이(-3.2%), 원익머트리얼즈(-2.3%), 이녹스첨단소재(-2.1%), 삼성전기(-2%), Murata(-2.4%), Yageo(-6.5%), 삼성SDI(-4.2%), CATL(+7.8%)\n\n(자료: Bloomberg, DRAMeXchange, 언론자료) \n\n\n*동 자료는 Compliance 규정을 준수하여 사전 공표된 자료이며, 고객의 증권투자결과에 대한 법적 책임소재의 증빙자료로 사용될 수 없습니다.",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "KISGregKim",
+      "url": "https://t.me/KISGregKim/18861",
+      "datetime_kst": "2026-10-26T08:50:58+09:00",
+      "text": "로보틱스 | 투자의견: 비중확대(유지) : Humanoids are on track (Analyst 최건)\n\n•  로보틱스 업종에 비중확대 의견을 유지. 글로벌 휴머노이드 기업들의 로보틱스 사업이 구체화되고 있는만큼 산업의 성장은 가속화될 것\no  테슬라는 3Q26 실적발표을 통해 프리먼트 공장에서의 옵티머스 V3 초도양산을 공식화. 양산 목표는 주당 2만대(연 100만대)로, 목표 달성 시까지는 최소 1년 이상이 소요된다는 가이던스를 제시. 초도양산 물량은 1~2만대로 예상하며 해당 물량은 데이터 팩토리인 ‘옵티머스 아카데미’에 투입되어, 물리 데이터 플라이휠을 본격 가동할 것\no  Figure AI는 차세대 휴머노이드 모델인 Figure 04에 대한 설계를 확정. 특히 인간 행동 데이터인 Index 기반의 사전학습 데이터 셋이 방대해짐에 따라 Open AI, Anthropic과 같이 Figure AI의 AI 컴퓨팅 인프라 수요가 증가할 전망. 2027년 엔스케일이 텍사스 서부에 구축 중인 Vera Rubin GPU 클러스터에 최대 10만개 GPU를 임차할 예정이며, 단기 내 기업의 컴퓨팅 인프라를 2배 이상으로 확대할 계획\no  삼성전자는 이재용 회장이 이번주 RX사업추진실을 직접 방문해 휴머노이드 로봇 핸드 등의 기술을 점검할 예정. CES 2027에서 삼성전자가 독자 휴머노이드 모델을 공개할 것으로 알려진 만큼, 기술적 완성도 및 양산 준비상황을 경영진 측에서 직접 검토하는 것으로 해석. LG전자 역시 11월 데이터 팩토리 사업 현황을 공개할 것으로 예상하며, 현대차 역시 ‘RX사업전략팀’을 신설한만큼 국내 기업들의 로보틱스 공급망 기업 중심으로 선별적인 접근이 필요\n\n•  금주 관심 기업: 로보티즈, 삼현\no  마이크로덕향으로 다이나믹셀 X를 독점 공급하는 로보티즈에 단기 모멘텀을 예상. 마이크로덕의 일일 판매량이 GTC 베를린 이후 4,000대를 기록. Pollen Robotics CEO인 Mattieu Lapeyre에 따르면, 현재까지의 마이크로덕 누적 판매량은 1.0만대로, 해당 물량 판매에 따른 로보티즈의 마이크로덕향 매출은 약 30억원으로 예상. 마이크로덕 생산량 확대가 예상되는만큼 로보티즈의 Pollen Robotics로의 매출은 점진적으로 상승할 것. 현재 Mattieu Lapeyre는 로보티즈에 방문해 액추에이터 추가 공급을 위한 논의를 구체할 계획. Pollen Robotics는 마이크로덕을 향후 연 5만대 생산을 목표로 하고 있으며, 독점 공급이 유지될 경우, 매년 150억원의 마이크로덕 매출 확보와 함께 엔비디아 로보틱스 밸류체인 내 레퍼런스가 더욱 확대될 것\no  삼현은 지난 2025년 10월 발행한 전환사채(CB)의 전환 청구기간이 10/29에 도래. 10/8 콜옵션 행사를 통해 약 100억원의 전환 사채를 취득했으며, 잔여 전환사채 물량은 388억원, 발행주식수 대비 3.6% 비중. 전환가액이 3.3만원임으로 고려하면, CB 투자자들의 전환 및 매도물량 출회에 따른 오버행 리스크가 존재. 단, 현재 글로벌 휴머노이드 기업향으로 로봇용 액추에이터 수주를 완료했으며, 향후 국내외 휴머노이드 기업향 공급 확대가 예상됨에 따라 긍정적인 의견을 유지\n\n•  리포트 링크: https://vo.la/JcgGfkw",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4782",
+      "datetime_kst": "2026-10-26T15:49:34+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n1. 메모리 4사 12MF P/E 업데이트 (10/26)\n삼성전자 3.5X\nSK하이닉스 2.9X\n* SK증권 추정치 기준\n\n마이크론 5.1X \nCXMT 10.8X\n* Bloomberg consensus 기준\n\n2. SK하이닉스 본주 & ADR 간 괴리율: 45.2%\n\nSK증권 리서치 IT팀 채널 : \nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    },
+    {
+      "channel": "skitteam",
+      "url": "https://t.me/skitteam/4783",
+      "datetime_kst": "2026-10-26T16:28:46+09:00",
+      "text": "[SK증권 반도체 한동희, 손 건]\n\n삼성·SK, 내년 2분기 HBM4 8단 양산 출하… 엔비디아향 공급\n\n▶️ 출하 계획\n\n- 삼성전자·SK하이닉스, 엔비디아향 HBM4 8단 양산 출하 시점을 내년 2분기께로 설정\n- 현재는 두 회사 모두 HBM4 12단 주력 양산 중\n- 올 하반기부터 8단 공급 가능하다는 관측도 있었으나 일정 다소 지연\n\n▶️ 배경: 엔비디아 루빈 울트라 HBM 탑재 전략 변경\n\n- 당초 엔비디아향 HBM4 8단은 공급 계획에 없었으나 올 3분기부터 논의 본격화\n- 루빈 울트라는 HBM4E 12단 탑재 예정이었으나, HBM4 8단·HBM4E 8단 병행 탑재 방안을 유력 검토 중\n- HBM4·HBM4E 12단 적층 구조의 발열 심화, 수율 저하 등 수급 문제가 원인으로 풀이\n- NVL 랙스케일 규모에 따라 8단 병행 탑재, 내년 중반부터 8단 비중 크게 확대 전망\n\n▶️ 양사 대응 현황\n\n- 8단 제조용 부품·소재 수급 및 퀄 테스트 준비 중\n- 양사 모두 HBM4 12단은 엔비디아 인증 완료, 8단은 별도 인증 필요\n- 8단 인증이 12단 대비 수월해 추가 변수 가능성 낮다는 관계자 설명\n\n▶️ URL: https://buly.kr/5qALc2f\n\n* SK증권 리서치 IT팀 채널 :\nhttps://t.me/skitteam",
+      "mention": "mentioned"
+    }
+  ],
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -1.16,
+      "kospi_change_rate_pct": -1.46,
+      "excess_vs_kospi_pp": 0.3,
+      "kospi_weight_pct": 28.48,
+      "kospi_contribution_pp": -0.33,
+      "kospi_ex_self_change_rate_pct": -1.58,
+      "excess_vs_kospi_ex_self_pp": 0.42,
+      "kospi_basis": "kospi_ex_self",
+      "kospi_relation": "follows"
+    },
+    "peers": [
+      {
+        "group": "메모리반도체",
+        "median_change_rate_pct": -0.16,
+        "excess_vs_group_pp": -1.0,
+        "peer_count": 1,
+        "relation": "follows",
+        "mixed": false,
+        "judge_in_sentence": true,
+        "members_used": [
+          {
+            "code": "000660",
+            "name": "SK하이닉스",
+            "change_rate_pct": -0.16,
+            "in_sentence": true
+          }
+        ],
+        "members_excluded": [
+          {
+            "code": "005930",
+            "name": "삼성전자",
+            "reason": "self"
+          }
+        ]
+      }
+    ]
+  }
+}

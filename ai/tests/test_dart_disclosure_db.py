@@ -112,6 +112,44 @@ def test_disclosure_card_gets_public_time_date_and_stock(database):
     assert find(datetime(2026, 10, 8, 17, 0, tzinfo=KST)) == [old, today]
 
 
+def test_untimed_disclosures_on_edge_days_are_left_out_with_their_edge(database):
+    """시각 없는 공시는 접수일이 since 날짜보다 뒤이고 until 날짜보다 앞일 때만 들어간다. 두 경계 날짜 공시는
+    untimed_disclosures_left_out 이 since_day·until_day 로 돌려준다. since 가 그날 DART 접수 전이면 since 날짜도 넣는다."""
+    from app.repositories.source_card import untimed_disclosures_left_out
+
+    alembic(database, "upgrade", "head")
+    days = [date(2026, 11, d) for d in (3, 4, 5, 6)]
+    save(database, [item(f"2026110{d.day}00000{d.day}", rcept_dt=d, report_nm=f"공시 {d.day}") for d in days])
+    # 모두 접수일 뒤(11-09)에 처음 봤다 — 공개 시각 없이 접수일만 남는다(백필)
+    query(database, "UPDATE dart_disclosures SET first_seen_at = '2026-11-09 10:00+09'")
+    register(database)
+    card = {row["day"]: row["id"] for row in query(database, """
+        SELECT c.id, c.event_date AS day FROM source_card c WHERE c.available_at IS NULL ORDER BY c.event_date""")}
+    assert list(card) == days
+
+    def window(since, until):
+        found = in_session(database, lambda s: stock_card_ids(s, "005930", until=until, since=since))
+        left = in_session(database, lambda s: untimed_disclosures_left_out(s, "005930", until=until, since=since))
+        return found, [(card_id, day.day, edge) for card_id, day, edge in left]
+
+    def at(day, hour, minute=0):
+        return datetime(2026, 11, day, hour, minute, tzinfo=KST)
+
+    # 11-05 보고서(조회 11-04 15:30 ~ 11-05 장 마감): 11-04·11-05 공시 모두 경계라 빠지고 사유 쪽으로 간다
+    assert window(at(4, 15, 30), at(5, 15, 30)) == (
+        [], [(card[days[1]], 4, "since_day"), (card[days[2]], 5, "until_day")])
+    # 다음 거래일 11-06 보고서: 11-05 공시는 이번에는 조회 시작일이라 또 빠진다 — 두 보고서 meta 에 하나씩 남는다
+    assert window(at(5, 15, 30), at(6, 15, 30)) == (
+        [], [(card[days[2]], 5, "since_day"), (card[days[3]], 6, "until_day")])
+    # 사이 날짜는 들어간다
+    assert window(at(3, 15, 30), at(6, 8, 30)) == (
+        [card[days[1]], card[days[2]]], [(card[days[0]], 3, "since_day"), (card[days[3]], 6, "until_day")])
+    # since 가 그날 DART 접수 전(자정·06:30)이면 since 날짜 공시도 넣는다. 09:00 이면 경계로 뺀다
+    for early in (at(4, 0), at(4, 6, 30)):
+        assert window(early, at(5, 15, 30)) == ([card[days[1]]], [(card[days[2]], 5, "until_day")])
+    assert window(at(4, 9), at(5, 15, 30))[0] == []
+
+
 def test_disclosure_card_reads_back_and_matches_its_viewer_url(database):
     alembic(database, "upgrade", "head")
     seed_two_days(database)

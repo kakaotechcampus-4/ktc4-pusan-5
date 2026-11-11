@@ -1,0 +1,545 @@
+{
+  "case_id": "b03_034020_2026-11-05",
+  "summary": {
+    "n_runs": 3,
+    "expected_verdict": {
+      "move": "no_clear_cause",
+      "relative": "no_clear_cause"
+    },
+    "verdicts": [
+      {
+        "move": "partially_explained",
+        "relative": "explained"
+      },
+      {
+        "move": "partially_explained",
+        "relative": "explained"
+      },
+      {
+        "move": "partially_explained",
+        "relative": "explained"
+      }
+    ],
+    "verdict_match_runs": {
+      "move": 0,
+      "relative": 0
+    },
+    "rule_a_violations": [
+      1,
+      3,
+      2
+    ],
+    "overclaim_candidates": [
+      1,
+      3,
+      2
+    ],
+    "omission_candidates": [
+      0,
+      0,
+      0
+    ],
+    "spurious_candidates": [
+      0,
+      0,
+      0
+    ],
+    "possible_contributor": [
+      {},
+      {},
+      {}
+    ],
+    "recap_cited": [
+      0,
+      0,
+      0
+    ],
+    "injected_cited": [
+      0,
+      0,
+      0
+    ],
+    "skipped_llm": [
+      null,
+      null,
+      null
+    ],
+    "verify_status": [
+      "passed",
+      "passed",
+      "passed"
+    ],
+    "same_conclusion_runs": 1,
+    "same_verdict_runs": 3,
+    "cost": 33.69
+  },
+  "reports": [
+    {
+      "run_id": "두산에너빌리티-2026-11-05-1845__r1",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 10.647007,
+      "is_error": false,
+      "verdict": {
+        "move": "partially_explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": false,
+        "relative": false
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "partial"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e2",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e3",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e4",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e5",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e6",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e7",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e8",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [
+        {
+          "id": "e1",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        }
+      ],
+      "rule_a_violation_count": 1,
+      "overclaim_candidates": 1,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "news": 1
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "partially_explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e1"
+        ],
+        "extra": 0
+      }
+    },
+    {
+      "run_id": "두산에너빌리티-2026-11-05-1845__r2",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 10.343275,
+      "is_error": false,
+      "verdict": {
+        "move": "partially_explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": false,
+        "relative": false
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "partial"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e2",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "partial"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ],
+            [
+              "move",
+              "partial"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e3",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e4",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "partial"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e5",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e6",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e7",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e8",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [
+        {
+          "id": "e1",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        },
+        {
+          "id": "e2",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        },
+        {
+          "id": "e4",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        }
+      ],
+      "rule_a_violation_count": 3,
+      "overclaim_candidates": 3,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "news": 4
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "partially_explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e1",
+          "e2",
+          "e4"
+        ],
+        "extra": 0
+      }
+    },
+    {
+      "run_id": "두산에너빌리티-2026-11-05-1845__r3",
+      "verify_status": "passed",
+      "skipped_llm": null,
+      "cost": 12.704455,
+      "is_error": false,
+      "verdict": {
+        "move": "partially_explained",
+        "relative": "explained"
+      },
+      "verdict_match": {
+        "move": false,
+        "relative": false
+      },
+      "events": [
+        {
+          "id": "e1",
+          "importance": "should",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "partial"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e2",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ],
+          "strengths": [
+            [
+              "move",
+              "partial"
+            ],
+            [
+              "relative",
+              "sufficient"
+            ]
+          ],
+          "rule": "link 없음이 정답",
+          "ok": false
+        },
+        {
+          "id": "e3",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e4",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e5",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e6",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e7",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        },
+        {
+          "id": "e8",
+          "importance": "optional",
+          "cap": "coincident",
+          "linked_layers": [],
+          "strengths": [],
+          "rule": "link 없음이 정답",
+          "ok": true
+        }
+      ],
+      "rule_a_violations": [
+        {
+          "id": "e1",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        },
+        {
+          "id": "e2",
+          "cap": "coincident",
+          "linked_layers": [
+            "move",
+            "relative"
+          ]
+        }
+      ],
+      "rule_a_violation_count": 2,
+      "overclaim_candidates": 2,
+      "omission_candidates": 0,
+      "possible_contributor": {},
+      "extra_links": [],
+      "spurious_candidates": 0,
+      "recap_cited_as_factor": [],
+      "injected_cited": [],
+      "factor_source_kinds": {
+        "news": 2
+      },
+      "conclusion": {
+        "verdict": {
+          "move": "partially_explained",
+          "relative": "explained"
+        },
+        "linked_events": [
+          "e1",
+          "e2"
+        ],
+        "extra": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,237 @@
+{
+  "case_id": "b02_068270_2026-11-05",
+  "status": "labeled",
+  "label_source": "claude-code",
+  "labeled_by": "claude-code",
+  "label_note": "보고서 에이전트 실행 전에 case.json 만 보고 작성. 사람 검증 전(draft_unverified)",
+  "trap_ids": [],
+  "traps": [
+    "회사 직접 재료(브라질 출시)가 급등이 상당 부분 진행된 뒤(13:40~) 공개",
+    "급락장 반대 방향 급등(relative 반대로)",
+    "업종 단위 장전 코멘트만 방향이 맞는 재료(등락 층 partially_explained 기대)"
+  ],
+  "market_expectation": {
+    "data_source": "krx_close",
+    "stock_change_pct": 7.5,
+    "kospi_change_pct": -5.28,
+    "kospi_basis": "kospi",
+    "excess_vs_basis_pp": 12.78,
+    "kospi_relation": "diverges",
+    "peer_relations": {
+      "바이오": "inconclusive"
+    },
+    "common_move": false,
+    "market_led": false,
+    "relative_direction": "반대로",
+    "peer_median_pct": -5.96,
+    "excess_vs_peers_pp": 13.46,
+    "judge_layers": {
+      "move": true,
+      "relative": true
+    },
+    "move_strength_cap": null,
+    "_note": "relative 층의 기준은 대형주 중간값 대비(excess_vs_peers_pp). kospi_* 는 보고서의 코스피 비교 문장용. 값은 파이프라인 코드(verify.py)로 계산한 것이고 사람은 검수만 함"
+  },
+  "time_expectation": {
+    "cutoff": "2026-11-05T18:45:00+09:00",
+    "display_is_close": true,
+    "display_as_of": "2026-11-05T15:30:00+09:00"
+  },
+  "expected_verdict": {
+    "move": "partially_explained",
+    "relative": "partially_explained"
+  },
+  "confidence_level": "partial",
+  "events": [
+    {
+      "id": "e1",
+      "summary": "KIS 장전 코멘트: 미국 선거 민주당 승리 뒤 EV/ESS 배터리·태양광·제약(PHARM) 강세 예상, 반도체는 AI 투자 둔화 우려로 약세",
+      "importance": "must",
+      "layer": [
+        "move",
+        "relative"
+      ],
+      "expected_mention": "either",
+      "stance": "bullish",
+      "max_causal_strength": "possible_contributor",
+      "supporting_sources": [
+        {
+          "url": "https://t.me/KISGregKim/18939",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "PHARM"
+      ],
+      "rationale": "장 시작 전(08:14) 공개된 업종 단위 재료로 방향이 맞음. 셀트리온을 직접 언급하지 않는 간접 재료라 기본 상한은 coincident 이나, 개장 전 공개이고 급락장에서 제약 강세를 직접 예상한 유일한 근거라 possible_contributor 로 한 단계 올림(notes.md). 간접 재료뿐이라 판정은 partially_explained"
+    },
+    {
+      "id": "e2",
+      "summary": "시황 기사: 급락장 속 금리 하락·유가 급락 수혜가 기대되는 바이오·자동차·금융주 강세, 셀트리온 6.75%",
+      "importance": "should",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.sedaily.com/article/20110635?ref=naver",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "금리 하락",
+        "바이오주"
+      ],
+      "rationale": "13:38 시황 요약으로 상승이 이미 진행된 뒤의 결과 서술. 업종 강세 이유도 '수혜가 기대되는'으로만 씀. 결과 지표라 coincident"
+    },
+    {
+      "id": "e3",
+      "summary": "셀트리온, 브라질에서 바이오시밀러 3종(코이볼마·스토보클로·오센벨트) 출시해 현지 판매 제품 10종으로 확대",
+      "importance": "should",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "bullish",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.medicaltimes.com/Main/News/NewsView.html?ID=1171646&ref=naverpc",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://www.ziksir.com/news/articleView.html?idxno=152163",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://www.pharmnews.com/news/articleView.html?idxno=307661",
+          "tier": "secondary"
+        },
+        {
+          "url": "https://www.etoday.co.kr/news/view/2644624",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "브라질",
+        "10종"
+      ],
+      "rationale": "회사 직접 재료이고 방향은 맞지만 첫 보도가 13:40 으로, 입력의 시황 기사(13:38)상 셀트리온은 이미 +6.75%(종가 +7.5%)였음. 출시 자체도 지난달 일. 급등 이후 공개된 재료라 상한 coincident"
+    },
+    {
+      "id": "e4",
+      "summary": "'블루 쓰나미'로 의약품 관세 정책 견제 강화 전망, 삼바·셀트리온 미국 생산 확대에 투자 속도조절론",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.viva100.com/article/20261105500609",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "속도조절",
+        "셀트리온"
+      ],
+      "rationale": "업종 정책 전망이고 셀트리온에 미칠 방향이 기사 안에서 정해지지 않음. 상한 coincident"
+    },
+    {
+      "id": "e5",
+      "summary": "셀트리온 4중 작용 비만치료제 후보 'CT-G32/SCO-940' 개발 중(2027년 2월 IND 제출 목표)",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://www.asiatime.co.kr/article/20261105500084",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "CT-G32"
+      ],
+      "rationale": "업종 개발 현황 기사의 일부로 새 소식이 아님. 맥락 정보"
+    },
+    {
+      "id": "e6",
+      "summary": "서정진 회장 대학 강연: 인공장기 상용화 신중론, AI 도입 효과 언급",
+      "importance": "optional",
+      "layer": [],
+      "expected_mention": "background",
+      "stance": "neutral",
+      "max_causal_strength": "coincident",
+      "supporting_sources": [
+        {
+          "url": "https://bizhankook.com/articles/celltrion-chairman-ai-organ-research.html",
+          "tier": "secondary"
+        }
+      ],
+      "key_facts": [
+        "서정진"
+      ],
+      "rationale": "주가와 무관한 강연 기사. 맥락 정보"
+    }
+  ],
+  "acceptable_alternatives": [],
+  "forbidden_claims": [
+    {
+      "id": "f1",
+      "type": "false_cause",
+      "subject": "브라질 바이오시밀러 출시",
+      "relation_min": "possible_contributor",
+      "object": "주가",
+      "direction": "up",
+      "example": "브라질 신제품 출시 소식에 셀트리온이 급등했다"
+    },
+    {
+      "id": "f2",
+      "type": "market_direction",
+      "subject": "대형주 대비 상대 흐름",
+      "relation_min": "none",
+      "object": "relative",
+      "direction": "down",
+      "example": "셀트리온도 대형주와 함께 약세였다"
+    },
+    {
+      "id": "f3",
+      "type": "fabricated_cause",
+      "subject": "셀트리온 종목의 외국인·기관 매매(수급)",
+      "relation_min": "none",
+      "object": "주가",
+      "direction": "up",
+      "example": "기관 순매수로 셀트리온이 올랐다"
+    }
+  ],
+  "unconfirmed_items": [],
+  "unknowns": [
+    "셀트리온 종목의 외국인·기관 수급",
+    "바이오 업종 강세가 금리 하락·유가 급락 때문인지(시황 기사는 '수혜가 기대되는'으로만 씀)",
+    "장중 언제 얼마나 올랐는지(입력에는 13시 무렵 +6.75% 시황만 있음)"
+  ],
+  "beginner_terms": [
+    "바이오시밀러",
+    "업종",
+    "시황",
+    "대형주 중간값"
+  ],
+  "verification": {
+    "checklist": {
+      "time": null,
+      "sources": null,
+      "market": null,
+      "verdict": null,
+      "forbidden": null
+    },
+    "relabel": {
+      "done": false,
+      "mismatches": []
+    },
+    "low_confidence": [],
+    "verified_by": null,
+    "verified_at": null
+  }
+}

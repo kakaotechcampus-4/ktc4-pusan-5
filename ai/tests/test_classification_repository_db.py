@@ -217,6 +217,10 @@ def test_classified_sources_leaves_out_body_not_observed_by_until(database, monk
         assert [s["source_card_id"] for s in shown["sources"]] == [card_id]
         assert shown["not_observed"] == 0
 
+    # 공개 끝(until)은 그대로 두고 본문 끝(observed_by)만 늦추면 공개 범위는 같고 늦게 받은 본문이 살아난다
+    split = in_session(database, lambda s: classified_sources(s, "000660", until=UNTIL, observed_by=later))
+    assert split["sources"] == shown["sources"] and split["not_observed"] == shown["not_observed"]
+
 
 def test_failed_and_experiment_runs_keep_the_current_one(database, monkeypatch):
     card_id = setup(database)

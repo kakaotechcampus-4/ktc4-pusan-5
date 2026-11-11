@@ -1,0 +1,270 @@
+{
+  "run_id": "LG디스플레이-2026-10-22-1845__r3",
+  "final_text": "{\"ticker\": \"034220\", \"name\": \"LG디스플레이\", \"date\": \"2026-10-22\", \"as_of\": \"2026-10-22T18:45:00+09:00\", \"change_pct\": -1.63, \"verdict\": \"partially_explained\", \"relative_verdict\": \"explained\", \"summary\": {\"move\": \"오후 3시 30분 장 마감 기준 LG디스플레이는 1.63% 내렸고 코스피는 3.52% 하락했습니다. 대형주 20개가 모두 내렸고 중간값은 2.79% 하락해, 대형주 전반보다 덜 내렸습니다. 코스피와 다르게 움직였습니다.\", \"main_cause\": \"3분기 매출은 6조 2,770억원으로 예상치를 밑돌았고, 지배주주순이익은 예상치를 웃돌았습니다. 메리츠증권은 원화 강세와 원재료 가격 상승, IT 수요 부진이 수익성 개선을 제약했다고 봤습니다.\", \"relative\": \"코스피와 다르게 움직였습니다. 유기발광 화면 제품 비중이 높은 사업 구성과 견조한 출하가 대형주 전반보다 덜 내리는 데 보탬이 됐을 수 있습니다.\", \"counter\": null, \"unexplained\": \"대형주 전반보다 덜 내렸지만, 실적과 비용 부담이 이날 하락폭에 각각 얼마나 반영됐는지는 메시지만으로 구분하기 어렵습니다.\"}, \"factors\": [{\"event\": \"3분기 매출은 예상치보다 낮은 6조 2,770억원을 기록했습니다.\", \"detail\": \"전분기보다 매출이 늘고 영업이익은 흑자로 돌아섰지만, 영업이익은 예상치를 밑돌았습니다. 메리츠증권은 원화 강세와 원재료 가격 상승, IT 수요 부진이 수익성 개선을 제한했다고 봤습니다.\", \"stance\": \"bearish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19162\", \"datetime_kst\": \"2026-10-22T13:26:00+09:00\", \"quote\": \"매출액: 6조 2,770억원 (vs 컨센서스 6조 6,358억원)\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"skitteam\", \"url\": \"https://t.me/skitteam/4759\", \"datetime_kst\": \"2026-10-22T13:24:37+09:00\", \"quote\": \"매출액: 6조 2,770억원 (-10% YoY)\", \"mention\": \"mentioned\", \"is_market_recap\": false}, {\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19168\", \"datetime_kst\": \"2026-10-22T17:22:19+09:00\", \"quote\": \"원화 강세와 원재료 가격 상승\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"move\", \"note\": \"예상에 못 미친 매출과 수익성 제약이 하락에 영향을 줬을 수 있습니다.\", \"direction_match\": true, \"strength\": \"partial\"}]}, {\"event\": \"3분기 유기발광 화면 제품 매출 비중은 67%를 기록했습니다.\", \"detail\": \"메리츠증권은 유기발광 화면 제품 출하가 견조했다고 전했습니다. 4분기 출하면적은 전분기보다 10% 늘 것으로 제시됐습니다.\", \"stance\": \"bullish\", \"unconfirmed\": false, \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19168\", \"datetime_kst\": \"2026-10-22T17:22:19+09:00\", \"quote\": \"OLED 매출 비중은 67% (+2%p YoY)\", \"mention\": \"mentioned\", \"is_market_recap\": false}], \"links\": [{\"layer\": \"relative\", \"note\": \"유기발광 화면 제품 비중이 높은 사업 구성은 대형주 전반과 다른 노출이어서 하락폭을 줄이는 데 보탬이 됐을 수 있습니다.\", \"direction_match\": true, \"strength\": \"sufficient\"}]}], \"terms\": [{\"plain\": \"유기발광 화면 제품\", \"term\": \"OLED\"}, {\"plain\": \"출하면적\", \"term\": \"출하면적\"}, {\"plain\": \"새 화소 형성 공정\", \"term\": \"FLiPP\"}], \"background\": {\"bullish\": [], \"bearish\": [], \"neutral\": [{\"text\": \"회사는 금속 마스크를 대신할 새 화소 형성 공정과 유휴 생산시설 활용 전략을 설명했습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19168\", \"datetime_kst\": \"2026-10-22T17:22:19+09:00\", \"quote\": \"유휴 Fab 활용 전략을 강조\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}, {\"text\": \"재무 구조 정상화를 위해 신규 투자에 보수적인 입장을 유지한다고 밝혔습니다.\", \"sources\": [{\"channel\": \"merITz_tech\", \"url\": \"https://t.me/merITz_tech/19168\", \"datetime_kst\": \"2026-10-22T17:22:19+09:00\", \"quote\": \"신규 투자에 여전히 보수적인 입장을 유지\", \"mention\": \"mentioned\", \"is_market_recap\": false}]}]}, \"not_found\": [\"market_compare.peers가 빈 배열이어서 동종 그룹과의 비교는 하지 않았습니다.\"], \"events\": [{\"event\": \"3분기 실적이 시장 예상치를 밑돌았고 비용과 수요 여건이 수익성 개선을 제약했습니다.\", \"issue_ids\": [\"i1\", \"i2\", \"i3\", \"i4\", \"i5\"], \"factor\": 0, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"유기발광 화면 제품의 매출 비중과 출하가 견조했고 다음 분기 출하 증가가 제시됐습니다.\", \"issue_ids\": [\"i6\", \"i7\"], \"factor\": 1, \"dup_channels\": null, \"placed\": \"factors\"}, {\"event\": \"새 공정과 유휴 생산시설 활용 전략이 설명됐고, 개선 시 수익력 강화 가능성이 제시됐습니다.\", \"issue_ids\": [\"i8\", \"i9\", \"i12\"], \"background\": {\"slot\": \"neutral\", \"index\": 0}, \"dup_channels\": null, \"placed\": \"background\"}, {\"event\": \"재무 구조 정상화를 위해 신규 투자에 보수적인 입장이 유지됐습니다.\", \"issue_ids\": [\"i10\"], \"background\": {\"slot\": \"neutral\", \"index\": 1}, \"dup_channels\": null, \"placed\": \"background\"}], \"display_as_of\": \"2026-10-22T15:30:00+09:00\", \"display_is_close\": true}",
+  "json_status": "clean",
+  "schema_problems": [],
+  "is_error": false,
+  "asked_question": false,
+  "error_code": null,
+  "error": null,
+  "raw_text": null,
+  "provider": "elice",
+  "model": "openai/gpt-6-luna",
+  "stream": true,
+  "max_completion_tokens": 40000,
+  "reasoning_effort": "medium",
+  "stream_interruptions": [],
+  "timeouts": [],
+  "llm_retries": [],
+  "usage": {
+    "prompt_tokens": 21377,
+    "completion_tokens": 14242,
+    "total_tokens": 35619,
+    "prompt_tokens_details": {
+      "cached_tokens": 21374,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 11670,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "input_tokens": 21377,
+    "output_tokens": 14242,
+    "cached_prompt_tokens": 21374,
+    "cache_write_tokens": 0,
+    "finish_reason": "stop",
+    "cost_currency": "KRW"
+  },
+  "input_tokens": {
+    "reported": 21377,
+    "total": 21377,
+    "cache_read": 21374,
+    "cache_write": 0,
+    "uncached": 3
+  },
+  "cost": 10.382995,
+  "cost_currency": "KRW",
+  "cost_basis": "token_rates",
+  "cost_rates": {
+    "input": 141.0,
+    "cache_read": 14.0,
+    "cache_write": 176.25,
+    "output": 708.0
+  },
+  "truncation": null,
+  "duration_ms": 108071,
+  "prompt_name": "stock_analysis_system",
+  "prompt_sha256": "98bde8b0ce9ce01d52d79fffef7c3898e18bd892e63321342dbf0201955b9098",
+  "generated_at": "2026-11-10T12:51:22+09:00",
+  "move_case": "opposite",
+  "judge_layers": {
+    "move": true,
+    "relative": true
+  },
+  "common_move": false,
+  "move_strength_cap": "partial",
+  "market_led": false,
+  "move_comparison": "덜",
+  "main_cause_sentences": 3,
+  "sector": null,
+  "universe_weight": null,
+  "issue_trace": [
+    {
+      "id": "m1",
+      "issues": [
+        {
+          "id": "i1",
+          "issue": "3분기 매출과 영업이익이 시장 예상치를 밑돎",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m2",
+      "issues": [
+        {
+          "id": "i2",
+          "issue": "매출·영업이익은 예상 하회, 지배주주순이익은 예상 상회",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    },
+    {
+      "id": "m3",
+      "issues": [
+        {
+          "id": "i3",
+          "issue": "전분기보다 매출이 늘고 영업이익은 흑자 전환",
+          "relation": "direct"
+        },
+        {
+          "id": "i4",
+          "issue": "원화 강세와 원재료 가격 상승이 수익성을 제약",
+          "relation": "direct"
+        },
+        {
+          "id": "i5",
+          "issue": "IT 세트 수요 부진이 수익성 개선을 제한",
+          "relation": "direct"
+        },
+        {
+          "id": "i6",
+          "issue": "유기발광 화면 제품 매출 비중과 출하가 견조",
+          "relation": "direct"
+        },
+        {
+          "id": "i7",
+          "issue": "4분기 출하면적과 평균판매가격 상승 전망",
+          "relation": "direct"
+        },
+        {
+          "id": "i8",
+          "issue": "새 화소 형성 공정 소개",
+          "relation": "direct"
+        },
+        {
+          "id": "i9",
+          "issue": "유휴 생산시설 활용 전략 강조",
+          "relation": "direct"
+        },
+        {
+          "id": "i10",
+          "issue": "재무 구조 정상화를 위해 신규 투자에 보수적",
+          "relation": "direct"
+        },
+        {
+          "id": "i11",
+          "issue": "유기발광 화면 중심의 사업 체질 개선 평가",
+          "relation": "direct"
+        },
+        {
+          "id": "i12",
+          "issue": "신기술과 유휴 시설 개선에 따른 수익력 강화 전망",
+          "relation": "direct"
+        }
+      ],
+      "none_count": 0
+    }
+  ],
+  "json_retry": {
+    "retried": false
+  },
+  "judge_retry": {
+    "retried": false
+  },
+  "market_compare": {
+    "status": "ok",
+    "status_reason": null,
+    "kospi": {
+      "stock_change_rate_pct": -1.63,
+      "kospi_change_rate_pct": -3.52,
+      "excess_vs_kospi_pp": 1.89,
+      "kospi_weight_pct": 0.08,
+      "kospi_contribution_pp": -0.001,
+      "kospi_ex_self_change_rate_pct": -3.52,
+      "excess_vs_kospi_ex_self_pp": 1.89,
+      "kospi_basis": "kospi",
+      "kospi_relation": "diverges"
+    },
+    "peers": []
+  },
+  "market_compare_error": null,
+  "market_compare_error_type": null,
+  "market_compare_unexpected": false,
+  "market_compare_skipped": null,
+  "change_pct_override": {
+    "input": -1.63,
+    "krx": -1.63,
+    "source": "KRX /sto/stk_bydd_trd 2026-10-22 FLUC_RT",
+    "market_created": true,
+    "index": {
+      "input": {
+        "change_pct": null,
+        "as_of": null
+      },
+      "krx": {
+        "change_pct": -3.52,
+        "as_of": "15:30"
+      },
+      "source": "KRX /idx/kospi_dd_trd 2026-10-22 코스피 FLUC_RT"
+    },
+    "peers": {
+      "input": {
+        "peer_median_pct": null,
+        "peer_up": null,
+        "peer_down": null,
+        "peer_total": null
+      },
+      "krx": {
+        "peer_median_pct": -2.79,
+        "peer_up": 0,
+        "peer_down": 20,
+        "peer_total": 20
+      },
+      "excluded": []
+    },
+    "excess_pct": {
+      "input": null,
+      "recomputed": 1.16
+    }
+  },
+  "repair_limit": {
+    "hit": false,
+    "factors": 2,
+    "background": 2,
+    "max_items": 10
+  },
+  "strength_recomputed": [
+    {
+      "factor": 0,
+      "layer": "move",
+      "model": "partial",
+      "final": "partial",
+      "basis": "issues"
+    },
+    {
+      "factor": 1,
+      "layer": "relative",
+      "model": "sufficient",
+      "final": "sufficient",
+      "basis": "issues"
+    }
+  ],
+  "verdict_recomputed": [
+    {
+      "key": "verdict",
+      "model": "partially_explained",
+      "final": "partially_explained"
+    },
+    {
+      "key": "relative_verdict",
+      "model": "explained",
+      "final": "explained"
+    }
+  ],
+  "main_cause_fixed": null,
+  "as_of_fixed": null,
+  "input_path": "inputs/LG디스플레이-2026-10-22-1845__r3.json",
+  "input_used_path": "inputs_used/LG디스플레이-2026-10-22-1845__r3.json",
+  "input_original_path": "C:/Temp/claude/24ee4987ea56781a/2af4b863-695d-4404-8bd7-81bc1cb5206f/scratchpad/inA/c08__r3.json",
+  "input_sha256": "a59bdaf0e02f0e872b12bd4d9158483facd5b19405b33c5e3d0b0da30431779a",
+  "verify_status": "passed",
+  "verify_problems": [],
+  "events_status": "passed",
+  "events_problems": [],
+  "verify_warnings": [],
+  "issue_trace_warnings": [],
+  "issue_trace_stats": {
+    "messages_traced": 3,
+    "messages_total": 3,
+    "relations": {
+      "direct": 12
+    },
+    "issues_used": 11
+  }
+}
