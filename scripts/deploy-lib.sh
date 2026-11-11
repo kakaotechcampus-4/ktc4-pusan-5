@@ -40,7 +40,7 @@ checkout_sha() {
 deploy_core() {
   docker compose build || return 2
   stop_collector
-  echo "up-wait-start: $(date +%T)"
+  echo "up-wait-start: $(date +%T) timeout=${DEPLOY_WAIT_TIMEOUT:-120}"
   local rc=0
   # 2026-11-10 배포에서 up --wait 가 18초 걸렸다(캐시된 빌드, 마이그레이션 없음). 마이그레이션이 있는 배포는 더 걸리므로 여유를 둔다.
   # 기본 120초이고 DEPLOY_WAIT_TIMEOUT(초)으로 바꿀 수 있다. 120초는 docker-compose.yml 의 backend healthcheck(start_period 60s + interval 10s × retries 5 ≈ 110초)와 거의 같은 시점이다.
