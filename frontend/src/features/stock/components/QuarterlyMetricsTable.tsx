@@ -160,13 +160,6 @@ const GROUPS: Group[] = [
         ),
       },
       {
-        label: unavailable(
-          '배당수익률',
-          '분기별 배당수익률 데이터가 아직 연동되지 않아 표시하지 않습니다.',
-        ),
-        render: () => <span className="num">{NO_VALUE}</span>,
-      },
-      {
         label: 'ROE',
         render: (point) => (
           <span className="num">{point.roe === null ? NO_VALUE : formatRatio(point.roe)}</span>
