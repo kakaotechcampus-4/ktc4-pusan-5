@@ -63,27 +63,45 @@ def test_수능일_다음_날의_대상일은_수능일이고_마감은_16시30�
 
 # ---------------------------------------------------------------- 시세를 등락률로 써도 되는가
 
-def test_시세는_장_마감_뒤_한_시간_안에_받은_것만_인정한다():
+def test_시세는_대상일_장_마감부터_기준_시각까지_받은_것만_인정한다():
     close = batch.close_of(TUE)  # 15:30
-    assert batch.quote_problem(close, TUE) is None  # 15:30 정각
-    assert batch.quote_problem(close + timedelta(minutes=2), TUE) is None
-    assert batch.quote_problem(close + batch.QUOTE_WINDOW, TUE) is None  # 경계 포함(16:30)
-    assert "전에 받은 시세" in batch.quote_problem(close - timedelta(seconds=1), TUE)
-    assert "넘게 뒤에" in batch.quote_problem(close + batch.QUOTE_WINDOW + timedelta(seconds=1), TUE)
+    cutoff = batch.cutoff_of("close", TUE)  # 16:00
+    assert batch.quote_problem(close, TUE, cutoff) is None  # 마감 정각
+    assert batch.quote_problem(close + timedelta(minutes=10), TUE, cutoff) is None
+    assert batch.quote_problem(cutoff, TUE, cutoff) is None  # 기준 시각 정각까지 포함
+    assert "전에 받은 시세" in batch.quote_problem(close - timedelta(seconds=1), TUE, cutoff)
+    assert "뒤에 받은 시세" in batch.quote_problem(cutoff + timedelta(seconds=1), TUE, cutoff)
+
+
+def test_08시30분_회차는_전날_저녁에_받은_시세도_종가로_인정한다():
+    # 마감 무렵 수집기가 멈췄다 저녁 8시에 받은 정상 값. 마감~다음 개장 전엔 장이 안 열려 값이 같다
+    monday = date(2026, 11, 9)
+    cutoff = batch.cutoff_of("morning", TUE)  # 화요일 08:30, 대상일 월요일
+    assert batch.quote_problem(kst(monday, 20, 0), monday, cutoff) is None
+    assert batch.quote_problem(kst(TUE, 8, 29), monday, cutoff) is None  # 기준 시각 직전까지
+
+
+def test_08시30분_회차는_다음날_장중_값을_거른다():
+    # 08:30 회차를 장중에 수동으로 다시 돌릴 때를 포함해, 기준 시각 뒤에 받은 값은 보고서가 알면 안 된다
+    monday = date(2026, 11, 9)
+    cutoff = batch.cutoff_of("morning", TUE)
+    assert "뒤에 받은 시세" in batch.quote_problem(kst(TUE, 9, 1), monday, cutoff)
 
 
 def test_시세가_없으면_사유를_돌려준다():
-    assert "행이 없다" in batch.quote_problem(None, TUE)
+    assert "행이 없다" in batch.quote_problem(None, TUE, batch.cutoff_of("close", TUE))
 
 
 def test_수능일_종가는_16시30분_뒤_시세만_인정한다():
-    assert batch.quote_problem(kst(SUNEUNG, 15, 31), SUNEUNG) is not None  # 보통날 마감 뒤여도 그날은 장중
-    assert batch.quote_problem(kst(SUNEUNG, 16, 31), SUNEUNG) is None
+    cutoff = batch.cutoff_of("morning", AFTER_SUNEUNG)  # 다음 날 08:30
+    assert batch.quote_problem(kst(SUNEUNG, 15, 31), SUNEUNG, cutoff) is not None  # 보통날 마감 뒤여도 그날은 장중
+    assert batch.quote_problem(kst(SUNEUNG, 16, 31), SUNEUNG, cutoff) is None
 
 
 def test_시간대가_다른_시각도_KST로_맞춰_본다():
     close = batch.close_of(TUE)
-    assert batch.quote_problem(close.astimezone(datetime.now().astimezone().tzinfo), TUE) is None
+    assert batch.quote_problem(close.astimezone(datetime.now().astimezone().tzinfo), TUE,
+                               batch.cutoff_of("close", TUE)) is None
 
 
 # ---------------------------------------------------------------- 실행 흐름 (가짜 DB·러너)
@@ -358,3 +376,21 @@ def test_묶음_크기는_1_이상(capsys):
     with pytest.raises(SystemExit) as exc:
         batch.main(["--mode", "close", "--chunk-size", "0"])
     assert exc.value.code == 2
+
+
+async def test_08시30분_회차는_전날_저녁에_받은_시세의_종목도_만든다(monkeypatch, tmp_path):
+    """수정 전에는 마감 +1시간을 넘겨 이 종목이 건너뛰어졌다."""
+    friday = date(2026, 11, 13)
+    evening = (1.25, kst(friday, 20, 0))  # 마감 무렵 수집기가 멈췄다 저녁에 받은 정상 값
+    f = Fake(monkeypatch, tmp_path, quotes={"005930": evening})
+    assert await f.go("morning", kst(MON, 8, 30), ["005930"]) == 0
+    assert [x["code"] for x in f.loaded] == ["005930"]
+
+
+async def test_08시30분_회차를_장중에_다시_돌리면_그때_받은_값은_거른다(monkeypatch, tmp_path, capsys):
+    friday = date(2026, 11, 13)
+    intraday = (4.0, kst(MON, 9, 1))  # 월요일 장중에 받은 값(보고서 기준 시각 08:30 뒤)
+    f = Fake(monkeypatch, tmp_path, quotes={"005930": intraday})
+    assert await f.go("morning", kst(MON, 11, 0), ["005930"]) == 1  # 수동 재실행. 건너뜀이라 1
+    assert f.loaded == [] and f.run_calls == []
+    assert "기준 시각" in capsys.readouterr().out and friday < MON

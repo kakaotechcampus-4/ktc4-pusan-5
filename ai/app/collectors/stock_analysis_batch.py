@@ -26,12 +26,14 @@
 그대로 쓰인다**. 어댑터는 이 값을 호출하는 쪽이 넘기게 해 두었으므로(--change-pct), 서버에서는 backend 수집기가 1분 주기로
 채우는 stock_quote_snapshot.change(KIS prdy_ctrt, 전일 대비 %, 부호 있음, 종목당 1행)를 쓴다.
 
-**그 시세가 장 마감 값일 때만 쓴다.** backend 수집기는 장외에는 마감 뒤 한 번만 받으므로(quote_freshness), 마감 뒤에 받은
-값이 종가 등락률이다. 그래서 `장 마감 ≤ collected_at ≤ 장 마감 + QUOTE_WINDOW` 인 시세만 인정한다. 시세가 없거나 이 범위 밖이면
-(수집기가 멈췄거나 마감 뒤에 받지 못했다) **그 종목은 만들지 않고 건너뛴다.** 틀린 등락률로 원인을 설명하는 보고서가
-"원인 미확인" 보고서보다 해롭다고 어댑터·#124 가 정한 원칙(누수보다 누락)과 같다. 건너뛴 종목은 사유와 함께 출력하고
-종료 코드 1 로 알린다.
-QUOTE_WINDOW 는 시험으로 정한 값이 아니라 가정이다. 마감 직후 한 번 받는다는 backend 동작에서 넉넉히 잡았다.
+**그 시세가 대상일 종가 값일 때만 쓴다.** `대상일 장 마감 ≤ collected_at ≤ 기준 시각(cutoff)` 인 시세만 인정한다.
+대상일 장 마감부터 기준 시각까지는 장이 한 번도 열리지 않는다(16:00 회차는 같은 날 마감 뒤, 08:30 회차는 다음 개장 전). 그 사이에
+받은 값은 모두 같은 종가이고, backend quote_freshness 도 장외에 받은 값을 다음 개장 전까지 유효한 종가로 본다. 그래서 마감 무렵
+수집기가 잠깐 멈췄다 저녁에 받은 값도 쓴다. 상한을 기준 시각으로 두는 이유는 두 가지다. 기준 시각 뒤에 받은 값은 보고서가 알면
+안 되는 값이고(누수), 기준 시각이 정각으로 고정돼 있어서 08:30 회차를 장중에 수동으로 다시 돌려도 그때의 장중 값이 걸러진다.
+시세가 없거나 이 범위 밖이면 **그 종목은 만들지 않고 건너뛴다.** 틀린 등락률로 원인을 설명하는 보고서가 "원인 미확인" 보고서보다
+해롭다고 어댑터·#124 가 정한 원칙(누수보다 누락)과 같다. 건너뛴 종목은 사유와 함께 출력하고 종료 코드 1 로 알린다.
+전제: 마감 뒤에는 시세가 바뀌지 않는다고 본다(시간외 단일가에서 KIS 현재가가 움직이는지는 확인하지 못했다).
 
 ## 3. 장 마감이 16:00 뒤로 늦춰지는 날(LATE_CLOSE, 수능일 등)의 16:00 회차는 만들지 않는다
 
@@ -69,7 +71,7 @@ import logging
 import shutil
 import sys
 from collections.abc import Mapping, Sequence
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 from pathlib import Path
 
 from sqlalchemy import bindparam, text
@@ -87,8 +89,6 @@ logger = logging.getLogger(__name__)
 
 # 보고서를 만드는 정각(KST). stock_analysis_io.md·classified_input.py 「대상일」: 대상일 D 16:00 과 D+1 08:30.
 MODE_TIMES: dict[str, time] = {"morning": time(8, 30), "close": time(16, 0)}
-# 입력 등락률로 쓰는 시세를 받은 시각이 장 마감 뒤 이 안이어야 한다. 시험으로 정한 값이 아닌 가정이다(맨 위 2번).
-QUOTE_WINDOW = timedelta(hours=1)
 # 러너를 한 번 부를 때 넘기는 종목 수(맨 위 5번). 묶음마다 따로 적재된다. 시험으로 정한 값이 아닌 가정이다.
 CHUNK_SIZE = 10
 
@@ -114,16 +114,18 @@ def close_of(day: date) -> datetime:
     return datetime.combine(day, market_close(day), tzinfo=KST)
 
 
-def quote_problem(collected_at: datetime | None, target_date: date) -> str | None:
-    """이 시세를 대상일의 종가 등락률로 써도 되는가. 문제없으면 None, 있으면 사유."""
+def quote_problem(collected_at: datetime | None, target_date: date, cutoff: datetime) -> str | None:
+    """이 시세를 대상일의 종가 등락률로 써도 되는가. 문제없으면 None, 있으면 사유.
+
+    인정 범위는 `대상일 장 마감 ≤ 받은 시각 ≤ 기준 시각`(맨 위 2번). 그 사이에는 장이 열리지 않아 값이 바뀌지 않는다."""
     if collected_at is None:
         return "시세 없음(stock_quote_snapshot 에 행이 없다)"
     close = close_of(target_date)
     seen = collected_at.astimezone(KST)
     if seen < close:
         return f"장 마감({close:%m-%d %H:%M}) 전에 받은 시세({seen:%m-%d %H:%M}) — 종가가 아닐 수 있다"
-    if seen > close + QUOTE_WINDOW:
-        return f"장 마감({close:%m-%d %H:%M}) {QUOTE_WINDOW} 넘게 뒤에 받은 시세({seen:%m-%d %H:%M})"
+    if seen > cutoff:
+        return f"기준 시각({cutoff:%m-%d %H:%M}) 뒤에 받은 시세({seen:%m-%d %H:%M}) — 보고서가 알면 안 되는 값"
     return None
 
 
@@ -142,7 +144,7 @@ async def generate_inputs(
     skipped: dict[str, str] = {}
     for code in codes:
         quote = quotes.get(code)
-        problem = quote_problem(quote[1] if quote else None, target_date)
+        problem = quote_problem(quote[1] if quote else None, target_date, cutoff)
         if problem:
             skipped[code] = problem
             continue
