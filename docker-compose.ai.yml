@@ -1,0 +1,38 @@
+# ai/ 수집·분석 배치용 compose 덧씌우기 파일.
+#
+# 기존 docker-compose.yml 과 배포 흐름(scripts/deploy.sh)에는 영향을 주지 않는다.
+#   - deploy.sh 는 이 파일을 쓰지 않는다. 배포 때 빌드·기동되지 않는다.
+#   - 이 파일은 단독으로 쓰지 않는다. 반드시 기본 파일과 함께 -f 로 지정한다. (db 서비스를 가져다 쓴다)
+#
+# ai 는 상시 서버가 아니라 한 번 돌고 끝나는 명령이다. 컨테이너를 계속 띄워 두지 않고, 실행할 때만 띄운다.
+#
+#   빌드:  docker compose -f docker-compose.yml -f docker-compose.ai.yml build ai
+#   실행:  docker compose -f docker-compose.yml -f docker-compose.ai.yml run --rm ai <명령>
+#   예:    ... run --rm ai                                  (기본 명령. 이미지 확인만 한다)
+#          ... run --rm ai /app/.venv/bin/python -m app.collectors.sources --help
+#
+# profiles 를 걸어 두었으므로 `up` 으로 실수로 기동되지 않는다. `run` 으로 지정했을 때만 뜬다.
+services:
+  ai:
+    build: ./ai
+    image: ktc4-ai:latest
+    profiles: ["ai"]
+    # `docker compose run` 은 restart 와 무관하지만, 어디서도 자동으로 되살아나지 않게 명시한다.
+    restart: "no"
+    init: true
+    # ai/.env 가 없어도 compose 가 실패하지 않게 한다(required: false). 수집 키는 ai/.env 에 둔다.
+    env_file:
+      - path: ./ai/.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+    depends_on:
+      db:
+        condition: service_healthy
+    # 서버 메모리(3.7GiB)를 db·backend·collector 와 나눠 쓴다. 배치가 폭주해도 거기서 멈추게 한다.
+    mem_limit: 768m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
