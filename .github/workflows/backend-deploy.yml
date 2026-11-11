@@ -40,9 +40,11 @@ jobs:
           # 비어 있으면 서버에서 기본값(120초)을 쓴다. 값은 Settings > Variables 에서 바꾼다.
           DEPLOY_WAIT_TIMEOUT: ${{ vars.DEPLOY_WAIT_TIMEOUT }}
         run: |
-          # 서버 명령에 그대로 끼워 넣으므로 숫자(초)만 허용한다. 서버를 건드리기 전에 여기서 막는다.
+          # 서버 명령에 그대로 끼워 넣으므로 숫자(초)만 쓴다. 숫자가 아니면 배포는 막지 않고 경고를 남긴 뒤 기본값(120초)으로 진행한다.
           case "$DEPLOY_WAIT_TIMEOUT" in
-            *[!0-9]*) echo "::error::DEPLOY_WAIT_TIMEOUT 은 숫자(초)여야 합니다: $DEPLOY_WAIT_TIMEOUT"; exit 1 ;;
+            *[!0-9]*)
+              echo "::warning::DEPLOY_WAIT_TIMEOUT 값 '$DEPLOY_WAIT_TIMEOUT' 이 숫자(초)가 아니라 무시하고 기본값 120초로 배포합니다."
+              DEPLOY_WAIT_TIMEOUT="" ;;
           esac
           # 트리거된 커밋(SHA)을 그대로 서버에 올린다. git pull은 그 사이 들어온 최신 커밋을 끌어올 수 있다.
           # up --wait 의 대기 시간은 기본 120초이고 DEPLOY_WAIT_TIMEOUT 변수로 바꾼다(scripts/deploy-lib.sh). 2026-11-10 배포에서 18초 걸린 것을 근거로 여유를 둔 기본값이다.
